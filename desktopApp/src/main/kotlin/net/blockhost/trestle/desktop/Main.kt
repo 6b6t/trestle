@@ -6,10 +6,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.Window
-import androidx.compose.ui.window.WindowState
+import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberWindowState
 import io.github.vinceglb.filekit.FileKit
 import net.blockhost.trestle.app.createDesktopLauncherServices
 import net.blockhost.trestle.resources.Res
@@ -26,16 +26,17 @@ fun main() {
         val icon = painterResource(Res.drawable.trestle_icon)
         val state by viewModel.state.collectAsState()
         val desktopIntegration = remember { DesktopIntegration() }
+        val windowState = rememberWindowState(
+            width = 1180.dp,
+            height = 760.dp,
+            position = WindowPosition.PlatformDefault,
+        )
         Window(
             onCloseRequest = {
                 viewModel.close()
                 exitApplication()
             },
-            state = WindowState(
-                width = 1180.dp,
-                height = 760.dp,
-                position = WindowPosition.PlatformDefault,
-            ),
+            state = windowState,
             title = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle",
             icon = icon,
         ) {
