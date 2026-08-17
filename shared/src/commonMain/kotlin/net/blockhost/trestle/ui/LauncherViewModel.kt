@@ -131,9 +131,13 @@ enum class ErrorRecoveryAction {
 
 data class InstanceSettingsState(
     val visible: Boolean = false,
+    val instanceId: InstanceId? = null,
     val minimumMemoryMiB: String = "",
     val maximumMemoryMiB: String = "",
     val jvmArguments: String = "",
+    val clientSettings: MinecraftClientSettings? = null,
+    val isLoadingClientSettings: Boolean = false,
+    val clientSettingsError: String? = null,
     val recommendation: String? = null,
     val warnings: List<String> = emptyList(),
     val isSaving: Boolean = false,
@@ -918,13 +922,48 @@ class LauncherViewModel(
             it.copy(
                 instanceSettings = InstanceSettingsState(
                     visible = true,
+                    instanceId = instance.id,
                     minimumMemoryMiB = instance.memory.minimumMiB.toString(),
                     maximumMemoryMiB = instance.memory.maximumMiB.toString(),
                     jvmArguments = instance.jvmArguments.joinToString(" "),
+                    isLoadingClientSettings = true,
                     recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
                     warnings = recommendation.warnings,
                 ),
             )
+        }
+        scope.launch {
+            try {
+                val clientSettings = services.repository.readClientSettings(instance.id)
+                mutableState.update { state ->
+                    val form = state.instanceSettings
+                    if (!form.visible || form.instanceId != instance.id) state
+                    else state.copy(
+                        instanceSettings = form.copy(
+                            clientSettings = clientSettings,
+                            isLoadingClientSettings = false,
+                            clientSettingsError = if (clientSettings == null) {
+                                "Client settings are unavailable for Minecraft ${instance.minecraftVersionId}."
+                            } else {
+                                null
+                            },
+                        ),
+                    )
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                mutableState.update { state ->
+                    val form = state.instanceSettings
+                    if (!form.visible || form.instanceId != instance.id) state
+                    else state.copy(
+                        instanceSettings = form.copy(
+                            isLoadingClientSettings = false,
+                            clientSettingsError = error.message ?: "Client settings could not be loaded.",
+                        ),
+                    )
+                }
+            }
         }
     }
 
@@ -952,8 +991,13 @@ class LauncherViewModel(
         mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(jvmArguments = value)) }
     }
 
+    fun setInstanceClientSettings(value: MinecraftClientSettings) {
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(clientSettings = value)) }
+    }
+
     fun applyRecommendedMemory() {
-        val instance = mutableState.value.selectedInstance ?: return
+        val instanceId = mutableState.value.instanceSettings.instanceId ?: return
+        val instance = mutableState.value.instances.firstOrNull { it.id == instanceId } ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
         mutableState.update {
             it.copy(
@@ -967,11 +1011,12 @@ class LauncherViewModel(
     }
 
     fun saveInstanceSettings() {
-        val instance = mutableState.value.selectedInstance ?: return
         val form = mutableState.value.instanceSettings
+        val instanceId = form.instanceId ?: return
+        val instance = mutableState.value.instances.firstOrNull { it.id == instanceId } ?: return
         val minimum = form.minimumMemoryMiB.toIntOrNull() ?: return
         val maximum = form.maximumMemoryMiB.toIntOrNull() ?: return
-        if (minimum <= 0 || maximum < minimum) return
+        if (minimum <= 0 || maximum < minimum || form.isLoadingClientSettings) return
         scope.launch {
             mutableState.update { it.copy(instanceSettings = form.copy(isSaving = true)) }
             try {
@@ -983,14 +1028,15 @@ class LauncherViewModel(
                         jvmArguments = review.accepted,
                     ),
                 )
+                form.clientSettings?.let { services.repository.updateClientSettings(instance.id, it) }
                 cachedLaunch = null
                 mutableState.update {
                     it.copy(
                         instanceSettings = InstanceSettingsState(),
                         notice = if (review.ignored.isEmpty()) {
-                            "Launch settings saved."
+                            "Instance settings saved."
                         } else {
-                            "Launch settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
+                            "Instance settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
                         },
                     )
                 }

@@ -136,7 +136,9 @@ import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.DependencyKind
+import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.instance.MinecraftNarratorMode
+import net.blockhost.trestle.instance.MinecraftParticleSetting
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
@@ -984,7 +986,7 @@ private fun instanceContextActions(instance: GameInstance, viewModel: LauncherVi
         if (state is InstallationState.Installed) {
             add(ContextAction("Add content") { selectedAction { viewModel.openResourceBrowser() } })
         }
-        add(ContextAction("Launch settings", separatorBefore = true) { selectedAction(viewModel::openInstanceSettings) })
+        add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(viewModel::openInstanceSettings) })
         add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
         add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
         add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(viewModel::deleteSelected) })
@@ -1066,59 +1068,90 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().heightIn(max = 640.dp),
+            modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp),
         ) {
-            Column(
-                Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                Text("Launch settings", style = MaterialTheme.typography.headlineMedium)
-                BoxWithConstraints(Modifier.fillMaxWidth()) {
-                    val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
-                        val error = if (isMinimum) minimumError else maximumError
-                        TextField(
-                            value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
-                            onValueChange = if (isMinimum) viewModel::setMinimumMemory else viewModel::setMaximumMemory,
-                            label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
-                            isError = error != null,
-                            supportingText = if (error == null) null else ({ Text(error) }),
-                            keyboardOptions = KeyboardOptions(
-                                keyboardType = KeyboardType.Number,
-                                imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
-                            ),
-                            singleLine = true,
-                            modifier = modifier,
+            Column {
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("Instance settings", style = MaterialTheme.typography.headlineMedium)
+                    Text("Launch", style = MaterialTheme.typography.titleMedium)
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
+                            val error = if (isMinimum) minimumError else maximumError
+                            TextField(
+                                value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
+                                onValueChange = if (isMinimum) viewModel::setMinimumMemory else viewModel::setMaximumMemory,
+                                label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
+                                isError = error != null,
+                                supportingText = if (error == null) null else ({ Text(error) }),
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                    imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
+                                ),
+                                singleLine = true,
+                                modifier = modifier,
+                            )
+                        }
+                        if (maxWidth < 440.dp) {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                memoryField(true, Modifier.fillMaxWidth())
+                                memoryField(false, Modifier.fillMaxWidth())
+                            }
+                        } else {
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                memoryField(true, Modifier.weight(1f))
+                                memoryField(false, Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(form.recommendation.orEmpty(), color = Muted, modifier = Modifier.weight(1f))
+                        TextButton(onClick = viewModel::applyRecommendedMemory) { Text("Use recommended") }
+                    }
+                    form.warnings.forEach { warning -> Text(warning, color = ErrorText) }
+                    TextField(
+                        value = form.jvmArguments,
+                        onValueChange = viewModel::setJvmArguments,
+                        label = { Text("Additional JVM arguments") },
+                        supportingText = {
+                            Text("Memory, classpath, native path, and architecture options are managed by Trestle.")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    HorizontalDivider()
+                    Text("Minecraft client", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    when {
+                        form.isLoadingClientSettings -> Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text("Loading client settings", color = Muted)
+                        }
+                        form.clientSettingsError != null -> Text(form.clientSettingsError, color = ErrorText)
+                        form.clientSettings != null -> ClientSettingsFields(
+                            form.clientSettings,
+                            viewModel::setInstanceClientSettings,
                         )
                     }
-                    if (maxWidth < 440.dp) {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            memoryField(true, Modifier.fillMaxWidth())
-                            memoryField(false, Modifier.fillMaxWidth())
-                        }
-                    } else {
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            memoryField(true, Modifier.weight(1f))
-                            memoryField(false, Modifier.weight(1f))
-                        }
-                    }
                 }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(form.recommendation.orEmpty(), color = Muted, modifier = Modifier.weight(1f))
-                    TextButton(onClick = viewModel::applyRecommendedMemory) { Text("Use recommended") }
-                }
-                form.warnings.forEach { warning -> Text(warning, color = ErrorText) }
-                TextField(
-                    value = form.jvmArguments,
-                    onValueChange = viewModel::setJvmArguments,
-                    label = { Text("Additional JVM arguments") },
-                    supportingText = { Text("Memory, classpath, native path, and architecture options are managed by Trestle.") },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = viewModel::closeInstanceSettings) { Text("Cancel") }
+                HorizontalDivider()
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    TextButton(onClick = viewModel::closeInstanceSettings, enabled = !form.isSaving) { Text("Cancel") }
                     Button(
                         onClick = viewModel::saveInstanceSettings,
-                        enabled = valid && !form.isSaving,
+                        enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
                         shape = RoundedCornerShape(8.dp),
                     ) {
                         if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -1759,52 +1792,132 @@ private fun ClientDefaultsFields(
         }
         if (!form.preconfigureClientSettings) return@Column
 
-        Selector(
-            label = "Narrator",
-            value = settings.narratorMode.label,
-            values = MinecraftNarratorMode.entries.map { it.label },
-            onSelect = { label ->
-                viewModel.setCreateClientSettings(
-                    settings.copy(narratorMode = MinecraftNarratorMode.entries.first { it.label == label }),
-                )
-            },
-        )
+        ClientSettingsFields(settings, viewModel::setCreateClientSettings)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ClientSettingsFields(
+    settings: MinecraftClientSettings,
+    onSettingsChange: (MinecraftClientSettings) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text("Audio", style = MaterialTheme.typography.titleSmall)
         PercentageSlider(
             label = "Master volume",
             value = settings.masterVolumePercent,
-            onValueChange = { viewModel.setCreateClientSettings(settings.copy(masterVolumePercent = it)) },
+            onValueChange = { onSettingsChange(settings.copy(masterVolumePercent = it)) },
         )
         PercentageSlider(
             label = "Music volume",
             value = settings.musicVolumePercent,
-            onValueChange = { viewModel.setCreateClientSettings(settings.copy(musicVolumePercent = it)) },
+            onValueChange = { onSettingsChange(settings.copy(musicVolumePercent = it)) },
+        )
+
+        HorizontalDivider()
+        Text("Video", style = MaterialTheme.typography.titleSmall)
+        IntegerSlider(
+            label = "Field of view",
+            valueLabel = "${settings.fieldOfViewDegrees}°",
+            value = settings.fieldOfViewDegrees,
+            range = 30..110,
+            onValueChange = { onSettingsChange(settings.copy(fieldOfViewDegrees = it)) },
+        )
+        PercentageSlider(
+            label = "Brightness",
+            value = settings.brightnessPercent,
+            onValueChange = { onSettingsChange(settings.copy(brightnessPercent = it)) },
+        )
+        IntegerSlider(
+            label = "Frame rate limit",
+            valueLabel = if (settings.maximumFrameRate == 260) "Unlimited" else "${settings.maximumFrameRate} FPS",
+            value = settings.maximumFrameRate,
+            range = 10..260,
+            steps = 24,
+            onValueChange = { onSettingsChange(settings.copy(maximumFrameRate = it)) },
+        )
+        IntegerSlider(
+            label = "GUI scale",
+            valueLabel = if (settings.guiScale == 0) "Auto" else "${settings.guiScale}x",
+            value = settings.guiScale,
+            range = 0..8,
+            onValueChange = { onSettingsChange(settings.copy(guiScale = it)) },
         )
         ChunkDistanceSlider(
             label = "Render distance",
             value = settings.renderDistanceChunks,
             range = 2..32,
-            onValueChange = { viewModel.setCreateClientSettings(settings.copy(renderDistanceChunks = it)) },
+            onValueChange = { onSettingsChange(settings.copy(renderDistanceChunks = it)) },
         )
         ChunkDistanceSlider(
             label = "Simulation distance",
             value = settings.simulationDistanceChunks,
             range = 5..32,
-            onValueChange = { viewModel.setCreateClientSettings(settings.copy(simulationDistanceChunks = it)) },
+            onValueChange = { onSettingsChange(settings.copy(simulationDistanceChunks = it)) },
+        )
+        Selector(
+            label = "Particles",
+            value = settings.particles.label,
+            values = MinecraftParticleSetting.entries.map { it.label },
+            onSelect = { label ->
+                onSettingsChange(
+                    settings.copy(particles = MinecraftParticleSetting.entries.first { it.label == label }),
+                )
+            },
         )
         ClientSettingSwitch(
-            label = "Auto-jump",
-            checked = settings.autoJump,
-            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(autoJump = it)) },
-        )
-        ClientSettingSwitch(
-            label = "Subtitles",
-            checked = settings.showSubtitles,
-            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(showSubtitles = it)) },
+            label = "Fullscreen",
+            checked = settings.fullscreen,
+            onCheckedChange = { onSettingsChange(settings.copy(fullscreen = it)) },
         )
         ClientSettingSwitch(
             label = "VSync",
             checked = settings.enableVsync,
-            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(enableVsync = it)) },
+            onCheckedChange = { onSettingsChange(settings.copy(enableVsync = it)) },
+        )
+        ClientSettingSwitch(
+            label = "View bobbing",
+            checked = settings.viewBobbing,
+            onCheckedChange = { onSettingsChange(settings.copy(viewBobbing = it)) },
+        )
+        ClientSettingSwitch(
+            label = "Entity shadows",
+            checked = settings.entityShadows,
+            onCheckedChange = { onSettingsChange(settings.copy(entityShadows = it)) },
+        )
+
+        HorizontalDivider()
+        Text("Controls and accessibility", style = MaterialTheme.typography.titleSmall)
+        PercentageSlider(
+            label = "Mouse sensitivity",
+            value = settings.mouseSensitivityPercent,
+            onValueChange = { onSettingsChange(settings.copy(mouseSensitivityPercent = it)) },
+        )
+        Selector(
+            label = "Narrator",
+            value = settings.narratorMode.label,
+            values = MinecraftNarratorMode.entries.map { it.label },
+            onSelect = { label ->
+                onSettingsChange(
+                    settings.copy(narratorMode = MinecraftNarratorMode.entries.first { it.label == label }),
+                )
+            },
+        )
+        ClientSettingSwitch(
+            label = "Invert mouse",
+            checked = settings.invertMouse,
+            onCheckedChange = { onSettingsChange(settings.copy(invertMouse = it)) },
+        )
+        ClientSettingSwitch(
+            label = "Auto-jump",
+            checked = settings.autoJump,
+            onCheckedChange = { onSettingsChange(settings.copy(autoJump = it)) },
+        )
+        ClientSettingSwitch(
+            label = "Subtitles",
+            checked = settings.showSubtitles,
+            onCheckedChange = { onSettingsChange(settings.copy(showSubtitles = it)) },
         )
     }
 }
@@ -1828,12 +1941,24 @@ private fun ChunkDistanceSlider(
     range: IntRange,
     onValueChange: (Int) -> Unit,
 ) {
-    SliderSetting(label, "$value chunks") {
+    IntegerSlider(label, "$value chunks", value, range, onValueChange = onValueChange)
+}
+
+@Composable
+private fun IntegerSlider(
+    label: String,
+    valueLabel: String,
+    value: Int,
+    range: IntRange,
+    steps: Int = range.last - range.first - 1,
+    onValueChange: (Int) -> Unit,
+) {
+    SliderSetting(label, valueLabel) {
         Slider(
             value = value.toFloat(),
             onValueChange = { onValueChange(it.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
-            steps = range.last - range.first - 1,
+            steps = steps,
         )
     }
 }
@@ -2148,9 +2273,9 @@ private fun InstanceConfiguration(
     modifier: Modifier,
 ) {
     Column(modifier.verticalScroll(scrollState).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Launch settings", style = MaterialTheme.typography.titleLarge)
+        Text("Instance settings", style = MaterialTheme.typography.titleLarge)
         Text(
-            "Runtime values apply only to ${instance.displayName} and remain isolated from other instances.",
+            "Launch and Minecraft client settings apply only to ${instance.displayName}.",
             color = Muted,
             modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
         )
@@ -2162,7 +2287,7 @@ private fun InstanceConfiguration(
             onClick = viewModel::openInstanceSettings,
             modifier = Modifier.padding(top = 12.dp),
             shape = RoundedCornerShape(6.dp),
-        ) { Text("Edit launch settings") }
+        ) { Text("Edit instance settings") }
     }
 }
 

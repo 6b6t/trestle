@@ -13,6 +13,7 @@ import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.FileSystem
 import okio.Path
+import okio.Path.Companion.toPath
 
 class FileInstanceRepository(
     private val fileSystem: FileSystem,
@@ -96,14 +97,29 @@ class FileInstanceRepository(
         )
         val gameDirectory = (instancesDirectory / id.value) / "game"
         fileSystem.createDirectories(gameDirectory)
-        request.clientSettings?.toOptionsText(request.minecraftVersionId)?.takeIf(String::isNotEmpty)?.let { options ->
-            fileSystem.write(gameDirectory / "options.txt") {
-                writeUtf8(options)
-            }
-        }
+        request.clientSettings?.let { writeClientSettings(instance, it, preserveExisting = false) }
         persist(mutableInstances.value + instance)
         logger.info("instances", "Created instance", mapOf("id" to instance.id.value, "version" to instance.minecraftVersionId))
         instance
+    }
+
+    override suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings? = mutex.withLock {
+        val instance = mutableInstances.value.firstOrNull { it.id == id }
+            ?: error("Instance ${id.value} does not exist.")
+        val optionsPath = instance.optionsPath()
+        val options = if (fileSystem.exists(optionsPath)) {
+            fileSystem.read(optionsPath) { readUtf8() }
+        } else {
+            ""
+        }
+        MinecraftClientSettings.fromOptionsText(options, instance.minecraftVersionId)
+    }
+
+    override suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings) = mutex.withLock {
+        val instance = mutableInstances.value.firstOrNull { it.id == id }
+            ?: error("Instance ${id.value} does not exist.")
+        writeClientSettings(instance, settings, preserveExisting = true)
+        logger.info("instances", "Updated client settings", mapOf("id" to id.value))
     }
 
     override suspend fun update(instance: GameInstance): GameInstance = mutex.withLock {
@@ -148,4 +164,33 @@ class FileInstanceRepository(
         }
         fileSystem.atomicMove(temporaryPath, registryPath)
     }
+
+    private fun writeClientSettings(
+        instance: GameInstance,
+        settings: MinecraftClientSettings,
+        preserveExisting: Boolean,
+    ) {
+        val optionsPath = instance.optionsPath()
+        val existing = if (preserveExisting && fileSystem.exists(optionsPath)) {
+            fileSystem.read(optionsPath) { readUtf8() }
+        } else {
+            ""
+        }
+        val options = if (preserveExisting) {
+            settings.mergeIntoOptionsText(existing, instance.minecraftVersionId)
+        } else {
+            settings.toOptionsText(instance.minecraftVersionId)
+        }
+        if (options.isEmpty()) return
+
+        fileSystem.createDirectories(requireNotNull(optionsPath.parent))
+        val temporaryPath = optionsPath.parent!! / ".${optionsPath.name}.tmp"
+        fileSystem.write(temporaryPath) {
+            writeUtf8(options)
+            flush()
+        }
+        fileSystem.atomicMove(temporaryPath, optionsPath)
+    }
+
+    private fun GameInstance.optionsPath(): Path = instanceDirectory.toPath() / "game" / "options.txt"
 }

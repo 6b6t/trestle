@@ -43,6 +43,8 @@ interface InstanceRepository {
     suspend fun get(id: InstanceId): GameInstance?
     suspend fun create(request: CreateInstanceRequest): GameInstance
     suspend fun update(instance: GameInstance): GameInstance
+    suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings?
+    suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings)
     suspend fun delete(id: InstanceId): Boolean
 }
 
