@@ -1,0 +1,42 @@
+# Gradle and Kotlin
+.gradle/
+.kotlin/
+**/build/
+kotlin-js-store/
+
+# Android
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# Signing credentials and local environment files
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+.env
+.env.*
+!.env.example
+
+# IntelliJ IDEA and Android Studio
+.idea/
+*.iml
+out/
+
+# Visual Studio Code
+.vscode/
+
+# JVM diagnostics and logs
+hs_err_pid*
+replay_pid*
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini

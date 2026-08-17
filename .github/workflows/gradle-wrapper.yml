@@ -1,0 +1,23 @@
+name: Gradle wrapper
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validation:
+    name: Validate wrapper
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Validate the Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
