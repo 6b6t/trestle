@@ -48,6 +48,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,6 +59,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import coil3.compose.AsyncImage
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_mark
 import org.jetbrains.compose.resources.painterResource
@@ -854,19 +858,75 @@ private fun ResourceResultList(
 
 @Composable
 private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onClick: () -> Unit) {
-    Column(
+    Row(
         Modifier.fillMaxWidth()
-            .background(if (selected) RaisedSurface else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(8.dp))
+            .background(if (selected) RaisedSurface else Color.Transparent, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(project.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-            Text(formatDownloads(project.downloads), color = Muted, style = MaterialTheme.typography.labelMedium)
+        ResourceProjectImage(
+            project = project,
+            modifier = Modifier.size(width = 96.dp, height = 64.dp),
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    project.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(formatDownloads(project.downloads), color = Muted, style = MaterialTheme.typography.labelMedium)
+            }
+            Text(
+                "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
+                color = Ochre,
+                style = MaterialTheme.typography.labelMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(project.summary, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (project.categories.isNotEmpty()) {
+                Text(
+                    project.categories.take(3).joinToString(" · "),
+                    color = Muted,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
-        Text("by ${project.author.ifBlank { project.provider.label }}", color = Ochre, style = MaterialTheme.typography.labelMedium)
-        Text(project.summary, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun ResourceProjectImage(project: ResourceProject, modifier: Modifier) {
+    var useIconFallback by remember(project.provider, project.id, project.featuredImageUrl) { mutableStateOf(false) }
+    val showingFeaturedImage = project.featuredImageUrl != null && !useIconFallback
+    val imageUrl = if (showingFeaturedImage) project.featuredImageUrl else project.iconUrl
+    Box(
+        modifier.clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            project.name.firstOrNull()?.uppercase() ?: "?",
+            color = Muted,
+            style = MaterialTheme.typography.titleLarge,
+        )
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "${project.name} preview",
+                contentScale = if (showingFeaturedImage) ContentScale.Crop else ContentScale.Fit,
+                onError = {
+                    if (showingFeaturedImage && project.iconUrl != null) useIconFallback = true
+                },
+                modifier = Modifier.fillMaxSize().padding(if (showingFeaturedImage) 0.dp else 8.dp),
+            )
+        }
     }
 }
 
@@ -888,10 +948,42 @@ private fun ResourceSelection(
             Text("Available versions and installation details will appear here.", color = Muted)
             return@Column
         }
-        Text(project.name, style = MaterialTheme.typography.titleLarge)
+        if (project.featuredImageUrl != null) {
+            ResourceProjectImage(project, Modifier.fillMaxWidth().height(156.dp))
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (project.featuredImageUrl == null && project.iconUrl != null) {
+                ResourceProjectImage(project, Modifier.size(56.dp))
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(project.name, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "by ${project.author.ifBlank { "Unknown author" }} on ${project.provider.label}",
+                    color = Ochre,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
         Text(project.summary, color = Muted)
+        ResourceProjectDetails(project)
         project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
-            TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("Open project page") }
+            TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("View on ${project.provider.label}") }
+        }
+        val platformLinks = listOfNotNull(
+            project.sourceUrl?.let { "Source" to it },
+            project.issuesUrl?.let { "Issues" to it },
+            project.wikiUrl?.let { "Wiki" to it },
+        )
+        if (platformLinks.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                platformLinks.forEach { (label, url) ->
+                    TextButton(onClick = { uriHandler.openUri(url) }) { Text(label) }
+                }
+            }
         }
         if (browser.isLoadingVersions) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Ochre)
@@ -961,6 +1053,21 @@ private fun ResourceSelection(
 }
 
 @Composable
+private fun ResourceProjectDetails(project: ResourceProject) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PropertyRow("Downloads", formatCount(project.downloads))
+        project.followers?.let { PropertyRow("Followers", formatCount(it)) }
+        project.updatedAt?.let { PropertyRow("Updated", it.substringBefore('T')) }
+        project.license?.takeIf(String::isNotBlank)?.let { PropertyRow("License", it) }
+        project.clientSupport?.let { PropertyRow("Client", it.label) }
+        project.serverSupport?.let { PropertyRow("Server", it.label) }
+        if (project.categories.isNotEmpty()) {
+            PropertyRow("Categories", project.categories.take(4).joinToString())
+        }
+    }
+}
+
+@Composable
 private fun ResourceVersionPicker(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
     var expanded by remember { mutableStateOf(false) }
     val selected = browser.selectedVersion
@@ -993,6 +1100,11 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
         PropertyRow("Channel", version.channel.label)
         PropertyRow("Minecraft", version.gameVersions.take(4).joinToString().ifBlank { "Pack manifest" })
         if (version.loaders.isNotEmpty()) PropertyRow("Loaders", version.loaders.joinToString())
+        version.publishedAt.takeIf(String::isNotBlank)?.let { PropertyRow("Published", it.substringBefore('T')) }
+        version.primaryFile?.let { file ->
+            PropertyRow("File", file.fileName)
+            file.size?.let { PropertyRow("Size", formatFileSize(it)) }
+        }
         val required = version.dependencies.count { it.kind == DependencyKind.REQUIRED }
         if (required > 0) PropertyRow("Dependencies", "$required required")
     }
@@ -1578,6 +1690,20 @@ private fun formatDownloads(downloads: Long): String = when {
     downloads >= 1_000_000L -> "${downloads / 100_000L / 10.0}M downloads"
     downloads >= 1_000L -> "${downloads / 100L / 10.0}K downloads"
     else -> "$downloads downloads"
+}
+
+private fun formatCount(count: Long): String = when {
+    count >= 1_000_000_000L -> "${count / 100_000_000L / 10.0}B"
+    count >= 1_000_000L -> "${count / 100_000L / 10.0}M"
+    count >= 1_000L -> "${count / 100L / 10.0}K"
+    else -> count.toString()
+}
+
+private fun formatFileSize(bytes: Long): String = when {
+    bytes >= 1_073_741_824L -> "${bytes / 107_374_182L / 10.0} GiB"
+    bytes >= 1_048_576L -> "${bytes / 104_857L / 10.0} MiB"
+    bytes >= 1_024L -> "${bytes / 102L / 10.0} KiB"
+    else -> "$bytes B"
 }
 
 private fun formatInstanceForClipboard(instance: GameInstance): String = buildString {

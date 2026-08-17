@@ -51,6 +51,13 @@ enum class DependencyKind {
     EMBEDDED,
 }
 
+enum class ResourceEnvironmentSupport(val label: String) {
+    REQUIRED("Required"),
+    OPTIONAL("Optional"),
+    UNSUPPORTED("Unsupported"),
+    UNKNOWN("Unknown"),
+}
+
 data class ResourceSearchRequest(
     val query: String = "",
     val type: ResourceType,
@@ -83,6 +90,15 @@ data class ResourceProject(
     val iconUrl: String?,
     val websiteUrl: String?,
     val categories: List<String>,
+    val featuredImageUrl: String? = null,
+    val updatedAt: String? = null,
+    val followers: Long? = null,
+    val license: String? = null,
+    val clientSupport: ResourceEnvironmentSupport? = null,
+    val serverSupport: ResourceEnvironmentSupport? = null,
+    val sourceUrl: String? = null,
+    val issuesUrl: String? = null,
+    val wikiUrl: String? = null,
 )
 
 data class ResourceVersion(
@@ -170,6 +186,14 @@ private data class ModrinthSearchHit(
     val downloads: Long,
     @SerialName("icon_url") val iconUrl: String? = null,
     val categories: List<String> = emptyList(),
+    @SerialName("display_categories") val displayCategories: List<String> = emptyList(),
+    val follows: Long? = null,
+    @SerialName("date_modified") val dateModified: String? = null,
+    val license: String? = null,
+    @SerialName("client_side") val clientSide: String? = null,
+    @SerialName("server_side") val serverSide: String? = null,
+    val gallery: List<String> = emptyList(),
+    @SerialName("featured_gallery") val featuredGallery: String? = null,
 )
 
 @Serializable
@@ -243,7 +267,13 @@ class ModrinthResourcePlatform(
                     downloads = hit.downloads,
                     iconUrl = hit.iconUrl,
                     websiteUrl = "https://modrinth.com/${request.type.modrinthPath()}/${hit.slug}",
-                    categories = hit.categories,
+                    categories = hit.displayCategories.ifEmpty { hit.categories },
+                    featuredImageUrl = hit.featuredGallery ?: hit.gallery.firstOrNull(),
+                    updatedAt = hit.dateModified,
+                    followers = hit.follows,
+                    license = hit.license,
+                    clientSupport = hit.clientSide?.toEnvironmentSupport(),
+                    serverSupport = hit.serverSide?.toEnvironmentSupport(),
                 )
             },
             offset = response.offset,
@@ -362,16 +392,26 @@ private data class CurseForgeProject(
     val links: CurseForgeLinks = CurseForgeLinks(),
     val logo: CurseForgeLogo? = null,
     val categories: List<CurseForgeCategory> = emptyList(),
+    val screenshots: List<CurseForgeAsset> = emptyList(),
+    val dateModified: String? = null,
 )
 
 @Serializable
 private data class CurseForgeAuthor(val name: String)
 
 @Serializable
-private data class CurseForgeLinks(val websiteUrl: String? = null)
+private data class CurseForgeLinks(
+    val websiteUrl: String? = null,
+    val wikiUrl: String? = null,
+    val issuesUrl: String? = null,
+    val sourceUrl: String? = null,
+)
 
 @Serializable
 private data class CurseForgeLogo(val thumbnailUrl: String? = null, val url: String? = null)
+
+@Serializable
+private data class CurseForgeAsset(val thumbnailUrl: String? = null, val url: String? = null)
 
 @Serializable
 private data class CurseForgeCategory(val name: String)
@@ -535,6 +575,11 @@ private fun CurseForgeProject.toResourceProject(type: ResourceType) = ResourcePr
     iconUrl = logo?.thumbnailUrl ?: logo?.url,
     websiteUrl = links.websiteUrl,
     categories = categories.map { it.name },
+    featuredImageUrl = screenshots.firstNotNullOfOrNull { it.thumbnailUrl ?: it.url },
+    updatedAt = dateModified,
+    sourceUrl = links.sourceUrl,
+    issuesUrl = links.issuesUrl,
+    wikiUrl = links.wikiUrl,
 )
 
 private fun resourceTypeForCurseForgeClass(classId: Int): ResourceType = when (classId) {
@@ -665,6 +710,13 @@ private fun String.toDependencyKind(): DependencyKind = when (lowercase()) {
     "incompatible" -> DependencyKind.INCOMPATIBLE
     "embedded" -> DependencyKind.EMBEDDED
     else -> DependencyKind.OPTIONAL
+}
+
+private fun String.toEnvironmentSupport(): ResourceEnvironmentSupport = when (lowercase()) {
+    "required" -> ResourceEnvironmentSupport.REQUIRED
+    "optional" -> ResourceEnvironmentSupport.OPTIONAL
+    "unsupported" -> ResourceEnvironmentSupport.UNSUPPORTED
+    else -> ResourceEnvironmentSupport.UNKNOWN
 }
 
 private val loaderFilteredTypes = setOf(ResourceType.MOD, ResourceType.MODPACK)

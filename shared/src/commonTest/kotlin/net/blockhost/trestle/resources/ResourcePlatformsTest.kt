@@ -27,7 +27,7 @@ class ResourcePlatformsTest {
             assertTrue(facets.contains("versions:1.21.8"))
             assertTrue(facets.contains("categories:fabric"))
             respond(
-                """{"hits":[{"project_id":"AABBCCDD","slug":"sodium","title":"Sodium","description":"Renderer","author":"jellysquid","downloads":42,"categories":["fabric"]}],"offset":0,"total_hits":1}""",
+                """{"hits":[{"project_id":"AABBCCDD","slug":"sodium","title":"Sodium","description":"Renderer","author":"jellysquid","downloads":42,"icon_url":"https://cdn.test/icon.png","categories":["fabric","optimization"],"display_categories":["optimization"],"follows":12,"date_modified":"2026-08-01T12:00:00Z","license":"LGPL-3.0-only","client_side":"required","server_side":"unsupported","gallery":["https://cdn.test/gallery.png"],"featured_gallery":"https://cdn.test/featured.png"}],"offset":0,"total_hits":1}""",
                 headers = jsonHeaders,
             )
         }
@@ -38,6 +38,11 @@ class ResourcePlatformsTest {
 
         assertEquals("AABBCCDD", result.projects.single().id)
         assertEquals("https://modrinth.com/mod/sodium", result.projects.single().websiteUrl)
+        assertEquals("https://cdn.test/featured.png", result.projects.single().featuredImageUrl)
+        assertEquals(listOf("optimization"), result.projects.single().categories)
+        assertEquals(ResourceEnvironmentSupport.REQUIRED, result.projects.single().clientSupport)
+        assertEquals(ResourceEnvironmentSupport.UNSUPPORTED, result.projects.single().serverSupport)
+        assertEquals("LGPL-3.0-only", result.projects.single().license)
         assertEquals(1, result.total)
     }
 
@@ -68,7 +73,7 @@ class ResourcePlatformsTest {
             assertEquals("6", request.url.parameters["classId"])
             assertEquals("4", request.url.parameters["modLoaderType"])
             respond(
-                """{"data":[{"id":238222,"name":"Just Enough Items","slug":"jei","summary":"Recipe viewer","downloadCount":99,"authors":[{"name":"mezz"}],"links":{"websiteUrl":"https://curseforge.com/minecraft/mc-mods/jei"},"categories":[{"name":"Map and Information"}]}],"pagination":{"index":0,"totalCount":1}}""",
+                """{"data":[{"id":238222,"name":"Just Enough Items","slug":"jei","summary":"Recipe viewer","downloadCount":99,"authors":[{"name":"mezz"}],"links":{"websiteUrl":"https://curseforge.com/minecraft/mc-mods/jei","sourceUrl":"https://github.com/mezz/JustEnoughItems","issuesUrl":"https://github.com/mezz/JustEnoughItems/issues","wikiUrl":"https://github.com/mezz/JustEnoughItems/wiki"},"logo":{"thumbnailUrl":"https://cdn.test/logo.png"},"screenshots":[{"thumbnailUrl":"https://cdn.test/screenshot.png"}],"dateModified":"2026-08-02T12:00:00Z","categories":[{"name":"Map and Information"}]}],"pagination":{"index":0,"totalCount":1}}""",
                 headers = jsonHeaders,
             )
         }
@@ -79,6 +84,10 @@ class ResourcePlatformsTest {
 
         assertEquals("238222", result.projects.single().id)
         assertEquals("mezz", result.projects.single().author)
+        assertEquals("https://cdn.test/screenshot.png", result.projects.single().featuredImageUrl)
+        assertEquals("https://github.com/mezz/JustEnoughItems", result.projects.single().sourceUrl)
+        assertEquals("https://github.com/mezz/JustEnoughItems/issues", result.projects.single().issuesUrl)
+        assertEquals("https://github.com/mezz/JustEnoughItems/wiki", result.projects.single().wikiUrl)
     }
 
     @Test
