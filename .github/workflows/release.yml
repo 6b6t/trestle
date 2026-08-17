@@ -94,11 +94,17 @@ jobs:
             "Trestle-${TRESTLE_VERSION}-android-universal-unsigned.apk"
             "Trestle-${TRESTLE_VERSION}-android-universal-unsigned.aab"
             "Trestle-${TRESTLE_VERSION}-linux-x64.deb"
+            "Trestle-${TRESTLE_VERSION}-linux-x64.rpm"
             "Trestle-${TRESTLE_VERSION}-linux-arm64.deb"
+            "Trestle-${TRESTLE_VERSION}-linux-arm64.rpm"
             "Trestle-${TRESTLE_VERSION}-macos-x64.dmg"
+            "Trestle-${TRESTLE_VERSION}-macos-x64.pkg"
             "Trestle-${TRESTLE_VERSION}-macos-arm64.dmg"
+            "Trestle-${TRESTLE_VERSION}-macos-arm64.pkg"
             "Trestle-${TRESTLE_VERSION}-windows-x64.msi"
+            "Trestle-${TRESTLE_VERSION}-windows-x64.exe"
             "Trestle-${TRESTLE_VERSION}-windows-arm64.msi"
+            "Trestle-${TRESTLE_VERSION}-windows-arm64.exe"
           )
 
           for file in "${expected[@]}"; do
@@ -194,16 +200,15 @@ jobs:
           body: |
             ## Downloads
 
-            | Platform | Architecture | Package |
+            | Platform | Architecture | Packages |
             |---|---|---|
-            | Android | Universal | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.apk) |
-            | Android | Universal | [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.aab) |
-            | Linux | x86_64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.deb) |
-            | Linux | AArch64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.deb) |
-            | macOS | Intel | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.dmg) |
-            | macOS | Apple Silicon | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-arm64.dmg) |
-            | Windows | x86_64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-x64.msi) |
-            | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) |
+            | Android | Universal | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.aab) |
+            | Linux | x86_64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.rpm) |
+            | Linux | AArch64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.rpm) |
+            | macOS | Intel | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.dmg) · [PKG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.pkg) |
+            | macOS | Apple Silicon | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-arm64.dmg) · [PKG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-arm64.pkg) |
+            | Windows | x86_64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-x64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-x64.exe) |
+            | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.exe) |
 
             > [!IMPORTANT]
             > Android, macOS, and Windows packages are unsigned. macOS packages are not notarized. Signing can be added without changing the build matrix.

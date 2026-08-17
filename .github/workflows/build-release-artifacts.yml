@@ -96,27 +96,27 @@ jobs:
           - os: ubuntu-22.04
             platform: linux
             arch: x64
-            extension: deb
+            extensions: "deb rpm"
           - os: ubuntu-22.04-arm
             platform: linux
             arch: arm64
-            extension: deb
+            extensions: "deb rpm"
           - os: macos-15-intel
             platform: macos
             arch: x64
-            extension: dmg
+            extensions: "dmg pkg"
           - os: macos-14
             platform: macos
             arch: arm64
-            extension: dmg
+            extensions: "dmg pkg"
           - os: windows-2025
             platform: windows
             arch: x64
-            extension: msi
+            extensions: "msi exe"
           - os: windows-11-arm
             platform: windows
             arch: arm64
-            extension: msi
+            extensions: "msi exe"
 
     steps:
       - name: Check out the repository
@@ -135,7 +135,7 @@ jobs:
 
       - name: Install Linux packaging dependencies
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install --yes fakeroot
+        run: sudo apt-get update && sudo apt-get install --yes fakeroot rpm
 
       - name: Apply build version
         env:
@@ -150,23 +150,25 @@ jobs:
       - name: Collect desktop package
         env:
           TRESTLE_ARCH: ${{ matrix.arch }}
-          TRESTLE_EXTENSION: ${{ matrix.extension }}
+          TRESTLE_EXTENSIONS: ${{ matrix.extensions }}
           TRESTLE_PLATFORM: ${{ matrix.platform }}
           TRESTLE_VERSION: ${{ inputs.version }}
         shell: bash
         run: |
-          matches=()
-          while IFS= read -r match; do
-            matches+=("$match")
-          done < <(find desktopApp/build/compose/binaries -type f -name "*.${TRESTLE_EXTENSION}" | sort)
-
-          if [[ "${#matches[@]}" -ne 1 ]]; then
-            echo "Expected exactly one .${TRESTLE_EXTENSION} package, found ${#matches[@]}." >&2
-            exit 1
-          fi
-
           mkdir -p release-artifacts
-          cp "${matches[0]}" "release-artifacts/Trestle-${TRESTLE_VERSION}-${TRESTLE_PLATFORM}-${TRESTLE_ARCH}.${TRESTLE_EXTENSION}"
+          for extension in $TRESTLE_EXTENSIONS; do
+            matches=()
+            while IFS= read -r match; do
+              matches+=("$match")
+            done < <(find desktopApp/build/compose/binaries -type f -name "*.${extension}" | sort)
+
+            if [[ "${#matches[@]}" -ne 1 ]]; then
+              echo "Expected exactly one .${extension} package, found ${#matches[@]}." >&2
+              exit 1
+            fi
+
+            cp "${matches[0]}" "release-artifacts/Trestle-${TRESTLE_VERSION}-${TRESTLE_PLATFORM}-${TRESTLE_ARCH}.${extension}"
+          done
 
       - name: Upload desktop package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
