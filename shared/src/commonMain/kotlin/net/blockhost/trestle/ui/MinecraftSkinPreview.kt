@@ -44,10 +44,10 @@ fun MinecraftSkinPreview(
     animate: Boolean = true,
     emptyLabel: String = "Skin preview unavailable",
 ) {
-    val pixels = remember(texture?.contentHashCode()) {
+    val pixels = remember(texture) {
         texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap().toPixelMap() }.getOrNull() }
     }
-    var yaw by remember { mutableFloatStateOf(-0.42f) }
+    var yaw by remember(texture) { mutableFloatStateOf(-0.42f) }
     var animationTime by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pixels, animate) {

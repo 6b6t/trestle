@@ -1,6 +1,7 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,11 +29,15 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -73,14 +78,20 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.layout.AnimatedPane
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
+import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
+import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -158,16 +169,11 @@ private val browsableResourceTypes = listOf(
 private val installableResourceTypes = browsableResourceTypes.toSet()
 
 @Composable
-fun TrestleApp(viewModel: LauncherViewModel) {
-    val state by viewModel.state.collectAsState()
-    TrestleApp(state, viewModel)
-}
-
-@Composable
 fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
     var destinationName by rememberSaveable { mutableStateOf(Destination.LIBRARY.name) }
     val destination = Destination.entries.firstOrNull { it.name == destinationName } ?: Destination.LIBRARY
     val snackbarHostState = remember { SnackbarHostState() }
+    val destinationStateHolder = rememberSaveableStateHolder()
     val changeDestination: (Destination) -> Unit = { target ->
         if (
             destination == Destination.DISCOVER &&
@@ -207,10 +213,33 @@ fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
         ) { contentPadding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
                 val compact = maxWidth < 840.dp
+                val destinationContent: @Composable (Modifier, Boolean) -> Unit = { modifier, isCompact ->
+                    destinationStateHolder.SaveableStateProvider(destination.name) {
+                        when (destination) {
+                            Destination.LIBRARY -> LibraryPage(
+                                state,
+                                modifier,
+                                viewModel,
+                                compact = isCompact,
+                                onManage = { changeDestination(Destination.INSTANCE) },
+                            )
+                            Destination.INSTANCE -> InstanceWorkspace(
+                                state,
+                                modifier,
+                                viewModel,
+                                onBack = { changeDestination(Destination.LIBRARY) },
+                                compact = isCompact,
+                            )
+                            Destination.DISCOVER -> ResourceCatalogPage(state, modifier, viewModel)
+                            Destination.ACCOUNTS -> AccountsPage(state, modifier, viewModel)
+                            Destination.SETTINGS -> SettingsPage(state, modifier, viewModel)
+                        }
+                    }
+                }
                 if (compact) {
-                    CompactLayout(state, destination, changeDestination, viewModel)
+                    CompactLayout(state, destination, changeDestination, destinationContent)
                 } else {
-                    WideLayout(state, destination, changeDestination, viewModel)
+                    WideLayout(state, destination, changeDestination, destinationContent)
                 }
             }
             if (state.create.visible) CreateInstanceDialog(state, viewModel)
@@ -247,28 +276,12 @@ private fun WideLayout(
     state: LauncherUiState,
     destination: Destination,
     onDestinationChange: (Destination) -> Unit,
-    viewModel: LauncherViewModel,
+    destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         TopNavigation(state, destination, onDestinationChange)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        when (destination) {
-            Destination.LIBRARY -> LibraryPage(
-                state,
-                Modifier.weight(1f),
-                viewModel,
-                onManage = { onDestinationChange(Destination.INSTANCE) },
-            )
-            Destination.INSTANCE -> InstanceWorkspace(
-                state,
-                Modifier.weight(1f),
-                viewModel,
-                onBack = { onDestinationChange(Destination.LIBRARY) },
-            )
-            Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.weight(1f), viewModel)
-            Destination.ACCOUNTS -> AccountsPage(state, Modifier.weight(1f), viewModel)
-            Destination.SETTINGS -> SettingsPage(state, Modifier.weight(1f), viewModel)
-        }
+        destinationContent(Modifier.weight(1f), false)
     }
 }
 
@@ -278,7 +291,7 @@ private fun CompactLayout(
     state: LauncherUiState,
     destination: Destination,
     onDestinationChange: (Destination) -> Unit,
-    viewModel: LauncherViewModel,
+    destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -320,25 +333,7 @@ private fun CompactLayout(
             }
         },
     ) { padding ->
-        when (destination) {
-            Destination.LIBRARY -> LibraryPage(
-                state,
-                Modifier.padding(padding),
-                viewModel,
-                compact = true,
-                onManage = { onDestinationChange(Destination.INSTANCE) },
-            )
-            Destination.INSTANCE -> InstanceWorkspace(
-                state,
-                Modifier.padding(padding),
-                viewModel,
-                onBack = { onDestinationChange(Destination.LIBRARY) },
-                compact = true,
-            )
-            Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.padding(padding), viewModel)
-            Destination.ACCOUNTS -> AccountsPage(state, Modifier.padding(padding), viewModel)
-            Destination.SETTINGS -> SettingsPage(state, Modifier.padding(padding), viewModel)
-        }
+        destinationContent(Modifier.padding(padding), true)
     }
 }
 
@@ -446,7 +441,9 @@ private fun LibraryPage(
     compact: Boolean = false,
     onManage: () -> Unit,
 ) {
-    var query by remember { mutableStateOf("") }
+    var query by rememberSaveable { mutableStateOf("") }
+    val compactListState = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val filteredInstances = state.instances.filter {
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
@@ -472,6 +469,7 @@ private fun LibraryPage(
                     }
                 } else if (compact) {
                     LazyColumn(
+                        state = compactListState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -481,7 +479,7 @@ private fun LibraryPage(
                         }
                     }
                 } else {
-                    InstanceGrid(filteredInstances, state, viewModel)
+                    InstanceGrid(filteredInstances, state, viewModel, gridState)
                 }
             }
         }
@@ -794,9 +792,15 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
 }
 
 @Composable
-private fun InstanceGrid(instances: List<GameInstance>, state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun InstanceGrid(
+    instances: List<GameInstance>,
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    gridState: LazyGridState,
+) {
     val grouped = instances.groupBy(::instanceGroupLabel)
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(168.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 32.dp),
@@ -1114,6 +1118,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherVie
     }
 }
 
+@OptIn(ExperimentalMaterial3AdaptiveApi::class)
 @Composable
 private fun ResourceBrowserContent(
     state: LauncherUiState,
@@ -1121,34 +1126,74 @@ private fun ResourceBrowserContent(
     modifier: Modifier,
 ) {
     val browser = state.resourceBrowser
+    val navigator = rememberListDetailPaneScaffoldNavigator<String?>()
+    val resultListState = rememberLazyListState()
+    val detailScrollState = rememberScrollState()
+    val listPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Hidden
+
+    LaunchedEffect(browser.selectedProjectId) {
+        detailScrollState.scrollTo(0)
+        when {
+            browser.selectedProjectId != null &&
+                navigator.currentDestination?.pane != ListDetailPaneScaffoldRole.Detail -> {
+                navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, browser.selectedProjectId)
+            }
+            browser.selectedProjectId == null &&
+                navigator.currentDestination?.pane != ListDetailPaneScaffoldRole.List -> {
+                if (navigator.canNavigateBack()) navigator.navigateBack()
+                else navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+            }
+        }
+    }
+
+    val clearSelection = {
+        viewModel.clearResourceSelection()
+    }
+    PlatformBackHandler(
+        enabled = browser.selectedProject != null && listPaneHidden && navigator.canNavigateBack(),
+        onBack = clearSelection,
+    )
     Column(modifier) {
         ResourceBrowserToolbar(browser, viewModel)
         browser.error?.let { InlineMessage(it, true, null) }
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth < 720.dp) {
-                if (browser.selectedProject == null) {
-                    ResourceResultList(browser, viewModel, Modifier.fillMaxSize())
-                } else {
-                    PlatformBackHandler(enabled = true, onBack = viewModel::clearResourceSelection)
+        ListDetailPaneScaffold(
+            directive = navigator.scaffoldDirective,
+            scaffoldState = navigator.scaffoldState,
+            modifier = Modifier.fillMaxSize(),
+            listPane = {
+                AnimatedPane {
+                    ResourceResultList(
+                        browser = browser,
+                        viewModel = viewModel,
+                        listState = resultListState,
+                        onProjectClick = viewModel::selectResource,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            },
+            detailPane = {
+                AnimatedPane {
                     Column(Modifier.fillMaxSize()) {
-                        TextButton(
-                            onClick = viewModel::clearResourceSelection,
-                            modifier = Modifier.padding(horizontal = 8.dp),
-                        ) {
-                            Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
-                            Text("Back to results")
+                        if (listPaneHidden) {
+                            TextButton(
+                                onClick = clearSelection,
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                            ) {
+                                Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
+                                Text("Back to results")
+                            }
                         }
-                        ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(1f))
+                        ResourceSelection(
+                            browser = browser,
+                            instance = state.selectedInstance,
+                            viewModel = viewModel,
+                            scrollState = detailScrollState,
+                            modifier = Modifier.weight(1f),
+                        )
                     }
                 }
-            } else {
-                Row(Modifier.fillMaxSize()) {
-                    ResourceResultList(browser, viewModel, Modifier.weight(3f))
-                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(2f))
-                }
-            }
-        }
+            },
+        )
     }
 }
 
@@ -1226,6 +1271,8 @@ private fun ResourceProviderButtons(browser: ResourceBrowserState, viewModel: La
 private fun ResourceResultList(
     browser: ResourceBrowserState,
     viewModel: LauncherViewModel,
+    listState: LazyListState,
+    onProjectClick: (String) -> Unit,
     modifier: Modifier,
 ) {
     when {
@@ -1239,6 +1286,7 @@ private fun ResourceResultList(
             Text("Change the search or content type.", color = Muted)
         }
         else -> LazyColumn(
+            state = listState,
             modifier = modifier,
             contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -1247,7 +1295,7 @@ private fun ResourceResultList(
                 ResourceProjectRow(
                     project = project,
                     selected = browser.selectedProjectId == project.id,
-                    onClick = { viewModel.selectResource(project.id) },
+                    onClick = { onProjectClick(project.id) },
                 )
             }
             if (browser.projects.size < browser.totalProjects) {
@@ -1345,12 +1393,13 @@ private fun ResourceSelection(
     browser: ResourceBrowserState,
     instance: GameInstance?,
     viewModel: LauncherViewModel,
+    scrollState: ScrollState,
     modifier: Modifier,
 ) {
     val project = browser.selectedProject
     val uriHandler = LocalUriHandler.current
     Column(
-        modifier.fillMaxHeight().padding(20.dp).verticalScroll(rememberScrollState()),
+        modifier.fillMaxHeight().verticalScroll(scrollState).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (project == null) {
@@ -1516,7 +1565,7 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 @Composable
 private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
     val form = state.create
-    var showAdvanced by remember { mutableStateOf(false) }
+    var showAdvanced by rememberSaveable { mutableStateOf(false) }
     Dialog(
         onDismissRequest = { if (!form.isSaving) viewModel.closeCreate() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
@@ -1769,10 +1818,14 @@ private fun Selector(
     modifier: Modifier = Modifier,
     onSelect: (String) -> Unit,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    var filter by remember { mutableStateOf("") }
+    var expanded by remember(label) { mutableStateOf(false) }
+    var filter by remember(label) { mutableStateOf("") }
     val canOpen = enabled && values.isNotEmpty()
     val visibleValues = if (filter.isBlank()) values else values.filter { it.contains(filter, ignoreCase = true) }
+    LaunchedEffect(canOpen, values) {
+        if (!canOpen) expanded = false
+        filter = ""
+    }
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { if (canOpen) expanded = !expanded },
@@ -1875,7 +1928,11 @@ private fun InstanceWorkspace(
     compact: Boolean = false,
 ) {
     val instance = state.selectedInstance
-    var section by remember(instance?.id) { mutableStateOf(InstanceSection.OVERVIEW) }
+    var sectionName by rememberSaveable(instance?.id) { mutableStateOf(InstanceSection.OVERVIEW.name) }
+    val section = InstanceSection.entries.firstOrNull { it.name == sectionName } ?: InstanceSection.OVERVIEW
+    val overviewListState = rememberLazyListState()
+    val contentListState = rememberLazyListState()
+    val configurationScrollState = rememberScrollState()
     Column(modifier.fillMaxSize()) {
         PageHeader(instance?.displayName ?: "Instance") {
             TextButton(onClick = onBack) { Text("Back to library") }
@@ -1900,14 +1957,26 @@ private fun InstanceWorkspace(
                     label = item.label,
                     selected = section == item,
                     modifier = if (compact) Modifier.weight(1f) else Modifier,
-                ) { section = item }
+                ) { sectionName = item.name }
             }
         }
         HorizontalDivider(color = Rule)
         when (section) {
-            InstanceSection.OVERVIEW -> InstanceOverview(state, instance, viewModel, Modifier.weight(1f), compact)
-            InstanceSection.CONTENT -> InstanceContent(instance, viewModel, Modifier.weight(1f))
-            InstanceSection.SETTINGS -> InstanceConfiguration(instance, viewModel, Modifier.weight(1f))
+            InstanceSection.OVERVIEW -> InstanceOverview(
+                state,
+                instance,
+                viewModel,
+                overviewListState,
+                Modifier.weight(1f),
+                compact,
+            )
+            InstanceSection.CONTENT -> InstanceContent(instance, viewModel, contentListState, Modifier.weight(1f))
+            InstanceSection.SETTINGS -> InstanceConfiguration(
+                instance,
+                viewModel,
+                configurationScrollState,
+                Modifier.weight(1f),
+            )
         }
     }
 }
@@ -1930,10 +1999,11 @@ private fun InstanceOverview(
     state: LauncherUiState,
     instance: GameInstance,
     viewModel: LauncherViewModel,
+    listState: LazyListState,
     modifier: Modifier,
     compact: Boolean,
 ) {
-    LazyColumn(modifier, contentPadding = PaddingValues(24.dp)) {
+    LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(24.dp)) {
         item("identity") {
             if (compact) {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1992,8 +2062,13 @@ private fun InstanceOverview(
 }
 
 @Composable
-private fun InstanceContent(instance: GameInstance, viewModel: LauncherViewModel, modifier: Modifier) {
-    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)) {
+private fun InstanceContent(
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    listState: LazyListState,
+    modifier: Modifier,
+) {
+    LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)) {
         item("intro") {
             Text(
                 "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
@@ -2013,8 +2088,13 @@ private fun InstanceContent(instance: GameInstance, viewModel: LauncherViewModel
 }
 
 @Composable
-private fun InstanceConfiguration(instance: GameInstance, viewModel: LauncherViewModel, modifier: Modifier) {
-    Column(modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+private fun InstanceConfiguration(
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) {
+    Column(modifier.verticalScroll(scrollState).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Launch settings", style = MaterialTheme.typography.titleLarge)
         Text(
             "Runtime values apply only to ${instance.displayName} and remain isolated from other instances.",
@@ -2084,7 +2164,7 @@ private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> 
 
 @Composable
 private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
-    var pendingRemoval by remember { mutableStateOf<String?>(null) }
+    var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxSize()) {
         PageHeader("Accounts") {
             Button(
@@ -2920,7 +3000,10 @@ private val AccountLoginState.canSubmit: Boolean
 
 @Composable
 private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
-    var section by remember { mutableStateOf(SettingsSection.RUNTIME) }
+    var sectionName by rememberSaveable { mutableStateOf(SettingsSection.RUNTIME.name) }
+    val section = SettingsSection.entries.firstOrNull { it.name == sectionName } ?: SettingsSection.RUNTIME
+    val runtimeScrollState = rememberScrollState()
+    val logListState = rememberLazyListState()
     Column(modifier.fillMaxSize()) {
         PageHeader("Settings") {}
         HorizontalDivider(color = Rule)
@@ -2933,18 +3016,25 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                                 item,
                                 selected = section == item,
                                 modifier = Modifier.weight(1f),
-                            ) { section = item }
+                            ) { sectionName = item.name }
                         }
                     }
                     HorizontalDivider(color = Rule)
-                    SettingsSectionContent(section, state, viewModel, Modifier.weight(1f))
+                    SettingsSectionContent(
+                        section,
+                        state,
+                        viewModel,
+                        runtimeScrollState,
+                        logListState,
+                        Modifier.weight(1f),
+                    )
                 }
             } else {
                 Row(Modifier.fillMaxSize()) {
                     Column(Modifier.width(210.dp).fillMaxHeight().background(Surface).padding(12.dp)) {
                         SettingsSection.entries.forEach { item ->
                             SettingsSectionButton(item, selected = section == item, modifier = Modifier.fillMaxWidth()) {
-                                section = item
+                                sectionName = item.name
                             }
                         }
                         Spacer(Modifier.weight(1f))
@@ -2956,7 +3046,14 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                         )
                     }
                     VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    SettingsSectionContent(section, state, viewModel, Modifier.weight(1f))
+                    SettingsSectionContent(
+                        section,
+                        state,
+                        viewModel,
+                        runtimeScrollState,
+                        logListState,
+                        Modifier.weight(1f),
+                    )
                 }
             }
         }
@@ -2991,18 +3088,25 @@ private fun SettingsSectionContent(
     section: SettingsSection,
     state: LauncherUiState,
     viewModel: LauncherViewModel,
+    runtimeScrollState: ScrollState,
+    logListState: LazyListState,
     modifier: Modifier,
 ) {
     when (section) {
-        SettingsSection.RUNTIME -> RuntimeSettings(state, viewModel, modifier)
-        SettingsSection.LOGS -> LauncherLog(state, viewModel, modifier)
+        SettingsSection.RUNTIME -> RuntimeSettings(state, viewModel, runtimeScrollState, modifier)
+        SettingsSection.LOGS -> LauncherLog(state, viewModel, logListState, modifier)
     }
 }
 
 @Composable
-private fun RuntimeSettings(state: LauncherUiState, viewModel: LauncherViewModel, modifier: Modifier) {
+private fun RuntimeSettings(
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) {
     Column(
-        modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+        modifier.verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text("Runtime", style = MaterialTheme.typography.titleLarge)
@@ -3038,8 +3142,14 @@ private fun RuntimeSettings(state: LauncherUiState, viewModel: LauncherViewModel
 }
 
 @Composable
-private fun LauncherLog(state: LauncherUiState, viewModel: LauncherViewModel, modifier: Modifier) {
+private fun LauncherLog(
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    listState: LazyListState,
+    modifier: Modifier,
+) {
     LazyColumn(
+        state = listState,
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
     ) {

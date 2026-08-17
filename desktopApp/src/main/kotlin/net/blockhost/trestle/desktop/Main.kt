@@ -51,7 +51,7 @@ fun main() {
             LaunchedEffect(window, state.operation, state.error) {
                 desktopIntegration.update(window, state.desktopIndicator())
             }
-            TrestleApp(viewModel)
+            TrestleApp(state, viewModel)
         }
     }
 }
