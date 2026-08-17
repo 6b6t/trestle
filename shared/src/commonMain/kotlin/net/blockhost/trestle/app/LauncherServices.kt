@@ -20,9 +20,12 @@ import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.logging.BufferedLauncherLogger
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.LogSink
-import net.blockhost.trestle.mods.CurseForgeDownloadProvider
-import net.blockhost.trestle.mods.ModInstaller
-import net.blockhost.trestle.mods.ModrinthDownloadProvider
+import net.blockhost.trestle.resources.ArchiveExtractor
+import net.blockhost.trestle.resources.CurseForgeResourcePlatform
+import net.blockhost.trestle.resources.ModpackInstaller
+import net.blockhost.trestle.resources.ModrinthResourcePlatform
+import net.blockhost.trestle.resources.ResourceInstaller
+import net.blockhost.trestle.resources.ResourcePlatformRegistry
 import net.blockhost.trestle.runtime.MinecraftRuntime
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.FileSystem
@@ -42,14 +45,29 @@ class LauncherServices private constructor(
     val profileClient: MinecraftProfileClient,
     val logger: LauncherLogger,
     private val httpClient: HttpClient,
+    curseForgeApiKey: String,
+    archiveExtractor: ArchiveExtractor,
 ) {
-    val modrinthDownloads = ModrinthDownloadProvider(
+    private val resourceDownloadPipeline = DownloadPipeline(httpClient, FileSystem.SYSTEM, logger = logger)
+    private val modrinthResources = ModrinthResourcePlatform(
         httpClient = httpClient,
         userAgent = BuildInfo.USER_AGENT,
     )
-    val modInstaller = ModInstaller(DownloadPipeline(httpClient, FileSystem.SYSTEM, logger = logger))
-
-    fun curseForgeDownloads(apiKey: String) = CurseForgeDownloadProvider(httpClient, apiKey)
+    private val curseForgeResources = CurseForgeResourcePlatform(httpClient, curseForgeApiKey)
+    val resourcePlatforms = ResourcePlatformRegistry(listOf(modrinthResources, curseForgeResources))
+    val resourceInstaller = ResourceInstaller(resourcePlatforms, resourceDownloadPipeline, FileSystem.SYSTEM)
+    val modpackInstaller = ModpackInstaller(
+        platforms = resourcePlatforms,
+        repository = repository,
+        metadataClient = metadataClient,
+        fabricMetadataClient = fabricMetadataClient,
+        minecraftInstaller = installer,
+        downloadPipeline = resourceDownloadPipeline,
+        fileSystem = FileSystem.SYSTEM,
+        directories = directories,
+        archiveExtractor = archiveExtractor,
+        systemProfile = systemProfile,
+    )
 
     fun close() = httpClient.close()
 
@@ -64,6 +82,8 @@ class LauncherServices private constructor(
             logSink: LogSink,
             credentialStore: AccountCredentialStore,
             authenticator: MinecraftAuthenticator,
+            curseForgeApiKey: String,
+            archiveExtractor: ArchiveExtractor,
             runtimeFactory: (
                 LauncherDirectories,
                 MinecraftInstaller,
@@ -135,6 +155,8 @@ class LauncherServices private constructor(
                 MinecraftProfileClient(httpClient, fileSystem, logger = logger),
                 logger,
                 httpClient,
+                curseForgeApiKey,
+                archiveExtractor,
             )
         }
     }

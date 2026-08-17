@@ -30,6 +30,12 @@ import net.blockhost.trestle.runtime.JvmArgumentPolicy
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.metadata.VersionReference
+import net.blockhost.trestle.resources.ResourceProject
+import net.blockhost.trestle.resources.ResourceProvider
+import net.blockhost.trestle.resources.ResourceSearchRequest
+import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ResourceVersion
+import net.blockhost.trestle.resources.ReleaseChannel
 
 data class CreateInstanceState(
     val visible: Boolean = false,
@@ -51,18 +57,29 @@ data class LaunchPlanSummary(
     val authentication: String,
 )
 
-enum class ModProvider(val label: String) {
-    MODRINTH("Modrinth"),
-    CURSEFORGE("CurseForge"),
-}
-
-data class ModInstallState(
+data class ResourceBrowserState(
     val visible: Boolean = false,
-    val provider: ModProvider = ModProvider.MODRINTH,
-    val projectId: String = "",
-    val curseForgeApiKey: SensitiveText = SensitiveText(),
+    val provider: ResourceProvider = ResourceProvider.MODRINTH,
+    val type: ResourceType = ResourceType.MOD,
+    val query: String = "",
+    val projects: List<ResourceProject> = emptyList(),
+    val totalProjects: Int = 0,
+    val selectedProjectId: String? = null,
+    val versions: List<ResourceVersion> = emptyList(),
+    val selectedVersionId: String? = null,
+    val selectedOptionalDependencies: Set<String> = emptySet(),
+    val isSearching: Boolean = false,
+    val isLoadingVersions: Boolean = false,
     val isInstalling: Boolean = false,
-)
+    val error: String? = null,
+    val curseForgeAvailable: Boolean = false,
+) {
+    val selectedProject: ResourceProject?
+        get() = projects.firstOrNull { it.id == selectedProjectId }
+
+    val selectedVersion: ResourceVersion?
+        get() = versions.firstOrNull { it.id == selectedVersionId }
+}
 
 data class OperationStatus(
     val title: String,
@@ -124,7 +141,7 @@ data class LauncherUiState(
     val notice: String? = null,
     val create: CreateInstanceState = CreateInstanceState(),
     val launchPlan: LaunchPlanSummary? = null,
-    val modInstall: ModInstallState = ModInstallState(),
+    val resourceBrowser: ResourceBrowserState = ResourceBrowserState(),
     val operation: OperationStatus? = null,
     val instanceSettings: InstanceSettingsState = InstanceSettingsState(),
     val accounts: List<ManagedAccount> = emptyList(),
@@ -144,6 +161,8 @@ class LauncherViewModel(
         LauncherUiState(credentialProtection = services.credentialStore.protection),
     )
     private var installJob: Job? = null
+    private var resourceJob: Job? = null
+    private var resourceSearchJob: Job? = null
     private var accountLoginJob: Job? = null
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
@@ -385,6 +404,14 @@ class LauncherViewModel(
         }
     }
 
+    fun cancelActiveOperation() {
+        if (resourceJob?.isActive == true) {
+            resourceJob?.cancel()
+        } else {
+            cancelInstall()
+        }
+    }
+
     fun inspectLaunchPlan() {
         val instance = mutableState.value.selectedInstance ?: return
         if (instance.installationState !is InstallationState.Installed) return
@@ -454,63 +481,214 @@ class LauncherViewModel(
         }
     }
 
-    fun openModInstall() {
-        mutableState.update { it.copy(modInstall = ModInstallState(visible = true), error = null) }
+    fun openResourceBrowser(type: ResourceType = ResourceType.MOD) {
+        val curseForgeAvailable = services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).isAvailable
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = ResourceBrowserState(
+                visible = true,
+                type = type,
+                curseForgeAvailable = curseForgeAvailable,
+            ),
+            error = null,
+        )
+        searchResources()
     }
 
-    fun closeModInstall() {
-        mutableState.update { it.copy(modInstall = ModInstallState()) }
+    fun closeResourceBrowser() {
+        if (resourceJob?.isActive == true) return
+        resourceSearchJob?.cancel()
+        mutableState.value = mutableState.value.copy(resourceBrowser = ResourceBrowserState())
     }
 
-    fun setModProvider(provider: ModProvider) {
-        mutableState.update { it.copy(modInstall = it.modInstall.copy(provider = provider)) }
+    fun setResourceProvider(provider: ResourceProvider) {
+        resourceSearchJob?.cancel()
+        val current = mutableState.value.resourceBrowser
+        val platform = services.resourcePlatforms.platform(provider)
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = current.copy(
+                provider = provider,
+                projects = emptyList(),
+                totalProjects = 0,
+                selectedProjectId = null,
+                versions = emptyList(),
+                selectedVersionId = null,
+                selectedOptionalDependencies = emptySet(),
+                error = when {
+                    !platform.isAvailable -> "CurseForge is not configured for this build."
+                    !platform.supports(current.type) -> "${provider.label} does not provide ${current.type.label.lowercase()}."
+                    else -> null
+                },
+            ),
+        )
+        if (platform.isAvailable && platform.supports(current.type)) searchResources()
     }
 
-    fun setModProjectId(value: String) {
-        mutableState.update { it.copy(modInstall = it.modInstall.copy(projectId = value)) }
+    fun setResourceType(type: ResourceType) {
+        resourceSearchJob?.cancel()
+        val current = mutableState.value.resourceBrowser
+        val requestedPlatform = services.resourcePlatforms.platform(current.provider)
+        val provider = if (requestedPlatform.supports(type)) current.provider else ResourceProvider.MODRINTH
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = current.copy(
+                provider = provider,
+                type = type,
+                projects = emptyList(),
+                totalProjects = 0,
+                selectedProjectId = null,
+                versions = emptyList(),
+                selectedVersionId = null,
+                selectedOptionalDependencies = emptySet(),
+                error = null,
+            ),
+        )
+        searchResources()
     }
 
-    fun setCurseForgeApiKey(value: String) {
-        mutableState.update { it.copy(modInstall = it.modInstall.copy(curseForgeApiKey = SensitiveText(value))) }
+    fun setResourceQuery(value: String) {
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = mutableState.value.resourceBrowser.copy(query = value),
+        )
     }
 
-    fun installMod() {
-        val instance = mutableState.value.selectedInstance ?: return
-        val form = mutableState.value.modInstall
-        if (form.projectId.isBlank()) return
-        scope.launch {
-            mutableState.update {
-                it.copy(
-                    modInstall = form.copy(isInstalling = true),
-                    operation = OperationStatus("Resolving mod download", form.projectId),
+    fun searchResources() {
+        searchResources(append = false)
+    }
+
+    fun loadMoreResources() {
+        val browser = mutableState.value.resourceBrowser
+        if (!browser.isSearching && browser.projects.size < browser.totalProjects) searchResources(append = true)
+    }
+
+    fun selectResource(projectId: String) {
+        val browser = mutableState.value.resourceBrowser
+        val project = browser.projects.firstOrNull { it.id == projectId } ?: return
+        resourceSearchJob?.cancel()
+        resourceSearchJob = scope.launch {
+            mutableState.value = mutableState.value.copy(
+                resourceBrowser = browser.copy(
+                    selectedProjectId = projectId,
+                    versions = emptyList(),
+                    selectedVersionId = null,
+                    selectedOptionalDependencies = emptySet(),
+                    isLoadingVersions = true,
                     error = null,
+                ),
+            )
+            try {
+                val instance = mutableState.value.selectedInstance
+                val versions = services.resourcePlatforms.platform(project.provider).versions(
+                    project = project,
+                    gameVersion = if (project.type == ResourceType.MODPACK) null else instance?.minecraftVersionId,
+                    loader = if (project.type == ResourceType.MODPACK) null else instance?.modLoader,
+                )
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        versions = versions,
+                        selectedVersionId = versions.firstOrNull { it.channel == ReleaseChannel.RELEASE }?.id
+                            ?: versions.firstOrNull()?.id,
+                        isLoadingVersions = false,
+                        error = if (versions.isEmpty()) "No compatible versions were found." else null,
+                    ),
+                )
+            } catch (_: CancellationException) {
+                return@launch
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        isLoadingVersions = false,
+                        error = error.message ?: "Versions could not be loaded.",
+                    ),
                 )
             }
+        }
+    }
+
+    fun selectResourceVersion(versionId: String) {
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = mutableState.value.resourceBrowser.copy(
+                selectedVersionId = versionId,
+                selectedOptionalDependencies = emptySet(),
+            ),
+        )
+    }
+
+    fun toggleOptionalDependency(key: String) {
+        val browser = mutableState.value.resourceBrowser
+        val selected = if (key in browser.selectedOptionalDependencies) {
+            browser.selectedOptionalDependencies - key
+        } else {
+            browser.selectedOptionalDependencies + key
+        }
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = browser.copy(selectedOptionalDependencies = selected),
+        )
+    }
+
+    fun installSelectedResource() {
+        if (resourceJob?.isActive == true) return
+        val browser = mutableState.value.resourceBrowser
+        val project = browser.selectedProject ?: return
+        val version = browser.selectedVersion ?: return
+        val instance = mutableState.value.selectedInstance
+        if (project.type != ResourceType.MODPACK && instance?.installationState !is InstallationState.Installed) {
+            mutableState.value = mutableState.value.copy(
+                resourceBrowser = browser.copy(error = "Install the selected instance before adding resources."),
+            )
+            return
+        }
+        resourceJob = scope.launch {
+            mutableState.value = mutableState.value.copy(
+                resourceBrowser = browser.copy(isInstalling = true, error = null),
+                operation = OperationStatus(
+                    title = if (project.type == ResourceType.MODPACK) "Installing modpack" else "Installing ${project.type.label.lowercase()}",
+                    detail = project.name,
+                    cancellable = true,
+                ),
+            )
             try {
-                val provider = when (form.provider) {
-                    ModProvider.MODRINTH -> services.modrinthDownloads
-                    ModProvider.CURSEFORGE -> services.curseForgeDownloads(form.curseForgeApiKey.reveal())
-                }
-                val download = provider.resolve(
-                    projectId = form.projectId.trim(),
-                    gameVersion = instance.minecraftVersionId,
-                    loader = instance.modLoader,
-                )
-                services.modInstaller.install(instance, download)
-                mutableState.update {
-                    it.copy(
-                        modInstall = ModInstallState(),
-                        notice = "${download.fileName} was added to ${instance.displayName}.",
-                        operation = null,
+                val notice = if (project.type == ResourceType.MODPACK) {
+                    val created = services.modpackInstaller.install(project, version, ::updateResourceProgress)
+                    mutableState.value = mutableState.value.copy(selectedId = created.id)
+                    "${created.displayName} was added to the library."
+                } else {
+                    val selectedInstance = requireNotNull(instance)
+                    val summary = services.resourceInstaller.install(
+                        selectedInstance,
+                        project,
+                        version,
+                        browser.selectedOptionalDependencies,
+                        ::updateResourceProgress,
                     )
+                    val dependencyText = if (summary.dependencyCount == 0) "" else {
+                        " with ${summary.dependencyCount} ${if (summary.dependencyCount == 1) "dependency" else "dependencies"}"
+                    }
+                    "${project.name} was installed$dependencyText."
                 }
-            } catch (error: CancellationException) {
-                throw error
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = ResourceBrowserState(),
+                    notice = notice,
+                    operation = null,
+                )
+            } catch (_: CancellationException) {
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(isInstalling = false),
+                    operation = null,
+                    notice = if (project.type == ResourceType.MODPACK) {
+                        "Modpack installation cancelled. No instance was added."
+                    } else {
+                        "Resource installation paused."
+                    },
+                )
             } catch (error: Exception) {
-                mutableState.update {
-                    it.copy(modInstall = form.copy(isInstalling = false), operation = null)
-                }
-                showError(error)
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        isInstalling = false,
+                        error = error.message ?: "The resource could not be installed.",
+                    ),
+                    operation = null,
+                )
+            } finally {
+                resourceJob = null
             }
         }
     }
@@ -813,8 +991,74 @@ class LauncherViewModel(
 
     fun close() {
         accountLoginJob?.cancel()
+        resourceSearchJob?.cancel()
+        resourceJob?.cancel()
         scope.cancel()
         services.close()
+    }
+
+    private fun searchResources(append: Boolean) {
+        val browser = mutableState.value.resourceBrowser
+        val platform = services.resourcePlatforms.platform(browser.provider)
+        if (!platform.isAvailable || !platform.supports(browser.type)) return
+        resourceSearchJob?.cancel()
+        resourceSearchJob = scope.launch {
+            mutableState.value = mutableState.value.copy(
+                resourceBrowser = browser.copy(
+                    isSearching = true,
+                    projects = if (append) browser.projects else emptyList(),
+                    totalProjects = if (append) browser.totalProjects else 0,
+                    selectedProjectId = if (append) browser.selectedProjectId else null,
+                    versions = if (append) browser.versions else emptyList(),
+                    selectedVersionId = if (append) browser.selectedVersionId else null,
+                    selectedOptionalDependencies = if (append) browser.selectedOptionalDependencies else emptySet(),
+                    error = null,
+                ),
+            )
+            try {
+                val instance = mutableState.value.selectedInstance
+                val result = platform.search(
+                    ResourceSearchRequest(
+                        query = browser.query,
+                        type = browser.type,
+                        gameVersion = if (browser.type == ResourceType.MODPACK) null else instance?.minecraftVersionId,
+                        loader = if (browser.type == ResourceType.MODPACK) null else instance?.modLoader,
+                        offset = if (append) browser.projects.size else 0,
+                    ),
+                )
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        projects = if (append) browser.projects + result.projects else result.projects,
+                        totalProjects = result.total,
+                        isSearching = false,
+                        error = if (result.projects.isEmpty() && !append) "No resources matched these filters." else null,
+                    ),
+                )
+            } catch (_: CancellationException) {
+                return@launch
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(
+                    resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        isSearching = false,
+                        error = error.message ?: "Resources could not be loaded.",
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun updateResourceProgress(progress: net.blockhost.trestle.download.DownloadProgress) {
+        val current = mutableState.value.operation ?: return
+        mutableState.value = mutableState.value.copy(
+            operation = current.copy(
+                detail = progress.activeLabel,
+                completed = progress.completedBytes,
+                total = progress.totalBytes,
+                completedItems = progress.completedFiles,
+                totalItems = progress.totalFiles,
+                cancellable = !progress.isFinalizing,
+            ),
+        )
     }
 
     private fun loadFabricVersions() {

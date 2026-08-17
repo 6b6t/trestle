@@ -1,6 +1,7 @@
 package net.blockhost.trestle.app
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.app.ActivityManager
 import eu.anifantakis.lib.ksafe.KSafe
@@ -19,6 +20,7 @@ import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.resources.JvmArchiveExtractor
 import net.blockhost.trestle.runtime.AndroidMinecraftRuntime
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.Path.Companion.toPath
@@ -66,5 +68,11 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
             bedrockConfiguration = OfficialMinecraftApplications.bedrockAndroid,
             nowMillis = System::currentTimeMillis,
         ),
+        curseForgeApiKey = context.packageManager
+            .getApplicationInfo(context.packageName, PackageManager.GET_META_DATA)
+            .metaData
+            ?.getString("net.blockhost.trestle.CURSEFORGE_API_KEY")
+            .orEmpty(),
+        archiveExtractor = JvmArchiveExtractor(),
     ) { _, _, _, _, _ -> AndroidMinecraftRuntime() }
 }

@@ -16,6 +16,9 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = trestleVersionCode.get()
         versionName = trestleVersion.get()
+        manifestPlaceholders["curseForgeApiKey"] = providers.environmentVariable("TRESTLE_CURSEFORGE_API_KEY")
+            .orElse("")
+            .get()
     }
 }
 

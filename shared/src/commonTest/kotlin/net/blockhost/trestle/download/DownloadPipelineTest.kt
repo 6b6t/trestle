@@ -16,6 +16,7 @@ import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.logging.LogLevel
 import net.blockhost.trestle.logging.LogSink
 import okio.Path.Companion.toPath
+import okio.ByteString.Companion.encodeUtf8
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -35,6 +36,35 @@ class DownloadPipelineTest {
         assertFailsWith<LauncherException.ChecksumMismatch> {
             pipeline.validate(path, "0000000000000000000000000000000000000000")
         }
+    }
+
+    @Test
+    fun replacesCachedFileWhenSha512DoesNotMatch() = runTest {
+        val fileSystem = FakeFileSystem()
+        val destination = "/artifact.jar".toPath()
+        fileSystem.write(destination) { writeUtf8("stale") }
+        var requestCount = 0
+        val pipeline = DownloadPipeline(
+            HttpClient(MockEngine {
+                requestCount++
+                respond("fresh")
+            }),
+            fileSystem,
+        )
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest(
+                    url = "https://example.test/artifact",
+                    destination = destination,
+                    sha512 = "fresh".encodeUtf8().sha512().hex(),
+                ),
+            ),
+            stagingDirectory = "/staging".toPath(),
+        )
+
+        assertEquals(1, requestCount)
+        assertEquals("fresh", fileSystem.read(destination) { readUtf8() })
     }
 
     @Test

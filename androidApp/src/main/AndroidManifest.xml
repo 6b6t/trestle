@@ -13,6 +13,9 @@
         android:supportsRtl="true"
         android:theme="@style/TrestleTheme"
         android:usesCleartextTraffic="false">
+        <meta-data
+            android:name="net.blockhost.trestle.CURSEFORGE_API_KEY"
+            android:value="${curseForgeApiKey}" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

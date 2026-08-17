@@ -4,13 +4,15 @@
 
 Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin and Compose Multiplatform.
 
-The first functional milestone provides:
+Trestle provides:
 
 - Isolated, persisted Minecraft instances with atomic registry writes.
 - Vanilla and Fabric metadata resolution and installation.
 - Verified Mojang asset, library, native, logging, and client downloads.
 - Managed Mojang Java runtimes for desktop launch.
-- Modrinth and CurseForge file resolvers in shared Kotlin code.
+- Modrinth and CurseForge search for mods, modpacks, resource packs, and shaders.
+- Compatible version selection, required dependency resolution, and verified resource downloads.
+- Modrinth and CurseForge modpack installation for Vanilla and Fabric packs.
 - Desktop launch preparation with safe diagnostics and native extraction.
 - An honest Android runtime boundary that does not claim game launch support.
 
@@ -36,6 +38,17 @@ Use the included Gradle wrapper. You do not need a separate Gradle installation.
 ./gradlew :desktopApp:run
 ```
 
+Modrinth works without an access key. CurseForge requires a key that CurseForge issued for Trestle.
+
+If you have an approved Trestle key, set it before you build or run the application:
+
+```bash
+export TRESTLE_CURSEFORGE_API_KEY="your-approved-key"
+./gradlew :desktopApp:run
+```
+
+The Android build reads the same environment variable and adds it to the application manifest. Do not use the key from another launcher.
+
 ## Build the Android app
 
 ```bash
@@ -43,6 +56,8 @@ Use the included Gradle wrapper. You do not need a separate Gradle installation.
 ```
 
 The command creates the debug APK under `androidApp/build/outputs/apk/debug`.
+
+Trestle shows CurseForge as unavailable when the key is not set. Modrinth search and installation remain available.
 
 ## Validate changes
 

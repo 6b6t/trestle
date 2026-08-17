@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -25,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -53,6 +55,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_mark
 import org.jetbrains.compose.resources.painterResource
@@ -63,6 +66,11 @@ import net.blockhost.trestle.auth.MinecraftEdition
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.app.BuildInfo
+import net.blockhost.trestle.resources.ResourceProject
+import net.blockhost.trestle.resources.ResourceProvider
+import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ResourceVersion
+import net.blockhost.trestle.resources.DependencyKind
 
 private enum class Destination(val label: String) {
     LIBRARY("Library"),
@@ -70,6 +78,15 @@ private enum class Destination(val label: String) {
     ACCOUNTS("Accounts"),
     SETTINGS("Settings"),
 }
+
+private val browsableResourceTypes = listOf(
+    ResourceType.MOD,
+    ResourceType.MODPACK,
+    ResourceType.RESOURCE_PACK,
+    ResourceType.SHADER_PACK,
+)
+
+private val installableResourceTypes = browsableResourceTypes.toSet()
 
 @Composable
 fun TrestleApp(viewModel: LauncherViewModel) {
@@ -88,13 +105,13 @@ fun TrestleApp(viewModel: LauncherViewModel) {
                 state.operation?.let {
                     OperationBar(
                         it,
-                        viewModel::cancelInstall,
+                        viewModel::cancelActiveOperation,
                         Modifier.align(Alignment.BottomCenter).padding(bottom = if (compact) 64.dp else 0.dp),
                     )
                 }
             }
             if (state.create.visible) CreateInstanceDialog(state, viewModel)
-            if (state.modInstall.visible) ModInstallDialog(state, viewModel)
+            if (state.resourceBrowser.visible) ResourceBrowserDialog(state, viewModel)
             if (state.instanceSettings.visible) InstanceSettingsDialog(state, viewModel)
             if (state.accountLogin.visible) AccountLoginDialog(state, viewModel)
         }
@@ -123,7 +140,7 @@ private fun WideLayout(
                 VerticalDivider(color = Rule)
                 DetailsPane(state, Modifier.width(360.dp), viewModel)
             }
-            Destination.DISCOVER -> ModsPage(Modifier.weight(1f))
+            Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.weight(1f), viewModel)
             Destination.ACCOUNTS -> AccountsPage(state, Modifier.weight(1f), viewModel)
             Destination.SETTINGS -> SettingsPage(state, Modifier.weight(1f), viewModel)
         }
@@ -164,7 +181,7 @@ private fun CompactLayout(
     ) { padding ->
         when (destination) {
             Destination.LIBRARY -> CompactLibrary(state, padding, viewModel)
-            Destination.DISCOVER -> ModsPage(Modifier.padding(padding))
+            Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.padding(padding), viewModel)
             Destination.ACCOUNTS -> AccountsPage(state, Modifier.padding(padding), viewModel)
             Destination.SETTINGS -> SettingsPage(state, Modifier.padding(padding), viewModel)
         }
@@ -448,15 +465,12 @@ private fun DetailsPane(
         }
 
         if (!compact) Spacer(Modifier.weight(1f)) else Spacer(Modifier.height(24.dp))
-        if (
-            instance.modLoader == ModLoader.FABRIC &&
-            instance.installationState is InstallationState.Installed
-        ) {
+        if (instance.installationState is InstallationState.Installed) {
             OutlinedButton(
-                onClick = viewModel::openModInstall,
+                onClick = { viewModel.openResourceBrowser() },
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 shape = RoundedCornerShape(8.dp),
-            ) { Text("Add mod") }
+            ) { Text("Add content") }
         }
         OutlinedButton(
             onClick = viewModel::openInstanceSettings,
@@ -560,57 +574,318 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
 }
 
 @Composable
-private fun ModInstallDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
-    val form = state.modInstall
-    Dialog(onDismissRequest = viewModel::closeModInstall) {
-        Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 480.dp)) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Add mod", style = MaterialTheme.typography.headlineMedium)
-                Text(
-                    "Enter a project slug or ID. Trestle selects the newest file for this Minecraft version and loader.",
-                    color = Muted,
-                )
-                Selector(
-                    label = "Provider",
-                    value = form.provider.label,
-                    values = ModProvider.entries.map { it.label },
-                    onSelect = { label ->
-                        viewModel.setModProvider(ModProvider.entries.first { it.label == label })
-                    },
-                )
-                TextField(
-                    value = form.projectId,
-                    onValueChange = viewModel::setModProjectId,
-                    label = { Text("Project slug or ID") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                if (form.provider == ModProvider.CURSEFORGE) {
-                    TextField(
-                        value = form.curseForgeApiKey.reveal(),
-                        onValueChange = viewModel::setCurseForgeApiKey,
-                        label = { Text("CurseForge API key") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Text("The key stays in memory for this download and is not written to the instance.", color = Muted)
+private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+    val browser = state.resourceBrowser
+    Dialog(
+        onDismissRequest = viewModel::closeResourceBrowser,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            color = Surface,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Browse content", style = MaterialTheme.typography.headlineMedium)
+                        val instance = state.selectedInstance
+                        Text(
+                            if (browser.type == ResourceType.MODPACK) {
+                                "Modpacks create a new instance."
+                            } else if (instance == null) {
+                                "Select an installed instance to add content."
+                            } else {
+                                "Compatible with ${instance.minecraftVersionId} · ${instance.modLoader.label}"
+                            },
+                            color = Muted,
+                        )
+                    }
+                    TextButton(onClick = viewModel::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = viewModel::closeModInstall) { Text("Cancel") }
-                    Button(
-                        onClick = viewModel::installMod,
-                        enabled = form.projectId.isNotBlank() &&
-                            (form.provider != ModProvider.CURSEFORGE || !form.curseForgeApiKey.isBlank()) &&
-                            !form.isInstalling,
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        if (form.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text("Download mod")
+                HorizontalDivider(color = Rule)
+                ResourceBrowserToolbar(browser, viewModel)
+                browser.error?.let { InlineMessage(it, true, null) }
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    if (maxWidth < 720.dp) {
+                        Column(Modifier.fillMaxSize()) {
+                            ResourceResultList(browser, viewModel, Modifier.weight(1f))
+                            HorizontalDivider(color = Rule)
+                            ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.heightIn(max = 300.dp))
+                        }
+                    } else {
+                        Row(Modifier.fillMaxSize()) {
+                            ResourceResultList(browser, viewModel, Modifier.weight(3f))
+                            VerticalDivider(color = Rule)
+                            ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(2f))
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            TextField(
+                value = browser.query,
+                onValueChange = viewModel::setResourceQuery,
+                label = { Text("Search") },
+                singleLine = true,
+                modifier = Modifier.weight(1f),
+            )
+            Button(
+                onClick = viewModel::searchResources,
+                enabled = !browser.isSearching,
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+            ) { Text("Search") }
+        }
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            if (maxWidth < 600.dp) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ResourceProviderButtons(browser, viewModel)
+                    Selector(
+                        label = "Content type",
+                        value = browser.type.label,
+                        values = browsableResourceTypes.map { it.label },
+                        modifier = Modifier.fillMaxWidth(),
+                        onSelect = { label -> viewModel.setResourceType(browsableResourceTypes.first { it.label == label }) },
+                    )
+                }
+            } else {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ResourceProviderButtons(browser, viewModel)
+                    Spacer(Modifier.weight(1f))
+                    Selector(
+                        label = "Content type",
+                        value = browser.type.label,
+                        values = browsableResourceTypes.map { it.label },
+                        modifier = Modifier.width(190.dp),
+                        onSelect = { label -> viewModel.setResourceType(browsableResourceTypes.first { it.label == label }) },
+                    )
+                }
+            }
+        }
+        if (!browser.curseForgeAvailable) {
+            Text("CurseForge requires a Trestle API key configured by the application build.", color = Muted)
+        }
+    }
+}
+
+@Composable
+private fun ResourceProviderButtons(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ResourceProvider.entries.forEach { provider ->
+            val available = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable
+            OutlinedButton(
+                onClick = { viewModel.setResourceProvider(provider) },
+                enabled = available,
+                shape = RoundedCornerShape(8.dp),
+                colors = if (browser.provider == provider) {
+                    ButtonDefaults.outlinedButtonColors(containerColor = RaisedSurface, contentColor = Chalk)
+                } else {
+                    ButtonDefaults.outlinedButtonColors(contentColor = Muted)
+                },
+            ) { Text(provider.label) }
+        }
+    }
+}
+
+@Composable
+private fun ResourceResultList(
+    browser: ResourceBrowserState,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+) {
+    when {
+        browser.isSearching && browser.projects.isEmpty() -> LoadingRows(modifier)
+        browser.projects.isEmpty() -> Column(
+            modifier.padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("No results", style = MaterialTheme.typography.titleLarge)
+            Text("Change the search or content type.", color = Muted)
+        }
+        else -> LazyColumn(
+            modifier = modifier,
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            items(browser.projects, key = { "${it.provider.name}:${it.id}" }) { project ->
+                ResourceProjectRow(
+                    project = project,
+                    selected = browser.selectedProjectId == project.id,
+                    onClick = { viewModel.selectResource(project.id) },
+                )
+            }
+            if (browser.projects.size < browser.totalProjects) {
+                item("load-more") {
+                    TextButton(
+                        onClick = viewModel::loadMoreResources,
+                        enabled = !browser.isSearching,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) { Text(if (browser.isSearching) "Loading" else "Load more") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(if (selected) RaisedSurface else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(project.name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Text(formatDownloads(project.downloads), color = Muted, style = MaterialTheme.typography.labelMedium)
+        }
+        Text("by ${project.author.ifBlank { project.provider.label }}", color = Ochre, style = MaterialTheme.typography.labelMedium)
+        Text(project.summary, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun ResourceSelection(
+    browser: ResourceBrowserState,
+    instance: GameInstance?,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+) {
+    val project = browser.selectedProject
+    val uriHandler = LocalUriHandler.current
+    Column(
+        modifier.fillMaxHeight().padding(20.dp).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        if (project == null) {
+            Text("Select a result", style = MaterialTheme.typography.titleLarge)
+            Text("Available versions and installation details will appear here.", color = Muted)
+            return@Column
+        }
+        Text(project.name, style = MaterialTheme.typography.titleLarge)
+        Text(project.summary, color = Muted)
+        project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
+            TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("Open project page") }
+        }
+        if (browser.isLoadingVersions) {
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Ochre)
+        } else if (browser.versions.isNotEmpty()) {
+            ResourceVersionPicker(browser, viewModel)
+        }
+        val version = browser.selectedVersion
+        version?.let {
+            ResourceVersionDetails(it)
+            val optionalDependencies = it.dependencies.filter { dependency -> dependency.kind == DependencyKind.OPTIONAL }
+            if (optionalDependencies.isNotEmpty()) {
+                Text("Optional dependencies", style = MaterialTheme.typography.titleMedium)
+                optionalDependencies.forEach { dependency ->
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Checkbox(
+                            checked = dependency.selectionKey in browser.selectedOptionalDependencies,
+                            onCheckedChange = { viewModel.toggleOptionalDependency(dependency.selectionKey) },
+                            enabled = dependency.selectionKey.isNotBlank(),
+                        )
+                        Text(
+                            dependency.fileName ?: dependency.projectId ?: dependency.versionId ?: "External dependency",
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(8.dp))
+        val supportedType = project.type in installableResourceTypes
+        val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
+        val selectedFile = version?.primaryFile
+        val downloadable = selectedFile?.url != null || selectedFile?.sha1 != null
+        if (!supportedType) Text("This content type cannot be installed into an instance yet.", color = ErrorText)
+        if (selectedFile?.url == null && selectedFile?.sha1 != null) {
+            Text("CurseForge blocks this file. Trestle will look for the identical file on Modrinth.", color = Muted)
+        } else if (version != null && !downloadable) {
+            Text("The author blocks downloads from third-party launchers.", color = ErrorText)
+        }
+        if (
+            project.provider == ResourceProvider.CURSEFORGE &&
+            selectedFile?.url == null &&
+            selectedFile?.id != null &&
+            project.websiteUrl != null
+        ) {
+            val manualUrl = "${project.websiteUrl.trimEnd('/')}/download/${selectedFile.id}"
+            OutlinedButton(
+                onClick = { uriHandler.openUri(manualUrl) },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+            ) { Text("Open manual download") }
+        }
+        Button(
+            onClick = viewModel::installSelectedResource,
+            enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) {
+            if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+            else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+        }
+    }
+}
+
+@Composable
+private fun ResourceVersionPicker(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = browser.selectedVersion
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("Version", color = Muted, style = MaterialTheme.typography.labelMedium)
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+            ) { Text(selected?.versionNumber ?: "Select version", modifier = Modifier.weight(1f)) }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                browser.versions.forEach { version ->
+                    DropdownMenuItem(
+                        text = { Text("${version.versionNumber} · ${version.channel.label}") },
+                        onClick = {
+                            expanded = false
+                            viewModel.selectResourceVersion(version.id)
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceVersionDetails(version: ResourceVersion) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PropertyRow("Channel", version.channel.label)
+        PropertyRow("Minecraft", version.gameVersions.take(4).joinToString().ifBlank { "Pack manifest" })
+        if (version.loaders.isNotEmpty()) PropertyRow("Loaders", version.loaders.joinToString())
+        val required = version.dependencies.count { it.kind == DependencyKind.REQUIRED }
+        if (required > 0) PropertyRow("Dependencies", "$required required")
     }
 }
 
@@ -673,10 +948,11 @@ private fun Selector(
     value: String,
     values: List<String>,
     enabled: Boolean = true,
+    modifier: Modifier = Modifier,
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, color = Muted, style = MaterialTheme.typography.labelMedium)
         Box {
             OutlinedButton(
@@ -727,18 +1003,33 @@ private fun LoadingRows(modifier: Modifier) {
 }
 
 @Composable
-private fun ModsPage(modifier: Modifier) {
+private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
     Column(modifier.fillMaxSize()) {
-        PageHeader("Mods") {}
+        PageHeader("Discover") {
+            Button(
+                onClick = { viewModel.openResourceBrowser() },
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+            ) { Text("Browse content") }
+        }
         HorizontalDivider(color = Rule)
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Mod downloads", style = MaterialTheme.typography.titleLarge)
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Mods, packs, and shaders", style = MaterialTheme.typography.titleLarge)
             Text(
-                "The shared launcher core can resolve compatible files from Modrinth and CurseForge. " +
-                    "Open an installed Fabric instance and select Add mod. CurseForge needs your own API key.",
+                state.selectedInstance?.let {
+                    "Browse content compatible with ${it.displayName}, or choose a modpack to create another instance."
+                } ?: "Browse Modrinth modpacks now. Select an instance before adding individual resources.",
                 color = Muted,
                 modifier = Modifier.widthIn(max = 640.dp),
             )
+            Spacer(Modifier.height(16.dp))
+            OutlinedButton(onClick = { viewModel.openResourceBrowser(ResourceType.MODPACK) }, shape = RoundedCornerShape(8.dp)) {
+                Text("Browse modpacks")
+            }
         }
     }
 }
@@ -1120,6 +1411,13 @@ private fun formatUtcTime(epochMillis: Long): String {
     return "${hours.toString().padStart(2, '0')}:" +
         "${minutes.toString().padStart(2, '0')}:" +
         "${remainingSeconds.toString().padStart(2, '0')}Z"
+}
+
+private fun formatDownloads(downloads: Long): String = when {
+    downloads >= 1_000_000_000L -> "${downloads / 100_000_000L / 10.0}B downloads"
+    downloads >= 1_000_000L -> "${downloads / 100_000L / 10.0}M downloads"
+    downloads >= 1_000L -> "${downloads / 100L / 10.0}K downloads"
+    else -> "$downloads downloads"
 }
 
 @Composable

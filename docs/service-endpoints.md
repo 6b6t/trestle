@@ -47,25 +47,66 @@ GET https://meta.fabricmc.net/v2/versions/loader/{game-version}/{loader-version}
 
 The installer merges the Fabric profile with the matching Mojang version. Mojang remains the source for the client, assets, and base libraries.
 
-## Modrinth
+## Resource platforms
+
+Trestle uses one resource model for projects, versions, files, and dependencies. The model supports mods, modpacks, resource packs, and shaders.
+
+Search results use the selected instance version and loader. Modpack searches do not use an instance filter because each pack creates an instance.
+
+Trestle validates SHA-1 values when a platform supplies them. It also records files that belong to each installed project.
+
+### Modrinth
 
 The [Modrinth API](https://docs.modrinth.com/api/) returns project versions and file hashes. Trestle filters versions by Minecraft version and loader.
 
 ```text
-GET https://api.modrinth.com/v2/project/{project-id}/version
+GET https://api.modrinth.com/v2/search
+GET https://api.modrinth.com/v2/project/{project-id-or-slug}/version
+GET https://api.modrinth.com/v2/version/{version-id}
+GET https://api.modrinth.com/v2/version_file/{sha1}?algorithm=sha1
 ```
 
-The client sends a Trestle user agent. It selects the primary file when the response marks one.
+The client sends the Trestle user agent. Search facets filter the project type, Minecraft version, and loader.
 
-## CurseForge
+The client selects the primary file. It resolves required dependencies before it starts a resource download.
 
-The [CurseForge REST API](https://docs.curseforge.com/rest-api/) requires an `x-api-key` header. Trestle accepts a user-supplied key and never embeds one.
+### CurseForge
+
+The [CurseForge REST API](https://docs.curseforge.com/rest-api/) requires an `x-api-key` header. CurseForge must issue this key for Trestle.
+
+Set `TRESTLE_CURSEFORGE_API_KEY` before you run a desktop build. The Android build adds the same value to its application manifest.
+
+Do not copy the key from Prism Launcher or another application. CurseForge issues each key for one application.
 
 ```text
+GET https://api.curseforge.com/v1/mods/search
 GET https://api.curseforge.com/v1/mods/{mod-id}/files
+GET https://api.curseforge.com/v1/mods/{mod-id}/files/{file-id}
 ```
 
-Some authors disable third-party downloads. Trestle reports this state when the API does not return a download URL.
+CurseForge uses numeric project IDs. Trestle gets these IDs from search results, so users do not enter raw IDs.
+
+Some authors disable third-party downloads. In this case, the API returns file metadata without a download URL.
+
+If the file has a SHA-1, Trestle searches Modrinth for the identical file. Trestle uses the alternative only when both hashes match.
+
+If no verified alternative exists, Trestle stops the installation and offers the official manual-download page. It does not scrape a restricted URL.
+
+### Resource installation
+
+Mods go in the instance `mods` directory. Resource packs and shaders go in their standard game directories.
+
+Trestle downloads required dependencies in the same operation. The instance resource registry tracks direct projects and shared dependencies.
+
+### Modpack installation
+
+Trestle reads `modrinth.index.json` from Modrinth packs. It reads `manifest.json` from CurseForge packs.
+
+The archive extractor rejects paths outside the staging directory. It also limits the number of entries and the extracted size.
+
+Trestle downloads pack files before it creates the instance. A canceled download does not leave an incomplete instance in the library.
+
+Trestle currently installs Vanilla and Fabric packs. Forge, NeoForge, and Quilt packs remain visible, but installation stops with a loader error.
 
 ## Microsoft authentication
 

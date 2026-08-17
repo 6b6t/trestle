@@ -16,6 +16,7 @@ import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.resources.JvmArchiveExtractor
 import net.blockhost.trestle.runtime.DesktopMinecraftRuntime
 import net.blockhost.trestle.runtime.MojangJavaResolver
 import net.blockhost.trestle.runtime.SystemProfile
@@ -56,6 +57,9 @@ fun createDesktopLauncherServices(): LauncherServices {
             bedrockConfiguration = OfficialMinecraftApplications.bedrockDesktop,
             nowMillis = System::currentTimeMillis,
         ),
+        curseForgeApiKey = System.getenv("TRESTLE_CURSEFORGE_API_KEY")
+            ?: System.getProperty("trestle.curseforge.apiKey").orEmpty(),
+        archiveExtractor = JvmArchiveExtractor(),
     ) { directories, installer, sessionProvider, logger, downloadPipeline ->
         DesktopMinecraftRuntime(
             environment = environment,
