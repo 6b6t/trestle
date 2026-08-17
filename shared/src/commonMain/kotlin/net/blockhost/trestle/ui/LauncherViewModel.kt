@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.app.LauncherServices
 import net.blockhost.trestle.auth.ManagedAccount
@@ -149,19 +150,21 @@ class LauncherViewModel(
     init {
         scope.launch {
             services.repository.instances.collectLatest { instances ->
-                val selected = mutableState.value.selectedId?.takeIf { id -> instances.any { it.id == id } }
-                    ?: instances.firstOrNull()?.id
-                mutableState.value = mutableState.value.copy(instances = instances, selectedId = selected)
+                mutableState.update { state ->
+                    val selected = state.selectedId?.takeIf { id -> instances.any { it.id == id } }
+                        ?: instances.firstOrNull()?.id
+                    state.copy(instances = instances, selectedId = selected)
+                }
             }
         }
         scope.launch {
             services.accounts.accounts.collectLatest { accounts ->
-                mutableState.value = mutableState.value.copy(accounts = accounts)
+                mutableState.update { it.copy(accounts = accounts) }
             }
         }
         scope.launch {
             services.logger.entries.collectLatest { logs ->
-                mutableState.value = mutableState.value.copy(logs = logs)
+                mutableState.update { it.copy(logs = logs) }
             }
         }
         initialize()
@@ -169,101 +172,107 @@ class LauncherViewModel(
 
     fun initialize() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(
-                isInitializing = true,
-                error = null,
-                operation = OperationStatus("Loading launcher data"),
-            )
+            mutableState.update {
+                it.copy(
+                    isInitializing = true,
+                    error = null,
+                    operation = OperationStatus("Loading launcher data"),
+                )
+            }
             runCatching {
                 services.repository.initialize()
                 services.accounts.initialize()
             }
                 .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
-            mutableState.value = mutableState.value.copy(isInitializing = false, operation = null)
+            mutableState.update { it.copy(isInitializing = false, operation = null) }
             refreshVersions()
         }
     }
 
     fun refreshVersions() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(
-                isLoadingVersions = true,
-                error = null,
-                operation = OperationStatus("Refreshing Minecraft versions"),
-            )
+            mutableState.update {
+                it.copy(
+                    isLoadingVersions = true,
+                    error = null,
+                    operation = OperationStatus("Refreshing Minecraft versions"),
+                )
+            }
             try {
                 val manifest = services.metadataClient.fetchVersionManifest()
                 val versions = manifest.versions.filter { it.type == "release" || it.type == "snapshot" }
                 val defaultVersion = versions.firstOrNull { it.id == manifest.latest.release }?.id
                     ?: versions.firstOrNull()?.id.orEmpty()
-                mutableState.value = mutableState.value.copy(
-                    versions = versions,
-                    isLoadingVersions = false,
-                    create = mutableState.value.create.copy(
-                        versionId = mutableState.value.create.versionId.ifBlank { defaultVersion },
-                    ),
-                    operation = null,
-                )
+                mutableState.update { state ->
+                    state.copy(
+                        versions = versions,
+                        isLoadingVersions = false,
+                        create = state.create.copy(
+                            versionId = state.create.versionId.ifBlank { defaultVersion },
+                        ),
+                        operation = null,
+                    )
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(isLoadingVersions = false, operation = null)
+                mutableState.update { it.copy(isLoadingVersions = false, operation = null) }
                 showError(error, ErrorRecoveryAction.REFRESH_VERSIONS)
             }
         }
     }
 
     fun selectInstance(id: InstanceId) {
-        mutableState.value = mutableState.value.copy(selectedId = id, notice = null, launchPlan = null)
+        mutableState.update { it.copy(selectedId = id, notice = null, launchPlan = null) }
     }
 
     fun openCreate() {
         val defaultVersion = mutableState.value.create.versionId.ifBlank {
             mutableState.value.versions.firstOrNull()?.id.orEmpty()
         }
-        mutableState.value = mutableState.value.copy(
-            create = CreateInstanceState(visible = true, versionId = defaultVersion),
-            error = null,
-        )
+        mutableState.update {
+            it.copy(
+                create = CreateInstanceState(visible = true, versionId = defaultVersion),
+                error = null,
+            )
+        }
     }
 
     fun closeCreate() {
-        mutableState.value = mutableState.value.copy(create = CreateInstanceState())
+        mutableState.update { it.copy(create = CreateInstanceState()) }
     }
 
     fun setCreateName(value: String) {
-        mutableState.value = mutableState.value.copy(create = mutableState.value.create.copy(name = value))
+        mutableState.update { it.copy(create = it.create.copy(name = value)) }
     }
 
     fun setCreateVersion(value: String) {
-        mutableState.value = mutableState.value.copy(
-            create = mutableState.value.create.copy(versionId = value, loaderVersion = null),
-        )
+        mutableState.update { it.copy(create = it.create.copy(versionId = value, loaderVersion = null)) }
         if (mutableState.value.create.modLoader == ModLoader.FABRIC) loadFabricVersions()
     }
 
     fun setCreateLoader(value: ModLoader) {
-        mutableState.value = mutableState.value.copy(
-            create = mutableState.value.create.copy(
-                modLoader = value,
-                loaderVersion = null,
-                loaderVersions = emptyList(),
-            ),
-        )
+        mutableState.update {
+            it.copy(
+                create = it.create.copy(
+                    modLoader = value,
+                    loaderVersion = null,
+                    loaderVersions = emptyList(),
+                ),
+            )
+        }
         if (value == ModLoader.FABRIC) loadFabricVersions()
     }
 
     fun setCreateLoaderVersion(value: String) {
-        mutableState.value = mutableState.value.copy(
-            create = mutableState.value.create.copy(loaderVersion = value),
-        )
+        mutableState.update { it.copy(create = it.create.copy(loaderVersion = value)) }
     }
 
     fun createInstance() {
         val form = mutableState.value.create
         if (form.name.isBlank() || form.versionId.isBlank()) return
         scope.launch {
-            mutableState.value = mutableState.value.copy(create = form.copy(isSaving = true), error = null)
+            mutableState.update { it.copy(create = form.copy(isSaving = true), error = null) }
             try {
                 val metadata = services.metadataClient.resolveVersion(form.versionId)
                 val instance = services.repository.create(
@@ -276,15 +285,17 @@ class LauncherViewModel(
                         memory = LaunchTuningAdvisor.recommendMemory(form.modLoader, services.systemProfile),
                     ),
                 )
-                mutableState.value = mutableState.value.copy(
-                    selectedId = instance.id,
-                    create = CreateInstanceState(),
-                    notice = "Instance created. Install its game files when you are ready.",
-                )
+                mutableState.update {
+                    it.copy(
+                        selectedId = instance.id,
+                        create = CreateInstanceState(),
+                        notice = "Instance created. Install its game files when you are ready.",
+                    )
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(create = form.copy(isSaving = false))
+                mutableState.update { it.copy(create = form.copy(isSaving = false)) }
                 showError(error)
             }
         }
@@ -295,44 +306,50 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         val resuming = instance.installationState is InstallationState.Interrupted
         installJob = scope.launch {
-            mutableState.value = mutableState.value.copy(
-                error = null,
-                notice = null,
-                launchPlan = null,
-                operation = OperationStatus(
-                    if (resuming) "Preparing installation resume" else "Preparing installation",
-                    instance.displayName,
-                    cancellable = true,
-                ),
-            )
+            mutableState.update {
+                it.copy(
+                    error = null,
+                    notice = null,
+                    launchPlan = null,
+                    operation = OperationStatus(
+                        if (resuming) "Preparing installation resume" else "Preparing installation",
+                        instance.displayName,
+                        cancellable = true,
+                    ),
+                )
+            }
             try {
                 services.installer.install(instance) { progress ->
-                    mutableState.value = mutableState.value.copy(
-                        operation = OperationStatus(
-                            title = if (progress.isFinalizing) {
-                                "Finalizing ${instance.displayName}"
-                            } else if (resuming) {
-                                "Resuming ${instance.displayName}"
-                            } else {
-                                "Installing ${instance.displayName}"
-                            },
-                            detail = progress.activeLabel,
-                            completed = progress.completedBytes,
-                            total = progress.totalBytes,
-                            completedItems = progress.completedFiles,
-                            totalItems = progress.totalFiles,
-                            cancellable = !progress.isFinalizing,
-                        ),
+                    mutableState.update {
+                        it.copy(
+                            operation = OperationStatus(
+                                title = if (progress.isFinalizing) {
+                                    "Finalizing ${instance.displayName}"
+                                } else if (resuming) {
+                                    "Resuming ${instance.displayName}"
+                                } else {
+                                    "Installing ${instance.displayName}"
+                                },
+                                detail = progress.activeLabel,
+                                completed = progress.completedBytes,
+                                total = progress.totalBytes,
+                                completedItems = progress.completedFiles,
+                                totalItems = progress.totalFiles,
+                                cancellable = !progress.isFinalizing,
+                            ),
+                        )
+                    }
+                }
+                mutableState.update { it.copy(notice = "Installation is complete.", operation = null) }
+            } catch (_: CancellationException) {
+                mutableState.update {
+                    it.copy(
+                        notice = "Installation paused. Resume it when you are ready.",
+                        operation = null,
                     )
                 }
-                mutableState.value = mutableState.value.copy(notice = "Installation is complete.", operation = null)
-            } catch (_: CancellationException) {
-                mutableState.value = mutableState.value.copy(
-                    notice = "Installation paused. Resume it when you are ready.",
-                    operation = null,
-                )
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update { it.copy(operation = null) }
                 showError(error, ErrorRecoveryAction.RETRY_INSTALLATION)
             } finally {
                 installJob = null
@@ -359,10 +376,12 @@ class LauncherViewModel(
                     ),
                 ),
             )
-            mutableState.value = mutableState.value.copy(
-                notice = "Installation paused. Resume it when you are ready.",
-                operation = null,
-            )
+            mutableState.update {
+                it.copy(
+                    notice = "Installation paused. Resume it when you are ready.",
+                    operation = null,
+                )
+            }
         }
     }
 
@@ -372,27 +391,29 @@ class LauncherViewModel(
         try {
             val installed = services.installer.readInstalledVersion(instance)
             val activeAccount = mutableState.value.accounts.firstOrNull { it.isActive }
-            mutableState.value = mutableState.value.copy(
-                launchPlan = LaunchPlanSummary(
-                    mainClass = installed.metadata.mainClass,
-                    javaMajor = installed.requiredJavaMajor,
-                    classpathEntries = installed.libraries.count { !it.native } + 1,
-                    nativeLibraries = installed.libraries.count { it.native },
-                    workingDirectory = "${instance.instanceDirectory}/game",
-                    authentication = when {
-                        activeAccount == null -> "Sign-in required"
-                        activeAccount.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
-                            "${activeAccount.profile.playerName} · Offline"
-                        activeAccount.isAuthenticated && activeAccount.profile.edition == MinecraftEdition.JAVA ->
-                            activeAccount.profile.playerName
-                        activeAccount.profile.edition == MinecraftEdition.BEDROCK ->
-                            "Select a Java account"
-                        else -> "${activeAccount.profile.playerName} · Sign-in expired"
-                    },
-                ),
-                notice = null,
-                error = null,
-            )
+            mutableState.update {
+                it.copy(
+                    launchPlan = LaunchPlanSummary(
+                        mainClass = installed.metadata.mainClass,
+                        javaMajor = installed.requiredJavaMajor,
+                        classpathEntries = installed.libraries.count { !it.native } + 1,
+                        nativeLibraries = installed.libraries.count { it.native },
+                        workingDirectory = "${instance.instanceDirectory}/game",
+                        authentication = when {
+                            activeAccount == null -> "Sign-in required"
+                            activeAccount.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
+                                "${activeAccount.profile.playerName} · Offline"
+                            activeAccount.isAuthenticated && activeAccount.profile.edition == MinecraftEdition.JAVA ->
+                                activeAccount.profile.playerName
+                            activeAccount.profile.edition == MinecraftEdition.BEDROCK ->
+                                "Select a Java account"
+                            else -> "${activeAccount.profile.playerName} · Sign-in expired"
+                        },
+                    ),
+                    notice = null,
+                    error = null,
+                )
+            }
         } catch (error: Exception) {
             showError(error)
         }
@@ -401,58 +422,56 @@ class LauncherViewModel(
     fun validateLaunch() {
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
-            mutableState.value = mutableState.value.copy(
-                operation = OperationStatus(
-                    "Preparing launch",
-                    "Downloading Mojang's Java runtime when needed",
-                ),
-                error = null,
-                errorRecovery = null,
-                notice = null,
-            )
-            try {
-                val prepared = services.runtime.prepare(instance)
-                mutableState.value = mutableState.value.copy(
-                    notice = if (prepared.missingRequirements.isEmpty()) {
-                        "The instance is ready to launch."
-                    } else {
-                        "The launch plan is valid. Select a ready Java account before launch."
-                    },
-                    operation = null,
+            mutableState.update {
+                it.copy(
+                    operation = OperationStatus(
+                        "Preparing launch",
+                        "Downloading Mojang's Java runtime when needed",
+                    ),
                     error = null,
                     errorRecovery = null,
+                    notice = null,
                 )
+            }
+            try {
+                val prepared = services.runtime.prepare(instance)
+                mutableState.update {
+                    it.copy(
+                        notice = if (prepared.missingRequirements.isEmpty()) {
+                            "The instance is ready to launch."
+                        } else {
+                            "The launch plan is valid. Select a ready Java account before launch."
+                        },
+                        operation = null,
+                        error = null,
+                        errorRecovery = null,
+                    )
+                }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update { it.copy(operation = null) }
                 showError(error)
             }
         }
     }
 
     fun openModInstall() {
-        mutableState.value = mutableState.value.copy(modInstall = ModInstallState(visible = true), error = null)
+        mutableState.update { it.copy(modInstall = ModInstallState(visible = true), error = null) }
     }
 
     fun closeModInstall() {
-        mutableState.value = mutableState.value.copy(modInstall = ModInstallState())
+        mutableState.update { it.copy(modInstall = ModInstallState()) }
     }
 
     fun setModProvider(provider: ModProvider) {
-        mutableState.value = mutableState.value.copy(
-            modInstall = mutableState.value.modInstall.copy(provider = provider),
-        )
+        mutableState.update { it.copy(modInstall = it.modInstall.copy(provider = provider)) }
     }
 
     fun setModProjectId(value: String) {
-        mutableState.value = mutableState.value.copy(
-            modInstall = mutableState.value.modInstall.copy(projectId = value),
-        )
+        mutableState.update { it.copy(modInstall = it.modInstall.copy(projectId = value)) }
     }
 
     fun setCurseForgeApiKey(value: String) {
-        mutableState.value = mutableState.value.copy(
-            modInstall = mutableState.value.modInstall.copy(curseForgeApiKey = SensitiveText(value)),
-        )
+        mutableState.update { it.copy(modInstall = it.modInstall.copy(curseForgeApiKey = SensitiveText(value))) }
     }
 
     fun installMod() {
@@ -460,8 +479,13 @@ class LauncherViewModel(
         val form = mutableState.value.modInstall
         if (form.projectId.isBlank()) return
         scope.launch {
-            mutableState.value = mutableState.value.copy(modInstall = form.copy(isInstalling = true), error = null)
-            mutableState.value = mutableState.value.copy(operation = OperationStatus("Resolving mod download", form.projectId))
+            mutableState.update {
+                it.copy(
+                    modInstall = form.copy(isInstalling = true),
+                    operation = OperationStatus("Resolving mod download", form.projectId),
+                    error = null,
+                )
+            }
             try {
                 val provider = when (form.provider) {
                     ModProvider.MODRINTH -> services.modrinthDownloads
@@ -473,16 +497,19 @@ class LauncherViewModel(
                     loader = instance.modLoader,
                 )
                 services.modInstaller.install(instance, download)
-                mutableState.value = mutableState.value.copy(
-                    modInstall = ModInstallState(),
-                    notice = "${download.fileName} was added to ${instance.displayName}.",
-                    operation = null,
-                )
+                mutableState.update {
+                    it.copy(
+                        modInstall = ModInstallState(),
+                        notice = "${download.fileName} was added to ${instance.displayName}.",
+                        operation = null,
+                    )
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(modInstall = form.copy(isInstalling = false))
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update {
+                    it.copy(modInstall = form.copy(isInstalling = false), operation = null)
+                }
                 showError(error)
             }
         }
@@ -492,21 +519,23 @@ class LauncherViewModel(
         val id = mutableState.value.selectedInstance?.id ?: return
         scope.launch {
             services.repository.delete(id)
-            mutableState.value = mutableState.value.copy(
-                selectedId = null,
-                notice = "Instance removed from the library. Its game directory was kept.",
-                launchPlan = null,
-            )
+            mutableState.update {
+                it.copy(
+                    selectedId = null,
+                    notice = "Instance removed from the library. Its game directory was kept.",
+                    launchPlan = null,
+                )
+            }
         }
     }
 
     fun clearMessage() {
-        mutableState.value = mutableState.value.copy(error = null, errorRecovery = null, notice = null)
+        mutableState.update { it.copy(error = null, errorRecovery = null, notice = null) }
     }
 
     fun retryError() {
         val recovery = mutableState.value.errorRecovery
-        mutableState.value = mutableState.value.copy(error = null, errorRecovery = null)
+        mutableState.update { it.copy(error = null, errorRecovery = null) }
         when (recovery) {
             ErrorRecoveryAction.INITIALIZE -> initialize()
             ErrorRecoveryAction.REFRESH_VERSIONS -> refreshVersions()
@@ -518,54 +547,56 @@ class LauncherViewModel(
     fun openInstanceSettings() {
         val instance = mutableState.value.selectedInstance ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
-        mutableState.value = mutableState.value.copy(
-            instanceSettings = InstanceSettingsState(
-                visible = true,
-                minimumMemoryMiB = instance.memory.minimumMiB.toString(),
-                maximumMemoryMiB = instance.memory.maximumMiB.toString(),
-                jvmArguments = instance.jvmArguments.joinToString(" "),
-                recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
-                warnings = recommendation.warnings,
-            ),
-        )
+        mutableState.update {
+            it.copy(
+                instanceSettings = InstanceSettingsState(
+                    visible = true,
+                    minimumMemoryMiB = instance.memory.minimumMiB.toString(),
+                    maximumMemoryMiB = instance.memory.maximumMiB.toString(),
+                    jvmArguments = instance.jvmArguments.joinToString(" "),
+                    recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
+                    warnings = recommendation.warnings,
+                ),
+            )
+        }
     }
 
     fun closeInstanceSettings() {
-        mutableState.value = mutableState.value.copy(instanceSettings = InstanceSettingsState())
+        mutableState.update { it.copy(instanceSettings = InstanceSettingsState()) }
     }
 
     fun setMinimumMemory(value: String) {
         if (value.all(Char::isDigit)) {
-            mutableState.value = mutableState.value.copy(
-                instanceSettings = mutableState.value.instanceSettings.copy(minimumMemoryMiB = value),
-            )
+            mutableState.update {
+                it.copy(instanceSettings = it.instanceSettings.copy(minimumMemoryMiB = value))
+            }
         }
     }
 
     fun setMaximumMemory(value: String) {
         if (value.all(Char::isDigit)) {
-            mutableState.value = mutableState.value.copy(
-                instanceSettings = mutableState.value.instanceSettings.copy(maximumMemoryMiB = value),
-            )
+            mutableState.update {
+                it.copy(instanceSettings = it.instanceSettings.copy(maximumMemoryMiB = value))
+            }
         }
     }
 
     fun setJvmArguments(value: String) {
-        mutableState.value = mutableState.value.copy(
-            instanceSettings = mutableState.value.instanceSettings.copy(jvmArguments = value),
-        )
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(jvmArguments = value)) }
     }
 
     fun applyRecommendedMemory() {
         val instance = mutableState.value.selectedInstance ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
-        mutableState.value = mutableState.value.copy(
-            instanceSettings = mutableState.value.instanceSettings.copy(
-                minimumMemoryMiB = recommendation.memory.minimumMiB.toString(),
-                maximumMemoryMiB = recommendation.memory.maximumMiB.toString(),
-                warnings = emptyList(),
-            ),
-        )
+        mutableState.update {
+            it.copy(
+                instanceSettings = it.instanceSettings.copy(
+                    minimumMemoryMiB = recommendation.memory.minimumMiB.toString(),
+                    maximumMemoryMiB = recommendation.memory.maximumMiB.toString(),
+                    warnings = emptyList(),
+                ),
+            )
+        }
     }
 
     fun saveInstanceSettings() {
@@ -575,7 +606,7 @@ class LauncherViewModel(
         val maximum = form.maximumMemoryMiB.toIntOrNull() ?: return
         if (minimum <= 0 || maximum < minimum) return
         scope.launch {
-            mutableState.value = mutableState.value.copy(instanceSettings = form.copy(isSaving = true))
+            mutableState.update { it.copy(instanceSettings = form.copy(isSaving = true)) }
             try {
                 val arguments = form.jvmArguments.split(Regex("\\s+")).filter(String::isNotBlank)
                 val review = JvmArgumentPolicy.review(arguments)
@@ -585,16 +616,18 @@ class LauncherViewModel(
                         jvmArguments = review.accepted,
                     ),
                 )
-                mutableState.value = mutableState.value.copy(
-                    instanceSettings = InstanceSettingsState(),
-                    notice = if (review.ignored.isEmpty()) {
-                        "Launch settings saved."
-                    } else {
-                        "Launch settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
-                    },
-                )
+                mutableState.update {
+                    it.copy(
+                        instanceSettings = InstanceSettingsState(),
+                        notice = if (review.ignored.isEmpty()) {
+                            "Launch settings saved."
+                        } else {
+                            "Launch settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
+                        },
+                    )
+                }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(instanceSettings = form.copy(isSaving = false))
+                mutableState.update { it.copy(instanceSettings = form.copy(isSaving = false)) }
                 showError(error)
             }
         }
@@ -607,53 +640,49 @@ class LauncherViewModel(
     }
 
     fun openAccountLogin() {
-        mutableState.value = mutableState.value.copy(accountLogin = AccountLoginState(visible = true), error = null)
+        mutableState.update { it.copy(accountLogin = AccountLoginState(visible = true), error = null) }
     }
 
     fun closeAccountLogin() {
         accountLoginJob?.cancel()
         accountLoginJob = null
-        mutableState.value = mutableState.value.copy(accountLogin = AccountLoginState(), operation = null)
+        mutableState.update { it.copy(accountLogin = AccountLoginState(), operation = null) }
     }
 
     fun setAccountLoginMethod(method: AccountAuthenticationMethod) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(
-                method = method,
-                authorization = null,
-                isWaiting = false,
-            ),
-        )
+        mutableState.update {
+            it.copy(
+                accountLogin = it.accountLogin.copy(
+                    method = method,
+                    authorization = null,
+                    isWaiting = false,
+                ),
+            )
+        }
     }
 
     fun setBedrockGameVersion(value: String) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(bedrockGameVersion = value),
-        )
+        mutableState.update { it.copy(accountLogin = it.accountLogin.copy(bedrockGameVersion = value)) }
     }
 
     fun setAccountEmail(value: String) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(email = value),
-        )
+        mutableState.update { it.copy(accountLogin = it.accountLogin.copy(email = value)) }
     }
 
     fun setAccountPassword(value: String) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(password = SensitiveText(value)),
-        )
+        mutableState.update {
+            it.copy(accountLogin = it.accountLogin.copy(password = SensitiveText(value)))
+        }
     }
 
     fun setImportedAccountSecret(value: String) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(importedSecret = SensitiveText(value)),
-        )
+        mutableState.update {
+            it.copy(accountLogin = it.accountLogin.copy(importedSecret = SensitiveText(value)))
+        }
     }
 
     fun setOfflineUsername(value: String) {
-        mutableState.value = mutableState.value.copy(
-            accountLogin = mutableState.value.accountLogin.copy(offlineUsername = value),
-        )
+        mutableState.update { it.copy(accountLogin = it.accountLogin.copy(offlineUsername = value)) }
     }
 
     fun signInAccount() {
@@ -661,25 +690,29 @@ class LauncherViewModel(
         val form = mutableState.value.accountLogin
         val request = form.toLoginRequest() ?: return
         accountLoginJob = scope.launch {
-            mutableState.value = mutableState.value.copy(
-                accountLogin = form.copy(isWaiting = true),
-                operation = OperationStatus(
-                    if (form.method == AccountAuthenticationMethod.OFFLINE) {
-                        "Adding offline account"
-                    } else {
-                        "Authenticating account"
-                    },
-                ),
-                error = null,
-            )
+            mutableState.update {
+                it.copy(
+                    accountLogin = form.copy(isWaiting = true),
+                    operation = OperationStatus(
+                        if (form.method == AccountAuthenticationMethod.OFFLINE) {
+                            "Adding offline account"
+                        } else {
+                            "Authenticating account"
+                        },
+                    ),
+                    error = null,
+                )
+            }
             try {
                 services.accounts.addAccount(request) { authorization ->
-                    mutableState.value = mutableState.value.copy(
-                        accountLogin = mutableState.value.accountLogin.copy(
-                            authorization = authorization,
-                            isWaiting = true,
-                        ),
-                    )
+                    mutableState.update {
+                        it.copy(
+                            accountLogin = it.accountLogin.copy(
+                                authorization = authorization,
+                                isWaiting = true,
+                            ),
+                        )
+                    }
                 }
                 val activeAccount = services.accounts.accounts.value.firstOrNull { it.isActive }
                 if (form.method.usesOfficialJavaProfile && activeAccount?.isAuthenticated == true) {
@@ -693,22 +726,26 @@ class LauncherViewModel(
                         services.accounts.updateProfile(profile)
                     }
                 }
-                mutableState.value = mutableState.value.copy(
-                    accountLogin = AccountLoginState(),
-                    operation = null,
-                    notice = if (form.method == AccountAuthenticationMethod.OFFLINE) {
-                        "Offline account added. It can only join servers that allow offline identities."
-                    } else {
-                        "Account added."
-                    },
-                )
+                mutableState.update {
+                    it.copy(
+                        accountLogin = AccountLoginState(),
+                        operation = null,
+                        notice = if (form.method == AccountAuthenticationMethod.OFFLINE) {
+                            "Offline account added. It can only join servers that allow offline identities."
+                        } else {
+                            "Account added."
+                        },
+                    )
+                }
             } catch (_: CancellationException) {
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update { it.copy(operation = null) }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(
-                    accountLogin = mutableState.value.accountLogin.copy(isWaiting = false),
-                    operation = null,
-                )
+                mutableState.update {
+                    it.copy(
+                        accountLogin = it.accountLogin.copy(isWaiting = false),
+                        operation = null,
+                    )
+                }
                 showError(error)
             } finally {
                 accountLoginJob = null
@@ -730,7 +767,7 @@ class LauncherViewModel(
 
     fun refreshActiveAccount() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(operation = OperationStatus("Refreshing account profile"))
+            mutableState.update { it.copy(operation = OperationStatus("Refreshing account profile")) }
             try {
                 val session = services.accounts.currentSession()
                     ?: error("The selected account needs to sign in again.")
@@ -741,9 +778,9 @@ class LauncherViewModel(
                     lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
                 )
                 services.accounts.updateProfile(profile)
-                mutableState.value = mutableState.value.copy(operation = null, notice = "Account profile refreshed.")
+                mutableState.update { it.copy(operation = null, notice = "Account profile refreshed.") }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update { it.copy(operation = null) }
                 showError(error)
             }
         }
@@ -751,7 +788,7 @@ class LauncherViewModel(
 
     fun resetActiveSkin() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(operation = OperationStatus("Resetting active skin"))
+            mutableState.update { it.copy(operation = OperationStatus("Resetting active skin")) }
             try {
                 val session = services.accounts.currentSession()
                     ?: error("The selected account needs to sign in again.")
@@ -764,9 +801,9 @@ class LauncherViewModel(
                         lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
                     ),
                 )
-                mutableState.value = mutableState.value.copy(operation = null, notice = "The active skin was reset.")
+                mutableState.update { it.copy(operation = null, notice = "The active skin was reset.") }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(operation = null)
+                mutableState.update { it.copy(operation = null) }
                 showError(error)
             }
         }
@@ -784,35 +821,35 @@ class LauncherViewModel(
         val gameVersion = mutableState.value.create.versionId
         if (gameVersion.isBlank()) return
         scope.launch {
-            mutableState.value = mutableState.value.copy(
-                create = mutableState.value.create.copy(isResolvingLoader = true),
-            )
+            mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = true)) }
             try {
                 val versions = services.fabricMetadataClient.loaderVersions(gameVersion)
                     .sortedWith(compareByDescending<net.blockhost.trestle.metadata.FabricLoaderVersion> { it.stable }.thenByDescending { it.build })
                     .map { it.version }
-                mutableState.value = mutableState.value.copy(
-                    create = mutableState.value.create.copy(
-                        loaderVersions = versions,
-                        loaderVersion = versions.firstOrNull(),
-                        isResolvingLoader = false,
-                    ),
-                )
+                mutableState.update {
+                    it.copy(
+                        create = it.create.copy(
+                            loaderVersions = versions,
+                            loaderVersion = versions.firstOrNull(),
+                            isResolvingLoader = false,
+                        ),
+                    )
+                }
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(
-                    create = mutableState.value.create.copy(isResolvingLoader = false),
-                )
+                mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = false)) }
                 showError(error)
             }
         }
     }
 
     private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null) {
-        mutableState.value = mutableState.value.copy(
-            error = error.message ?: "The operation failed.",
-            errorRecovery = recovery,
-            notice = null,
-        )
+        mutableState.update {
+            it.copy(
+                error = error.message ?: "The operation failed.",
+                errorRecovery = recovery,
+                notice = null,
+            )
+        }
     }
 }
 
