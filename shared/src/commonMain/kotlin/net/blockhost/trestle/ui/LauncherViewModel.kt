@@ -68,6 +68,8 @@ data class OperationStatus(
     val detail: String? = null,
     val completed: Long? = null,
     val total: Long? = null,
+    val completedItems: Int? = null,
+    val totalItems: Int? = null,
     val cancellable: Boolean = false,
 )
 
@@ -307,15 +309,19 @@ class LauncherViewModel(
                 services.installer.install(instance) { progress ->
                     mutableState.value = mutableState.value.copy(
                         operation = OperationStatus(
-                            title = if (resuming) {
+                            title = if (progress.isFinalizing) {
+                                "Finalizing ${instance.displayName}"
+                            } else if (resuming) {
                                 "Resuming ${instance.displayName}"
                             } else {
                                 "Installing ${instance.displayName}"
                             },
-                            detail = progress.activeFile,
+                            detail = progress.activeLabel,
                             completed = progress.completedBytes,
                             total = progress.totalBytes,
-                            cancellable = true,
+                            completedItems = progress.completedFiles,
+                            totalItems = progress.totalFiles,
+                            cancellable = !progress.isFinalizing,
                         ),
                     )
                 }

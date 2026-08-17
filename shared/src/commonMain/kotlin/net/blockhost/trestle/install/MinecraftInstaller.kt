@@ -97,6 +97,7 @@ class MinecraftInstaller(
                             "${instance.minecraftVersionId}.jar",
                         sha1 = resolved.client.sha1,
                         size = resolved.client.size,
+                        progressLabel = "Downloading Minecraft client",
                     ),
                 )
                 resolved.libraries.forEach { library ->
@@ -106,6 +107,7 @@ class MinecraftInstaller(
                             directories.libraries / library.path,
                             library.sha1,
                             library.size,
+                            progressLabel = "Downloading game libraries",
                         ),
                     )
                 }
@@ -116,6 +118,7 @@ class MinecraftInstaller(
                             directories.assets / "indexes" / "${index.id}.json",
                             index.sha1,
                             index.size,
+                            progressLabel = "Downloading asset index",
                         ),
                     )
                 }
@@ -126,6 +129,7 @@ class MinecraftInstaller(
                             directories.assets / requireNotNull(asset.path),
                             asset.sha1,
                             asset.size,
+                            progressLabel = "Downloading game assets",
                         ),
                     )
                 }
@@ -136,6 +140,7 @@ class MinecraftInstaller(
                             directories.logging / (logging.path ?: "${resolved.metadata.id}-client.xml"),
                             logging.sha1,
                             logging.size,
+                            progressLabel = "Downloading logging configuration",
                         ),
                     )
                 }
@@ -143,12 +148,16 @@ class MinecraftInstaller(
 
             var lastPersistedBytes = 0L
             var lastPersistedFiles = -1
+            var latestProgress: DownloadProgress? = null
             downloadPipeline.download(
                 requests,
                 directories.staging / instance.id.value,
             ) { progress ->
+                latestProgress = progress
                 if (
-                    progress.completedFiles != lastPersistedFiles ||
+                    lastPersistedFiles < 0 ||
+                    progress.completedFiles - lastPersistedFiles >= PROGRESS_PERSIST_INTERVAL_FILES ||
+                    progress.completedFiles == progress.totalFiles ||
                     progress.completedBytes - lastPersistedBytes >= PROGRESS_PERSIST_INTERVAL_BYTES
                 ) {
                     working = working.copy(
@@ -165,6 +174,15 @@ class MinecraftInstaller(
                     lastPersistedFiles = progress.completedFiles
                 }
                 onProgress(progress)
+            }
+
+            latestProgress?.let { progress ->
+                onProgress(
+                    progress.copy(
+                        activeLabel = "Finalizing installation",
+                        isFinalizing = true,
+                    ),
+                )
             }
 
             val manifest = InstalledVersion(
@@ -235,6 +253,7 @@ class MinecraftInstaller(
         instance.instanceDirectory.toPath() / ".trestle" / "installed-version.json"
 
     private companion object {
+        const val PROGRESS_PERSIST_INTERVAL_FILES = 25
         const val PROGRESS_PERSIST_INTERVAL_BYTES = 1024L * 1024L
         val installationJson = Json {
             prettyPrint = true

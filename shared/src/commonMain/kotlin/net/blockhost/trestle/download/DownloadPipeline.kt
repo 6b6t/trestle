@@ -6,6 +6,7 @@ import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.Url
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
@@ -13,8 +14,10 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.sync.withLock
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
@@ -27,6 +30,7 @@ data class DownloadRequest(
     val destination: Path,
     val sha1: String? = null,
     val size: Long? = null,
+    val progressLabel: String? = null,
 )
 
 data class DownloadProgress(
@@ -34,7 +38,8 @@ data class DownloadProgress(
     val totalBytes: Long?,
     val completedFiles: Int,
     val totalFiles: Int,
-    val activeFile: String? = null,
+    val activeLabel: String? = null,
+    val isFinalizing: Boolean = false,
 )
 
 class DownloadPipeline(
@@ -57,7 +62,8 @@ class DownloadPipeline(
         fileSystem.createDirectories(stagingDirectory)
         val required = requests.distinctBy { it.destination }
         val totalBytes = required.mapNotNull { it.size }.takeIf { it.size == required.size }?.sum()
-        val lock = kotlinx.coroutines.sync.Mutex()
+        val lock = Mutex()
+        val rangeSupport = HostRangeSupport()
         var completedBytes = 0L
         var completedFiles = 0
         val semaphore = Semaphore(maxConcurrency)
@@ -83,7 +89,7 @@ class DownloadPipeline(
                                             totalBytes,
                                             completedFiles,
                                             required.size,
-                                            request.destination.name,
+                                            request.progressLabel ?: request.destination.name,
                                         ),
                                     )
                                 } finally {
@@ -93,7 +99,7 @@ class DownloadPipeline(
                             }
 
                             val staged = stagingDirectory / "$index.part"
-                            downloadWithRetry(request, staged) { delta ->
+                            downloadWithRetry(request, staged, rangeSupport) { delta ->
                                 lock.lock()
                                 try {
                                     completedBytes += delta
@@ -103,7 +109,7 @@ class DownloadPipeline(
                                             totalBytes,
                                             completedFiles,
                                             required.size,
-                                            request.destination.name,
+                                            request.progressLabel ?: request.destination.name,
                                         ),
                                     )
                                 } finally {
@@ -121,7 +127,7 @@ class DownloadPipeline(
                                         totalBytes,
                                         completedFiles,
                                         required.size,
-                                        request.destination.name,
+                                        request.progressLabel ?: request.destination.name,
                                     ),
                                 )
                             } finally {
@@ -170,9 +176,11 @@ class DownloadPipeline(
     private suspend fun downloadWithRetry(
         request: DownloadRequest,
         stagedPath: Path,
+        rangeSupport: HostRangeSupport,
         onBytes: suspend (Long) -> Unit,
     ) {
         var lastError: Throwable? = null
+        val host = Url(request.url).host
         if (isValid(stagedPath, request, allowUnverified = false)) {
             onBytes(fileSize(stagedPath))
             return
@@ -187,12 +195,19 @@ class DownloadPipeline(
                     accountedBytes = 0L
                     existingBytes = 0L
                 }
+                if (existingBytes > 0L && !rangeSupport.canAttempt(host)) {
+                    resetStaged(stagedPath, accountedBytes, onBytes)
+                    accountedBytes = 0L
+                    existingBytes = 0L
+                }
+                val requestedRange = existingBytes > 0L
                 val response = httpClient.get(request.url) {
-                    if (existingBytes > 0L) header(HttpHeaders.Range, "bytes=$existingBytes-")
+                    if (requestedRange) header(HttpHeaders.Range, "bytes=$existingBytes-")
                 }
                 if (!response.status.isSuccess()) {
                     val status = response.status.value
-                    if (status == HttpStatusCode.RequestedRangeNotSatisfiable.value && existingBytes > 0L) {
+                    if (status == HttpStatusCode.RequestedRangeNotSatisfiable.value && requestedRange) {
+                        rangeSupport.disable(host)
                         resetStaged(stagedPath, accountedBytes, onBytes)
                         accountedBytes = 0L
                         throw InvalidRangeResponseException("The server rejected the saved byte range.")
@@ -200,15 +215,17 @@ class DownloadPipeline(
                     if (status !in TRANSIENT_HTTP_CODES) throw PermanentDownloadException("HTTP $status")
                     throw TransientDownloadException("HTTP $status")
                 }
-                val appending = existingBytes > 0L && response.status == HttpStatusCode.PartialContent
+                val appending = requestedRange && response.status == HttpStatusCode.PartialContent
                 if (appending) {
                     val contentRange = response.headers[HttpHeaders.ContentRange]
                     if (contentRange == null || !contentRange.startsWith("bytes $existingBytes-")) {
+                        rangeSupport.disable(host)
                         resetStaged(stagedPath, accountedBytes, onBytes)
                         accountedBytes = 0L
                         throw InvalidRangeResponseException("The server returned an invalid byte range.")
                     }
-                } else if (existingBytes > 0L) {
+                } else if (requestedRange) {
+                    rangeSupport.disable(host)
                     resetStaged(stagedPath, accountedBytes, onBytes)
                     accountedBytes = 0L
                     existingBytes = 0L
@@ -247,14 +264,22 @@ class DownloadPipeline(
             } catch (error: Exception) {
                 lastError = error
             }
-            if (attempt < maxAttempts - 1) delay(250L shl attempt)
             if (attempt < maxAttempts - 1) {
-                logger.warn(
-                    "downloads",
-                    "Retrying artifact download",
-                    lastError,
-                    mapOf("file" to request.destination.name, "attempt" to attempt + 2),
-                )
+                if (lastError is InvalidRangeResponseException) {
+                    logger.debug(
+                        "downloads",
+                        "Restarting artifact without byte-range resume",
+                        mapOf("file" to request.destination.name, "host" to host),
+                    )
+                } else {
+                    delay(250L shl attempt)
+                    logger.warn(
+                        "downloads",
+                        "Retrying artifact download",
+                        lastError,
+                        mapOf("file" to request.destination.name, "attempt" to attempt + 2),
+                    )
+                }
             }
         }
         throw LauncherException.Network("Download failed after $maxAttempts attempts.", lastError)
@@ -317,6 +342,17 @@ class DownloadPipeline(
     private class InvalidRangeResponseException(message: String) : Exception(message)
     private class IncompleteDownloadException(expected: Long, actual: Long) :
         Exception("Expected $expected bytes but received $actual.")
+
+    private class HostRangeSupport {
+        private val mutex = Mutex()
+        private val unsupportedHosts = mutableSetOf<String>()
+
+        suspend fun canAttempt(host: String): Boolean = mutex.withLock { host !in unsupportedHosts }
+
+        suspend fun disable(host: String) {
+            mutex.withLock { unsupportedHosts += host }
+        }
+    }
 
     private companion object {
         val TRANSIENT_HTTP_CODES = setOf(408, 425, 429, 500, 502, 503, 504)

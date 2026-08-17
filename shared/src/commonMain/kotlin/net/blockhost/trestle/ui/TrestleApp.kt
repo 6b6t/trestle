@@ -324,11 +324,15 @@ private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)
 @Composable
 private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(RaisedSurface)) {
-        val completed = status.completed
-        val total = status.total
-        if (completed != null && total != null && total > 0) {
+        val progress = progressFraction(
+            completedBytes = status.completed,
+            totalBytes = status.total,
+            completedFiles = status.completedItems,
+            totalFiles = status.totalItems,
+        )
+        if (progress != null) {
             LinearProgressIndicator(
-                progress = { (completed.toFloat() / total).coerceIn(0f, 1f) },
+                progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
                 color = Ochre,
                 trackColor = Rule,
@@ -381,10 +385,15 @@ private fun InstanceRow(instance: GameInstance, selected: Boolean, onClick: () -
             Text(stateLabel(state), color = stateColor(state), style = MaterialTheme.typography.labelMedium)
         }
         if (progress != null) {
-            val total = progress.totalBytes
-            if (total != null && total > 0) {
+            val progressFraction = progressFraction(
+                completedBytes = progress.completedBytes,
+                totalBytes = progress.totalBytes,
+                completedFiles = progress.completedFiles,
+                totalFiles = progress.totalFiles,
+            )
+            if (progressFraction != null) {
                 LinearProgressIndicator(
-                    progress = { (progress.completedBytes.toFloat() / total).coerceIn(0f, 1f) },
+                    progress = { progressFraction },
                     modifier = Modifier.fillMaxWidth(),
                     color = Ochre,
                     trackColor = Rule,
@@ -1164,6 +1173,19 @@ private data class InstallationProgressSnapshot(
     val completedFiles: Int,
     val totalFiles: Int,
 )
+
+private fun progressFraction(
+    completedBytes: Long?,
+    totalBytes: Long?,
+    completedFiles: Int?,
+    totalFiles: Int?,
+): Float? = when {
+    completedBytes != null && totalBytes != null && totalBytes > 0L ->
+        (completedBytes.toFloat() / totalBytes).coerceIn(0f, 1f)
+    completedFiles != null && totalFiles != null && totalFiles > 0 ->
+        (completedFiles.toFloat() / totalFiles).coerceIn(0f, 1f)
+    else -> null
+}
 
 private fun InstallationState.installationProgress(): InstallationProgressSnapshot? = when (this) {
     is InstallationState.Installing -> InstallationProgressSnapshot(

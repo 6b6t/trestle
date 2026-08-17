@@ -11,6 +11,10 @@ import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.logging.BufferedLauncherLogger
+import net.blockhost.trestle.logging.LogEntry
+import net.blockhost.trestle.logging.LogLevel
+import net.blockhost.trestle.logging.LogSink
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
@@ -88,7 +92,12 @@ class DownloadPipelineTest {
         pipeline.download(
             requests = listOf(
                 DownloadRequest("https://example.test/cached", cached, size = 6),
-                DownloadRequest("https://example.test/missing", missing, size = 7),
+                DownloadRequest(
+                    "https://example.test/missing",
+                    missing,
+                    size = 7,
+                    progressLabel = "Downloading game assets",
+                ),
             ),
             stagingDirectory = "/staging".toPath(),
             onProgress = progress::add,
@@ -98,6 +107,7 @@ class DownloadPipelineTest {
         assertEquals("missing", fileSystem.read(missing) { readUtf8() })
         assertEquals(2, progress.last().completedFiles)
         assertEquals(13, progress.last().completedBytes)
+        assertEquals("Downloading game assets", progress.last().activeLabel)
         assertFalse(fileSystem.exists("/staging".toPath()))
     }
 
@@ -189,34 +199,45 @@ class DownloadPipelineTest {
     }
 
     @Test
-    fun restartsTheArtifactWhenTheServerRejectsTheSavedByteRange() = runTest {
+    fun stopsUsingRangesForAHostThatRejectsThem() = runTest {
         val fileSystem = FakeFileSystem()
         val staging = "/staging".toPath()
         fileSystem.createDirectories(staging)
         fileSystem.write(staging / "0.part") { writeUtf8("old") }
+        fileSystem.write(staging / "1.part") { writeUtf8("old") }
         val requestedRanges = mutableListOf<String?>()
         val client = HttpClient(MockEngine { request ->
             requestedRanges += request.headers[HttpHeaders.Range]
             if (requestedRanges.size == 1) {
                 respond("", HttpStatusCode.RequestedRangeNotSatisfiable)
             } else {
-                respond("replacement")
+                respond(if (request.url.encodedPath.endsWith("first")) "replacement" else "second-file")
             }
         })
-        val destination = "/downloads/replacement.jar".toPath()
+        val first = "/downloads/replacement.jar".toPath()
+        val second = "/downloads/second.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
-        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+        val logEntries = mutableListOf<LogEntry>()
+        val logger = BufferedLauncherLogger(
+            nowMillis = { 0L },
+            sink = LogSink { entry, _ -> logEntries += entry },
+        )
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1, logger = logger)
 
         pipeline.download(
             requests = listOf(
-                DownloadRequest("https://example.test/replacement", destination, size = 11),
+                DownloadRequest("https://example.test/first", first, size = 11),
+                DownloadRequest("https://example.test/second", second, size = 11),
             ),
             stagingDirectory = staging,
             onProgress = progress::add,
         )
 
-        assertEquals(listOf("bytes=3-", null), requestedRanges)
-        assertEquals("replacement", fileSystem.read(destination) { readUtf8() })
-        assertEquals(11L, progress.last().completedBytes)
+        assertEquals(listOf("bytes=3-", null, null), requestedRanges)
+        assertEquals("replacement", fileSystem.read(first) { readUtf8() })
+        assertEquals("second-file", fileSystem.read(second) { readUtf8() })
+        assertEquals(22L, progress.last().completedBytes)
+        assertFalse(logEntries.any { it.level == LogLevel.WARN })
+        assertTrue(logEntries.any { it.level == LogLevel.DEBUG })
     }
 }
