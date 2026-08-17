@@ -64,6 +64,8 @@ import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.auth.MinecraftEdition
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
+import net.blockhost.trestle.auth.ManagedAccount
+import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.resources.ResourceProject
@@ -134,8 +136,8 @@ private fun WideLayout(
                     state = state,
                     modifier = Modifier.weight(1f),
                     onNew = viewModel::openCreate,
-                    onSelect = { viewModel.selectInstance(it.id) },
                     onRetry = viewModel::retryError,
+                    viewModel = viewModel,
                 )
                 VerticalDivider(color = Rule)
                 DetailsPane(state, Modifier.width(360.dp), viewModel)
@@ -253,8 +255,8 @@ private fun LibraryPane(
     state: LauncherUiState,
     modifier: Modifier,
     onNew: () -> Unit,
-    onSelect: (GameInstance) -> Unit,
     onRetry: () -> Unit,
+    viewModel: LauncherViewModel,
 ) {
     Column(modifier.fillMaxHeight()) {
         PageHeader("Library") {
@@ -271,7 +273,7 @@ private fun LibraryPane(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.instances, key = { it.id.value }) { instance ->
-                    InstanceRow(instance, instance.id == state.selectedInstance?.id) { onSelect(instance) }
+                    InstanceRow(instance, instance.id == state.selectedInstance?.id, viewModel)
                 }
             }
         }
@@ -310,7 +312,7 @@ private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewM
         } else {
             items(state.instances, key = { it.id.value }) { instance ->
                 Column {
-                    InstanceRow(instance, state.selectedInstance?.id == instance.id) { viewModel.selectInstance(instance.id) }
+                    InstanceRow(instance, state.selectedInstance?.id == instance.id, viewModel)
                     if (state.selectedInstance?.id == instance.id) {
                         DetailsPane(state, Modifier.fillMaxWidth(), viewModel, compact = true)
                     }
@@ -380,54 +382,97 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
 }
 
 @Composable
-private fun InstanceRow(instance: GameInstance, selected: Boolean, onClick: () -> Unit) {
+private fun InstanceRow(instance: GameInstance, selected: Boolean, viewModel: LauncherViewModel) {
     val state = instance.installationState
     val progress = state.installationProgress()
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .background(if (selected) RaisedSurface else Surface, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(width = 4.dp, height = 42.dp).background(Ochre, RoundedCornerShape(2.dp)))
-            Column(Modifier.weight(1f)) {
-                Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "${instance.minecraftVersionId} · ${instance.modLoader.label} · Java ${instance.requiredJavaMajor}",
-                    color = Muted,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+    val selectInstance = { viewModel.selectInstance(instance.id) }
+    ContextActionArea(instanceContextActions(instance, viewModel)) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .background(if (selected) RaisedSurface else Surface, RoundedCornerShape(8.dp))
+                .clickable(onClick = selectInstance).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(width = 4.dp, height = 42.dp).background(Ochre, RoundedCornerShape(2.dp)))
+                Column(Modifier.weight(1f)) {
+                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${instance.minecraftVersionId} · ${instance.modLoader.label} · Java ${instance.requiredJavaMajor}",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Text(stateLabel(state), color = stateColor(state), style = MaterialTheme.typography.labelMedium)
             }
-            Text(stateLabel(state), color = stateColor(state), style = MaterialTheme.typography.labelMedium)
-        }
-        if (progress != null) {
-            val progressFraction = progressFraction(
-                completedBytes = progress.completedBytes,
-                totalBytes = progress.totalBytes,
-                completedFiles = progress.completedFiles,
-                totalFiles = progress.totalFiles,
-            )
-            if (progressFraction != null) {
-                LinearProgressIndicator(
-                    progress = { progressFraction },
-                    modifier = Modifier.fillMaxWidth(),
-                    color = Ochre,
-                    trackColor = Rule,
+            if (progress != null) {
+                val progressFraction = progressFraction(
+                    completedBytes = progress.completedBytes,
+                    totalBytes = progress.totalBytes,
+                    completedFiles = progress.completedFiles,
+                    totalFiles = progress.totalFiles,
                 )
-            } else {
-                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Ochre, trackColor = Rule)
-            }
-            Text(
-                if (state is InstallationState.Interrupted) {
-                    "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
+                if (progressFraction != null) {
+                    LinearProgressIndicator(
+                        progress = { progressFraction },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = Ochre,
+                        trackColor = Rule,
+                    )
                 } else {
-                    "${progress.completedFiles} of ${progress.totalFiles} files"
-                },
-                color = Muted,
-                style = MaterialTheme.typography.labelMedium,
-            )
+                    LinearProgressIndicator(Modifier.fillMaxWidth(), color = Ochre, trackColor = Rule)
+                }
+                Text(
+                    if (state is InstallationState.Interrupted) {
+                        "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
+                    } else {
+                        "${progress.completedFiles} of ${progress.totalFiles} files"
+                    },
+                    color = Muted,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun instanceContextActions(instance: GameInstance, viewModel: LauncherViewModel): List<ContextAction> {
+    val copyText = rememberCopyText()
+    val state = instance.installationState
+    val selectedAction: (() -> Unit) -> Unit = { action ->
+        viewModel.selectInstance(instance.id)
+        action()
+    }
+    val primaryAction = when (state) {
+        is InstallationState.Installing -> ContextAction("Pause installation") {
+            selectedAction(viewModel::cancelInstall)
+        }
+        is InstallationState.Interrupted -> ContextAction("Resume installation") {
+            selectedAction(viewModel::installSelected)
+        }
+        is InstallationState.Installed -> ContextAction("Run launch check") {
+            selectedAction(viewModel::validateLaunch)
+        }
+        is InstallationState.Failed -> ContextAction("Retry installation") {
+            selectedAction(viewModel::installSelected)
+        }
+        InstallationState.NotInstalled -> ContextAction("Install") {
+            selectedAction(viewModel::installSelected)
+        }
+    }
+    return buildList {
+        add(primaryAction)
+        if (state is InstallationState.Installed) {
+            add(ContextAction("Inspect launch plan") { selectedAction(viewModel::inspectLaunchPlan) })
+        }
+        if (state is InstallationState.Installed) {
+            add(ContextAction("Add content") { selectedAction { viewModel.openResourceBrowser() } })
+        }
+        add(ContextAction("Launch settings", separatorBefore = true) { selectedAction(viewModel::openInstanceSettings) })
+        add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
+        add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
+        add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(viewModel::deleteSelected) })
     }
 }
 
@@ -440,79 +485,83 @@ private fun DetailsPane(
 ) {
     val instance = state.selectedInstance
     val layoutModifier = if (compact) modifier.padding(16.dp) else modifier.fillMaxHeight().padding(24.dp)
-    Column(layoutModifier) {
-        if (instance == null) {
+    if (instance == null) {
+        Column(layoutModifier) {
             Text("Select an instance", style = MaterialTheme.typography.titleLarge)
             Text("Its install state and launch checks will appear here.", color = Muted)
-            return@Column
         }
-        Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-        Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
-        Spacer(Modifier.height(24.dp))
-        PropertyRow("Status", stateLabel(instance.installationState))
-        PropertyRow("Java", instance.requiredJavaMajor.toString())
-        PropertyRow("Directory", instance.instanceDirectory)
-        PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.toString() ?: "Never")
-
-        state.launchPlan?.let { plan ->
+        return
+    }
+    ContextActionArea(instanceContextActions(instance, viewModel)) {
+        Column(layoutModifier) {
+            Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
+            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
             Spacer(Modifier.height(24.dp))
-            Text("Launch plan", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            PropertyRow("Main class", plan.mainClass)
-            PropertyRow("Classpath", "${plan.classpathEntries} entries")
-            PropertyRow("Natives", "${plan.nativeLibraries} libraries")
-            PropertyRow("Account", plan.authentication)
-        }
+            PropertyRow("Status", stateLabel(instance.installationState))
+            PropertyRow("Java", instance.requiredJavaMajor.toString())
+            PropertyRow("Directory", instance.instanceDirectory)
+            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.toString() ?: "Never")
 
-        if (!compact) Spacer(Modifier.weight(1f)) else Spacer(Modifier.height(24.dp))
-        if (instance.installationState is InstallationState.Installed) {
+            state.launchPlan?.let { plan ->
+                Spacer(Modifier.height(24.dp))
+                Text("Launch plan", style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                PropertyRow("Main class", plan.mainClass)
+                PropertyRow("Classpath", "${plan.classpathEntries} entries")
+                PropertyRow("Natives", "${plan.nativeLibraries} libraries")
+                PropertyRow("Account", plan.authentication)
+            }
+
+            if (!compact) Spacer(Modifier.weight(1f)) else Spacer(Modifier.height(24.dp))
+            if (instance.installationState is InstallationState.Installed) {
+                OutlinedButton(
+                    onClick = { viewModel.openResourceBrowser() },
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(8.dp),
+                ) { Text("Add content") }
+            }
             OutlinedButton(
-                onClick = { viewModel.openResourceBrowser() },
+                onClick = viewModel::openInstanceSettings,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                 shape = RoundedCornerShape(8.dp),
-            ) { Text("Add content") }
-        }
-        OutlinedButton(
-            onClick = viewModel::openInstanceSettings,
-            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-            shape = RoundedCornerShape(8.dp),
-        ) { Text("Launch settings") }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            when (instance.installationState) {
-                is InstallationState.Installing -> OutlinedButton(
-                    onClick = viewModel::cancelInstall,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                ) { Text("Pause") }
-                is InstallationState.Interrupted -> Button(
-                    onClick = viewModel::installSelected,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                ) { Text("Resume install") }
-                is InstallationState.Installed -> {
-                    OutlinedButton(
-                        onClick = viewModel::inspectLaunchPlan,
+            ) { Text("Launch settings") }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                when (instance.installationState) {
+                    is InstallationState.Installing -> OutlinedButton(
+                        onClick = viewModel::cancelInstall,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
-                    ) { Text("Inspect") }
-                    Button(
-                        onClick = viewModel::validateLaunch,
+                    ) { Text("Pause") }
+                    is InstallationState.Interrupted -> Button(
+                        onClick = viewModel::installSelected,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                    ) { Text("Launch check") }
+                    ) { Text("Resume install") }
+                    is InstallationState.Installed -> {
+                        OutlinedButton(
+                            onClick = viewModel::inspectLaunchPlan,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                        ) { Text("Inspect") }
+                        Button(
+                            onClick = viewModel::validateLaunch,
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                        ) { Text("Launch check") }
+                    }
+                    else -> Button(
+                        onClick = viewModel::installSelected,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                    ) { Text(if (instance.installationState is InstallationState.Failed) "Retry install" else "Install") }
                 }
-                else -> Button(
-                    onClick = viewModel::installSelected,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(8.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                ) { Text(if (instance.installationState is InstallationState.Failed) "Retry install" else "Install") }
             }
-        }
-        TextButton(onClick = viewModel::deleteSelected, modifier = Modifier.align(Alignment.End)) {
-            Text("Remove from library", color = Muted)
+            TextButton(onClick = viewModel::deleteSelected, modifier = Modifier.align(Alignment.End)) {
+                Text("Remove from library", color = Muted)
+            }
         }
     }
 }
@@ -1067,64 +1116,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.accounts, key = { it.profile.profileId }) { account ->
-                    Column(
-                        Modifier.fillMaxWidth().background(if (account.isActive) RaisedSurface else Surface)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Box(Modifier.size(width = 4.dp, height = 42.dp).background(if (account.isActive) Ochre else Rule))
-                            Column(Modifier.weight(1f)) {
-                                Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                Text(account.profile.authenticationMethod.label, color = Muted)
-                                Text(
-                                    when {
-                                        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
-                                            "Offline · No identity verification"
-                                        !account.isAuthenticated -> "Sign-in required"
-                                        account.profile.authenticationMethod == AccountAuthenticationMethod.THE_ALTENING ->
-                                            "Ready via third-party session service"
-                                        account.profile.edition == MinecraftEdition.JAVA -> "Verified and ready to launch"
-                                        else -> "Bedrock account ready · Runtime not available"
-                                    },
-                                    color = if (account.isReady) Ochre else Muted,
-                                )
-                            }
-                            if (!account.isActive) {
-                                OutlinedButton(
-                                    onClick = { viewModel.selectAccount(account.profile.profileId) },
-                                    shape = RoundedCornerShape(8.dp),
-                                ) { Text("Use account") }
-                            }
-                        }
-                        account.profile.skin?.let { skin ->
-                            PropertyRow("Skin", skin.variant.name.lowercase().replaceFirstChar(Char::uppercase))
-                            Text(
-                                skin.url,
-                                color = Muted,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-                        }
-                        val canManageOfficialProfile =
-                            account.isActive &&
-                                account.isAuthenticated &&
-                                account.profile.edition == MinecraftEdition.JAVA &&
-                                account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
-                        if (canManageOfficialProfile) {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                                TextButton(onClick = viewModel::refreshActiveAccount) { Text("Refresh profile") }
-                                TextButton(onClick = viewModel::resetActiveSkin) { Text("Reset skin") }
-                            }
-                        }
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                            if (account.isAuthenticated) {
-                                TextButton(onClick = { viewModel.signOutAccount(account.profile.profileId) }) { Text("Sign out") }
-                            }
-                            TextButton(onClick = { pendingRemoval = account.profile.profileId }) { Text("Forget account") }
-                        }
-                    }
+                    AccountRow(account, viewModel) { pendingRemoval = account.profile.profileId }
                 }
             }
         }
@@ -1146,6 +1138,97 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                         ) { Text("Forget account") }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccountRow(
+    account: ManagedAccount,
+    viewModel: LauncherViewModel,
+    onForget: () -> Unit,
+) {
+    val copyText = rememberCopyText()
+    val profileId = account.profile.profileId
+    val canManageOfficialProfile =
+        account.isActive &&
+            account.isAuthenticated &&
+            account.profile.edition == MinecraftEdition.JAVA &&
+            account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
+    val actions = buildList {
+        if (!account.isActive) {
+            add(ContextAction("Use account") { viewModel.selectAccount(profileId) })
+        }
+        if (canManageOfficialProfile) {
+            add(ContextAction("Refresh profile") { viewModel.refreshActiveAccount() })
+            add(ContextAction("Reset skin") { viewModel.resetActiveSkin() })
+        }
+        if (account.isAuthenticated) {
+            add(ContextAction("Sign out", separatorBefore = isNotEmpty()) { viewModel.signOutAccount(profileId) })
+        }
+        add(
+            ContextAction(
+                "Copy player name",
+                separatorBefore = true,
+            ) { copyText(account.profile.playerName) },
+        )
+        add(ContextAction("Copy profile ID") { copyText(profileId) })
+        add(ContextAction("Forget account", separatorBefore = true, onClick = onForget))
+    }
+
+    ContextActionArea(actions) {
+        Column(
+            Modifier.fillMaxWidth().background(if (account.isActive) RaisedSurface else Surface)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(width = 4.dp, height = 42.dp).background(if (account.isActive) Ochre else Rule))
+                Column(Modifier.weight(1f)) {
+                    Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
+                    Text(account.profile.authenticationMethod.label, color = Muted)
+                    Text(
+                        when {
+                            account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
+                                "Offline · No identity verification"
+                            !account.isAuthenticated -> "Sign-in required"
+                            account.profile.authenticationMethod == AccountAuthenticationMethod.THE_ALTENING ->
+                                "Ready via third-party session service"
+                            account.profile.edition == MinecraftEdition.JAVA -> "Verified and ready to launch"
+                            else -> "Bedrock account ready · Runtime not available"
+                        },
+                        color = if (account.isReady) Ochre else Muted,
+                    )
+                }
+                if (!account.isActive) {
+                    OutlinedButton(
+                        onClick = { viewModel.selectAccount(profileId) },
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text("Use account") }
+                }
+            }
+            account.profile.skin?.let { skin ->
+                PropertyRow("Skin", skin.variant.name.lowercase().replaceFirstChar(Char::uppercase))
+                Text(
+                    skin.url,
+                    color = Muted,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+            if (canManageOfficialProfile) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = viewModel::refreshActiveAccount) { Text("Refresh profile") }
+                    TextButton(onClick = viewModel::resetActiveSkin) { Text("Reset skin") }
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                if (account.isAuthenticated) {
+                    TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
+                }
+                TextButton(onClick = onForget) { Text("Forget account") }
             }
         }
     }
@@ -1372,31 +1455,48 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                 item("logs-empty") { Text("No launcher events in this session.", color = Muted) }
             } else {
                 items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
-                    Row(
-                        Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(Modifier.width(68.dp)) {
-                            Text(formatUtcTime(entry.timestampEpochMillis), color = Muted, style = MaterialTheme.typography.labelSmall)
-                            Text(entry.level.name, color = if (entry.level.name == "ERROR") ErrorText else Muted)
-                        }
-                        Column(Modifier.weight(1f)) {
-                            Text(entry.message, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                buildString {
-                                    append(entry.category)
-                                    if (entry.details.isNotEmpty()) {
-                                        append(" · ")
-                                        append(entry.details.entries.joinToString { (key, value) -> "$key=$value" })
-                                    }
-                                },
-                                color = Muted,
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-                        }
-                    }
+                    LogRow(entry)
                     HorizontalDivider(color = Rule)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogRow(entry: LogEntry) {
+    val copyText = rememberCopyText()
+    val actions = buildList {
+        add(ContextAction("Copy message") { copyText(entry.message) })
+        if (entry.details.isNotEmpty()) {
+            add(ContextAction("Copy details") { copyText(formatLogDetails(entry)) })
+        }
+        add(ContextAction("Copy event", separatorBefore = true) {
+            copyText(formatLogEntryForClipboard(entry))
+        })
+    }
+    ContextActionArea(actions) {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(Modifier.width(68.dp)) {
+                Text(formatUtcTime(entry.timestampEpochMillis), color = Muted, style = MaterialTheme.typography.labelSmall)
+                Text(entry.level.name, color = if (entry.level.name == "ERROR") ErrorText else Muted)
+            }
+            Column(Modifier.weight(1f)) {
+                Text(entry.message, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    buildString {
+                        append(entry.category)
+                        if (entry.details.isNotEmpty()) {
+                            append(" · ")
+                            append(formatLogDetails(entry))
+                        }
+                    },
+                    color = Muted,
+                    style = MaterialTheme.typography.labelMedium,
+                )
             }
         }
     }
@@ -1418,6 +1518,30 @@ private fun formatDownloads(downloads: Long): String = when {
     downloads >= 1_000_000L -> "${downloads / 100_000L / 10.0}M downloads"
     downloads >= 1_000L -> "${downloads / 100L / 10.0}K downloads"
     else -> "$downloads downloads"
+}
+
+private fun formatInstanceForClipboard(instance: GameInstance): String = buildString {
+    appendLine(instance.displayName)
+    appendLine("Minecraft ${instance.minecraftVersionId}")
+    appendLine("${instance.modLoader.label} · Java ${instance.requiredJavaMajor}")
+    append(instance.instanceDirectory)
+}
+
+private fun formatLogDetails(entry: LogEntry): String =
+    entry.details.entries.joinToString { (key, value) -> "$key=$value" }
+
+private fun formatLogEntryForClipboard(entry: LogEntry): String = buildString {
+    append(formatUtcTime(entry.timestampEpochMillis))
+    append(" · ")
+    append(entry.level.name)
+    append(" · ")
+    append(entry.category)
+    appendLine()
+    append(entry.message)
+    if (entry.details.isNotEmpty()) {
+        appendLine()
+        append(formatLogDetails(entry))
+    }
 }
 
 @Composable
