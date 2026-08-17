@@ -3,7 +3,9 @@ package net.blockhost.trestle.runtime
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.auth.AuthSession
 import net.blockhost.trestle.auth.SessionProvider
@@ -106,7 +108,7 @@ class DesktopMinecraftRuntime(
             }
         }
 
-    override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = flow {
+    override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = channelFlow {
         var process: Process? = null
         try {
             val command = listOf(preparedLaunch.executable) + preparedLaunch.processArguments()
@@ -121,36 +123,38 @@ class DesktopMinecraftRuntime(
                 "Minecraft process started",
                 mapOf("instanceId" to preparedLaunch.instanceId, "processId" to processId),
             )
-            emit(LaunchEvent.Started(processId))
-            withContext(Dispatchers.IO) {
+            send(LaunchEvent.Started(processId))
+            val outputJob = launch(Dispatchers.IO) {
                 process.inputStream.bufferedReader().useLines { lines ->
                     lines.forEach { line ->
                         logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
-                        emit(LaunchEvent.Log(line))
+                        send(LaunchEvent.Log(line))
                     }
                 }
             }
-            val exitCode = withContext(Dispatchers.IO) { process.waitFor() }
+            val exitCode = runInterruptible(Dispatchers.IO) { process.waitFor() }
+            outputJob.join()
             val details = mapOf("instanceId" to preparedLaunch.instanceId, "exitCode" to exitCode)
             if (exitCode == 0) {
                 logger.info("runtime", "Minecraft process exited", details)
             } else {
                 logger.warn("runtime", "Minecraft process exited with an error", details = details)
             }
-            emit(LaunchEvent.Exited(exitCode))
+            send(LaunchEvent.Exited(exitCode))
         } catch (error: CancellationException) {
             process?.destroy()
             logger.info("runtime", "Minecraft launch cancelled", mapOf("instanceId" to preparedLaunch.instanceId))
-            emit(LaunchEvent.Cancelled)
+            trySend(LaunchEvent.Cancelled)
             throw error
         } catch (error: Exception) {
+            process?.destroy()
             logger.error(
                 "runtime",
                 "Minecraft process could not start",
                 error,
                 mapOf("instanceId" to preparedLaunch.instanceId),
             )
-            emit(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
+            send(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
         }
     }
 

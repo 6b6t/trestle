@@ -451,8 +451,8 @@ private fun instanceContextActions(instance: GameInstance, viewModel: LauncherVi
         is InstallationState.Interrupted -> ContextAction("Resume installation") {
             selectedAction(viewModel::installSelected)
         }
-        is InstallationState.Installed -> ContextAction("Run launch check") {
-            selectedAction(viewModel::validateLaunch)
+        is InstallationState.Installed -> ContextAction("Launch") {
+            selectedAction(viewModel::launchSelected)
         }
         is InstallationState.Failed -> ContextAction("Retry installation") {
             selectedAction(viewModel::installSelected)
@@ -544,12 +544,7 @@ private fun DetailsPane(
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(8.dp),
                         ) { Text("Inspect") }
-                        Button(
-                            onClick = viewModel::validateLaunch,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                        ) { Text("Launch check") }
+                        LaunchButton(state, instance, viewModel, Modifier.weight(1f))
                     }
                     else -> Button(
                         onClick = viewModel::installSelected,
@@ -559,10 +554,75 @@ private fun DetailsPane(
                     ) { Text(if (instance.installationState is InstallationState.Failed) "Retry install" else "Install") }
                 }
             }
+            val launchStatus = state.launch.takeIf { it.instanceId == instance.id }?.status
+            val launchDetail = when (launchStatus) {
+                is LaunchStatus.Blocked -> "Required before launch: ${launchStatus.missingRequirements.joinToString()}"
+                is LaunchStatus.Failed -> launchStatus.message
+                is LaunchStatus.Unavailable -> launchStatus.reason
+                else -> null
+            }
+            launchDetail?.let {
+                Text(
+                    it,
+                    color = if (launchStatus is LaunchStatus.Unavailable) Muted else ErrorText,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
             TextButton(onClick = viewModel::deleteSelected, modifier = Modifier.align(Alignment.End)) {
                 Text("Remove from library", color = Muted)
             }
         }
+    }
+}
+
+@Composable
+private fun LaunchButton(
+    state: LauncherUiState,
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    modifier: Modifier = Modifier,
+) {
+    val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: LaunchStatus.NotChecked
+    when (status) {
+        is LaunchStatus.Running -> OutlinedButton(
+            onClick = viewModel::stopLaunch,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+        ) { Text("Stop") }
+        LaunchStatus.Checking,
+        LaunchStatus.Starting,
+        -> Button(
+            onClick = {},
+            enabled = false,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+        ) { Text(if (status == LaunchStatus.Checking) "Checking…" else "Starting…") }
+        is LaunchStatus.Blocked -> Button(
+            onClick = {},
+            enabled = false,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+        ) { Text("Launch") }
+        is LaunchStatus.Unavailable -> Button(
+            onClick = {},
+            enabled = false,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+        ) { Text("Unavailable") }
+        is LaunchStatus.Failed -> Button(
+            onClick = viewModel::launchSelected,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) { Text("Retry launch") }
+        LaunchStatus.NotChecked,
+        LaunchStatus.Ready,
+        -> Button(
+            onClick = viewModel::launchSelected,
+            modifier = modifier,
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) { Text("Launch") }
     }
 }
 

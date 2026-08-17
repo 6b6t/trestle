@@ -9,6 +9,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,7 +28,9 @@ import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.domain.MemorySettings
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.runtime.JvmArgumentPolicy
+import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
+import net.blockhost.trestle.runtime.PreparedLaunch
 import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.ResourceProject
@@ -55,6 +58,22 @@ data class LaunchPlanSummary(
     val nativeLibraries: Int,
     val workingDirectory: String,
     val authentication: String,
+)
+
+sealed interface LaunchStatus {
+    data object NotChecked : LaunchStatus
+    data object Checking : LaunchStatus
+    data object Ready : LaunchStatus
+    data class Blocked(val missingRequirements: List<String>) : LaunchStatus
+    data class Unavailable(val reason: String) : LaunchStatus
+    data object Starting : LaunchStatus
+    data class Running(val processId: Long?) : LaunchStatus
+    data class Failed(val message: String) : LaunchStatus
+}
+
+data class InstanceLaunchState(
+    val instanceId: InstanceId? = null,
+    val status: LaunchStatus = LaunchStatus.NotChecked,
 )
 
 data class ResourceBrowserState(
@@ -142,6 +161,7 @@ data class LauncherUiState(
     val create: CreateInstanceState = CreateInstanceState(),
     val launchPlan: LaunchPlanSummary? = null,
     val resourceBrowser: ResourceBrowserState = ResourceBrowserState(),
+    val launch: InstanceLaunchState = InstanceLaunchState(),
     val operation: OperationStatus? = null,
     val instanceSettings: InstanceSettingsState = InstanceSettingsState(),
     val accounts: List<ManagedAccount> = emptyList(),
@@ -164,6 +184,9 @@ class LauncherViewModel(
     private var resourceJob: Job? = null
     private var resourceSearchJob: Job? = null
     private var accountLoginJob: Job? = null
+    private var launchCheckJob: Job? = null
+    private var launchJob: Job? = null
+    private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
     init {
@@ -198,12 +221,21 @@ class LauncherViewModel(
                     operation = OperationStatus("Loading launcher data"),
                 )
             }
-            runCatching {
+            val initialized = runCatching {
                 services.repository.initialize()
                 services.accounts.initialize()
             }
                 .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
+            val instances = services.repository.instances.value
+            mutableState.update { state ->
+                val selected = state.selectedId?.takeIf { id -> instances.any { it.id == id } }
+                    ?: instances.firstOrNull()?.id
+                state.copy(instances = instances, selectedId = selected)
+            }
             mutableState.update { it.copy(isInitializing = false, operation = null) }
+            if (initialized.isSuccess) {
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            }
             refreshVersions()
         }
     }
@@ -242,7 +274,17 @@ class LauncherViewModel(
     }
 
     fun selectInstance(id: InstanceId) {
-        mutableState.update { it.copy(selectedId = id, notice = null, launchPlan = null) }
+        launchCheckJob?.cancel()
+        cachedLaunch = null
+        mutableState.update {
+            it.copy(
+                selectedId = id,
+                notice = null,
+                launchPlan = null,
+                launch = InstanceLaunchState(id),
+            )
+        }
+        checkLaunchReadiness(mutableState.value.selectedInstance)
     }
 
     fun openCreate() {
@@ -338,7 +380,7 @@ class LauncherViewModel(
                 )
             }
             try {
-                services.installer.install(instance) { progress ->
+                val installed = services.installer.install(instance) { progress ->
                     mutableState.update {
                         it.copy(
                             operation = OperationStatus(
@@ -360,6 +402,7 @@ class LauncherViewModel(
                     }
                 }
                 mutableState.update { it.copy(notice = "Installation is complete.", operation = null) }
+                checkLaunchReadiness(installed)
             } catch (_: CancellationException) {
                 mutableState.update {
                     it.copy(
@@ -446,39 +489,87 @@ class LauncherViewModel(
         }
     }
 
-    fun validateLaunch() {
+    fun launchSelected() {
+        if (launchJob?.isActive == true) return
+        if (!services.runtime.capabilities.canLaunch) return
         val instance = mutableState.value.selectedInstance ?: return
-        scope.launch {
+        if (instance.installationState !is InstallationState.Installed) return
+        launchCheckJob?.cancel()
+        launchCheckJob = null
+        launchJob = scope.launch {
             mutableState.update {
-                it.copy(
-                    operation = OperationStatus(
-                        "Preparing launch",
-                        "Downloading Mojang's Java runtime when needed",
-                    ),
-                    error = null,
-                    errorRecovery = null,
-                    notice = null,
-                )
+                it.copy(error = null, errorRecovery = null, notice = null)
             }
+            updateLaunch(instance.id, LaunchStatus.Starting)
             try {
-                val prepared = services.runtime.prepare(instance)
-                mutableState.update {
-                    it.copy(
-                        notice = if (prepared.missingRequirements.isEmpty()) {
-                            "The instance is ready to launch."
-                        } else {
-                            "The launch plan is valid. Select a ready Java account before launch."
-                        },
-                        operation = null,
-                        error = null,
-                        errorRecovery = null,
-                    )
+                val prepared = cachedLaunch
+                    ?.takeIf { (cachedInstance) -> cachedInstance == instance }
+                    ?.second
+                    ?: services.runtime.prepare(instance)
+                if (prepared.missingRequirements.isNotEmpty()) {
+                    cachedLaunch = null
+                    updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements))
+                    return@launch
                 }
+                cachedLaunch = instance to prepared
+                services.runtime.launch(prepared).collect { event ->
+                    when (event) {
+                        is LaunchEvent.Started -> {
+                            try {
+                                services.repository.get(instance.id)?.let { current ->
+                                    services.repository.update(
+                                        current.copy(lastLaunchAtEpochMillis = services.clock.nowMillis()),
+                                    )
+                                }
+                            } catch (error: CancellationException) {
+                                throw error
+                            } catch (error: Exception) {
+                                services.logger.warn(
+                                    "instances",
+                                    "Could not save the last launch time",
+                                    error,
+                                    mapOf("instanceId" to instance.id.value),
+                                )
+                            }
+                            updateLaunch(instance.id, LaunchStatus.Running(event.processId))
+                        }
+                        is LaunchEvent.Log -> Unit
+                        is LaunchEvent.Exited -> {
+                            if (event.exitCode == 0) {
+                                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft closed.")
+                            } else {
+                                updateLaunch(
+                                    instance.id,
+                                    LaunchStatus.Failed("Minecraft exited with code ${event.exitCode}."),
+                                )
+                            }
+                        }
+                        is LaunchEvent.Failed -> updateLaunch(
+                            instance.id,
+                            LaunchStatus.Failed(event.message),
+                        )
+                        LaunchEvent.Cancelled -> updateLaunch(
+                            instance.id,
+                            LaunchStatus.Ready,
+                            "Minecraft stopped.",
+                        )
+                    }
+                }
+            } catch (_: CancellationException) {
+                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft stopped.")
             } catch (error: Exception) {
-                mutableState.update { it.copy(operation = null) }
-                showError(error)
+                updateLaunch(
+                    instance.id,
+                    LaunchStatus.Failed(error.message ?: "Minecraft could not start."),
+                )
+            } finally {
+                launchJob = null
             }
         }
+    }
+
+    fun stopLaunch() {
+        launchJob?.cancel()
     }
 
     fun openResourceBrowser(type: ResourceType = ResourceType.MOD) {
@@ -794,6 +885,7 @@ class LauncherViewModel(
                         jvmArguments = review.accepted,
                     ),
                 )
+                cachedLaunch = null
                 mutableState.update {
                     it.copy(
                         instanceSettings = InstanceSettingsState(),
@@ -804,6 +896,7 @@ class LauncherViewModel(
                         },
                     )
                 }
+                checkLaunchReadiness(services.repository.get(instance.id))
             } catch (error: Exception) {
                 mutableState.update { it.copy(instanceSettings = form.copy(isSaving = false)) }
                 showError(error)
@@ -813,7 +906,11 @@ class LauncherViewModel(
 
     fun selectAccount(profileId: String) {
         scope.launch {
-            runCatching { services.accounts.select(profileId) }.onFailure(::showError)
+            runCatching {
+                services.accounts.select(profileId)
+                cachedLaunch = null
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            }.onFailure(::showError)
         }
     }
 
@@ -915,6 +1012,8 @@ class LauncherViewModel(
                         },
                     )
                 }
+                cachedLaunch = null
+                checkLaunchReadiness(mutableState.value.selectedInstance)
             } catch (_: CancellationException) {
                 mutableState.update { it.copy(operation = null) }
             } catch (error: Exception) {
@@ -933,13 +1032,21 @@ class LauncherViewModel(
 
     fun signOutAccount(profileId: String) {
         scope.launch {
-            runCatching { services.accounts.signOut(profileId) }.onFailure(::showError)
+            runCatching {
+                services.accounts.signOut(profileId)
+                cachedLaunch = null
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            }.onFailure(::showError)
         }
     }
 
     fun removeAccount(profileId: String) {
         scope.launch {
-            runCatching { services.accounts.remove(profileId) }.onFailure(::showError)
+            runCatching {
+                services.accounts.remove(profileId)
+                cachedLaunch = null
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            }.onFailure(::showError)
         }
     }
 
@@ -957,6 +1064,8 @@ class LauncherViewModel(
                 )
                 services.accounts.updateProfile(profile)
                 mutableState.update { it.copy(operation = null, notice = "Account profile refreshed.") }
+                cachedLaunch = null
+                checkLaunchReadiness(mutableState.value.selectedInstance)
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -1083,6 +1192,63 @@ class LauncherViewModel(
                 mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = false)) }
                 showError(error)
             }
+        }
+    }
+
+    private fun checkLaunchReadiness(instance: GameInstance?) {
+        if (
+            instance == null ||
+            instance.installationState !is InstallationState.Installed ||
+            !services.runtime.capabilities.canPrepareLaunch
+        ) {
+            cachedLaunch = null
+            mutableState.update {
+                it.copy(
+                    launch = InstanceLaunchState(
+                        instanceId = instance?.id,
+                        status = services.runtime.capabilities.unavailableReason
+                            ?.let(LaunchStatus::Unavailable)
+                            ?: LaunchStatus.NotChecked,
+                    ),
+                )
+            }
+            return
+        }
+        if (launchJob?.isActive == true) return
+        launchCheckJob?.cancel()
+        launchCheckJob = scope.launch {
+            updateLaunch(instance.id, LaunchStatus.Checking)
+            try {
+                val prepared = services.runtime.prepare(instance)
+                if (mutableState.value.selectedInstance?.id != instance.id) return@launch
+                if (prepared.missingRequirements.isEmpty()) {
+                    cachedLaunch = instance to prepared
+                    updateLaunch(instance.id, LaunchStatus.Ready)
+                } else {
+                    cachedLaunch = null
+                    updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements))
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                cachedLaunch = null
+                updateLaunch(
+                    instance.id,
+                    LaunchStatus.Failed(error.message ?: "The launch check failed."),
+                )
+            } finally {
+                launchCheckJob = null
+            }
+        }
+    }
+
+    private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: String? = null) {
+        mutableState.update { state ->
+            if (state.selectedInstance?.id != id) state
+            else state.copy(
+                launch = InstanceLaunchState(id, status),
+                notice = notice ?: state.notice,
+            )
         }
     }
 
