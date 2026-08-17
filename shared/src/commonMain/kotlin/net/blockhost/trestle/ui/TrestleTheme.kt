@@ -22,6 +22,8 @@ internal val Ochre = Color(0xFFBE8F45)
 internal val Chalk = Color(0xFFE7E3D9)
 internal val Muted = Color(0xFFA9A49A)
 internal val Rule = Color(0xFF3A3833)
+internal val ErrorSurface = Color(0xFF3A2520)
+internal val ErrorText = Color(0xFFF0AA94)
 
 private val TrestleColors = darkColorScheme(
     primary = Ochre,

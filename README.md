@@ -1,15 +1,24 @@
 # Trestle
 
-Trestle is an early cross-platform Minecraft launcher built with Kotlin and Compose Multiplatform.
+Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin and Compose Multiplatform.
 
-The current prototype provides a responsive library for Minecraft instances. It also includes placeholders for discovery and launcher configuration. Game installation and launch adapters are not connected yet.
+The first functional milestone provides:
+
+- Isolated, persisted Minecraft instances with atomic registry writes.
+- Vanilla and Fabric metadata resolution and installation.
+- Verified Mojang asset, library, native, logging, and client downloads.
+- Modrinth and CurseForge file resolvers in shared Kotlin code.
+- Desktop launch preparation with safe diagnostics and native extraction.
+- An honest Android runtime boundary that does not claim game launch support.
+
+Microsoft authentication is not implemented. Desktop launch validation stops with a sign-in requirement instead of creating an offline account.
 
 ## Targets
 
 - Android 8.0 or newer (API 26)
 - Desktop systems that support Java 21
 
-The shared module contains the Compose UI and domain model. Small platform modules provide the Android and desktop entry points.
+The shared module contains the interface, product logic, network clients, persistence, installer, and domain model. Platform source sets provide runtime adapters and app storage paths.
 
 ## Requirements
 
@@ -53,6 +62,11 @@ Compile the desktop app:
 ```
 
 GitHub Actions runs these checks for each pull request and each push to `main`.
+
+## Architecture references
+
+- [Android runtime boundary](docs/android-runtime.md)
+- [Launcher service endpoints](docs/service-endpoints.md)
 
 ## Project structure
 

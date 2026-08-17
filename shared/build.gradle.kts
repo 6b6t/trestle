@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.android.multiplatform.library)
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -35,10 +36,27 @@ kotlin {
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.okio)
         }
 
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.mock)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.okio.fake.file.system)
+        }
+
+        getByName("androidMain").dependencies {
+            implementation(libs.ktor.client.okhttp)
+        }
+
+        getByName("desktopMain").dependencies {
+            implementation(libs.ktor.client.cio)
         }
     }
 }

@@ -1,0 +1,223 @@
+package net.blockhost.trestle.runtime
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.withContext
+import net.blockhost.trestle.auth.AuthSession
+import net.blockhost.trestle.auth.SessionProvider
+import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.install.LauncherDirectories
+import net.blockhost.trestle.metadata.InstalledVersion
+import net.blockhost.trestle.metadata.OperatingSystem
+import net.blockhost.trestle.metadata.PlatformEnvironment
+import okio.Path.Companion.toPath
+import java.io.File
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.StandardCopyOption
+import java.util.zip.ZipFile
+
+class DesktopMinecraftRuntime(
+    private val environment: PlatformEnvironment,
+    private val directories: LauncherDirectories,
+    private val sessionProvider: SessionProvider,
+    private val installedVersionReader: (GameInstance) -> InstalledVersion,
+    private val javaResolver: JavaResolver = SystemJavaResolver,
+) : MinecraftRuntime {
+    override val capabilities = RuntimeCapabilities(
+        canPrepareLaunch = true,
+        canLaunch = true,
+        supportsManagedJava = false,
+        supportsNativeExtraction = true,
+    )
+
+    override suspend fun prepare(instance: GameInstance, options: LaunchOptions): PreparedLaunch =
+        withContext(Dispatchers.IO) {
+            val session = sessionProvider.currentSession()
+            val installed = installedVersionReader(instance)
+            val java = javaResolver.resolve(installed.requiredJavaMajor)
+            val nativeDirectory = extractNatives(instance, installed)
+            val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
+            val classpathEntries = installed.libraries.filterNot { it.native }
+                .map { (directories.libraries / it.path).toString() } + clientJar.toString()
+            val separator = if (environment.operatingSystem == OperatingSystem.WINDOWS) ";" else ":"
+            val classpath = classpathEntries.joinToString(separator)
+            val values = launchValues(instance, installed, session, nativeDirectory.toString(), classpath, separator)
+
+            val jvmArguments = buildList {
+                add("-Xms${instance.memory.minimumMiB}M")
+                add("-Xmx${instance.memory.maximumMiB}M")
+                if (installed.jvmArguments.isEmpty()) {
+                    add("-Djava.library.path=$nativeDirectory")
+                    add("-cp")
+                    add(classpath)
+                } else {
+                    addAll(installed.jvmArguments.map { substitutePublic(it, values) })
+                }
+                installed.loggingPath?.let { loggingPath ->
+                    val configuration = installed.metadata.logging["client"]
+                    if (configuration != null) {
+                        add(configuration.argument.replace("\${path}", (directories.logging / loggingPath).toString()))
+                    }
+                }
+                addAll(instance.jvmArguments)
+                addAll(options.additionalJvmArguments)
+            }
+            val gameArguments = installed.gameArguments + instance.gameArguments + options.additionalGameArguments
+            val commandArguments = buildList {
+                jvmArguments.forEach { add(CommandArgument.Public(it)) }
+                add(CommandArgument.Public(installed.metadata.mainClass))
+                gameArguments.forEach { argument -> add(substituteArgument(argument, values, session)) }
+                if (options.demo) add(CommandArgument.Public("--demo"))
+            }
+            PreparedLaunch(
+                instanceId = instance.id.value,
+                executable = java,
+                arguments = commandArguments,
+                workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
+                mainClass = installed.metadata.mainClass,
+                classpathEntries = classpathEntries,
+                nativeDirectory = nativeDirectory.toString(),
+                missingRequirements = if (session == null) listOf("Microsoft account") else emptyList(),
+            )
+        }
+
+    override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = flow {
+        var process: Process? = null
+        try {
+            val command = listOf(preparedLaunch.executable) + preparedLaunch.processArguments()
+            process = ProcessBuilder(command)
+                .directory(File(preparedLaunch.workingDirectory))
+                .redirectErrorStream(true)
+                .apply { environment().putAll(preparedLaunch.environment) }
+                .start()
+            emit(LaunchEvent.Started(runCatching { process.pid() }.getOrNull()))
+            withContext(Dispatchers.IO) {
+                process.inputStream.bufferedReader().useLines { lines ->
+                    lines.forEach { line -> emit(LaunchEvent.Log(line)) }
+                }
+            }
+            emit(LaunchEvent.Exited(withContext(Dispatchers.IO) { process.waitFor() }))
+        } catch (error: CancellationException) {
+            process?.destroy()
+            emit(LaunchEvent.Cancelled)
+            throw error
+        } catch (error: Exception) {
+            emit(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
+        }
+    }
+
+    private fun extractNatives(instance: GameInstance, installed: InstalledVersion): Path {
+        val root = Path.of(instance.instanceDirectory, ".trestle", "natives", installed.metadata.id)
+        Files.createDirectories(root)
+        for (library in installed.libraries.filter { it.native }) {
+            val archive = Path.of((directories.libraries / library.path).toString())
+            ZipFile(archive.toFile()).use { zip ->
+                val entries = zip.entries()
+                while (entries.hasMoreElements()) {
+                    val entry = entries.nextElement()
+                    if (entry.isDirectory || library.extractionExcludes.any { entry.name.startsWith(it) }) continue
+                    val target = root.resolve(entry.name).normalize()
+                    if (!target.startsWith(root)) {
+                        throw LauncherException.FileSystem("A native library contains an unsafe path.")
+                    }
+                    Files.createDirectories(target.parent)
+                    zip.getInputStream(entry).use { input ->
+                        Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
+                    }
+                }
+            }
+        }
+        return root
+    }
+
+    private fun launchValues(
+        instance: GameInstance,
+        installed: InstalledVersion,
+        session: AuthSession?,
+        nativeDirectory: String,
+        classpath: String,
+        classpathSeparator: String,
+    ): Map<String, String> = buildMap {
+        putAll(
+            mapOf(
+                "natives_directory" to nativeDirectory,
+                "launcher_name" to "Trestle",
+                "launcher_version" to "0.1.0",
+                "classpath" to classpath,
+                "classpath_separator" to classpathSeparator,
+                "library_directory" to directories.libraries.toString(),
+                "version_name" to installed.metadata.id,
+                "game_directory" to (instance.instanceDirectory.toPath() / "game").toString(),
+                "assets_root" to directories.assets.toString(),
+                "assets_index_name" to (installed.assetIndexId ?: installed.metadata.assets.orEmpty()),
+                "version_type" to installed.metadata.type,
+                "user_properties" to "{}",
+            ),
+        )
+        if (session != null) {
+            put("auth_player_name", session.playerName)
+            put("auth_uuid", session.profileId)
+            put("user_type", session.userType)
+            put("clientid", session.clientId)
+            put("auth_xuid", session.xuid)
+        }
+    }
+
+    private fun substitutePublic(argument: String, values: Map<String, String>): String =
+        PLACEHOLDER.replace(argument) { match -> values[match.groupValues[1]] ?: match.value }
+
+    private fun substituteArgument(
+        argument: String,
+        values: Map<String, String>,
+        session: AuthSession?,
+    ): CommandArgument {
+        if (session == null && AUTH_PLACEHOLDERS.any(argument::contains)) {
+            return CommandArgument.RequiredCredential("Microsoft account")
+        }
+        if (argument == "\${auth_access_token}") return CommandArgument.Secret(requireNotNull(session).accessToken)
+        return CommandArgument.Public(substitutePublic(argument, values))
+    }
+
+    private companion object {
+        val PLACEHOLDER = Regex("\\$\\{([^}]+)}")
+        val AUTH_PLACEHOLDERS = listOf(
+            "\${auth_player_name}",
+            "\${auth_uuid}",
+            "\${auth_access_token}",
+            "\${user_type}",
+            "\${clientid}",
+            "\${auth_xuid}",
+        )
+    }
+}
+
+fun interface JavaResolver {
+    fun resolve(requiredMajor: Int): String
+}
+
+object SystemJavaResolver : JavaResolver {
+    override fun resolve(requiredMajor: Int): String {
+        val configuredHome = System.getProperty("trestle.java.$requiredMajor.home")
+            ?: System.getenv("TRESTLE_JAVA_${requiredMajor}_HOME")
+        if (configuredHome != null) return executable(configuredHome)
+
+        val currentMajor = Runtime.version().feature()
+        if (currentMajor == requiredMajor) return executable(System.getProperty("java.home"))
+        throw LauncherException.RuntimeUnavailable(
+            "Java $requiredMajor is required. Configure TRESTLE_JAVA_${requiredMajor}_HOME.",
+        )
+    }
+
+    private fun executable(javaHome: String): String {
+        val name = if (System.getProperty("os.name").lowercase().contains("win")) "java.exe" else "java"
+        val path = Path.of(javaHome, "bin", name)
+        if (!Files.isExecutable(path)) {
+            throw LauncherException.RuntimeUnavailable("The configured Java executable is not usable: $path")
+        }
+        return path.toString()
+    }
+}
