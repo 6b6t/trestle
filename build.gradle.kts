@@ -7,7 +7,9 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform) apply false
 }
 
+val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
+
 allprojects {
     group = "net.blockhost"
-    version = "0.1.0"
+    version = trestleVersion.get()
 }

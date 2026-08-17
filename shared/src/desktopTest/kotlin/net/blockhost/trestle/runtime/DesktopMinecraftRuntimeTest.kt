@@ -59,9 +59,9 @@ class DesktopMinecraftRuntimeTest {
 
         val plan = runtime.prepare(instance)
 
-        assertEquals(listOf("Microsoft account"), plan.missingRequirements)
+        assertEquals(listOf("Java account"), plan.missingRequirements)
         assertEquals(2, plan.classpathEntries.size)
         assertFalse(plan.safeCommand().joinToString(" ").contains("access-token"))
-        assertEquals(2, plan.safeCommand().count { it == "<required:Microsoft account>" })
+        assertEquals(2, plan.safeCommand().count { it == "<required:Java account>" })
     }
 }

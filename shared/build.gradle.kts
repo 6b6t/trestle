@@ -10,6 +10,7 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    applyDefaultHierarchyTemplate()
 
     android {
         namespace = "net.blockhost.trestle.shared"
@@ -37,6 +38,7 @@ kotlin {
             implementation(libs.compose.ui)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ksafe)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.serialization.kotlinx.json)
@@ -51,12 +53,26 @@ kotlin {
             implementation(libs.okio.fake.file.system)
         }
 
-        getByName("androidMain").dependencies {
-            implementation(libs.ktor.client.okhttp)
+        val jvmMain = create("jvmMain") {
+            dependsOn(commonMain.get())
+            dependencies {
+                implementation(libs.minecraft.auth)
+            }
         }
 
-        getByName("desktopMain").dependencies {
-            implementation(libs.ktor.client.cio)
+        getByName("androidMain") {
+            dependsOn(jvmMain)
+            dependencies {
+            implementation(libs.ktor.client.okhttp)
+            }
+        }
+
+        getByName("desktopMain") {
+            dependsOn(jvmMain)
+            dependencies {
+                implementation(libs.ktor.client.cio)
+                implementation(libs.slf4j.api)
+            }
         }
     }
 }

@@ -8,6 +8,8 @@ import kotlinx.coroutines.sync.withLock
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.FileSystem
 import okio.Path
 
@@ -16,6 +18,7 @@ class FileInstanceRepository(
     private val registryPath: Path,
     private val instancesDirectory: Path,
     private val idFactory: InstanceIdFactory,
+    private val logger: LauncherLogger = NoopLauncherLogger,
 ) : InstanceRepository {
     private val mutex = Mutex()
     private val mutableInstances = MutableStateFlow<List<GameInstance>>(emptyList())
@@ -41,6 +44,7 @@ class FileInstanceRepository(
                 )
             }
             mutableInstances.value = registry.instances.sortedBy { it.displayName.lowercase() }
+            logger.info("instances", "Loaded instance registry", mapOf("count" to registry.instances.size))
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
@@ -68,6 +72,7 @@ class FileInstanceRepository(
         )
         fileSystem.createDirectories((instancesDirectory / id.value) / "game")
         persist(mutableInstances.value + instance)
+        logger.info("instances", "Created instance", mapOf("id" to instance.id.value, "version" to instance.minecraftVersionId))
         instance
     }
 
@@ -82,6 +87,7 @@ class FileInstanceRepository(
         val current = mutableInstances.value
         if (current.none { it.id == id }) return@withLock false
         persist(current.filterNot { it.id == id })
+        logger.info("instances", "Removed instance from registry", mapOf("id" to id.value))
         true
     }
 

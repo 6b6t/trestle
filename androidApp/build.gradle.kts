@@ -3,6 +3,9 @@ plugins {
     alias(libs.plugins.compose.compiler)
 }
 
+val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
+val trestleVersionCode = providers.gradleProperty("trestle.versionCode").map(String::toInt).orElse(1)
+
 android {
     namespace = "net.blockhost.trestle"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -11,8 +14,8 @@ android {
         applicationId = "net.blockhost.trestle"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = trestleVersionCode.get()
+        versionName = trestleVersion.get()
     }
 }
 

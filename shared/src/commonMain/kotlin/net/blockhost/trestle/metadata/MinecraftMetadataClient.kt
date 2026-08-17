@@ -8,6 +8,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.ByteString.Companion.encodeUtf8
 
 private val metadataJson = Json {
@@ -18,6 +20,7 @@ private val metadataJson = Json {
 class MinecraftMetadataClient(
     private val httpClient: HttpClient,
     private val manifestUrl: String = OFFICIAL_VERSION_MANIFEST,
+    private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
     suspend fun fetchVersionManifest(): VersionManifest = getJson(manifestUrl)
 
@@ -50,12 +53,15 @@ class MinecraftMetadataClient(
                     throw LauncherException.ChecksumMismatch(artifactName, expectedSha1, actual)
                 }
             }
-            return metadataJson.decodeFromString(body)
+            return metadataJson.decodeFromString<T>(body).also {
+                logger.debug("metadata", "Loaded Minecraft metadata", mapOf("host" to safeHost(url)))
+            }
         } catch (error: CancellationException) {
             throw error
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
+            logger.warn("metadata", "Minecraft metadata request failed", error, mapOf("host" to safeHost(url)))
             throw LauncherException.Network("Metadata request failed for ${safeHost(url)}.", error)
         }
     }

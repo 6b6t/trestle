@@ -7,9 +7,12 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.auth.AuthSession
 import net.blockhost.trestle.auth.SessionProvider
+import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.install.LauncherDirectories
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import net.blockhost.trestle.metadata.InstalledVersion
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
@@ -26,6 +29,7 @@ class DesktopMinecraftRuntime(
     private val sessionProvider: SessionProvider,
     private val installedVersionReader: (GameInstance) -> InstalledVersion,
     private val javaResolver: JavaResolver = SystemJavaResolver,
+    private val logger: LauncherLogger = NoopLauncherLogger,
 ) : MinecraftRuntime {
     override val capabilities = RuntimeCapabilities(
         canPrepareLaunch = true,
@@ -63,8 +67,11 @@ class DesktopMinecraftRuntime(
                         add(configuration.argument.replace("\${path}", (directories.logging / loggingPath).toString()))
                     }
                 }
-                addAll(instance.jvmArguments)
-                addAll(options.additionalJvmArguments)
+                addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted)
+                addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted)
+                if (session?.authenticationMethod == net.blockhost.trestle.auth.AccountAuthenticationMethod.THE_ALTENING) {
+                    addAll(THE_ALTENING_ENVIRONMENT_ARGUMENTS)
+                }
             }
             val gameArguments = installed.gameArguments + instance.gameArguments + options.additionalGameArguments
             val commandArguments = buildList {
@@ -81,8 +88,19 @@ class DesktopMinecraftRuntime(
                 mainClass = installed.metadata.mainClass,
                 classpathEntries = classpathEntries,
                 nativeDirectory = nativeDirectory.toString(),
-                missingRequirements = if (session == null) listOf("Microsoft account") else emptyList(),
-            )
+                missingRequirements = if (session == null) listOf("Java account") else emptyList(),
+            ).also { prepared ->
+                logger.info(
+                    "runtime",
+                    "Prepared Minecraft launch",
+                    mapOf(
+                        "instanceId" to instance.id.value,
+                        "mainClass" to prepared.mainClass,
+                        "classpathEntries" to prepared.classpathEntries.size,
+                        "authenticated" to (session != null),
+                    ),
+                )
+            }
         }
 
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = flow {
@@ -94,18 +112,41 @@ class DesktopMinecraftRuntime(
                 .redirectErrorStream(true)
                 .apply { environment().putAll(preparedLaunch.environment) }
                 .start()
-            emit(LaunchEvent.Started(runCatching { process.pid() }.getOrNull()))
+            val processId = runCatching { process.pid() }.getOrNull()
+            logger.info(
+                "runtime",
+                "Minecraft process started",
+                mapOf("instanceId" to preparedLaunch.instanceId, "processId" to processId),
+            )
+            emit(LaunchEvent.Started(processId))
             withContext(Dispatchers.IO) {
                 process.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line -> emit(LaunchEvent.Log(line)) }
+                    lines.forEach { line ->
+                        logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
+                        emit(LaunchEvent.Log(line))
+                    }
                 }
             }
-            emit(LaunchEvent.Exited(withContext(Dispatchers.IO) { process.waitFor() }))
+            val exitCode = withContext(Dispatchers.IO) { process.waitFor() }
+            val details = mapOf("instanceId" to preparedLaunch.instanceId, "exitCode" to exitCode)
+            if (exitCode == 0) {
+                logger.info("runtime", "Minecraft process exited", details)
+            } else {
+                logger.warn("runtime", "Minecraft process exited with an error", details = details)
+            }
+            emit(LaunchEvent.Exited(exitCode))
         } catch (error: CancellationException) {
             process?.destroy()
+            logger.info("runtime", "Minecraft launch cancelled", mapOf("instanceId" to preparedLaunch.instanceId))
             emit(LaunchEvent.Cancelled)
             throw error
         } catch (error: Exception) {
+            logger.error(
+                "runtime",
+                "Minecraft process could not start",
+                error,
+                mapOf("instanceId" to preparedLaunch.instanceId),
+            )
             emit(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
         }
     }
@@ -146,7 +187,7 @@ class DesktopMinecraftRuntime(
             mapOf(
                 "natives_directory" to nativeDirectory,
                 "launcher_name" to "Trestle",
-                "launcher_version" to "0.1.0",
+                "launcher_version" to BuildInfo.VERSION,
                 "classpath" to classpath,
                 "classpath_separator" to classpathSeparator,
                 "library_directory" to directories.libraries.toString(),
@@ -176,9 +217,12 @@ class DesktopMinecraftRuntime(
         session: AuthSession?,
     ): CommandArgument {
         if (session == null && AUTH_PLACEHOLDERS.any(argument::contains)) {
-            return CommandArgument.RequiredCredential("Microsoft account")
+            return CommandArgument.RequiredCredential("Java account")
         }
-        if (argument == "\${auth_access_token}") return CommandArgument.Secret(requireNotNull(session).accessToken)
+        if (argument == "\${auth_access_token}") {
+            val availableSession = requireNotNull(session)
+            return availableSession.accessToken?.let(CommandArgument::Secret) ?: CommandArgument.Public("0")
+        }
         return CommandArgument.Public(substitutePublic(argument, values))
     }
 
@@ -191,6 +235,13 @@ class DesktopMinecraftRuntime(
             "\${user_type}",
             "\${clientid}",
             "\${auth_xuid}",
+        )
+        val THE_ALTENING_ENVIRONMENT_ARGUMENTS = listOf(
+            "-Dminecraft.api.auth.host=http://authserver.thealtening.com",
+            "-Dminecraft.api.account.host=http://authserver.thealtening.com",
+            "-Dminecraft.api.session.host=http://sessionserver.thealtening.com",
+            "-Dminecraft.api.services.host=https://api.minecraftservices.com",
+            "-Dminecraft.api.profiles.host=https://api.minecraftservices.com",
         )
     }
 }

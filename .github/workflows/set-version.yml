@@ -1,0 +1,60 @@
+name: Set version
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to set, in major.minor.patch format
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+    outputs:
+      version-code:
+        description: Calculated Android version code
+        value: ${{ jobs.set-version.outputs.version-code }}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: set-version-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  set-version:
+    name: Set version to ${{ inputs.version }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      version-code: ${{ steps.version.outputs.version-code }}
+
+    steps:
+      - name: Require a branch
+        if: github.ref_type != 'branch'
+        run: |
+          echo "Run this workflow from a branch so the version commit can be pushed." >&2
+          exit 1
+
+      - name: Check out the repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Update Gradle version properties
+        id: version
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+        run: |
+          version_code="$(./scripts/set-version.sh "$TRESTLE_VERSION")"
+          echo "version-code=$version_code" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version
+        uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
+        with:
+          commit_message: "chore(release): bump version to ${{ inputs.version }}"
+          file_pattern: gradle.properties shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt

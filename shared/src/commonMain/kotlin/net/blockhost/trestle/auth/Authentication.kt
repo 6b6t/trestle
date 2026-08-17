@@ -13,10 +13,11 @@ class SecretValue(private val value: String) {
 data class AuthSession(
     val playerName: String,
     val profileId: String,
-    val accessToken: SecretValue,
+    val accessToken: SecretValue?,
     val userType: String = "msa",
     val clientId: String = "",
     val xuid: String = "",
+    val authenticationMethod: AccountAuthenticationMethod = AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
 )
 
 interface SessionProvider {

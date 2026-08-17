@@ -1,0 +1,177 @@
+name: Build release artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build, in major.minor.patch format
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build Android
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.0.0
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.0
+
+      - name: Install Android SDK packages
+        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+
+      - name: Apply build version
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+        run: ./scripts/set-version.sh "$TRESTLE_VERSION"
+
+      - name: Build unsigned Android packages
+        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --stacktrace
+
+      - name: Collect Android packages
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          find_single_file() {
+            local pattern="$1"
+            local matches=()
+            while IFS= read -r match; do
+              matches+=("$match")
+            done < <(find androidApp/build/outputs -type f -name "$pattern" | sort)
+
+            if [[ "${#matches[@]}" -ne 1 ]]; then
+              echo "Expected exactly one $pattern file, found ${#matches[@]}." >&2
+              exit 1
+            fi
+
+            printf '%s' "${matches[0]}"
+          }
+
+          apk="$(find_single_file '*.apk')"
+          bundle="$(find_single_file '*.aab')"
+          mkdir -p release-artifacts
+          cp "$apk" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-universal-unsigned.apk"
+          cp "$bundle" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-universal-unsigned.aab"
+
+      - name: Upload Android packages
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-android
+          path: release-artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  desktop:
+    name: Build ${{ matrix.platform }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x64
+            extension: deb
+          - os: ubuntu-22.04-arm
+            platform: linux
+            arch: arm64
+            extension: deb
+          - os: macos-15-intel
+            platform: macos
+            arch: x64
+            extension: dmg
+          - os: macos-14
+            platform: macos
+            arch: arm64
+            extension: dmg
+          - os: windows-2025
+            platform: windows
+            arch: x64
+            extension: msi
+          - os: windows-11-arm
+            platform: windows
+            arch: arm64
+            extension: msi
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ github.ref }}
+
+      - name: Set up Java
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.0.0
+
+      - name: Install Linux packaging dependencies
+        if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install --yes fakeroot
+
+      - name: Apply build version
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: ./scripts/set-version.sh "$TRESTLE_VERSION"
+
+      - name: Build desktop package
+        shell: bash
+        run: ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+
+      - name: Collect desktop package
+        env:
+          TRESTLE_ARCH: ${{ matrix.arch }}
+          TRESTLE_EXTENSION: ${{ matrix.extension }}
+          TRESTLE_PLATFORM: ${{ matrix.platform }}
+          TRESTLE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          matches=()
+          while IFS= read -r match; do
+            matches+=("$match")
+          done < <(find desktopApp/build/compose/binaries -type f -name "*.${TRESTLE_EXTENSION}" | sort)
+
+          if [[ "${#matches[@]}" -ne 1 ]]; then
+            echo "Expected exactly one .${TRESTLE_EXTENSION} package, found ${#matches[@]}." >&2
+            exit 1
+          fi
+
+          mkdir -p release-artifacts
+          cp "${matches[0]}" "release-artifacts/Trestle-${TRESTLE_VERSION}-${TRESTLE_PLATFORM}-${TRESTLE_ARCH}.${TRESTLE_EXTENSION}"
+
+      - name: Upload desktop package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ matrix.platform }}-${{ matrix.arch }}
+          path: release-artifacts/*
+          if-no-files-found: error
+          retention-days: 14

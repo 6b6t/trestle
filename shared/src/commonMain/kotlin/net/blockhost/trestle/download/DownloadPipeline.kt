@@ -13,6 +13,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.FileSystem
 import okio.Path
 import okio.buffer
@@ -37,6 +39,7 @@ class DownloadPipeline(
     private val fileSystem: FileSystem,
     private val maxConcurrency: Int = 6,
     private val maxAttempts: Int = 3,
+    private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
     init {
         require(maxConcurrency > 0)
@@ -55,6 +58,11 @@ class DownloadPipeline(
         var completedBytes = 0L
         var completedFiles = 0
         val semaphore = Semaphore(maxConcurrency)
+        logger.info(
+            "downloads",
+            "Starting artifact download",
+            mapOf("files" to required.size, "concurrency" to maxConcurrency),
+        )
 
         try {
             coroutineScope {
@@ -121,14 +129,28 @@ class DownloadPipeline(
                 }
             }
             deleteTree(stagingDirectory)
+            logger.info("downloads", "Artifact download completed", mapOf("files" to required.size))
         } catch (error: CancellationException) {
             deleteTree(stagingDirectory)
+            logger.info("downloads", "Artifact download cancelled", mapOf("files" to required.size))
             throw error
         } catch (error: LauncherException) {
             deleteTree(stagingDirectory)
+            logger.error(
+                "downloads",
+                "Artifact download failed",
+                error,
+                mapOf("files" to required.size),
+            )
             throw error
         } catch (error: Exception) {
             deleteTree(stagingDirectory)
+            logger.error(
+                "downloads",
+                "Artifact download could not be activated",
+                error,
+                mapOf("files" to required.size),
+            )
             throw LauncherException.FileSystem("The download could not be activated.", error)
         }
     }
@@ -186,6 +208,14 @@ class DownloadPipeline(
                 lastError = error
             }
             if (attempt < maxAttempts - 1) delay(250L shl attempt)
+            if (attempt < maxAttempts - 1) {
+                logger.warn(
+                    "downloads",
+                    "Retrying artifact download",
+                    lastError,
+                    mapOf("file" to request.destination.name, "attempt" to attempt + 2),
+                )
+            }
         }
         throw LauncherException.Network("Download failed after $maxAttempts attempts.", lastError)
     }

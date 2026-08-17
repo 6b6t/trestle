@@ -16,6 +16,8 @@ import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataResolver
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.downloads
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -43,12 +45,18 @@ class MinecraftInstaller(
     private val directories: LauncherDirectories,
     private val environment: PlatformEnvironment,
     private val clock: EpochClock,
+    private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
     suspend fun install(instance: GameInstance, onProgress: suspend (DownloadProgress) -> Unit = {}): GameInstance {
         var working = instance.copy(
             installationState = InstallationState.Installing(0, null, 0, 0),
         )
         repository.update(working)
+        logger.info(
+            "installer",
+            "Installing Minecraft instance",
+            mapOf("instance" to instance.id.value, "version" to instance.minecraftVersionId, "loader" to instance.modLoader),
+        )
         try {
             val vanilla = metadataClient.resolveVersion(instance.minecraftVersionId)
             val effective = when (instance.modLoader) {
@@ -160,13 +168,18 @@ class MinecraftInstaller(
             return working.copy(
                 requiredJavaMajor = resolved.requiredJavaMajor,
                 installationState = InstallationState.Installed(clock.nowMillis()),
-            ).also { repository.update(it) }
+            ).also {
+                repository.update(it)
+                logger.info("installer", "Instance installation completed", mapOf("instance" to instance.id.value))
+            }
         } catch (error: CancellationException) {
             repository.update(instance.copy(installationState = InstallationState.NotInstalled))
+            logger.info("installer", "Instance installation cancelled", mapOf("instance" to instance.id.value))
             throw error
         } catch (error: Exception) {
             val message = error.message ?: "Installation failed."
             repository.update(instance.copy(installationState = InstallationState.Failed(message)))
+            logger.error("installer", "Instance installation failed", error, mapOf("instance" to instance.id.value))
             throw error
         }
     }

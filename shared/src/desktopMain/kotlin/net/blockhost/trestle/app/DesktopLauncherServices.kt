@@ -3,22 +3,41 @@ package net.blockhost.trestle.app
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
-import net.blockhost.trestle.auth.NoSessionProvider
+import eu.anifantakis.lib.ksafe.KSafe
+import eu.anifantakis.lib.ksafe.KSafeConfig
+import eu.anifantakis.lib.ksafe.KSafeMemoryPolicy
+import net.blockhost.trestle.auth.JvmMinecraftAuthenticator
+import net.blockhost.trestle.auth.KSafeAccountCredentialStore
+import net.blockhost.trestle.auth.OfficialMinecraftApplications
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.install.EpochClock
+import net.blockhost.trestle.logging.Slf4jLogSink
 import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.runtime.DesktopMinecraftRuntime
+import net.blockhost.trestle.runtime.SystemProfile
 import okio.Path.Companion.toPath
+import java.io.File
 import java.nio.file.Path
+import java.lang.management.ManagementFactory
 import java.util.UUID
 
 fun createDesktopLauncherServices(): LauncherServices {
     val environment = desktopEnvironment()
+    val root = desktopDataDirectory(environment.operatingSystem)
+    val loggerSink = Slf4jLogSink()
+    val credentialStore = KSafeAccountCredentialStore(
+        KSafe(
+            fileName = "credentials",
+            memoryPolicy = KSafeMemoryPolicy.ENCRYPTED,
+            config = KSafeConfig(appNamespace = "net.blockhost.trestle"),
+            baseDir = File(root, "credential-vault"),
+        ),
+    )
     return LauncherServices.create(
-        root = desktopDataDirectory(environment.operatingSystem).toPath(),
+        root = root.toPath(),
         httpClient = HttpClient(CIO) {
             install(HttpTimeout) {
                 requestTimeoutMillis = 60_000
@@ -28,14 +47,33 @@ fun createDesktopLauncherServices(): LauncherServices {
         environment = environment,
         idFactory = InstanceIdFactory { InstanceId(UUID.randomUUID().toString()) },
         clock = EpochClock(System::currentTimeMillis),
-    ) { directories, installer ->
+        systemProfile = desktopSystemProfile(),
+        logSink = loggerSink,
+        credentialStore = credentialStore,
+        authenticator = JvmMinecraftAuthenticator(
+            bedrockConfiguration = OfficialMinecraftApplications.bedrockDesktop,
+            nowMillis = System::currentTimeMillis,
+        ),
+    ) { directories, installer, sessionProvider, logger ->
         DesktopMinecraftRuntime(
             environment = environment,
             directories = directories,
-            sessionProvider = NoSessionProvider,
+            sessionProvider = sessionProvider,
             installedVersionReader = installer::readInstalledVersion,
+            logger = logger,
         )
     }
+}
+
+private fun desktopSystemProfile(): SystemProfile {
+    val operatingSystem = ManagementFactory.getOperatingSystemMXBean()
+    val totalMemory = (operatingSystem as? com.sun.management.OperatingSystemMXBean)?.totalMemorySize
+        ?: Runtime.getRuntime().maxMemory()
+    return SystemProfile(
+        totalMemoryMiB = (totalMemory / (1024L * 1024L)).toInt().coerceAtLeast(512),
+        availableProcessors = Runtime.getRuntime().availableProcessors().coerceAtLeast(1),
+        isMobile = false,
+    )
 }
 
 private fun desktopEnvironment(): PlatformEnvironment {

@@ -12,10 +12,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.app.LauncherServices
+import net.blockhost.trestle.auth.ManagedAccount
+import net.blockhost.trestle.auth.AccountAuthenticationMethod
+import net.blockhost.trestle.auth.AccountLoginRequest
+import net.blockhost.trestle.auth.DeviceAuthorization
+import net.blockhost.trestle.auth.CredentialProtection
+import net.blockhost.trestle.auth.MinecraftEdition
+import net.blockhost.trestle.auth.SecretValue
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.domain.MemorySettings
+import net.blockhost.trestle.logging.LogEntry
+import net.blockhost.trestle.runtime.JvmArgumentPolicy
+import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.metadata.VersionReference
 
@@ -52,6 +63,38 @@ data class ModInstallState(
     val isInstalling: Boolean = false,
 )
 
+data class OperationStatus(
+    val title: String,
+    val detail: String? = null,
+    val completed: Long? = null,
+    val total: Long? = null,
+    val cancellable: Boolean = false,
+)
+
+data class InstanceSettingsState(
+    val visible: Boolean = false,
+    val minimumMemoryMiB: String = "",
+    val maximumMemoryMiB: String = "",
+    val jvmArguments: String = "",
+    val recommendation: String? = null,
+    val warnings: List<String> = emptyList(),
+    val isSaving: Boolean = false,
+)
+
+data class AccountLoginState(
+    val visible: Boolean = false,
+    val method: AccountAuthenticationMethod = AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+    val bedrockGameVersion: String = "",
+    val email: String = "",
+    val password: SensitiveText = SensitiveText(),
+    val importedSecret: SensitiveText = SensitiveText(),
+    val offlineUsername: String = "",
+    val authorization: DeviceAuthorization? = null,
+    val isWaiting: Boolean = false,
+) {
+    val edition: MinecraftEdition get() = method.edition
+}
+
 class SensitiveText(private val raw: String = "") {
     fun reveal(): String = raw
     fun isBlank(): Boolean = raw.isBlank()
@@ -72,6 +115,12 @@ data class LauncherUiState(
     val create: CreateInstanceState = CreateInstanceState(),
     val launchPlan: LaunchPlanSummary? = null,
     val modInstall: ModInstallState = ModInstallState(),
+    val operation: OperationStatus? = null,
+    val instanceSettings: InstanceSettingsState = InstanceSettingsState(),
+    val accounts: List<ManagedAccount> = emptyList(),
+    val accountLogin: AccountLoginState = AccountLoginState(),
+    val logs: List<LogEntry> = emptyList(),
+    val credentialProtection: CredentialProtection? = null,
 ) {
     val selectedInstance: GameInstance?
         get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
@@ -81,8 +130,11 @@ class LauncherViewModel(
     private val services: LauncherServices,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
-    private val mutableState = MutableStateFlow(LauncherUiState())
+    private val mutableState = MutableStateFlow(
+        LauncherUiState(credentialProtection = services.credentialStore.protection),
+    )
     private var installJob: Job? = null
+    private var accountLoginJob: Job? = null
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
     init {
@@ -93,22 +145,43 @@ class LauncherViewModel(
                 mutableState.value = mutableState.value.copy(instances = instances, selectedId = selected)
             }
         }
+        scope.launch {
+            services.accounts.accounts.collectLatest { accounts ->
+                mutableState.value = mutableState.value.copy(accounts = accounts)
+            }
+        }
+        scope.launch {
+            services.logger.entries.collectLatest { logs ->
+                mutableState.value = mutableState.value.copy(logs = logs)
+            }
+        }
         initialize()
     }
 
     fun initialize() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(isInitializing = true, error = null)
-            runCatching { services.repository.initialize() }
+            mutableState.value = mutableState.value.copy(
+                isInitializing = true,
+                error = null,
+                operation = OperationStatus("Loading launcher data"),
+            )
+            runCatching {
+                services.repository.initialize()
+                services.accounts.initialize()
+            }
                 .onFailure { showError(it) }
-            mutableState.value = mutableState.value.copy(isInitializing = false)
+            mutableState.value = mutableState.value.copy(isInitializing = false, operation = null)
             refreshVersions()
         }
     }
 
     fun refreshVersions() {
         scope.launch {
-            mutableState.value = mutableState.value.copy(isLoadingVersions = true, error = null)
+            mutableState.value = mutableState.value.copy(
+                isLoadingVersions = true,
+                error = null,
+                operation = OperationStatus("Refreshing Minecraft versions"),
+            )
             try {
                 val manifest = services.metadataClient.fetchVersionManifest()
                 val versions = manifest.versions.filter { it.type == "release" || it.type == "snapshot" }
@@ -120,11 +193,12 @@ class LauncherViewModel(
                     create = mutableState.value.create.copy(
                         versionId = mutableState.value.create.versionId.ifBlank { defaultVersion },
                     ),
+                    operation = null,
                 )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.value = mutableState.value.copy(isLoadingVersions = false)
+                mutableState.value = mutableState.value.copy(isLoadingVersions = false, operation = null)
                 showError(error)
             }
         }
@@ -190,6 +264,7 @@ class LauncherViewModel(
                         modLoader = form.modLoader,
                         loaderVersion = form.loaderVersion,
                         requiredJavaMajor = metadata.javaVersion?.majorVersion ?: 8,
+                        memory = LaunchTuningAdvisor.recommendMemory(form.modLoader, services.systemProfile),
                     ),
                 )
                 mutableState.value = mutableState.value.copy(
@@ -210,13 +285,29 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         installJob?.cancel()
         installJob = scope.launch {
-            mutableState.value = mutableState.value.copy(error = null, notice = null, launchPlan = null)
+            mutableState.value = mutableState.value.copy(
+                error = null,
+                notice = null,
+                launchPlan = null,
+                operation = OperationStatus("Preparing installation", instance.displayName, cancellable = true),
+            )
             try {
-                services.installer.install(instance)
-                mutableState.value = mutableState.value.copy(notice = "Installation is complete.")
+                services.installer.install(instance) { progress ->
+                    mutableState.value = mutableState.value.copy(
+                        operation = OperationStatus(
+                            title = "Installing ${instance.displayName}",
+                            detail = progress.activeFile,
+                            completed = progress.completedBytes,
+                            total = progress.totalBytes,
+                            cancellable = true,
+                        ),
+                    )
+                }
+                mutableState.value = mutableState.value.copy(notice = "Installation is complete.", operation = null)
             } catch (_: CancellationException) {
-                mutableState.value = mutableState.value.copy(notice = "Installation cancelled.")
+                mutableState.value = mutableState.value.copy(notice = "Installation cancelled.", operation = null)
             } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(operation = null)
                 showError(error)
             }
         }
@@ -231,6 +322,7 @@ class LauncherViewModel(
         if (instance.installationState !is InstallationState.Installed) return
         try {
             val installed = services.installer.readInstalledVersion(instance)
+            val activeAccount = mutableState.value.accounts.firstOrNull { it.isActive }
             mutableState.value = mutableState.value.copy(
                 launchPlan = LaunchPlanSummary(
                     mainClass = installed.metadata.mainClass,
@@ -238,7 +330,16 @@ class LauncherViewModel(
                     classpathEntries = installed.libraries.count { !it.native } + 1,
                     nativeLibraries = installed.libraries.count { it.native },
                     workingDirectory = "${instance.instanceDirectory}/game",
-                    authentication = "Microsoft account required",
+                    authentication = when {
+                        activeAccount == null -> "Sign-in required"
+                        activeAccount.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
+                            "${activeAccount.profile.playerName} · Offline"
+                        activeAccount.isAuthenticated && activeAccount.profile.edition == MinecraftEdition.JAVA ->
+                            activeAccount.profile.playerName
+                        activeAccount.profile.edition == MinecraftEdition.BEDROCK ->
+                            "Select a Java account"
+                        else -> "${activeAccount.profile.playerName} · Sign-in expired"
+                    },
                 ),
                 notice = null,
                 error = null,
@@ -251,16 +352,19 @@ class LauncherViewModel(
     fun validateLaunch() {
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
+            mutableState.value = mutableState.value.copy(operation = OperationStatus("Checking launch requirements"))
             try {
                 val prepared = services.runtime.prepare(instance)
                 mutableState.value = mutableState.value.copy(
                     notice = if (prepared.missingRequirements.isEmpty()) {
                         "The instance is ready to launch."
                     } else {
-                        "The launch plan is valid. Sign in with a Microsoft account before launch."
+                        "The launch plan is valid. Select a ready Java account before launch."
                     },
+                    operation = null,
                 )
             } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(operation = null)
                 showError(error)
             }
         }
@@ -298,6 +402,7 @@ class LauncherViewModel(
         if (form.projectId.isBlank()) return
         scope.launch {
             mutableState.value = mutableState.value.copy(modInstall = form.copy(isInstalling = true), error = null)
+            mutableState.value = mutableState.value.copy(operation = OperationStatus("Resolving mod download", form.projectId))
             try {
                 val provider = when (form.provider) {
                     ModProvider.MODRINTH -> services.modrinthDownloads
@@ -312,11 +417,13 @@ class LauncherViewModel(
                 mutableState.value = mutableState.value.copy(
                     modInstall = ModInstallState(),
                     notice = "${download.fileName} was added to ${instance.displayName}.",
+                    operation = null,
                 )
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(modInstall = form.copy(isInstalling = false))
+                mutableState.value = mutableState.value.copy(operation = null)
                 showError(error)
             }
         }
@@ -338,7 +445,267 @@ class LauncherViewModel(
         mutableState.value = mutableState.value.copy(error = null, notice = null)
     }
 
+    fun openInstanceSettings() {
+        val instance = mutableState.value.selectedInstance ?: return
+        val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
+        mutableState.value = mutableState.value.copy(
+            instanceSettings = InstanceSettingsState(
+                visible = true,
+                minimumMemoryMiB = instance.memory.minimumMiB.toString(),
+                maximumMemoryMiB = instance.memory.maximumMiB.toString(),
+                jvmArguments = instance.jvmArguments.joinToString(" "),
+                recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
+                warnings = recommendation.warnings,
+            ),
+        )
+    }
+
+    fun closeInstanceSettings() {
+        mutableState.value = mutableState.value.copy(instanceSettings = InstanceSettingsState())
+    }
+
+    fun setMinimumMemory(value: String) {
+        if (value.all(Char::isDigit)) {
+            mutableState.value = mutableState.value.copy(
+                instanceSettings = mutableState.value.instanceSettings.copy(minimumMemoryMiB = value),
+            )
+        }
+    }
+
+    fun setMaximumMemory(value: String) {
+        if (value.all(Char::isDigit)) {
+            mutableState.value = mutableState.value.copy(
+                instanceSettings = mutableState.value.instanceSettings.copy(maximumMemoryMiB = value),
+            )
+        }
+    }
+
+    fun setJvmArguments(value: String) {
+        mutableState.value = mutableState.value.copy(
+            instanceSettings = mutableState.value.instanceSettings.copy(jvmArguments = value),
+        )
+    }
+
+    fun applyRecommendedMemory() {
+        val instance = mutableState.value.selectedInstance ?: return
+        val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
+        mutableState.value = mutableState.value.copy(
+            instanceSettings = mutableState.value.instanceSettings.copy(
+                minimumMemoryMiB = recommendation.memory.minimumMiB.toString(),
+                maximumMemoryMiB = recommendation.memory.maximumMiB.toString(),
+                warnings = emptyList(),
+            ),
+        )
+    }
+
+    fun saveInstanceSettings() {
+        val instance = mutableState.value.selectedInstance ?: return
+        val form = mutableState.value.instanceSettings
+        val minimum = form.minimumMemoryMiB.toIntOrNull() ?: return
+        val maximum = form.maximumMemoryMiB.toIntOrNull() ?: return
+        if (minimum <= 0 || maximum < minimum) return
+        scope.launch {
+            mutableState.value = mutableState.value.copy(instanceSettings = form.copy(isSaving = true))
+            try {
+                val arguments = form.jvmArguments.split(Regex("\\s+")).filter(String::isNotBlank)
+                val review = JvmArgumentPolicy.review(arguments)
+                services.repository.update(
+                    instance.copy(
+                        memory = MemorySettings(minimum, maximum),
+                        jvmArguments = review.accepted,
+                    ),
+                )
+                mutableState.value = mutableState.value.copy(
+                    instanceSettings = InstanceSettingsState(),
+                    notice = if (review.ignored.isEmpty()) {
+                        "Launch settings saved."
+                    } else {
+                        "Launch settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
+                    },
+                )
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(instanceSettings = form.copy(isSaving = false))
+                showError(error)
+            }
+        }
+    }
+
+    fun selectAccount(profileId: String) {
+        scope.launch {
+            runCatching { services.accounts.select(profileId) }.onFailure(::showError)
+        }
+    }
+
+    fun openAccountLogin() {
+        mutableState.value = mutableState.value.copy(accountLogin = AccountLoginState(visible = true), error = null)
+    }
+
+    fun closeAccountLogin() {
+        accountLoginJob?.cancel()
+        accountLoginJob = null
+        mutableState.value = mutableState.value.copy(accountLogin = AccountLoginState(), operation = null)
+    }
+
+    fun setAccountLoginMethod(method: AccountAuthenticationMethod) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(
+                method = method,
+                authorization = null,
+                isWaiting = false,
+            ),
+        )
+    }
+
+    fun setBedrockGameVersion(value: String) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(bedrockGameVersion = value),
+        )
+    }
+
+    fun setAccountEmail(value: String) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(email = value),
+        )
+    }
+
+    fun setAccountPassword(value: String) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(password = SensitiveText(value)),
+        )
+    }
+
+    fun setImportedAccountSecret(value: String) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(importedSecret = SensitiveText(value)),
+        )
+    }
+
+    fun setOfflineUsername(value: String) {
+        mutableState.value = mutableState.value.copy(
+            accountLogin = mutableState.value.accountLogin.copy(offlineUsername = value),
+        )
+    }
+
+    fun signInAccount() {
+        if (accountLoginJob?.isActive == true) return
+        val form = mutableState.value.accountLogin
+        val request = form.toLoginRequest() ?: return
+        accountLoginJob = scope.launch {
+            mutableState.value = mutableState.value.copy(
+                accountLogin = form.copy(isWaiting = true),
+                operation = OperationStatus(
+                    if (form.method == AccountAuthenticationMethod.OFFLINE) {
+                        "Adding offline account"
+                    } else {
+                        "Authenticating account"
+                    },
+                ),
+                error = null,
+            )
+            try {
+                services.accounts.addAccount(request) { authorization ->
+                    mutableState.value = mutableState.value.copy(
+                        accountLogin = mutableState.value.accountLogin.copy(
+                            authorization = authorization,
+                            isWaiting = true,
+                        ),
+                    )
+                }
+                val activeAccount = services.accounts.accounts.value.firstOrNull { it.isActive }
+                if (form.method.usesOfficialJavaProfile && activeAccount?.isAuthenticated == true) {
+                    val session = services.accounts.currentSession()
+                    if (session != null) {
+                        val profile = services.profileClient.fetchProfile(session).copy(
+                            edition = MinecraftEdition.JAVA,
+                            authenticationMethod = activeAccount.profile.authenticationMethod,
+                            lastAuthenticatedAtEpochMillis = activeAccount.profile.lastAuthenticatedAtEpochMillis,
+                        )
+                        services.accounts.updateProfile(profile)
+                    }
+                }
+                mutableState.value = mutableState.value.copy(
+                    accountLogin = AccountLoginState(),
+                    operation = null,
+                    notice = if (form.method == AccountAuthenticationMethod.OFFLINE) {
+                        "Offline account added. It can only join servers that allow offline identities."
+                    } else {
+                        "Account added."
+                    },
+                )
+            } catch (_: CancellationException) {
+                mutableState.value = mutableState.value.copy(operation = null)
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(
+                    accountLogin = mutableState.value.accountLogin.copy(isWaiting = false),
+                    operation = null,
+                )
+                showError(error)
+            } finally {
+                accountLoginJob = null
+            }
+        }
+    }
+
+    fun signOutAccount(profileId: String) {
+        scope.launch {
+            runCatching { services.accounts.signOut(profileId) }.onFailure(::showError)
+        }
+    }
+
+    fun removeAccount(profileId: String) {
+        scope.launch {
+            runCatching { services.accounts.remove(profileId) }.onFailure(::showError)
+        }
+    }
+
+    fun refreshActiveAccount() {
+        scope.launch {
+            mutableState.value = mutableState.value.copy(operation = OperationStatus("Refreshing account profile"))
+            try {
+                val session = services.accounts.currentSession()
+                    ?: error("The selected account needs to sign in again.")
+                val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
+                val profile = services.profileClient.fetchProfile(session).copy(
+                    authenticationMethod = existing?.authenticationMethod
+                        ?: AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+                    lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
+                )
+                services.accounts.updateProfile(profile)
+                mutableState.value = mutableState.value.copy(operation = null, notice = "Account profile refreshed.")
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(operation = null)
+                showError(error)
+            }
+        }
+    }
+
+    fun resetActiveSkin() {
+        scope.launch {
+            mutableState.value = mutableState.value.copy(operation = OperationStatus("Resetting active skin"))
+            try {
+                val session = services.accounts.currentSession()
+                    ?: error("The selected account needs to sign in again.")
+                val profile = services.profileClient.resetActiveSkin(session)
+                val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
+                services.accounts.updateProfile(
+                    profile.copy(
+                        authenticationMethod = existing?.authenticationMethod
+                            ?: AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+                        lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
+                    ),
+                )
+                mutableState.value = mutableState.value.copy(operation = null, notice = "The active skin was reset.")
+            } catch (error: Exception) {
+                mutableState.value = mutableState.value.copy(operation = null)
+                showError(error)
+            }
+        }
+    }
+
+    fun clearLogs() = services.logger.clear()
+
     fun close() {
+        accountLoginJob?.cancel()
         scope.cancel()
         services.close()
     }
@@ -376,4 +743,45 @@ class LauncherViewModel(
             notice = null,
         )
     }
+}
+
+private val AccountAuthenticationMethod.usesOfficialJavaProfile: Boolean
+    get() = edition == MinecraftEdition.JAVA &&
+        this != AccountAuthenticationMethod.OFFLINE &&
+        this != AccountAuthenticationMethod.THE_ALTENING
+
+private fun AccountLoginState.toLoginRequest(): AccountLoginRequest? = when (method) {
+    AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+    AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
+    -> {
+        if (edition == MinecraftEdition.BEDROCK && bedrockGameVersion.isBlank()) null
+        else AccountLoginRequest.DeviceCode(method, bedrockGameVersion.takeIf(String::isNotBlank))
+    }
+    AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
+    AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
+    -> {
+        if (
+            email.isBlank() || password.isBlank() ||
+            (edition == MinecraftEdition.BEDROCK && bedrockGameVersion.isBlank())
+        ) {
+            null
+        } else {
+            AccountLoginRequest.Credentials(
+                method = method,
+                email = email.trim(),
+                password = SecretValue(password.reveal()),
+                bedrockGameVersion = bedrockGameVersion.takeIf(String::isNotBlank),
+            )
+        }
+    }
+    AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
+    AccountAuthenticationMethod.MICROSOFT_COOKIES,
+    AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
+    AccountAuthenticationMethod.THE_ALTENING,
+    -> if (importedSecret.isBlank()) null else AccountLoginRequest.SecretImport(
+        method,
+        SecretValue(importedSecret.reveal()),
+    )
+    AccountAuthenticationMethod.OFFLINE -> offlineUsername.trim().takeIf(String::isNotBlank)
+        ?.let(AccountLoginRequest::Offline)
 }
