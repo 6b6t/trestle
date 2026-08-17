@@ -82,8 +82,14 @@ data class InstanceLaunchState(
     val status: LaunchStatus = LaunchStatus.NotChecked,
 )
 
+enum class ResourceBrowserPresentation {
+    PAGE,
+    DIALOG,
+}
+
 data class ResourceBrowserState(
     val visible: Boolean = false,
+    val presentation: ResourceBrowserPresentation = ResourceBrowserPresentation.DIALOG,
     val provider: ResourceProvider = ResourceProvider.MODRINTH,
     val type: ResourceType = ResourceType.MOD,
     val query: String = "",
@@ -114,6 +120,7 @@ data class OperationStatus(
     val completedItems: Int? = null,
     val totalItems: Int? = null,
     val cancellable: Boolean = false,
+    val cancelLabel: String = "Pause",
 )
 
 enum class ErrorRecoveryAction {
@@ -194,6 +201,7 @@ data class LauncherUiState(
     val skinStudio: SkinStudioState = SkinStudioState(),
     val logs: List<LogEntry> = emptyList(),
     val credentialProtection: CredentialProtection? = null,
+    val pendingInstanceRemovalId: InstanceId? = null,
 ) {
     val selectedInstance: GameInstance?
         get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
@@ -623,11 +631,15 @@ class LauncherViewModel(
         launchJob?.cancel()
     }
 
-    fun openResourceBrowser(type: ResourceType = ResourceType.MOD) {
+    fun openResourceBrowser(
+        type: ResourceType = ResourceType.MOD,
+        presentation: ResourceBrowserPresentation = ResourceBrowserPresentation.DIALOG,
+    ) {
         val curseForgeAvailable = services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).isAvailable
         mutableState.value = mutableState.value.copy(
             resourceBrowser = ResourceBrowserState(
                 visible = true,
+                presentation = presentation,
                 type = type,
                 curseForgeAvailable = curseForgeAvailable,
             ),
@@ -745,6 +757,21 @@ class LauncherViewModel(
         }
     }
 
+    fun clearResourceSelection() {
+        resourceSearchJob?.cancel()
+        val browser = mutableState.value.resourceBrowser
+        mutableState.value = mutableState.value.copy(
+            resourceBrowser = browser.copy(
+                selectedProjectId = null,
+                versions = emptyList(),
+                selectedVersionId = null,
+                selectedOptionalDependencies = emptySet(),
+                isLoadingVersions = false,
+                error = null,
+            ),
+        )
+    }
+
     fun selectResourceVersion(versionId: String) {
         mutableState.value = mutableState.value.copy(
             resourceBrowser = mutableState.value.resourceBrowser.copy(
@@ -785,6 +812,7 @@ class LauncherViewModel(
                     title = if (project.type == ResourceType.MODPACK) "Installing modpack" else "Installing ${project.type.label.lowercase()}",
                     detail = project.name,
                     cancellable = true,
+                    cancelLabel = "Cancel",
                 ),
             )
             try {
@@ -807,7 +835,11 @@ class LauncherViewModel(
                     "${project.name} was installed$dependencyText."
                 }
                 mutableState.value = mutableState.value.copy(
-                    resourceBrowser = ResourceBrowserState(),
+                    resourceBrowser = if (browser.presentation == ResourceBrowserPresentation.PAGE) {
+                        browser.copy(isInstalling = false, error = null)
+                    } else {
+                        ResourceBrowserState()
+                    },
                     notice = notice,
                     operation = null,
                 )
@@ -818,7 +850,7 @@ class LauncherViewModel(
                     notice = if (project.type == ResourceType.MODPACK) {
                         "Modpack installation cancelled. No instance was added."
                     } else {
-                        "Resource installation paused."
+                        "Resource installation cancelled."
                     },
                 )
             } catch (error: Exception) {
@@ -837,14 +869,29 @@ class LauncherViewModel(
 
     fun deleteSelected() {
         val id = mutableState.value.selectedInstance?.id ?: return
+        mutableState.update { it.copy(pendingInstanceRemovalId = id) }
+    }
+
+    fun cancelInstanceRemoval() {
+        mutableState.update { it.copy(pendingInstanceRemovalId = null) }
+    }
+
+    fun confirmInstanceRemoval() {
+        val id = mutableState.value.pendingInstanceRemovalId ?: return
         scope.launch {
-            services.repository.delete(id)
-            mutableState.update {
-                it.copy(
-                    selectedId = null,
-                    notice = "Instance removed from the library. Its game directory was kept.",
-                    launchPlan = null,
-                )
+            try {
+                services.repository.delete(id)
+                mutableState.update {
+                    it.copy(
+                        selectedId = null,
+                        pendingInstanceRemovalId = null,
+                        notice = "Instance removed from the library. Its game directory was kept.",
+                        launchPlan = null,
+                    )
+                }
+            } catch (error: Exception) {
+                mutableState.update { it.copy(pendingInstanceRemovalId = null) }
+                showError(error)
             }
         }
     }

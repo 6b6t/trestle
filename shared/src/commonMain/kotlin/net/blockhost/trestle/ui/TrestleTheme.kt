@@ -30,14 +30,33 @@ private val TrestleColors = darkColorScheme(
     onPrimary = Color(0xFF211B12),
     primaryContainer = Color(0xFF55401F),
     onPrimaryContainer = Color(0xFFF4D9A4),
+    secondary = Muted,
+    onSecondary = Soot,
+    secondaryContainer = RaisedSurface,
+    onSecondaryContainer = Chalk,
+    tertiary = Ochre,
+    onTertiary = Color(0xFF211B12),
     background = Soot,
     onBackground = Chalk,
     surface = Surface,
     onSurface = Chalk,
     surfaceVariant = RaisedSurface,
     onSurfaceVariant = Muted,
+    surfaceContainerLowest = Soot,
+    surfaceContainerLow = Surface,
+    surfaceContainer = Surface,
+    surfaceContainerHigh = RaisedSurface,
+    surfaceContainerHighest = Color(0xFF35332D),
     outline = Rule,
+    outlineVariant = Rule,
     error = Color(0xFFE89982),
+    onError = Color(0xFF2B0B04),
+    errorContainer = ErrorSurface,
+    onErrorContainer = ErrorText,
+    inverseSurface = Chalk,
+    inverseOnSurface = Soot,
+    inversePrimary = Color(0xFF765A2D),
+    scrim = Color.Black,
 )
 
 @Composable
@@ -63,6 +82,12 @@ private fun trestleTypography(): Typography {
             fontSize = 28.sp,
             lineHeight = 32.sp,
         ),
+        headlineSmall = TextStyle(
+            fontFamily = display,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            lineHeight = 28.sp,
+        ),
         titleLarge = TextStyle(
             fontFamily = body,
             fontWeight = FontWeight.Medium,
@@ -74,6 +99,12 @@ private fun trestleTypography(): Typography {
             fontWeight = FontWeight.Medium,
             fontSize = 16.sp,
             lineHeight = 22.sp,
+        ),
+        titleSmall = TextStyle(
+            fontFamily = body,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
         ),
         bodyLarge = TextStyle(
             fontFamily = body,
@@ -87,6 +118,12 @@ private fun trestleTypography(): Typography {
             fontSize = 14.sp,
             lineHeight = 20.sp,
         ),
+        bodySmall = TextStyle(
+            fontFamily = body,
+            fontWeight = FontWeight.Normal,
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+        ),
         labelLarge = TextStyle(
             fontFamily = body,
             fontWeight = FontWeight.Medium,
@@ -98,6 +135,12 @@ private fun trestleTypography(): Typography {
             fontWeight = FontWeight.Medium,
             fontSize = 12.sp,
             lineHeight = 16.sp,
+        ),
+        labelSmall = TextStyle(
+            fontFamily = body,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+            lineHeight = 14.sp,
         ),
     )
 }

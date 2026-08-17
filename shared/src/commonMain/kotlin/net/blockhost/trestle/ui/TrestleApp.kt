@@ -5,6 +5,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,37 +25,61 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -60,16 +87,26 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ic_account
+import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ic_extension
+import net.blockhost.trestle.resources.ic_library
+import net.blockhost.trestle.resources.ic_settings
+import net.blockhost.trestle.resources.ic_visibility
+import net.blockhost.trestle.resources.ic_visibility_off
 import net.blockhost.trestle.resources.trestle_mark
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
@@ -114,31 +151,84 @@ private val installableResourceTypes = browsableResourceTypes.toSet()
 @Composable
 fun TrestleApp(viewModel: LauncherViewModel) {
     val state by viewModel.state.collectAsState()
-    var destination by remember { mutableStateOf(Destination.LIBRARY) }
+    TrestleApp(state, viewModel)
+}
+
+@Composable
+fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
+    var destinationName by rememberSaveable { mutableStateOf(Destination.LIBRARY.name) }
+    val destination = Destination.entries.firstOrNull { it.name == destinationName } ?: Destination.LIBRARY
+    val snackbarHostState = remember { SnackbarHostState() }
+    val changeDestination: (Destination) -> Unit = { target ->
+        if (
+            destination == Destination.DISCOVER &&
+            target != Destination.DISCOVER &&
+            state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
+        ) {
+            viewModel.closeResourceBrowser()
+        }
+        destinationName = target.name
+        if (
+            target == Destination.DISCOVER &&
+            (!state.resourceBrowser.visible || state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE)
+        ) {
+            viewModel.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
+        }
+    }
 
     TrestleTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            BoxWithConstraints(Modifier.fillMaxSize()) {
+        LaunchedEffect(state.error, state.notice) {
+            val message = state.error ?: state.notice ?: return@LaunchedEffect
+            val actionLabel = "Retry".takeIf { state.error != null && state.errorRecovery != null }
+            val result = snackbarHostState.showSnackbar(
+                message = message,
+                actionLabel = actionLabel,
+                withDismissAction = state.error != null,
+                duration = if (state.error != null) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed && actionLabel != null) viewModel.retryError()
+            else viewModel.clearMessage()
+        }
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                state.operation?.let { OperationBar(it, viewModel::cancelActiveOperation) }
+            },
+        ) { contentPadding ->
+            BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
                 val compact = maxWidth < 840.dp
                 if (compact) {
-                    CompactLayout(state, destination, { destination = it }, viewModel)
+                    CompactLayout(state, destination, changeDestination, viewModel)
                 } else {
-                    WideLayout(state, destination, { destination = it }, viewModel)
-                }
-                state.operation?.let {
-                    OperationBar(
-                        it,
-                        viewModel::cancelActiveOperation,
-                        Modifier.align(Alignment.BottomCenter).padding(bottom = if (compact) 64.dp else 0.dp),
-                    )
+                    WideLayout(state, destination, changeDestination, viewModel)
                 }
             }
             if (state.create.visible) CreateInstanceDialog(state, viewModel)
-            if (state.resourceBrowser.visible) ResourceBrowserDialog(state, viewModel)
+            if (
+                state.resourceBrowser.visible &&
+                state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
+            ) {
+                ResourceBrowserDialog(state, viewModel)
+            }
             if (state.instanceSettings.visible) InstanceSettingsDialog(state, viewModel)
             if (state.accountLogin.visible) AccountLoginDialog(state, viewModel)
             if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, viewModel)
             if (state.skinStudio.editor.visible) SkinEditorDialog(state, viewModel)
+            state.pendingInstanceRemovalId?.let { pendingId ->
+                val instance = state.instances.firstOrNull { it.id == pendingId }
+                AlertDialog(
+                    onDismissRequest = viewModel::cancelInstanceRemoval,
+                    title = { Text("Remove ${instance?.displayName ?: "instance"}?") },
+                    text = { Text("This removes the instance from the library. Its game directory and files stay on disk.") },
+                    dismissButton = {
+                        TextButton(onClick = viewModel::cancelInstanceRemoval) { Text("Cancel") }
+                    },
+                    confirmButton = {
+                        Button(onClick = viewModel::confirmInstanceRemoval) { Text("Remove from library") }
+                    },
+                )
+            }
         }
     }
 }
@@ -152,17 +242,16 @@ private fun WideLayout(
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
         Sidebar(state, destination, onDestinationChange)
-        VerticalDivider(color = Rule)
+        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         when (destination) {
             Destination.LIBRARY -> Row(modifier = Modifier.weight(1f)) {
                 LibraryPane(
                     state = state,
                     modifier = Modifier.weight(1f),
                     onNew = viewModel::openCreate,
-                    onRetry = viewModel::retryError,
                     viewModel = viewModel,
                 )
-                VerticalDivider(color = Rule)
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 DetailsPane(state, Modifier.width(360.dp), viewModel)
             }
             Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.weight(1f), viewModel)
@@ -172,6 +261,7 @@ private fun WideLayout(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CompactLayout(
     state: LauncherUiState,
@@ -180,26 +270,39 @@ private fun CompactLayout(
     viewModel: LauncherViewModel,
 ) {
     Scaffold(
-        containerColor = Soot,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                BridgeMark()
-                Text("Trestle", style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.weight(1f))
-                Text(currentPlatform, color = Muted, style = MaterialTheme.typography.labelMedium)
-            }
+            TopAppBar(
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        BridgeMark()
+                        Text("Trestle")
+                    }
+                },
+                actions = {
+                    Text(
+                        currentPlatform,
+                        modifier = Modifier.padding(end = 16.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                },
+                windowInsets = WindowInsets(0, 0, 0, 0),
+            )
         },
         bottomBar = {
-            Row(
-                modifier = Modifier.fillMaxWidth().background(Surface).padding(8.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
+            NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
                 Destination.entries.forEach { item ->
-                    NavigationItem(item, destination == item, Modifier.weight(1f)) { onDestinationChange(item) }
+                    NavigationBarItem(
+                        selected = destination == item,
+                        onClick = { onDestinationChange(item) },
+                        icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
+                        label = { Text(item.label) },
+                    )
                 }
             }
         },
@@ -215,7 +318,11 @@ private fun CompactLayout(
 
 @Composable
 private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinationChange: (Destination) -> Unit) {
-    Column(Modifier.width(240.dp).fillMaxHeight().background(Surface).padding(16.dp)) {
+    Column(
+        Modifier.width(240.dp).fillMaxHeight()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(16.dp),
+    ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -227,7 +334,13 @@ private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinat
         Spacer(Modifier.height(24.dp))
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Destination.entries.forEach { item ->
-                NavigationItem(item, destination == item, Modifier.fillMaxWidth()) { onDestinationChange(item) }
+                NavigationDrawerItem(
+                    label = { Text(item.label) },
+                    selected = destination == item,
+                    onClick = { onDestinationChange(item) },
+                    icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
         Spacer(Modifier.weight(1f))
@@ -241,7 +354,7 @@ private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinat
                         account.profile.edition == MinecraftEdition.JAVA -> "Java account ready"
                         else -> "Bedrock account ready"
                     },
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
@@ -249,28 +362,17 @@ private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinat
         Text(
             "$currentPlatform build ${BuildInfo.VERSION}",
             modifier = Modifier.padding(8.dp),
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
     }
 }
 
-@Composable
-private fun NavigationItem(
-    destination: Destination,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .background(if (selected) RaisedSurface else androidx.compose.ui.graphics.Color.Transparent, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Text(destination.label, color = if (selected) Chalk else Muted, style = MaterialTheme.typography.labelLarge)
-    }
+private fun destinationIcon(destination: Destination): DrawableResource = when (destination) {
+    Destination.LIBRARY -> Res.drawable.ic_library
+    Destination.DISCOVER -> Res.drawable.ic_extension
+    Destination.ACCOUNTS -> Res.drawable.ic_account
+    Destination.SETTINGS -> Res.drawable.ic_settings
 }
 
 @Composable
@@ -278,15 +380,13 @@ private fun LibraryPane(
     state: LauncherUiState,
     modifier: Modifier,
     onNew: () -> Unit,
-    onRetry: () -> Unit,
     viewModel: LauncherViewModel,
 ) {
     Column(modifier.fillMaxHeight()) {
         PageHeader("Library") {
             OutlinedButton(onClick = onNew, shape = RoundedCornerShape(8.dp)) { Text("New instance") }
         }
-        HorizontalDivider(color = Rule)
-        MessageStrip(state, onRetry)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         when {
             state.isInitializing -> LoadingRows(Modifier.fillMaxSize())
             state.instances.isEmpty() -> EmptyLibrary(onNew, Modifier.fillMaxSize())
@@ -322,12 +422,6 @@ private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewM
                 OutlinedButton(onClick = viewModel::openCreate, shape = RoundedCornerShape(8.dp)) { Text("New") }
             }
         }
-        state.error?.let { message ->
-            item("error") {
-                InlineMessage(message, true, viewModel::retryError.takeIf { state.errorRecovery != null })
-            }
-        }
-        state.notice?.let { message -> item("notice") { InlineMessage(message, false, null) } }
         if (state.isInitializing) {
             item("loading") { LoadingRows(Modifier.fillMaxWidth().height(180.dp)) }
         } else if (state.instances.isEmpty()) {
@@ -346,26 +440,30 @@ private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewM
 }
 
 @Composable
-private fun MessageStrip(state: LauncherUiState, onRetry: () -> Unit) {
-    state.error?.let { InlineMessage(it, true, onRetry.takeIf { state.errorRecovery != null }) }
-    state.notice?.let { InlineMessage(it, false, null) }
-}
-
-@Composable
 private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)?) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(if (error) ErrorSurface else RaisedSurface).padding(12.dp),
+        modifier = Modifier.fillMaxWidth().background(
+            if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        ).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(message, modifier = Modifier.weight(1f), color = if (error) ErrorText else Chalk)
+        Text(
+            message,
+            modifier = Modifier.weight(1f),
+            color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
+        )
         onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
     }
 }
 
 @Composable
 private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().background(RaisedSurface)) {
+    Column(
+        modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .windowInsetsPadding(WindowInsets.navigationBars),
+    ) {
         val progress = progressFraction(
             completedBytes = status.completed,
             totalBytes = status.total,
@@ -376,11 +474,15 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth(),
-                color = Ochre,
-                trackColor = Rule,
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outlineVariant,
             )
         } else {
-            LinearProgressIndicator(Modifier.fillMaxWidth(), color = Ochre, trackColor = Rule)
+            LinearProgressIndicator(
+                Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.outlineVariant,
+            )
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
@@ -399,7 +501,7 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
                     )
                 }
             }
-            if (status.cancellable) TextButton(onClick = onCancel) { Text("Pause") }
+            if (status.cancellable) TextButton(onClick = onCancel) { Text(status.cancelLabel) }
         }
     }
 }
@@ -412,8 +514,16 @@ private fun InstanceRow(instance: GameInstance, selected: Boolean, viewModel: La
     ContextActionArea(instanceContextActions(instance, viewModel)) {
         Column(
             modifier = Modifier.fillMaxWidth()
-                .background(if (selected) RaisedSurface else Surface, RoundedCornerShape(8.dp))
-                .clickable(onClick = selectInstance).padding(16.dp),
+                .background(
+                    if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface,
+                    RoundedCornerShape(8.dp),
+                )
+                .selectable(
+                    selected = selected,
+                    onClick = selectInstance,
+                    role = Role.RadioButton,
+                )
+                .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -507,7 +617,11 @@ private fun DetailsPane(
     compact: Boolean = false,
 ) {
     val instance = state.selectedInstance
-    val layoutModifier = if (compact) modifier.padding(16.dp) else modifier.fillMaxHeight().padding(24.dp)
+    val layoutModifier = if (compact) {
+        modifier.padding(16.dp)
+    } else {
+        modifier.fillMaxHeight().padding(24.dp).verticalScroll(rememberScrollState())
+    }
     if (instance == null) {
         Column(layoutModifier) {
             Text("Select an instance", style = MaterialTheme.typography.titleLarge)
@@ -523,7 +637,7 @@ private fun DetailsPane(
             PropertyRow("Status", stateLabel(instance.installationState))
             PropertyRow("Java", instance.requiredJavaMajor.toString())
             PropertyRow("Directory", instance.instanceDirectory)
-            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.toString() ?: "Never")
+            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never")
 
             state.launchPlan?.let { plan ->
                 Spacer(Modifier.height(24.dp))
@@ -535,7 +649,7 @@ private fun DetailsPane(
                 PropertyRow("Account", plan.authentication)
             }
 
-            if (!compact) Spacer(Modifier.weight(1f)) else Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(24.dp))
             if (instance.installationState is InstallationState.Installed) {
                 OutlinedButton(
                     onClick = { viewModel.openResourceBrowser() },
@@ -655,27 +769,59 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
     val minimum = form.minimumMemoryMiB.toIntOrNull()
     val maximum = form.maximumMemoryMiB.toIntOrNull()
     val valid = minimum != null && maximum != null && minimum > 0 && maximum >= minimum
-    Dialog(onDismissRequest = viewModel::closeInstanceSettings) {
-        Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 540.dp)) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val minimumError = when {
+        form.minimumMemoryMiB.isBlank() -> "Enter a minimum memory value."
+        minimum == null || minimum <= 0 -> "Minimum memory must be greater than 0."
+        else -> null
+    }
+    val maximumError = when {
+        form.maximumMemoryMiB.isBlank() -> "Enter a maximum memory value."
+        maximum == null -> "Enter a valid maximum memory value."
+        minimum != null && maximum < minimum -> "Maximum memory must be at least the minimum."
+        else -> null
+    }
+    Dialog(
+        onDismissRequest = { if (!form.isSaving) viewModel.closeInstanceSettings() },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.widthIn(max = 540.dp).fillMaxWidth().heightIn(max = 640.dp),
+        ) {
+            Column(
+                Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
                 Text("Launch settings", style = MaterialTheme.typography.headlineMedium)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextField(
-                        value = form.minimumMemoryMiB,
-                        onValueChange = viewModel::setMinimumMemory,
-                        label = { Text("Minimum memory (MiB)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextField(
-                        value = form.maximumMemoryMiB,
-                        onValueChange = viewModel::setMaximumMemory,
-                        label = { Text("Maximum memory (MiB)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
+                        val error = if (isMinimum) minimumError else maximumError
+                        TextField(
+                            value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
+                            onValueChange = if (isMinimum) viewModel::setMinimumMemory else viewModel::setMaximumMemory,
+                            label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
+                            isError = error != null,
+                            supportingText = if (error == null) null else ({ Text(error) }),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
+                            ),
+                            singleLine = true,
+                            modifier = modifier,
+                        )
+                    }
+                    if (maxWidth < 440.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            memoryField(true, Modifier.fillMaxWidth())
+                            memoryField(false, Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            memoryField(true, Modifier.weight(1f))
+                            memoryField(false, Modifier.weight(1f))
+                        }
+                    }
                 }
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(form.recommendation.orEmpty(), color = Muted, modifier = Modifier.weight(1f))
@@ -713,7 +859,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherVie
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            color = Surface,
+            color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
             modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp),
         ) {
@@ -739,23 +885,45 @@ private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherVie
                     }
                     TextButton(onClick = viewModel::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
                 }
-                HorizontalDivider(color = Rule)
-                ResourceBrowserToolbar(browser, viewModel)
-                browser.error?.let { InlineMessage(it, true, null) }
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    if (maxWidth < 720.dp) {
-                        Column(Modifier.fillMaxSize()) {
-                            ResourceResultList(browser, viewModel, Modifier.weight(1f))
-                            HorizontalDivider(color = Rule)
-                            ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.heightIn(max = 300.dp))
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                ResourceBrowserContent(state, viewModel, Modifier.fillMaxSize())
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResourceBrowserContent(
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+) {
+    val browser = state.resourceBrowser
+    Column(modifier) {
+        ResourceBrowserToolbar(browser, viewModel)
+        browser.error?.let { InlineMessage(it, true, null) }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth < 720.dp) {
+                if (browser.selectedProject == null) {
+                    ResourceResultList(browser, viewModel, Modifier.fillMaxSize())
+                } else {
+                    PlatformBackHandler(enabled = true, onBack = viewModel::clearResourceSelection)
+                    Column(Modifier.fillMaxSize()) {
+                        TextButton(
+                            onClick = viewModel::clearResourceSelection,
+                            modifier = Modifier.padding(horizontal = 8.dp),
+                        ) {
+                            Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
+                            Text("Back to results")
                         }
-                    } else {
-                        Row(Modifier.fillMaxSize()) {
-                            ResourceResultList(browser, viewModel, Modifier.weight(3f))
-                            VerticalDivider(color = Rule)
-                            ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(2f))
-                        }
+                        ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(1f))
                     }
+                }
+            } else {
+                Row(Modifier.fillMaxSize()) {
+                    ResourceResultList(browser, viewModel, Modifier.weight(3f))
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ResourceSelection(browser, state.selectedInstance, viewModel, Modifier.weight(2f))
                 }
             }
         }
@@ -774,6 +942,8 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: Lau
                 onValueChange = viewModel::setResourceQuery,
                 label = { Text("Search") },
                 singleLine = true,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { viewModel.searchResources() }),
                 modifier = Modifier.weight(1f),
             )
             Button(
@@ -817,18 +987,14 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: Lau
 
 @Composable
 private fun ResourceProviderButtons(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ResourceProvider.entries.forEach { provider ->
+    SingleChoiceSegmentedButtonRow {
+        ResourceProvider.entries.forEachIndexed { index, provider ->
             val available = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable
-            OutlinedButton(
+            SegmentedButton(
+                selected = browser.provider == provider,
                 onClick = { viewModel.setResourceProvider(provider) },
                 enabled = available,
-                shape = RoundedCornerShape(8.dp),
-                colors = if (browser.provider == provider) {
-                    ButtonDefaults.outlinedButtonColors(containerColor = RaisedSurface, contentColor = Chalk)
-                } else {
-                    ButtonDefaults.outlinedButtonColors(contentColor = Muted)
-                },
+                shape = SegmentedButtonDefaults.itemShape(index, ResourceProvider.entries.size),
             ) { Text(provider.label) }
         }
     }
@@ -879,8 +1045,11 @@ private fun ResourceResultList(
 private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
-            .background(if (selected) RaisedSurface else Color.Transparent, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick)
+            .background(
+                if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+                RoundedCornerShape(8.dp),
+            )
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
@@ -938,7 +1107,7 @@ private fun ResourceProjectImage(project: ResourceProject, modifier: Modifier) {
         if (imageUrl != null) {
             AsyncImage(
                 model = imageUrl,
-                contentDescription = "${project.name} preview",
+                contentDescription = null,
                 contentScale = if (showingFeaturedImage) ContentScale.Crop else ContentScale.Fit,
                 onError = {
                     if (showingFeaturedImage && project.iconUrl != null) useIconFallback = true
@@ -1017,13 +1186,18 @@ private fun ResourceSelection(
                 Text("Optional dependencies", style = MaterialTheme.typography.titleMedium)
                 optionalDependencies.forEach { dependency ->
                     Row(
-                        Modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth().toggleable(
+                            value = dependency.selectionKey in browser.selectedOptionalDependencies,
+                            enabled = dependency.selectionKey.isNotBlank(),
+                            role = Role.Checkbox,
+                            onValueChange = { viewModel.toggleOptionalDependency(dependency.selectionKey) },
+                        ).padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Checkbox(
                             checked = dependency.selectionKey in browser.selectedOptionalDependencies,
-                            onCheckedChange = { viewModel.toggleOptionalDependency(dependency.selectionKey) },
+                            onCheckedChange = null,
                             enabled = dependency.selectionKey.isNotBlank(),
                         )
                         Text(
@@ -1088,29 +1262,17 @@ private fun ResourceProjectDetails(project: ResourceProject) {
 
 @Composable
 private fun ResourceVersionPicker(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
-    var expanded by remember { mutableStateOf(false) }
     val selected = browser.selectedVersion
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text("Version", color = Muted, style = MaterialTheme.typography.labelMedium)
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-            ) { Text(selected?.versionNumber ?: "Select version", modifier = Modifier.weight(1f)) }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                browser.versions.forEach { version ->
-                    DropdownMenuItem(
-                        text = { Text("${version.versionNumber} · ${version.channel.label}") },
-                        onClick = {
-                            expanded = false
-                            viewModel.selectResourceVersion(version.id)
-                        },
-                    )
-                }
-            }
-        }
-    }
+    val labels = browser.versions.map { "${it.versionNumber} · ${it.channel.label}" }
+    Selector(
+        label = "Version",
+        value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: "Select version",
+        values = labels,
+        modifier = Modifier.fillMaxWidth(),
+        onSelect = { label ->
+            browser.versions.getOrNull(labels.indexOf(label))?.let { viewModel.selectResourceVersion(it.id) }
+        },
+    )
 }
 
 @Composable
@@ -1132,11 +1294,14 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 @Composable
 private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
     val form = state.create
-    Dialog(onDismissRequest = viewModel::closeCreate) {
+    Dialog(
+        onDismissRequest = { if (!form.isSaving) viewModel.closeCreate() },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    ) {
         Surface(
-            color = Surface,
+            color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = 560.dp).heightIn(max = 760.dp),
+            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp),
         ) {
             Column {
                 Column(
@@ -1149,6 +1314,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                         onValueChange = viewModel::setCreateName,
                         label = { Text("Name") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Selector(
@@ -1175,23 +1341,28 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                             onSelect = viewModel::setCreateLoaderVersion,
                         )
                     }
-                    HorizontalDivider(color = Rule)
+                    HorizontalDivider()
                     ClientDefaultsFields(form, viewModel)
                 }
-                HorizontalDivider(color = Rule)
+                HorizontalDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.End,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = viewModel::closeCreate) { Text("Cancel") }
+                    TextButton(onClick = viewModel::closeCreate, enabled = !form.isSaving) { Text("Cancel") }
                     Button(
                         onClick = viewModel::createInstance,
                         enabled = form.name.isNotBlank() && form.versionId.isNotBlank() &&
                             (form.modLoader != ModLoader.FABRIC || form.loaderVersion != null) && !form.isSaving,
                         shape = RoundedCornerShape(8.dp),
                     ) {
-                        if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text("Create instance")
+                        if (form.isSaving) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Creating...")
+                        } else {
+                            Text("Create instance")
+                        }
                     }
                 }
             }
@@ -1199,6 +1370,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ClientDefaultsFields(form: CreateInstanceState, viewModel: LauncherViewModel) {
     val settings = form.clientSettings
@@ -1321,6 +1493,7 @@ private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Selector(
     label: String,
@@ -1331,25 +1504,58 @@ private fun Selector(
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = Muted, style = MaterialTheme.typography.labelMedium)
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                enabled = enabled && values.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-            ) { Text(value, modifier = Modifier.weight(1f)) }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                values.forEach { item ->
-                    DropdownMenuItem(
-                        text = { Text(item) },
-                        onClick = {
-                            expanded = false
-                            onSelect(item)
-                        },
-                    )
-                }
+    var filter by remember { mutableStateOf("") }
+    val canOpen = enabled && values.isNotEmpty()
+    val visibleValues = if (filter.isBlank()) values else values.filter { it.contains(filter, ignoreCase = true) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (canOpen) expanded = !expanded },
+        modifier = modifier,
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text(label) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(
+                ExposedDropdownMenuAnchorType.PrimaryNotEditable,
+                enabled = canOpen,
+            ).fillMaxWidth(),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = {
+                expanded = false
+                filter = ""
+            },
+        ) {
+            if (values.size > 20) {
+                TextField(
+                    value = filter,
+                    onValueChange = { filter = it },
+                    label = { Text("Filter $label") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+            }
+            visibleValues.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item) },
+                    onClick = {
+                        expanded = false
+                        filter = ""
+                        onSelect(item)
+                    },
+                )
+            }
+            if (visibleValues.isEmpty()) {
+                Text(
+                    "No matching options",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -1375,7 +1581,14 @@ private fun LoadingRows(modifier: Modifier) {
         generateN(3).forEach { ordinal ->
             Box(
                 Modifier.fillMaxWidth().height(72.dp)
-                    .background(if (ordinal == 1) RaisedSurface else Surface, RoundedCornerShape(8.dp)),
+                    .background(
+                        if (ordinal == 1) {
+                            MaterialTheme.colorScheme.surfaceContainerHigh
+                        } else {
+                            MaterialTheme.colorScheme.surface
+                        },
+                        RoundedCornerShape(8.dp),
+                    ),
             )
         }
     }
@@ -1383,32 +1596,24 @@ private fun LoadingRows(modifier: Modifier) {
 
 @Composable
 private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
-    Column(modifier.fillMaxSize()) {
-        PageHeader("Discover") {
-            Button(
-                onClick = { viewModel.openResourceBrowser() },
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-            ) { Text("Browse content") }
-        }
-        HorizontalDivider(color = Rule)
-        Column(
-            Modifier.fillMaxSize().padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+    LaunchedEffect(state.resourceBrowser.visible, state.resourceBrowser.presentation) {
+        if (
+            !state.resourceBrowser.visible ||
+            state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE
         ) {
-            Text("Mods, packs, and shaders", style = MaterialTheme.typography.titleLarge)
-            Text(
-                state.selectedInstance?.let {
-                    "Browse content compatible with ${it.displayName}, or choose a modpack to create another instance."
-                } ?: "Browse Modrinth modpacks now. Select an instance before adding individual resources.",
-                color = Muted,
-                modifier = Modifier.widthIn(max = 640.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(onClick = { viewModel.openResourceBrowser(ResourceType.MODPACK) }, shape = RoundedCornerShape(8.dp)) {
-                Text("Browse modpacks")
-            }
+            viewModel.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
+        }
+    }
+    Column(modifier.fillMaxSize()) {
+        PageHeader("Discover") {}
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (
+            state.resourceBrowser.visible &&
+            state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
+        ) {
+            ResourceBrowserContent(state, viewModel, Modifier.fillMaxSize())
+        } else {
+            LoadingRows(Modifier.fillMaxSize())
         }
     }
 }
@@ -1424,7 +1629,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                 colors = ButtonDefaults.buttonColors(containerColor = Ochre),
             ) { Text("Add account") }
         }
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (state.accounts.isEmpty()) {
             Column(
                 Modifier.fillMaxSize().padding(24.dp),
@@ -1456,27 +1661,24 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
         }
     }
     pendingRemoval?.let { profileId ->
-        Dialog(onDismissRequest = { pendingRemoval = null }) {
-            Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 420.dp)) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Forget account?", style = MaterialTheme.typography.headlineMedium)
-                    Text("This removes the local profile and any saved credential state. It does not change the source account.")
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    ) {
-                        TextButton(onClick = { pendingRemoval = null }) { Text("Cancel") }
-                        Button(
-                            onClick = {
-                                viewModel.removeAccount(profileId)
-                                pendingRemoval = null
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                        ) { Text("Forget account") }
-                    }
-                }
-            }
-        }
+        AlertDialog(
+            onDismissRequest = { pendingRemoval = null },
+            title = { Text("Forget account?") },
+            text = {
+                Text("This removes the local profile and saved credentials. It does not change the source account.")
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRemoval = null }) { Text("Cancel") }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.removeAccount(profileId)
+                        pendingRemoval = null
+                    },
+                ) { Text("Forget account") }
+            },
+        )
     }
 }
 
@@ -1518,12 +1720,22 @@ private fun AccountRow(
 
     ContextActionArea(actions) {
         Column(
-            Modifier.fillMaxWidth().background(if (account.isActive) RaisedSurface else Surface)
+            Modifier.fillMaxWidth().background(
+                if (account.isActive) {
+                    MaterialTheme.colorScheme.surfaceContainerHigh
+                } else {
+                    MaterialTheme.colorScheme.surface
+                },
+            )
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(width = 4.dp, height = 42.dp).background(if (account.isActive) Ochre else Rule))
+                Box(
+                    Modifier.size(width = 4.dp, height = 42.dp).background(
+                        if (account.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    ),
+                )
                 if (account.profile.edition == MinecraftEdition.JAVA && texture != null) {
                     MinecraftSkinPreview(
                         texture = texture,
@@ -1953,8 +2165,17 @@ private val SkinEditorState.canSave: Boolean
 private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
     val form = state.accountLogin
     val uriHandler = LocalUriHandler.current
-    Dialog(onDismissRequest = viewModel::closeAccountLogin) {
-        Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 520.dp)) {
+    var passwordVisible by remember(form.method) { mutableStateOf(false) }
+    var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
+    Dialog(
+        onDismissRequest = { if (!form.isWaiting) viewModel.closeAccountLogin() },
+        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+    ) {
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp),
+        ) {
             Column(
                 Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -1998,7 +2219,10 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                         label = { Text("Microsoft account email") },
                         enabled = !form.isWaiting,
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     TextField(
@@ -2007,8 +2231,25 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                         label = { Text("Microsoft account password") },
                         enabled = !form.isWaiting,
                         singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    painterResource(
+                                        if (passwordVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
+                                    ),
+                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                )
+                            }
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -2026,7 +2267,21 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                         singleLine = form.method != AccountAuthenticationMethod.MICROSOFT_COOKIES,
                         minLines = if (form.method == AccountAuthenticationMethod.MICROSOFT_COOKIES) 3 else 1,
                         maxLines = if (form.method == AccountAuthenticationMethod.MICROSOFT_COOKIES) 5 else 1,
-                        visualTransformation = PasswordVisualTransformation(),
+                        visualTransformation = if (importedSecretVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { importedSecretVisible = !importedSecretVisible }) {
+                                Icon(
+                                    painterResource(
+                                        if (importedSecretVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
+                                    ),
+                                    contentDescription = if (importedSecretVisible) "Hide secret" else "Show secret",
+                                )
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(form.method.importWarning, color = Muted)
@@ -2036,9 +2291,22 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                         value = form.offlineUsername,
                         onValueChange = viewModel::setOfflineUsername,
                         label = { Text("Offline username") },
-                        supportingText = { Text("1 to 16 letters, numbers, or underscores") },
+                        isError = form.offlineUsername.isNotEmpty() &&
+                            !form.offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$")),
+                        supportingText = {
+                            Text(
+                                if (form.offlineUsername.isNotEmpty() &&
+                                    !form.offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$"))
+                                ) {
+                                    "Use 1 to 16 letters, numbers, or underscores."
+                                } else {
+                                    "1 to 16 letters, numbers, or underscores"
+                                },
+                            )
+                        },
                         enabled = !form.isWaiting,
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -2048,7 +2316,9 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                 }
                 form.authorization?.let { authorization ->
                     Column(
-                        Modifier.fillMaxWidth().background(RaisedSurface, RoundedCornerShape(8.dp)).padding(16.dp),
+                        Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(8.dp))
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Text("Enter this code", color = Muted)
@@ -2069,7 +2339,24 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                             enabled = !form.isWaiting && form.canSubmit,
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                        ) { Text(if (form.isWaiting) "Waiting" else "Continue") }
+                        ) {
+                            Text(
+                                if (form.isWaiting) {
+                                    "Waiting…"
+                                } else {
+                                    when (form.method) {
+                                        AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+                                        AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
+                                        -> "Get sign-in code"
+                                        AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
+                                        AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
+                                        -> "Sign in"
+                                        AccountAuthenticationMethod.OFFLINE -> "Add offline account"
+                                        else -> "Import account"
+                                    }
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -2152,8 +2439,17 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                         modifier = Modifier.padding(top = 8.dp).widthIn(max = 640.dp),
                     )
                     Spacer(Modifier.height(8.dp))
-                    OutlinedButton(onClick = viewModel::refreshVersions, shape = RoundedCornerShape(8.dp)) {
-                        Text(if (state.isLoadingVersions) "Refreshing versions" else "Refresh versions")
+                    OutlinedButton(
+                        onClick = viewModel::refreshVersions,
+                        enabled = !state.isLoadingVersions,
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        if (state.isLoadingVersions) {
+                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                            Text("Refreshing versions…", modifier = Modifier.padding(start = 8.dp))
+                        } else {
+                            Text("Refresh versions")
+                        }
                     }
                 }
             }
@@ -2311,11 +2607,12 @@ private fun stateLabel(state: InstallationState): String = when (state) {
     is InstallationState.Failed -> "Install failed"
 }
 
+@Composable
 private fun stateColor(state: InstallationState) = when (state) {
-    is InstallationState.Installed -> Ochre
-    is InstallationState.Interrupted -> Ochre
-    is InstallationState.Failed -> ErrorText
-    else -> Muted
+    is InstallationState.Installed -> MaterialTheme.colorScheme.primary
+    is InstallationState.Interrupted -> MaterialTheme.colorScheme.primary
+    is InstallationState.Failed -> MaterialTheme.colorScheme.onErrorContainer
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 private data class InstallationProgressSnapshot(

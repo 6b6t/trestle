@@ -13,6 +13,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 
 @Composable
 internal actual fun ContextActionArea(
@@ -21,9 +24,18 @@ internal actual fun ContextActionArea(
 ) {
     var expanded by remember { mutableStateOf(false) }
     Box(
-        modifier = Modifier.pointerInput(actions) {
-            detectTapGestures(onLongPress = { expanded = true })
-        },
+        modifier = Modifier
+            .semantics {
+                customActions = actions.map { action ->
+                    CustomAccessibilityAction(action.label) {
+                        action.onClick()
+                        true
+                    }
+                }
+            }
+            .pointerInput(actions) {
+                detectTapGestures(onLongPress = { expanded = true })
+            },
     ) {
         content()
         DropdownMenu(
@@ -31,7 +43,7 @@ internal actual fun ContextActionArea(
             onDismissRequest = { expanded = false },
         ) {
             actions.forEach { action ->
-                if (action.separatorBefore) HorizontalDivider(color = Rule)
+                if (action.separatorBefore) HorizontalDivider()
                 DropdownMenuItem(
                     text = { Text(action.label) },
                     onClick = {

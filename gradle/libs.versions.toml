@@ -8,6 +8,7 @@ compose = "1.11.1"
 coil = "3.5.0"
 coroutines = "1.11.0"
 filekit = "0.14.2"
+lifecycle = "2.11.0"
 ktor = "3.5.2"
 kotlin = "2.4.10"
 kotlinx-serialization = "1.11.0"
@@ -19,6 +20,8 @@ slf4j = "2.0.18"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel", version.ref = "lifecycle" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
