@@ -17,7 +17,8 @@ android {
         versionCode = trestleVersionCode.get()
         versionName = trestleVersion.get()
         manifestPlaceholders["curseForgeApiKey"] = providers.environmentVariable("TRESTLE_CURSEFORGE_API_KEY")
-            .orElse("")
+            // TODO: Change me later.
+            .orElse("\$2a\$10\$wuAJuNZuted3NORVmpgUC.m8sI.pv1tOPKZyBgLFGjxFp/br0lZCC")
             .get()
     }
 }
