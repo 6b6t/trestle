@@ -11,6 +11,7 @@ val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
+    implementation(libs.compose.resources)
     runtimeOnly(libs.slf4j.simple)
 }
 
@@ -27,6 +28,16 @@ compose.desktop {
             targetFormats(TargetFormat.Deb, TargetFormat.Dmg, TargetFormat.Msi)
             packageName = "Trestle"
             packageVersion = trestleVersion.get()
+
+            linux {
+                iconFile.set(project.file("src/main/resources/trestle.png"))
+            }
+            macOS {
+                iconFile.set(project.file("src/main/resources/trestle.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/main/resources/trestle.ico"))
+            }
         }
     }
 }

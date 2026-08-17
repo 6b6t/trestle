@@ -1,3 +1,5 @@
+![Trestle concept art showing a brass and black bridge across a rocky landscape](docs/assets/trestle-banner.png)
+
 # Trestle
 
 Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin and Compose Multiplatform.

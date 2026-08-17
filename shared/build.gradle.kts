@@ -79,4 +79,5 @@ kotlin {
 
 compose.resources {
     packageOfResClass = "net.blockhost.trestle.resources"
+    publicResClass = true
 }

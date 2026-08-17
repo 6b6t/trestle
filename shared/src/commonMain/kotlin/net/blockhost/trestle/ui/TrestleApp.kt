@@ -1,6 +1,6 @@
 package net.blockhost.trestle.ui
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -46,8 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
@@ -55,6 +53,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.trestle_mark
+import org.jetbrains.compose.resources.painterResource
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.ModLoader
@@ -1135,12 +1136,11 @@ private fun PageHeader(title: String, action: @Composable () -> Unit) {
 
 @Composable
 private fun BridgeMark() {
-    Canvas(Modifier.size(width = 32.dp, height = 24.dp)) {
-        val stroke = 2.5.dp.toPx()
-        drawLine(Ochre, Offset(0f, size.height * 0.3f), Offset(size.width, size.height * 0.3f), stroke, StrokeCap.Square)
-        drawLine(Chalk, Offset(size.width * 0.12f, size.height * 0.82f), Offset(size.width * 0.35f, size.height * 0.3f), stroke, StrokeCap.Square)
-        drawLine(Chalk, Offset(size.width * 0.88f, size.height * 0.82f), Offset(size.width * 0.65f, size.height * 0.3f), stroke, StrokeCap.Square)
-    }
+    Image(
+        painter = painterResource(Res.drawable.trestle_mark),
+        contentDescription = null,
+        modifier = Modifier.size(width = 32.dp, height = 24.dp),
+    )
 }
 
 private fun stateLabel(state: InstallationState): String = when (state) {
