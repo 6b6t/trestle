@@ -360,13 +360,13 @@ private fun CompactLayout(
                 },
                 actions = {
                     state.accounts.firstOrNull { it.isActive }?.let { account ->
-                        AccountIdentity(account, compact = true) { onDestinationChange(LauncherDestination.ACCOUNTS) }
-                    } ?: Text(
-                        currentPlatform,
-                        modifier = Modifier.padding(end = 16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
+                        AccountIdentity(
+                            account = account,
+                            texture = state.accountSkinTextures[account.profile.profileId],
+                            compact = true,
+                            onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) },
+                        )
+                    }
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
@@ -413,21 +413,14 @@ private fun WideNavigationRail(
         }
         Spacer(Modifier.weight(1f))
         state.accounts.firstOrNull { it.isActive }?.let { account ->
-            Text(
-                account.profile.playerName.take(8),
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.labelSmall,
+            AccountIdentity(
+                account = account,
+                texture = state.accountSkinTextures[account.profile.profileId],
+                compact = true,
+                modifier = Modifier.padding(bottom = 12.dp),
+                onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) },
             )
         }
-        Text(
-            currentPlatform,
-            modifier = Modifier.padding(bottom = 12.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelSmall,
-        )
     }
 }
 
@@ -440,13 +433,25 @@ private fun destinationIcon(destination: LauncherDestination): DrawableResource 
 }
 
 @Composable
-private fun AccountIdentity(account: ManagedAccount, compact: Boolean = false, onClick: () -> Unit) {
+private fun AccountIdentity(
+    account: ManagedAccount,
+    texture: ByteArray?,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     if (compact) {
-        FilledTonalIconButton(onClick = onClick) {
-            Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
+        FilledTonalIconButton(onClick = onClick, modifier = modifier) {
+            MinecraftSkinHead(
+                texture = texture.takeIf { account.profile.edition == MinecraftEdition.JAVA },
+                contentDescription = account.profile.playerName,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
+            }
         }
     } else {
-        FilledTonalButton(onClick = onClick) {
+        FilledTonalButton(onClick = onClick, modifier = modifier) {
             Text(account.profile.playerName)
         }
     }

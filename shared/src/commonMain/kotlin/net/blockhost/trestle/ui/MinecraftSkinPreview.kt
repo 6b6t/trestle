@@ -18,18 +18,66 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.isActive
 import net.blockhost.trestle.auth.SkinVariant
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import kotlin.math.cos
 import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sin
+
+@Composable
+internal fun MinecraftSkinHead(
+    texture: ByteArray?,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    fallback: @Composable () -> Unit,
+) {
+    val image = remember(texture) {
+        texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap() }.getOrNull() }
+            ?.takeIf { it.width >= 48 && it.height >= 16 }
+    }
+    Box(
+        modifier = modifier.clearAndSetSemantics { this.contentDescription = contentDescription },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (image == null) {
+            fallback()
+        } else {
+            Canvas(Modifier.fillMaxSize()) {
+                val destinationSize = IntSize(size.width.roundToInt(), size.height.roundToInt())
+                drawImage(
+                    image = image,
+                    srcOffset = BaseHeadOffset,
+                    srcSize = HeadSize,
+                    dstSize = destinationSize,
+                    filterQuality = FilterQuality.None,
+                )
+                drawImage(
+                    image = image,
+                    srcOffset = HeadOverlayOffset,
+                    srcSize = HeadSize,
+                    dstSize = destinationSize,
+                    filterQuality = FilterQuality.None,
+                )
+            }
+        }
+    }
+}
+
+private val BaseHeadOffset = IntOffset(8, 8)
+private val HeadOverlayOffset = IntOffset(40, 8)
+private val HeadSize = IntSize(8, 8)
 
 /**
  * A small software renderer for Minecraft's 64×64 skin model. The cuboid and UV layout follows
