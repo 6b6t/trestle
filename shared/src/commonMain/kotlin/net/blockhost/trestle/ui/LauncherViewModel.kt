@@ -214,7 +214,7 @@ data class LauncherUiState(
 class LauncherViewModel(
     private val services: LauncherServices,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
-) {
+) : LauncherUiActions {
     private val mutableState = MutableStateFlow(
         LauncherUiState(credentialProtection = services.credentialStore.protection),
     )
@@ -294,7 +294,7 @@ class LauncherViewModel(
         }
     }
 
-    fun refreshVersions() {
+    override fun refreshVersions() {
         scope.launch {
             mutableState.update {
                 it.copy(
@@ -327,7 +327,7 @@ class LauncherViewModel(
         }
     }
 
-    fun selectInstance(id: InstanceId) {
+    override fun selectInstance(id: InstanceId) {
         launchCheckJob?.cancel()
         cachedLaunch = null
         mutableState.update {
@@ -341,7 +341,7 @@ class LauncherViewModel(
         checkLaunchReadiness(mutableState.value.selectedInstance)
     }
 
-    fun openCreate() {
+    override fun openCreate() {
         val defaultVersion = mutableState.value.create.versionId.ifBlank {
             mutableState.value.versions.firstOrNull()?.id.orEmpty()
         }
@@ -353,20 +353,20 @@ class LauncherViewModel(
         }
     }
 
-    fun closeCreate() {
+    override fun closeCreate() {
         mutableState.update { it.copy(create = CreateInstanceState()) }
     }
 
-    fun setCreateName(value: String) {
+    override fun setCreateName(value: String) {
         mutableState.update { it.copy(create = it.create.copy(name = value)) }
     }
 
-    fun setCreateVersion(value: String) {
+    override fun setCreateVersion(value: String) {
         mutableState.update { it.copy(create = it.create.copy(versionId = value, loaderVersion = null)) }
         if (mutableState.value.create.modLoader == ModLoader.FABRIC) loadFabricVersions()
     }
 
-    fun setCreateLoader(value: ModLoader) {
+    override fun setCreateLoader(value: ModLoader) {
         mutableState.update {
             it.copy(
                 create = it.create.copy(
@@ -379,19 +379,19 @@ class LauncherViewModel(
         if (value == ModLoader.FABRIC) loadFabricVersions()
     }
 
-    fun setCreateLoaderVersion(value: String) {
+    override fun setCreateLoaderVersion(value: String) {
         mutableState.update { it.copy(create = it.create.copy(loaderVersion = value)) }
     }
 
-    fun setCreateClientPreconfiguration(value: Boolean) {
+    override fun setCreateClientPreconfiguration(value: Boolean) {
         mutableState.update { it.copy(create = it.create.copy(preconfigureClientSettings = value)) }
     }
 
-    fun setCreateClientSettings(value: MinecraftClientSettings) {
+    override fun setCreateClientSettings(value: MinecraftClientSettings) {
         mutableState.update { it.copy(create = it.create.copy(clientSettings = value)) }
     }
 
-    fun createInstance() {
+    override fun createInstance() {
         val form = mutableState.value.create
         if (form.name.isBlank() || form.versionId.isBlank()) return
         scope.launch {
@@ -425,7 +425,7 @@ class LauncherViewModel(
         }
     }
 
-    fun installSelected() {
+    override fun installSelected() {
         if (installJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
         val resuming = instance.installationState is InstallationState.Interrupted
@@ -482,7 +482,7 @@ class LauncherViewModel(
         }
     }
 
-    fun cancelInstall() {
+    override fun cancelInstall() {
         val activeJob = installJob
         if (activeJob?.isActive == true) {
             activeJob.cancel()
@@ -510,7 +510,7 @@ class LauncherViewModel(
         }
     }
 
-    fun cancelActiveOperation() {
+    override fun cancelActiveOperation() {
         if (resourceJob?.isActive == true) {
             resourceJob?.cancel()
         } else {
@@ -518,7 +518,7 @@ class LauncherViewModel(
         }
     }
 
-    fun inspectLaunchPlan() {
+    override fun inspectLaunchPlan() {
         val instance = mutableState.value.selectedInstance ?: return
         if (instance.installationState !is InstallationState.Installed) return
         try {
@@ -552,7 +552,7 @@ class LauncherViewModel(
         }
     }
 
-    fun launchSelected() {
+    override fun launchSelected() {
         if (launchJob?.isActive == true) return
         if (!services.runtime.capabilities.canLaunch) return
         val instance = mutableState.value.selectedInstance ?: return
@@ -631,13 +631,13 @@ class LauncherViewModel(
         }
     }
 
-    fun stopLaunch() {
+    override fun stopLaunch() {
         launchJob?.cancel()
     }
 
-    fun openResourceBrowser(
-        type: ResourceType = ResourceType.MOD,
-        presentation: ResourceBrowserPresentation = ResourceBrowserPresentation.DIALOG,
+    override fun openResourceBrowser(
+        type: ResourceType,
+        presentation: ResourceBrowserPresentation,
     ) {
         val curseForgeAvailable = services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).isAvailable
         mutableState.value = mutableState.value.copy(
@@ -652,13 +652,13 @@ class LauncherViewModel(
         searchResources()
     }
 
-    fun closeResourceBrowser() {
+    override fun closeResourceBrowser() {
         if (resourceJob?.isActive == true) return
         resourceSearchJob?.cancel()
         mutableState.value = mutableState.value.copy(resourceBrowser = ResourceBrowserState())
     }
 
-    fun setResourceProvider(provider: ResourceProvider) {
+    override fun setResourceProvider(provider: ResourceProvider) {
         resourceSearchJob?.cancel()
         val current = mutableState.value.resourceBrowser
         val platform = services.resourcePlatforms.platform(provider)
@@ -681,7 +681,7 @@ class LauncherViewModel(
         if (platform.isAvailable && platform.supports(current.type)) searchResources()
     }
 
-    fun setResourceType(type: ResourceType) {
+    override fun setResourceType(type: ResourceType) {
         resourceSearchJob?.cancel()
         val current = mutableState.value.resourceBrowser
         val requestedPlatform = services.resourcePlatforms.platform(current.provider)
@@ -702,22 +702,22 @@ class LauncherViewModel(
         searchResources()
     }
 
-    fun setResourceQuery(value: String) {
+    override fun setResourceQuery(value: String) {
         mutableState.value = mutableState.value.copy(
             resourceBrowser = mutableState.value.resourceBrowser.copy(query = value),
         )
     }
 
-    fun searchResources() {
+    override fun searchResources() {
         searchResources(append = false)
     }
 
-    fun loadMoreResources() {
+    override fun loadMoreResources() {
         val browser = mutableState.value.resourceBrowser
         if (!browser.isSearching && browser.projects.size < browser.totalProjects) searchResources(append = true)
     }
 
-    fun selectResource(projectId: String) {
+    override fun selectResource(projectId: String) {
         val browser = mutableState.value.resourceBrowser
         val project = browser.projects.firstOrNull { it.id == projectId } ?: return
         resourceSearchJob?.cancel()
@@ -761,7 +761,7 @@ class LauncherViewModel(
         }
     }
 
-    fun clearResourceSelection() {
+    override fun clearResourceSelection() {
         resourceSearchJob?.cancel()
         val browser = mutableState.value.resourceBrowser
         mutableState.value = mutableState.value.copy(
@@ -776,7 +776,7 @@ class LauncherViewModel(
         )
     }
 
-    fun selectResourceVersion(versionId: String) {
+    override fun selectResourceVersion(versionId: String) {
         mutableState.value = mutableState.value.copy(
             resourceBrowser = mutableState.value.resourceBrowser.copy(
                 selectedVersionId = versionId,
@@ -785,7 +785,7 @@ class LauncherViewModel(
         )
     }
 
-    fun toggleOptionalDependency(key: String) {
+    override fun toggleOptionalDependency(key: String) {
         val browser = mutableState.value.resourceBrowser
         val selected = if (key in browser.selectedOptionalDependencies) {
             browser.selectedOptionalDependencies - key
@@ -797,7 +797,7 @@ class LauncherViewModel(
         )
     }
 
-    fun installSelectedResource() {
+    override fun installSelectedResource() {
         if (resourceJob?.isActive == true) return
         val browser = mutableState.value.resourceBrowser
         val project = browser.selectedProject ?: return
@@ -871,16 +871,16 @@ class LauncherViewModel(
         }
     }
 
-    fun deleteSelected() {
+    override fun deleteSelected() {
         val id = mutableState.value.selectedInstance?.id ?: return
         mutableState.update { it.copy(pendingInstanceRemovalId = id) }
     }
 
-    fun cancelInstanceRemoval() {
+    override fun cancelInstanceRemoval() {
         mutableState.update { it.copy(pendingInstanceRemovalId = null) }
     }
 
-    fun confirmInstanceRemoval() {
+    override fun confirmInstanceRemoval() {
         val id = mutableState.value.pendingInstanceRemovalId ?: return
         scope.launch {
             try {
@@ -900,11 +900,11 @@ class LauncherViewModel(
         }
     }
 
-    fun clearMessage() {
+    override fun clearMessage() {
         mutableState.update { it.copy(error = null, errorRecovery = null, notice = null) }
     }
 
-    fun retryError() {
+    override fun retryError() {
         val recovery = mutableState.value.errorRecovery
         mutableState.update { it.copy(error = null, errorRecovery = null) }
         when (recovery) {
@@ -915,7 +915,7 @@ class LauncherViewModel(
         }
     }
 
-    fun openInstanceSettings() {
+    override fun openInstanceSettings() {
         val instance = mutableState.value.selectedInstance ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
         mutableState.update {
@@ -967,11 +967,11 @@ class LauncherViewModel(
         }
     }
 
-    fun closeInstanceSettings() {
+    override fun closeInstanceSettings() {
         mutableState.update { it.copy(instanceSettings = InstanceSettingsState()) }
     }
 
-    fun setMinimumMemory(value: String) {
+    override fun setMinimumMemory(value: String) {
         if (value.all(Char::isDigit)) {
             mutableState.update {
                 it.copy(instanceSettings = it.instanceSettings.copy(minimumMemoryMiB = value))
@@ -979,7 +979,7 @@ class LauncherViewModel(
         }
     }
 
-    fun setMaximumMemory(value: String) {
+    override fun setMaximumMemory(value: String) {
         if (value.all(Char::isDigit)) {
             mutableState.update {
                 it.copy(instanceSettings = it.instanceSettings.copy(maximumMemoryMiB = value))
@@ -987,15 +987,15 @@ class LauncherViewModel(
         }
     }
 
-    fun setJvmArguments(value: String) {
+    override fun setJvmArguments(value: String) {
         mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(jvmArguments = value)) }
     }
 
-    fun setInstanceClientSettings(value: MinecraftClientSettings) {
+    override fun setInstanceClientSettings(value: MinecraftClientSettings) {
         mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(clientSettings = value)) }
     }
 
-    fun applyRecommendedMemory() {
+    override fun applyRecommendedMemory() {
         val instanceId = mutableState.value.instanceSettings.instanceId ?: return
         val instance = mutableState.value.instances.firstOrNull { it.id == instanceId } ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
@@ -1010,7 +1010,7 @@ class LauncherViewModel(
         }
     }
 
-    fun saveInstanceSettings() {
+    override fun saveInstanceSettings() {
         val form = mutableState.value.instanceSettings
         val instanceId = form.instanceId ?: return
         val instance = mutableState.value.instances.firstOrNull { it.id == instanceId } ?: return
@@ -1048,7 +1048,7 @@ class LauncherViewModel(
         }
     }
 
-    fun selectAccount(profileId: String) {
+    override fun selectAccount(profileId: String) {
         scope.launch {
             runCatching {
                 services.accounts.select(profileId)
@@ -1058,17 +1058,17 @@ class LauncherViewModel(
         }
     }
 
-    fun openAccountLogin() {
+    override fun openAccountLogin() {
         mutableState.update { it.copy(accountLogin = AccountLoginState(visible = true), error = null) }
     }
 
-    fun closeAccountLogin() {
+    override fun closeAccountLogin() {
         accountLoginJob?.cancel()
         accountLoginJob = null
         mutableState.update { it.copy(accountLogin = AccountLoginState(), operation = null) }
     }
 
-    fun setAccountLoginMethod(method: AccountAuthenticationMethod) {
+    override fun setAccountLoginMethod(method: AccountAuthenticationMethod) {
         mutableState.update {
             it.copy(
                 accountLogin = it.accountLogin.copy(
@@ -1080,31 +1080,31 @@ class LauncherViewModel(
         }
     }
 
-    fun setBedrockGameVersion(value: String) {
+    override fun setBedrockGameVersion(value: String) {
         mutableState.update { it.copy(accountLogin = it.accountLogin.copy(bedrockGameVersion = value)) }
     }
 
-    fun setAccountEmail(value: String) {
+    override fun setAccountEmail(value: String) {
         mutableState.update { it.copy(accountLogin = it.accountLogin.copy(email = value)) }
     }
 
-    fun setAccountPassword(value: String) {
+    override fun setAccountPassword(value: String) {
         mutableState.update {
             it.copy(accountLogin = it.accountLogin.copy(password = SensitiveText(value)))
         }
     }
 
-    fun setImportedAccountSecret(value: String) {
+    override fun setImportedAccountSecret(value: String) {
         mutableState.update {
             it.copy(accountLogin = it.accountLogin.copy(importedSecret = SensitiveText(value)))
         }
     }
 
-    fun setOfflineUsername(value: String) {
+    override fun setOfflineUsername(value: String) {
         mutableState.update { it.copy(accountLogin = it.accountLogin.copy(offlineUsername = value)) }
     }
 
-    fun signInAccount() {
+    override fun signInAccount() {
         if (accountLoginJob?.isActive == true) return
         val form = mutableState.value.accountLogin
         val request = form.toLoginRequest() ?: return
@@ -1174,7 +1174,7 @@ class LauncherViewModel(
         }
     }
 
-    fun signOutAccount(profileId: String) {
+    override fun signOutAccount(profileId: String) {
         scope.launch {
             runCatching {
                 services.accounts.signOut(profileId)
@@ -1184,7 +1184,7 @@ class LauncherViewModel(
         }
     }
 
-    fun removeAccount(profileId: String) {
+    override fun removeAccount(profileId: String) {
         scope.launch {
             runCatching {
                 services.accounts.remove(profileId)
@@ -1194,7 +1194,7 @@ class LauncherViewModel(
         }
     }
 
-    fun refreshActiveAccount() {
+    override fun refreshActiveAccount() {
         scope.launch {
             mutableState.update { it.copy(operation = OperationStatus("Refreshing account profile")) }
             try {
@@ -1217,7 +1217,7 @@ class LauncherViewModel(
         }
     }
 
-    fun resetActiveSkin() {
+    override fun resetActiveSkin() {
         scope.launch {
             mutableState.update { it.copy(operation = OperationStatus("Resetting active skin")) }
             try {
@@ -1240,7 +1240,7 @@ class LauncherViewModel(
         }
     }
 
-    fun openSkinStudio() {
+    override fun openSkinStudio() {
         loadAccountSkinTextures(mutableState.value.accounts)
         val selected = mutableState.value.skinStudio.selectedProfileId
             ?: mutableState.value.savedSkins.firstOrNull()?.profile?.id
@@ -1252,21 +1252,21 @@ class LauncherViewModel(
         }
     }
 
-    fun closeSkinStudio() {
+    override fun closeSkinStudio() {
         mutableState.update { it.copy(skinStudio = SkinStudioState()) }
     }
 
-    fun selectSavedSkin(profileId: String) {
+    override fun selectSavedSkin(profileId: String) {
         mutableState.update { it.copy(skinStudio = it.skinStudio.copy(selectedProfileId = profileId)) }
     }
 
-    fun openNewSkin() {
+    override fun openNewSkin() {
         mutableState.update {
             it.copy(skinStudio = it.skinStudio.copy(editor = SkinEditorState(visible = true)))
         }
     }
 
-    fun saveCurrentSkinToLibrary() {
+    override fun saveCurrentSkinToLibrary() {
         val account = mutableState.value.accounts.firstOrNull { it.isActive } ?: return
         val texture = mutableState.value.accountSkinTextures[account.profile.profileId] ?: return
         mutableState.update {
@@ -1284,7 +1284,7 @@ class LauncherViewModel(
         }
     }
 
-    fun editSelectedSkin() {
+    override fun editSelectedSkin() {
         val saved = mutableState.value.savedSkins.firstOrNull {
             it.profile.id == mutableState.value.skinStudio.selectedProfileId
         } ?: return
@@ -1304,25 +1304,25 @@ class LauncherViewModel(
         }
     }
 
-    fun closeSkinEditor() {
+    override fun closeSkinEditor() {
         mutableState.update {
             it.copy(skinStudio = it.skinStudio.copy(editor = SkinEditorState()))
         }
     }
 
-    fun setSkinName(value: String) {
+    override fun setSkinName(value: String) {
         mutableState.update {
             it.copy(skinStudio = it.skinStudio.copy(editor = it.skinStudio.editor.copy(name = value, error = null)))
         }
     }
 
-    fun setSkinVariant(value: SkinVariant) {
+    override fun setSkinVariant(value: SkinVariant) {
         mutableState.update {
             it.copy(skinStudio = it.skinStudio.copy(editor = it.skinStudio.editor.copy(variant = value, error = null)))
         }
     }
 
-    fun setSkinFile(fileName: String, bytes: ByteArray) {
+    override fun setSkinFile(fileName: String, bytes: ByteArray) {
         val error = runCatching { inspectMinecraftSkin(bytes) }.exceptionOrNull()
         mutableState.update { state ->
             val editor = state.skinStudio.editor
@@ -1343,7 +1343,7 @@ class LauncherViewModel(
         }
     }
 
-    fun reportSkinFileReadFailure() {
+    override fun reportSkinFileReadFailure() {
         mutableState.update {
             it.copy(
                 skinStudio = it.skinStudio.copy(
@@ -1353,7 +1353,7 @@ class LauncherViewModel(
         }
     }
 
-    fun saveSkin(useAfterSave: Boolean) {
+    override fun saveSkin(useAfterSave: Boolean) {
         val editor = mutableState.value.skinStudio.editor
         val texture = editor.texture ?: return
         if (editor.name.isBlank() || editor.isSaving) return
@@ -1390,7 +1390,7 @@ class LauncherViewModel(
         }
     }
 
-    fun useSelectedSkin() {
+    override fun useSelectedSkin() {
         val saved = mutableState.value.savedSkins.firstOrNull {
             it.profile.id == mutableState.value.skinStudio.selectedProfileId
         } ?: return
@@ -1406,7 +1406,7 @@ class LauncherViewModel(
         }
     }
 
-    fun deleteSelectedSkin() {
+    override fun deleteSelectedSkin() {
         val profileId = mutableState.value.skinStudio.selectedProfileId ?: return
         scope.launch {
             runCatching { services.skinLibrary.delete(profileId) }
@@ -1415,7 +1415,7 @@ class LauncherViewModel(
         }
     }
 
-    fun clearLogs() = services.logger.clear()
+    override fun clearLogs() = services.logger.clear()
 
     fun close() {
         accountLoginJob?.cancel()

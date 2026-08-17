@@ -41,6 +41,7 @@ kotlin {
             implementation(libs.compose.resources)
             implementation(libs.compose.runtime)
             implementation(libs.compose.ui)
+            implementation(libs.compose.ui.tooling.preview)
             implementation(libs.filekit.dialogs.compose)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.json)
@@ -57,6 +58,7 @@ kotlin {
             implementation(libs.ktor.client.mock)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.okio.fake.file.system)
+            implementation(libs.compose.ui.test)
         }
 
         val jvmMain = create("jvmMain") {
@@ -81,7 +83,15 @@ kotlin {
                 implementation(libs.slf4j.api)
             }
         }
+
+        getByName("desktopTest").dependencies {
+            implementation(compose.desktop.currentOs)
+        }
     }
+}
+
+dependencies {
+    add("androidRuntimeClasspath", libs.compose.ui.tooling)
 }
 
 compose.resources {

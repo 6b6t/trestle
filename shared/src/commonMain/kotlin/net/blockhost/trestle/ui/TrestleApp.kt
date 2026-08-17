@@ -99,6 +99,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -121,6 +122,7 @@ import net.blockhost.trestle.resources.trestle_mark
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.auth.MinecraftEdition
@@ -146,7 +148,7 @@ import io.github.vinceglb.filekit.readBytes
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private enum class Destination(val label: String) {
+enum class LauncherDestination(val label: String) {
     LIBRARY("Library"),
     INSTANCE("Instance"),
     DISCOVER("Discover"),
@@ -155,10 +157,10 @@ private enum class Destination(val label: String) {
 }
 
 private val globalDestinations = listOf(
-    Destination.LIBRARY,
-    Destination.DISCOVER,
-    Destination.ACCOUNTS,
-    Destination.SETTINGS,
+    LauncherDestination.LIBRARY,
+    LauncherDestination.DISCOVER,
+    LauncherDestination.ACCOUNTS,
+    LauncherDestination.SETTINGS,
 )
 
 private val browsableResourceTypes = listOf(
@@ -172,26 +174,54 @@ private val installableResourceTypes = browsableResourceTypes.toSet()
 
 private val WideContentWidth = 1200.dp
 
+internal object LauncherTestTags {
+    const val ROOT = "launcher-root"
+    const val TOP_NAVIGATION = "top-navigation"
+    const val LIBRARY = "library"
+    const val INSTANCE_SEARCH = "instance-search"
+    const val NEW_INSTANCE = "new-instance"
+    const val SELECTED_INSTANCE = "selected-instance"
+    const val PRIMARY_INSTANCE_ACTION = "primary-instance-action"
+    const val INSTANCE_WORKSPACE = "instance-workspace"
+    const val DISCOVER = "discover"
+    const val ACCOUNTS = "accounts"
+    const val SETTINGS = "settings"
+    const val CREATE_DIALOG = "create-dialog"
+    const val INSTANCE_SETTINGS_DIALOG = "instance-settings-dialog"
+    const val RESOURCE_BROWSER_DIALOG = "resource-browser-dialog"
+    const val ACCOUNT_LOGIN_DIALOG = "account-login-dialog"
+    const val SKIN_STUDIO_DIALOG = "skin-studio-dialog"
+    const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
+
+    fun instance(id: InstanceId): String = "instance-${id.value}"
+    fun navigation(destination: LauncherDestination): String = "navigation-${destination.name.lowercase()}"
+}
+
 @Composable
-fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
-    var destinationName by rememberSaveable { mutableStateOf(Destination.LIBRARY.name) }
-    val destination = Destination.entries.firstOrNull { it.name == destinationName } ?: Destination.LIBRARY
+fun TrestleApp(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
+) {
+    var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
+    val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
+        ?: LauncherDestination.LIBRARY
     val snackbarHostState = remember { SnackbarHostState() }
     val destinationStateHolder = rememberSaveableStateHolder()
-    val changeDestination: (Destination) -> Unit = { target ->
+    val changeDestination: (LauncherDestination) -> Unit = { target ->
         if (
-            destination == Destination.DISCOVER &&
-            target != Destination.DISCOVER &&
+            destination == LauncherDestination.DISCOVER &&
+            target != LauncherDestination.DISCOVER &&
             state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
         ) {
-            viewModel.closeResourceBrowser()
+            actions.closeResourceBrowser()
         }
         destinationName = target.name
         if (
-            target == Destination.DISCOVER &&
+            target == LauncherDestination.DISCOVER &&
             (!state.resourceBrowser.visible || state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE)
         ) {
-            viewModel.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
+            actions.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
         }
     }
 
@@ -205,14 +235,15 @@ fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
                 withDismissAction = state.error != null,
                 duration = if (state.error != null) SnackbarDuration.Indefinite else SnackbarDuration.Short,
             )
-            if (result == SnackbarResult.ActionPerformed && actionLabel != null) viewModel.retryError()
-            else viewModel.clearMessage()
+            if (result == SnackbarResult.ActionPerformed && actionLabel != null) actions.retryError()
+            else actions.clearMessage()
         }
         Scaffold(
+            modifier = Modifier.testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                state.operation?.let { OperationBar(it, viewModel::cancelActiveOperation) }
+                state.operation?.let { OperationBar(it, actions::cancelActiveOperation) }
             },
         ) { contentPadding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
@@ -220,23 +251,23 @@ fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
                 val destinationContent: @Composable (Modifier, Boolean) -> Unit = { modifier, isCompact ->
                     destinationStateHolder.SaveableStateProvider(destination.name) {
                         when (destination) {
-                            Destination.LIBRARY -> LibraryPage(
+                            LauncherDestination.LIBRARY -> LibraryPage(
                                 state,
                                 modifier,
-                                viewModel,
+                                actions,
                                 compact = isCompact,
-                                onManage = { changeDestination(Destination.INSTANCE) },
+                                onManage = { changeDestination(LauncherDestination.INSTANCE) },
                             )
-                            Destination.INSTANCE -> InstanceWorkspace(
+                            LauncherDestination.INSTANCE -> InstanceWorkspace(
                                 state,
                                 modifier,
-                                viewModel,
-                                onBack = { changeDestination(Destination.LIBRARY) },
+                                actions,
+                                onBack = { changeDestination(LauncherDestination.LIBRARY) },
                                 compact = isCompact,
                             )
-                            Destination.DISCOVER -> ResourceCatalogPage(state, modifier, viewModel)
-                            Destination.ACCOUNTS -> AccountsPage(state, modifier, viewModel)
-                            Destination.SETTINGS -> SettingsPage(state, modifier, viewModel)
+                            LauncherDestination.DISCOVER -> ResourceCatalogPage(state, modifier, actions)
+                            LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions)
+                            LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
                         }
                     }
                 }
@@ -246,28 +277,28 @@ fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
                     WideLayout(state, destination, changeDestination, destinationContent)
                 }
             }
-            if (state.create.visible) CreateInstanceDialog(state, viewModel)
+            if (state.create.visible) CreateInstanceDialog(state, actions)
             if (
                 state.resourceBrowser.visible &&
                 state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
             ) {
-                ResourceBrowserDialog(state, viewModel)
+                ResourceBrowserDialog(state, actions)
             }
-            if (state.instanceSettings.visible) InstanceSettingsDialog(state, viewModel)
-            if (state.accountLogin.visible) AccountLoginDialog(state, viewModel)
-            if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, viewModel)
-            if (state.skinStudio.editor.visible) SkinEditorDialog(state, viewModel)
+            if (state.instanceSettings.visible) InstanceSettingsDialog(state, actions)
+            if (state.accountLogin.visible) AccountLoginDialog(state, actions)
+            if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, actions)
+            if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
             state.pendingInstanceRemovalId?.let { pendingId ->
                 val instance = state.instances.firstOrNull { it.id == pendingId }
                 AlertDialog(
-                    onDismissRequest = viewModel::cancelInstanceRemoval,
+                    onDismissRequest = actions::cancelInstanceRemoval,
                     title = { Text("Remove ${instance?.displayName ?: "instance"}?") },
                     text = { Text("This removes the instance from the library. Its game directory and files stay on disk.") },
                     dismissButton = {
-                        TextButton(onClick = viewModel::cancelInstanceRemoval) { Text("Cancel") }
+                        TextButton(onClick = actions::cancelInstanceRemoval) { Text("Cancel") }
                     },
                     confirmButton = {
-                        Button(onClick = viewModel::confirmInstanceRemoval) { Text("Remove from library") }
+                        Button(onClick = actions::confirmInstanceRemoval) { Text("Remove from library") }
                     },
                 )
             }
@@ -278,8 +309,8 @@ fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
 @Composable
 private fun WideLayout(
     state: LauncherUiState,
-    destination: Destination,
-    onDestinationChange: (Destination) -> Unit,
+    destination: LauncherDestination,
+    onDestinationChange: (LauncherDestination) -> Unit,
     destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
@@ -293,8 +324,8 @@ private fun WideLayout(
 @Composable
 private fun CompactLayout(
     state: LauncherUiState,
-    destination: Destination,
-    onDestinationChange: (Destination) -> Unit,
+    destination: LauncherDestination,
+    onDestinationChange: (LauncherDestination) -> Unit,
     destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
     Scaffold(
@@ -313,7 +344,7 @@ private fun CompactLayout(
                 },
                 actions = {
                     state.accounts.firstOrNull { it.isActive }?.let { account ->
-                        AccountIdentity(account, compact = true) { onDestinationChange(Destination.ACCOUNTS) }
+                        AccountIdentity(account, compact = true) { onDestinationChange(LauncherDestination.ACCOUNTS) }
                     } ?: Text(
                         currentPlatform,
                         modifier = Modifier.padding(end = 16.dp),
@@ -328,7 +359,7 @@ private fun CompactLayout(
             NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
                 globalDestinations.forEach { item ->
                     NavigationBarItem(
-                        selected = destination == item || item == Destination.LIBRARY && destination == Destination.INSTANCE,
+                        selected = destination == item || item == LauncherDestination.LIBRARY && destination == LauncherDestination.INSTANCE,
                         onClick = { onDestinationChange(item) },
                         icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
                         label = { Text(item.label) },
@@ -344,11 +375,12 @@ private fun CompactLayout(
 @Composable
 private fun TopNavigation(
     state: LauncherUiState,
-    destination: Destination,
-    onDestinationChange: (Destination) -> Unit,
+    destination: LauncherDestination,
+    onDestinationChange: (LauncherDestination) -> Unit,
 ) {
     Box(
-        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface),
+        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)
+            .testTag(LauncherTestTags.TOP_NAVIGATION),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -364,18 +396,18 @@ private fun TopNavigation(
                 BridgeMark()
                 Text("TRESTLE", style = MaterialTheme.typography.titleLarge)
             }
-            NavigationItem(Destination.LIBRARY, destination == Destination.LIBRARY || destination == Destination.INSTANCE) {
-                onDestinationChange(Destination.LIBRARY)
+            NavigationItem(LauncherDestination.LIBRARY, destination == LauncherDestination.LIBRARY || destination == LauncherDestination.INSTANCE) {
+                onDestinationChange(LauncherDestination.LIBRARY)
             }
-            NavigationItem(Destination.DISCOVER, destination == Destination.DISCOVER) {
-                onDestinationChange(Destination.DISCOVER)
+            NavigationItem(LauncherDestination.DISCOVER, destination == LauncherDestination.DISCOVER) {
+                onDestinationChange(LauncherDestination.DISCOVER)
             }
             Spacer(Modifier.weight(1f))
             state.accounts.firstOrNull { it.isActive }?.let { account ->
-                AccountIdentity(account) { onDestinationChange(Destination.ACCOUNTS) }
-            } ?: TextButton(onClick = { onDestinationChange(Destination.ACCOUNTS) }) { Text("Add account") }
-            NavigationItem(Destination.SETTINGS, destination == Destination.SETTINGS) {
-                onDestinationChange(Destination.SETTINGS)
+                AccountIdentity(account) { onDestinationChange(LauncherDestination.ACCOUNTS) }
+            } ?: TextButton(onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) }) { Text("Add account") }
+            NavigationItem(LauncherDestination.SETTINGS, destination == LauncherDestination.SETTINGS) {
+                onDestinationChange(LauncherDestination.SETTINGS)
             }
             Text(
                 currentPlatform,
@@ -387,23 +419,24 @@ private fun TopNavigation(
     }
 }
 
-private fun destinationIcon(destination: Destination): DrawableResource = when (destination) {
-    Destination.LIBRARY -> Res.drawable.ic_library
-    Destination.INSTANCE -> Res.drawable.ic_library
-    Destination.DISCOVER -> Res.drawable.ic_extension
-    Destination.ACCOUNTS -> Res.drawable.ic_account
-    Destination.SETTINGS -> Res.drawable.ic_settings
+private fun destinationIcon(destination: LauncherDestination): DrawableResource = when (destination) {
+    LauncherDestination.LIBRARY -> Res.drawable.ic_library
+    LauncherDestination.INSTANCE -> Res.drawable.ic_library
+    LauncherDestination.DISCOVER -> Res.drawable.ic_extension
+    LauncherDestination.ACCOUNTS -> Res.drawable.ic_account
+    LauncherDestination.SETTINGS -> Res.drawable.ic_settings
 }
 
 @Composable
 private fun NavigationItem(
-    destination: Destination,
+    destination: LauncherDestination,
     selected: Boolean,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier.width(84.dp).height(52.dp).clickable(onClick = onClick).padding(horizontal = 8.dp),
+        modifier = modifier.width(84.dp).height(52.dp).testTag(LauncherTestTags.navigation(destination))
+            .clickable(onClick = onClick).padding(horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
@@ -446,7 +479,7 @@ private fun AccountIdentity(account: ManagedAccount, compact: Boolean = false, o
 private fun LibraryPage(
     state: LauncherUiState,
     modifier: Modifier,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     compact: Boolean = false,
     onManage: () -> Unit,
 ) {
@@ -458,33 +491,33 @@ private fun LibraryPage(
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
     }
     when {
-        state.isInitializing -> LoadingRows(modifier.fillMaxSize())
-        state.instances.isEmpty() -> EmptyLibrary(viewModel::openCreate, modifier.fillMaxSize())
-        compact -> Column(modifier.fillMaxSize()) {
-            InstanceShelfToolbar(query, { query = it }, compact = true, viewModel::openCreate)
+        state.isInitializing -> LoadingRows(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
+        state.instances.isEmpty() -> EmptyLibrary(actions::openCreate, modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
+        compact -> Column(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
+            InstanceShelfToolbar(query, { query = it }, compact = true, actions::openCreate)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             state.selectedInstance?.let { instance ->
-                CompactLaunchStrip(state, instance, viewModel, onManage)
+                CompactLaunchStrip(state, instance, actions, onManage)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             InstanceCollection(
                 instances = filteredInstances,
                 state = state,
-                viewModel = viewModel,
+                actions = actions,
                 compact = true,
                 compactListState = compactListState,
                 gridState = gridState,
                 modifier = Modifier.weight(1f),
             )
         }
-        else -> Row(modifier.fillMaxSize()) {
+        else -> Row(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                InstanceShelfToolbar(query, { query = it }, compact = false, viewModel::openCreate)
+                InstanceShelfToolbar(query, { query = it }, compact = false, actions::openCreate)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 InstanceCollection(
                     instances = filteredInstances,
                     state = state,
-                    viewModel = viewModel,
+                    actions = actions,
                     compact = false,
                     compactListState = compactListState,
                     gridState = gridState,
@@ -494,7 +527,7 @@ private fun LibraryPage(
             VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             SelectedInstancePanel(
                 state = state,
-                viewModel = viewModel,
+                actions = actions,
                 onManage = onManage,
                 modifier = Modifier.width(300.dp).fillMaxHeight(),
             )
@@ -506,7 +539,7 @@ private fun LibraryPage(
 private fun InstanceCollection(
     instances: List<GameInstance>,
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     compact: Boolean,
     compactListState: LazyListState,
     gridState: LazyGridState,
@@ -529,11 +562,11 @@ private fun InstanceCollection(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(instances, key = { it.id.value }) { instance ->
-                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel, compact = true)
+                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions, compact = true)
             }
         }
     } else {
-        InstanceGrid(instances, state, viewModel, gridState, modifier)
+        InstanceGrid(instances, state, actions, gridState, modifier)
     }
 }
 
@@ -549,6 +582,7 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                 Spacer(Modifier.weight(1f))
                 Button(
                     onClick = onNew,
+                    modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
                     shape = RoundedCornerShape(6.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = Ochre),
                 ) { Text("New") }
@@ -558,7 +592,7 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                 onValueChange = onQueryChange,
                 placeholder = { Text("Search instances…") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.INSTANCE_SEARCH),
             )
         }
     } else {
@@ -574,10 +608,11 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                 onValueChange = onQueryChange,
                 placeholder = { Text("Search instances…") },
                 singleLine = true,
-                modifier = Modifier.width(260.dp),
+                modifier = Modifier.width(260.dp).testTag(LauncherTestTags.INSTANCE_SEARCH),
             )
             Button(
                 onClick = onNew,
+                modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
                 shape = RoundedCornerShape(6.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Ochre),
             ) { Text("New instance") }
@@ -656,7 +691,7 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
 private fun CompactLaunchStrip(
     launcherState: LauncherUiState,
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     onManage: () -> Unit,
 ) {
     val activeAccount = launcherState.accounts.firstOrNull { it.isActive }
@@ -683,7 +718,7 @@ private fun CompactLaunchStrip(
         LaunchReadiness(launcherState, instance)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedButton(
-                onClick = { viewModel.openResourceBrowser() },
+                onClick = { actions.openResourceBrowser() },
                 enabled = installationState is InstallationState.Installed,
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(6.dp),
@@ -694,14 +729,14 @@ private fun CompactLaunchStrip(
                 shape = RoundedCornerShape(6.dp),
             ) { Text("Manage") }
         }
-        PrimaryInstanceButton(instance, launcherState, viewModel, Modifier.fillMaxWidth())
+        PrimaryInstanceButton(instance, launcherState, actions, Modifier.fillMaxWidth())
     }
 }
 
 @Composable
 private fun SelectedInstancePanel(
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     onManage: () -> Unit,
     modifier: Modifier,
 ) {
@@ -721,7 +756,8 @@ private fun SelectedInstancePanel(
     val installationState = instance.installationState
     val activeAccount = state.accounts.firstOrNull { it.isActive }
     Column(
-        modifier.background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState()).padding(20.dp),
+        modifier.background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState())
+            .testTag(LauncherTestTags.SELECTED_INSTANCE).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -736,9 +772,9 @@ private fun SelectedInstancePanel(
         LaunchContext(state = installationState, activeAccount = activeAccount)
         LaunchReadiness(state, instance)
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
+        PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
         OutlinedButton(
-            onClick = { viewModel.openResourceBrowser() },
+            onClick = { actions.openResourceBrowser() },
             enabled = installationState is InstallationState.Installed,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(6.dp),
@@ -784,34 +820,39 @@ private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccoun
 private fun PrimaryInstanceButton(
     instance: GameInstance,
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     modifier: Modifier,
 ) {
     when (instance.installationState) {
         is InstallationState.Installing -> OutlinedButton(
-            onClick = viewModel::cancelInstall,
-            modifier = modifier,
+            onClick = actions::cancelInstall,
+            modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
             shape = RoundedCornerShape(6.dp),
         ) { Text("Pause") }
         is InstallationState.Interrupted -> Button(
-            onClick = viewModel::installSelected,
-            modifier = modifier,
+            onClick = actions::installSelected,
+            modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Resume install") }
         is InstallationState.Failed -> Button(
-            onClick = viewModel::installSelected,
-            modifier = modifier,
+            onClick = actions::installSelected,
+            modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Retry install") }
         InstallationState.NotInstalled -> Button(
-            onClick = viewModel::installSelected,
-            modifier = modifier,
+            onClick = actions::installSelected,
+            modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Install") }
-        is InstallationState.Installed -> LaunchButton(state, instance, viewModel, modifier)
+        is InstallationState.Installed -> LaunchButton(
+            state,
+            instance,
+            actions,
+            modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
+        )
     }
 }
 
@@ -849,7 +890,7 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
 private fun InstanceGrid(
     instances: List<GameInstance>,
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     gridState: LazyGridState,
     modifier: Modifier = Modifier,
 ) {
@@ -872,7 +913,7 @@ private fun InstanceGrid(
                 )
             }
             gridItems(groupInstances, key = { it.id.value }) { instance ->
-                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel)
+                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions)
             }
         }
     }
@@ -889,7 +930,7 @@ private fun InstanceTile(
     instance: GameInstance,
     selected: Boolean,
     launcherState: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     compact: Boolean = false,
 ) {
     val installationState = instance.installationState
@@ -898,10 +939,11 @@ private fun InstanceTile(
     val selectionModifier = Modifier
         .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent, RoundedCornerShape(6.dp))
         .then(if (selected) Modifier.border(1.dp, Ochre, RoundedCornerShape(6.dp)) else Modifier)
-    ContextActionArea(instanceContextActions(instance, viewModel)) {
+    ContextActionArea(instanceContextActions(instance, actions)) {
         if (compact) {
             Row(
-                modifier = selectionModifier.fillMaxWidth().clickable { viewModel.selectInstance(instance.id) }
+                modifier = selectionModifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id))
+                    .clickable { actions.selectInstance(instance.id) }
                     .padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -915,7 +957,8 @@ private fun InstanceTile(
             }
         } else {
             Column(
-                modifier = selectionModifier.fillMaxWidth().clickable { viewModel.selectInstance(instance.id) }
+                modifier = selectionModifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id))
+                    .clickable { actions.selectInstance(instance.id) }
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -961,42 +1004,42 @@ private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.un
 }
 
 @Composable
-private fun instanceContextActions(instance: GameInstance, viewModel: LauncherViewModel): List<ContextAction> {
+private fun instanceContextActions(instance: GameInstance, actions: LauncherUiActions): List<ContextAction> {
     val copyText = rememberCopyText()
     val state = instance.installationState
     val selectedAction: (() -> Unit) -> Unit = { action ->
-        viewModel.selectInstance(instance.id)
+        actions.selectInstance(instance.id)
         action()
     }
     val primaryAction = when (state) {
         is InstallationState.Installing -> ContextAction("Pause installation") {
-            selectedAction(viewModel::cancelInstall)
+            selectedAction(actions::cancelInstall)
         }
         is InstallationState.Interrupted -> ContextAction("Resume installation") {
-            selectedAction(viewModel::installSelected)
+            selectedAction(actions::installSelected)
         }
         is InstallationState.Installed -> ContextAction("Launch") {
-            selectedAction(viewModel::launchSelected)
+            selectedAction(actions::launchSelected)
         }
         is InstallationState.Failed -> ContextAction("Retry installation") {
-            selectedAction(viewModel::installSelected)
+            selectedAction(actions::installSelected)
         }
         InstallationState.NotInstalled -> ContextAction("Install") {
-            selectedAction(viewModel::installSelected)
+            selectedAction(actions::installSelected)
         }
     }
     return buildList {
         add(primaryAction)
         if (state is InstallationState.Installed) {
-            add(ContextAction("Inspect launch plan") { selectedAction(viewModel::inspectLaunchPlan) })
+            add(ContextAction("Inspect launch plan") { selectedAction(actions::inspectLaunchPlan) })
         }
         if (state is InstallationState.Installed) {
-            add(ContextAction("Add content") { selectedAction { viewModel.openResourceBrowser() } })
+            add(ContextAction("Add content") { selectedAction { actions.openResourceBrowser() } })
         }
-        add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(viewModel::openInstanceSettings) })
+        add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(actions::openInstanceSettings) })
         add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
         add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
-        add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(viewModel::deleteSelected) })
+        add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(actions::deleteSelected) })
     }
 }
 
@@ -1004,13 +1047,13 @@ private fun instanceContextActions(instance: GameInstance, viewModel: LauncherVi
 private fun LaunchButton(
     state: LauncherUiState,
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     modifier: Modifier = Modifier,
 ) {
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: LaunchStatus.NotChecked
     when (status) {
         is LaunchStatus.Running -> OutlinedButton(
-            onClick = viewModel::stopLaunch,
+            onClick = actions::stopLaunch,
             modifier = modifier,
             shape = RoundedCornerShape(6.dp),
         ) { Text("Stop") }
@@ -1035,7 +1078,7 @@ private fun LaunchButton(
             shape = RoundedCornerShape(6.dp),
         ) { Text("Unavailable") }
         is LaunchStatus.Failed -> Button(
-            onClick = viewModel::launchSelected,
+            onClick = actions::launchSelected,
             modifier = modifier,
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
@@ -1043,7 +1086,7 @@ private fun LaunchButton(
         LaunchStatus.NotChecked,
         LaunchStatus.Ready,
         -> Button(
-            onClick = viewModel::launchSelected,
+            onClick = actions::launchSelected,
             modifier = modifier,
             shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
@@ -1052,7 +1095,7 @@ private fun LaunchButton(
 }
 
 @Composable
-private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.instanceSettings
     val minimum = form.minimumMemoryMiB.toIntOrNull()
     val maximum = form.maximumMemoryMiB.toIntOrNull()
@@ -1069,13 +1112,14 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
         else -> null
     }
     Dialog(
-        onDismissRequest = { if (!form.isSaving) viewModel.closeInstanceSettings() },
+        onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp),
+            modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp)
+                .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
         ) {
             Column {
                 Column(
@@ -1089,7 +1133,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
                             val error = if (isMinimum) minimumError else maximumError
                             TextField(
                                 value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
-                                onValueChange = if (isMinimum) viewModel::setMinimumMemory else viewModel::setMaximumMemory,
+                                onValueChange = if (isMinimum) actions::setMinimumMemory else actions::setMaximumMemory,
                                 label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
                                 isError = error != null,
                                 supportingText = if (error == null) null else ({ Text(error) }),
@@ -1115,12 +1159,12 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(form.recommendation.orEmpty(), color = Muted, modifier = Modifier.weight(1f))
-                        TextButton(onClick = viewModel::applyRecommendedMemory) { Text("Use recommended") }
+                        TextButton(onClick = actions::applyRecommendedMemory) { Text("Use recommended") }
                     }
                     form.warnings.forEach { warning -> Text(warning, color = ErrorText) }
                     TextField(
                         value = form.jvmArguments,
-                        onValueChange = viewModel::setJvmArguments,
+                        onValueChange = actions::setJvmArguments,
                         label = { Text("Additional JVM arguments") },
                         supportingText = {
                             Text("Memory, classpath, native path, and architecture options are managed by Trestle.")
@@ -1146,7 +1190,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
                         form.clientSettingsError != null -> Text(form.clientSettingsError, color = ErrorText)
                         form.clientSettings != null -> ClientSettingsFields(
                             form.clientSettings,
-                            viewModel::setInstanceClientSettings,
+                            actions::setInstanceClientSettings,
                         )
                     }
                 }
@@ -1155,9 +1199,9 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = viewModel::closeInstanceSettings, enabled = !form.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text("Cancel") }
                     Button(
-                        onClick = viewModel::saveInstanceSettings,
+                        onClick = actions::saveInstanceSettings,
                         enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
                         shape = RoundedCornerShape(8.dp),
                     ) {
@@ -1171,16 +1215,17 @@ private fun InstanceSettingsDialog(state: LauncherUiState, viewModel: LauncherVi
 }
 
 @Composable
-private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val browser = state.resourceBrowser
     Dialog(
-        onDismissRequest = viewModel::closeResourceBrowser,
+        onDismissRequest = actions::closeResourceBrowser,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp),
+            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp)
+                .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
@@ -1202,10 +1247,10 @@ private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherVie
                             color = Muted,
                         )
                     }
-                    TextButton(onClick = viewModel::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
+                    TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ResourceBrowserContent(state, viewModel, Modifier.fillMaxSize())
+                ResourceBrowserContent(state, actions, Modifier.fillMaxSize())
             }
         }
     }
@@ -1215,7 +1260,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, viewModel: LauncherVie
 @Composable
 private fun ResourceBrowserContent(
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     modifier: Modifier,
 ) {
     val browser = state.resourceBrowser
@@ -1240,14 +1285,14 @@ private fun ResourceBrowserContent(
     }
 
     val clearSelection = {
-        viewModel.clearResourceSelection()
+        actions.clearResourceSelection()
     }
     PlatformBackHandler(
         enabled = browser.selectedProject != null && listPaneHidden && navigator.canNavigateBack(),
         onBack = clearSelection,
     )
     Column(modifier) {
-        ResourceBrowserToolbar(browser, viewModel)
+        ResourceBrowserToolbar(browser, actions)
         browser.error?.let { InlineMessage(it, true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
@@ -1257,9 +1302,9 @@ private fun ResourceBrowserContent(
                 AnimatedPane {
                     ResourceResultList(
                         browser = browser,
-                        viewModel = viewModel,
+                        actions = actions,
                         listState = resultListState,
-                        onProjectClick = viewModel::selectResource,
+                        onProjectClick = actions::selectResource,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -1279,7 +1324,7 @@ private fun ResourceBrowserContent(
                         ResourceSelection(
                             browser = browser,
                             instance = state.selectedInstance,
-                            viewModel = viewModel,
+                            actions = actions,
                             scrollState = detailScrollState,
                             modifier = Modifier.weight(1f),
                         )
@@ -1291,7 +1336,7 @@ private fun ResourceBrowserContent(
 }
 
 @Composable
-private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+private fun ResourceBrowserToolbar(browser: ResourceBrowserState, actions: LauncherUiActions) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1299,15 +1344,15 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: Lau
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextField(
                 value = browser.query,
-                onValueChange = viewModel::setResourceQuery,
+                onValueChange = actions::setResourceQuery,
                 label = { Text("Search") },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { viewModel.searchResources() }),
+                keyboardActions = KeyboardActions(onSearch = { actions.searchResources() }),
                 modifier = Modifier.weight(1f),
             )
             Button(
-                onClick = viewModel::searchResources,
+                onClick = actions::searchResources,
                 enabled = !browser.isSearching,
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Ochre),
@@ -1316,25 +1361,25 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: Lau
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 600.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ResourceProviderButtons(browser, viewModel)
+                    ResourceProviderButtons(browser, actions)
                     Selector(
                         label = "Content type",
                         value = browser.type.label,
                         values = browsableResourceTypes.map { it.label },
                         modifier = Modifier.fillMaxWidth(),
-                        onSelect = { label -> viewModel.setResourceType(browsableResourceTypes.first { it.label == label }) },
+                        onSelect = { label -> actions.setResourceType(browsableResourceTypes.first { it.label == label }) },
                     )
                 }
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ResourceProviderButtons(browser, viewModel)
+                    ResourceProviderButtons(browser, actions)
                     Spacer(Modifier.weight(1f))
                     Selector(
                         label = "Content type",
                         value = browser.type.label,
                         values = browsableResourceTypes.map { it.label },
                         modifier = Modifier.width(190.dp),
-                        onSelect = { label -> viewModel.setResourceType(browsableResourceTypes.first { it.label == label }) },
+                        onSelect = { label -> actions.setResourceType(browsableResourceTypes.first { it.label == label }) },
                     )
                 }
             }
@@ -1346,13 +1391,13 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, viewModel: Lau
 }
 
 @Composable
-private fun ResourceProviderButtons(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: LauncherUiActions) {
     SingleChoiceSegmentedButtonRow {
         ResourceProvider.entries.forEachIndexed { index, provider ->
             val available = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable
             SegmentedButton(
                 selected = browser.provider == provider,
-                onClick = { viewModel.setResourceProvider(provider) },
+                onClick = { actions.setResourceProvider(provider) },
                 enabled = available,
                 shape = SegmentedButtonDefaults.itemShape(index, ResourceProvider.entries.size),
             ) { Text(provider.label) }
@@ -1363,7 +1408,7 @@ private fun ResourceProviderButtons(browser: ResourceBrowserState, viewModel: La
 @Composable
 private fun ResourceResultList(
     browser: ResourceBrowserState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     listState: LazyListState,
     onProjectClick: (String) -> Unit,
     modifier: Modifier,
@@ -1394,7 +1439,7 @@ private fun ResourceResultList(
             if (browser.projects.size < browser.totalProjects) {
                 item("load-more") {
                     TextButton(
-                        onClick = viewModel::loadMoreResources,
+                        onClick = actions::loadMoreResources,
                         enabled = !browser.isSearching,
                         modifier = Modifier.fillMaxWidth(),
                     ) { Text(if (browser.isSearching) "Loading" else "Load more") }
@@ -1485,7 +1530,7 @@ private fun ResourceProjectImage(project: ResourceProject, modifier: Modifier) {
 private fun ResourceSelection(
     browser: ResourceBrowserState,
     instance: GameInstance?,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
@@ -1540,7 +1585,7 @@ private fun ResourceSelection(
         if (browser.isLoadingVersions) {
             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Ochre)
         } else if (browser.versions.isNotEmpty()) {
-            ResourceVersionPicker(browser, viewModel)
+            ResourceVersionPicker(browser, actions)
         }
         val version = browser.selectedVersion
         version?.let {
@@ -1554,7 +1599,7 @@ private fun ResourceSelection(
                             value = dependency.selectionKey in browser.selectedOptionalDependencies,
                             enabled = dependency.selectionKey.isNotBlank(),
                             role = Role.Checkbox,
-                            onValueChange = { viewModel.toggleOptionalDependency(dependency.selectionKey) },
+                            onValueChange = { actions.toggleOptionalDependency(dependency.selectionKey) },
                         ).padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1597,7 +1642,7 @@ private fun ResourceSelection(
             ) { Text("Open manual download") }
         }
         Button(
-            onClick = viewModel::installSelectedResource,
+            onClick = actions::installSelectedResource,
             enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(8.dp),
@@ -1625,7 +1670,7 @@ private fun ResourceProjectDetails(project: ResourceProject) {
 }
 
 @Composable
-private fun ResourceVersionPicker(browser: ResourceBrowserState, viewModel: LauncherViewModel) {
+private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: LauncherUiActions) {
     val selected = browser.selectedVersion
     val labels = browser.versions.map { "${it.versionNumber} · ${it.channel.label}" }
     Selector(
@@ -1634,7 +1679,7 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, viewModel: Laun
         values = labels,
         modifier = Modifier.fillMaxWidth(),
         onSelect = { label ->
-            browser.versions.getOrNull(labels.indexOf(label))?.let { viewModel.selectResourceVersion(it.id) }
+            browser.versions.getOrNull(labels.indexOf(label))?.let { actions.selectResourceVersion(it.id) }
         },
     )
 }
@@ -1656,17 +1701,18 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 }
 
 @Composable
-private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.create
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     Dialog(
-        onDismissRequest = { if (!form.isSaving) viewModel.closeCreate() },
+        onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp),
+            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp)
+                .testTag(LauncherTestTags.CREATE_DIALOG),
         ) {
             Column {
                 Column(
@@ -1684,14 +1730,14 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                         ) { Text("Custom", color = Chalk, style = MaterialTheme.typography.labelLarge) }
                         TextButton(
                             onClick = {
-                                viewModel.closeCreate()
-                                viewModel.openResourceBrowser(ResourceType.MODPACK)
+                                actions.closeCreate()
+                                actions.openResourceBrowser(ResourceType.MODPACK)
                             },
                         ) { Text("Browse modpacks") }
                     }
                     TextField(
                         value = form.name,
-                        onValueChange = viewModel::setCreateName,
+                        onValueChange = actions::setCreateName,
                         label = { Text("Name") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
@@ -1704,13 +1750,13 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                         },
                         values = state.versions.take(200).map { it.id },
                         enabled = !state.isLoadingVersions,
-                        onSelect = viewModel::setCreateVersion,
+                        onSelect = actions::setCreateVersion,
                     )
                     Selector(
                         label = "Loader",
                         value = form.modLoader.label,
                         values = listOf(ModLoader.VANILLA, ModLoader.FABRIC).map { it.label },
-                        onSelect = { label -> viewModel.setCreateLoader(ModLoader.entries.first { it.label == label }) },
+                        onSelect = { label -> actions.setCreateLoader(ModLoader.entries.first { it.label == label }) },
                     )
                     if (form.modLoader == ModLoader.FABRIC) {
                         Selector(
@@ -1718,7 +1764,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                             value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading" else "No compatible loader",
                             values = form.loaderVersions,
                             enabled = !form.isResolvingLoader,
-                            onSelect = viewModel::setCreateLoaderVersion,
+                            onSelect = actions::setCreateLoaderVersion,
                         )
                     }
                     HorizontalDivider()
@@ -1736,16 +1782,16 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                             Text(if (showAdvanced) "Hide" else "Customize")
                         }
                     }
-                    if (showAdvanced) ClientDefaultsFields(form, viewModel, showHeading = false)
+                    if (showAdvanced) ClientDefaultsFields(form, actions, showHeading = false)
                 }
                 HorizontalDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = viewModel::closeCreate, enabled = !form.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text("Cancel") }
                     Button(
-                        onClick = viewModel::createInstance,
+                        onClick = actions::createInstance,
                         enabled = form.name.isNotBlank() && form.versionId.isNotBlank() &&
                             (form.modLoader != ModLoader.FABRIC || form.loaderVersion != null) && !form.isSaving,
                         shape = RoundedCornerShape(8.dp),
@@ -1768,7 +1814,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
 @Composable
 private fun ClientDefaultsFields(
     form: CreateInstanceState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     showHeading: Boolean = true,
 ) {
     val settings = form.clientSettings
@@ -1785,7 +1831,7 @@ private fun ClientDefaultsFields(
                 }
                 Switch(
                     checked = form.preconfigureClientSettings,
-                    onCheckedChange = viewModel::setCreateClientPreconfiguration,
+                    onCheckedChange = actions::setCreateClientPreconfiguration,
                 )
             }
         } else {
@@ -1793,13 +1839,13 @@ private fun ClientDefaultsFields(
                 Text("Apply these defaults", modifier = Modifier.weight(1f), color = Muted)
                 Switch(
                     checked = form.preconfigureClientSettings,
-                    onCheckedChange = viewModel::setCreateClientPreconfiguration,
+                    onCheckedChange = actions::setCreateClientPreconfiguration,
                 )
             }
         }
         if (!form.preconfigureClientSettings) return@Column
 
-        ClientSettingsFields(settings, viewModel::setCreateClientSettings)
+        ClientSettingsFields(settings, actions::setCreateClientSettings)
     }
 }
 
@@ -2108,7 +2154,7 @@ private enum class InstanceSection(val label: String) {
 private fun InstanceWorkspace(
     state: LauncherUiState,
     modifier: Modifier,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     onBack: () -> Unit,
     compact: Boolean = false,
 ) {
@@ -2118,13 +2164,13 @@ private fun InstanceWorkspace(
     val overviewListState = rememberLazyListState()
     val contentListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
         if (compact || instance == null) {
             PageHeader(instance?.displayName ?: "Instance") {
                 TextButton(onClick = onBack) { Text("Back to library") }
             }
         } else {
-            InstanceWorkspaceHeader(state, instance, viewModel, onBack)
+            InstanceWorkspaceHeader(state, instance, actions, onBack)
         }
         HorizontalDivider(color = Rule)
         if (instance == null) {
@@ -2165,15 +2211,15 @@ private fun InstanceWorkspace(
                 InstanceSection.OVERVIEW -> InstanceOverview(
                     state,
                     instance,
-                    viewModel,
+                    actions,
                     overviewListState,
                     contentModifier,
                     compact,
                 )
-                InstanceSection.CONTENT -> InstanceContent(instance, viewModel, contentListState, contentModifier)
+                InstanceSection.CONTENT -> InstanceContent(instance, actions, contentListState, contentModifier)
                 InstanceSection.SETTINGS -> InstanceConfiguration(
                     instance,
-                    viewModel,
+                    actions,
                     configurationScrollState,
                     contentModifier,
                 )
@@ -2186,7 +2232,7 @@ private fun InstanceWorkspace(
 private fun InstanceWorkspaceHeader(
     state: LauncherUiState,
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     onBack: () -> Unit,
 ) {
     Box(Modifier.fillMaxWidth().height(88.dp), contentAlignment = Alignment.Center) {
@@ -2214,7 +2260,7 @@ private fun InstanceWorkspaceHeader(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
+            PrimaryInstanceButton(instance, state, actions, Modifier.widthIn(min = 132.dp))
         }
     }
 }
@@ -2236,7 +2282,7 @@ private fun NavigationTab(label: String, selected: Boolean, modifier: Modifier =
 private fun InstanceOverview(
     state: LauncherUiState,
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     listState: LazyListState,
     modifier: Modifier,
     compact: Boolean,
@@ -2253,7 +2299,7 @@ private fun InstanceOverview(
                             Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
                         }
                     }
-                    PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
+                    PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
                 }
                 Spacer(Modifier.height(24.dp))
             }
@@ -2277,7 +2323,7 @@ private fun InstanceOverview(
                     Spacer(Modifier.height(24.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("Launch plan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = viewModel::inspectLaunchPlan) { Text("Refresh") }
+                        TextButton(onClick = actions::inspectLaunchPlan) { Text("Refresh") }
                     }
                     PropertyRow("Main class", plan.mainClass)
                     PropertyRow("Classpath", "${plan.classpathEntries} entries")
@@ -2289,7 +2335,7 @@ private fun InstanceOverview(
             Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
                 Spacer(Modifier.height(20.dp))
                 OutlinedButton(
-                    onClick = viewModel::inspectLaunchPlan,
+                    onClick = actions::inspectLaunchPlan,
                     enabled = instance.installationState is InstallationState.Installed,
                     shape = RoundedCornerShape(6.dp),
                 ) { Text("Inspect launch plan") }
@@ -2301,7 +2347,7 @@ private fun InstanceOverview(
 @Composable
 private fun InstanceContent(
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     listState: LazyListState,
     modifier: Modifier,
 ) {
@@ -2318,7 +2364,7 @@ private fun InstanceContent(
                 ContentTypeRow(
                     type = type,
                     enabled = instance.installationState is InstallationState.Installed,
-                    onClick = { viewModel.openResourceBrowser(type) },
+                    onClick = { actions.openResourceBrowser(type) },
                 )
                 HorizontalDivider(color = Rule)
             }
@@ -2329,7 +2375,7 @@ private fun InstanceContent(
 @Composable
 private fun InstanceConfiguration(
     instance: GameInstance,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
@@ -2349,7 +2395,7 @@ private fun InstanceConfiguration(
             PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
             PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
             OutlinedButton(
-                onClick = viewModel::openInstanceSettings,
+                onClick = actions::openInstanceSettings,
                 modifier = Modifier.padding(top = 12.dp),
                 shape = RoundedCornerShape(6.dp),
             ) { Text("Edit instance settings") }
@@ -2358,23 +2404,23 @@ private fun InstanceConfiguration(
 }
 
 @Composable
-private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
+private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     LaunchedEffect(state.resourceBrowser.visible, state.resourceBrowser.presentation) {
         if (
             !state.resourceBrowser.visible ||
             state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE
         ) {
-            viewModel.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
+            actions.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
         }
     }
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
         PageHeader("Discover") {}
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (
             state.resourceBrowser.visible &&
             state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
         ) {
-            ResourceBrowserContent(state, viewModel, Modifier.fillMaxSize())
+            ResourceBrowserContent(state, actions, Modifier.fillMaxSize())
         } else {
             LoadingRows(Modifier.fillMaxSize())
         }
@@ -2407,12 +2453,12 @@ private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> 
 }
 
 @Composable
-private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
+private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS)) {
         PageHeader("Accounts") {
             Button(
-                onClick = viewModel::openAccountLogin,
+                onClick = actions::openAccountLogin,
                 shape = RoundedCornerShape(8.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Ochre),
             ) { Text("Add account") }
@@ -2448,7 +2494,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                     AccountRow(
                         account = account,
                         texture = state.accountSkinTextures[account.profile.profileId],
-                        viewModel = viewModel,
+                        actions = actions,
                     ) { pendingRemoval = account.profile.profileId }
                 }
             }
@@ -2467,7 +2513,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
             confirmButton = {
                 Button(
                     onClick = {
-                        viewModel.removeAccount(profileId)
+                        actions.removeAccount(profileId)
                         pendingRemoval = null
                     },
                 ) { Text("Forget account") }
@@ -2480,7 +2526,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
 private fun AccountRow(
     account: ManagedAccount,
     texture: ByteArray?,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     onForget: () -> Unit,
 ) {
     val copyText = rememberCopyText()
@@ -2496,17 +2542,17 @@ private fun AccountRow(
         account.profile.edition == MinecraftEdition.JAVA -> "Ready to launch"
         else -> "Bedrock saved"
     }
-    val actions = buildList {
+    val contextActions = buildList {
         if (!account.isActive) {
-            add(ContextAction("Use account") { viewModel.selectAccount(profileId) })
+            add(ContextAction("Use account") { actions.selectAccount(profileId) })
         }
         if (canManageOfficialProfile) {
-            add(ContextAction("Manage skins") { viewModel.openSkinStudio() })
-            add(ContextAction("Refresh profile") { viewModel.refreshActiveAccount() })
-            add(ContextAction("Reset skin") { viewModel.resetActiveSkin() })
+            add(ContextAction("Manage skins") { actions.openSkinStudio() })
+            add(ContextAction("Refresh profile") { actions.refreshActiveAccount() })
+            add(ContextAction("Reset skin") { actions.resetActiveSkin() })
         }
         if (account.isAuthenticated) {
-            add(ContextAction("Sign out", separatorBefore = isNotEmpty()) { viewModel.signOutAccount(profileId) })
+            add(ContextAction("Sign out", separatorBefore = isNotEmpty()) { actions.signOutAccount(profileId) })
         }
         add(
             ContextAction(
@@ -2518,7 +2564,7 @@ private fun AccountRow(
         add(ContextAction("Forget account", separatorBefore = true, onClick = onForget))
     }
 
-    ContextActionArea(actions) {
+    ContextActionArea(contextActions) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 700.dp
             Column(
@@ -2540,15 +2586,15 @@ private fun AccountRow(
                             Text(statusText, modifier = Modifier.weight(1f), color = if (account.isReady) Ochre else ErrorText)
                             if (!account.isActive) {
                                 OutlinedButton(
-                                    onClick = { viewModel.selectAccount(profileId) },
+                                    onClick = { actions.selectAccount(profileId) },
                                     shape = RoundedCornerShape(6.dp),
                                 ) { Text("Use") }
                             }
                             if (canManageOfficialProfile) {
-                                TextButton(onClick = viewModel::openSkinStudio) { Text("Skins") }
+                                TextButton(onClick = actions::openSkinStudio) { Text("Skins") }
                             }
                             if (account.isAuthenticated) {
-                                TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
+                                TextButton(onClick = { actions.signOutAccount(profileId) }) { Text("Sign out") }
                             }
                             TextButton(onClick = onForget) { Text("Forget") }
                         }
@@ -2578,16 +2624,16 @@ private fun AccountRow(
                             }
                         }
                         if (!account.isActive) {
-                            OutlinedButton(onClick = { viewModel.selectAccount(profileId) }, shape = RoundedCornerShape(6.dp)) {
+                            OutlinedButton(onClick = { actions.selectAccount(profileId) }, shape = RoundedCornerShape(6.dp)) {
                                 Text("Use")
                             }
                         } else if (canManageOfficialProfile) {
-                            OutlinedButton(onClick = viewModel::openSkinStudio, shape = RoundedCornerShape(6.dp)) {
+                            OutlinedButton(onClick = actions::openSkinStudio, shape = RoundedCornerShape(6.dp)) {
                                 Text("Manage skins")
                             }
                         }
                         if (account.isAuthenticated) {
-                            TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
+                            TextButton(onClick = { actions.signOutAccount(profileId) }) { Text("Sign out") }
                         }
                         TextButton(onClick = onForget) { Text("Forget") }
                     }
@@ -2599,18 +2645,19 @@ private fun AccountRow(
 }
 
 @Composable
-private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val account = state.accounts.firstOrNull { it.isActive }
     val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
     var confirmDelete by remember { mutableStateOf(false) }
     Dialog(
-        onDismissRequest = viewModel::closeSkinStudio,
+        onDismissRequest = actions::closeSkinStudio,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             color = Soot,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp),
+            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp)
+                .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
@@ -2619,7 +2666,7 @@ private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewMode
                 ) {
                     Text("Skins", style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = viewModel::closeSkinStudio) { Text("Close") }
+                    TextButton(onClick = actions::closeSkinStudio) { Text("Close") }
                 }
                 HorizontalDivider(color = Rule)
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -2629,18 +2676,18 @@ private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewMode
                                 playerName = account?.profile?.playerName.orEmpty(),
                                 texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
                                 variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                                onSave = viewModel::saveCurrentSkinToLibrary,
-                                onReset = viewModel::resetActiveSkin,
+                                onSave = actions::saveCurrentSkinToLibrary,
+                                onReset = actions::resetActiveSkin,
                                 modifier = Modifier.width(310.dp).fillMaxHeight(),
                             )
                             VerticalDivider(color = Rule)
                             SkinLibraryPanel(
                                 skins = state.savedSkins,
                                 selected = selected,
-                                onSelect = viewModel::selectSavedSkin,
-                                onNew = viewModel::openNewSkin,
-                                onUse = viewModel::useSelectedSkin,
-                                onEdit = viewModel::editSelectedSkin,
+                                onSelect = actions::selectSavedSkin,
+                                onNew = actions::openNewSkin,
+                                onUse = actions::useSelectedSkin,
+                                onEdit = actions::editSelectedSkin,
                                 onDelete = { confirmDelete = true },
                                 modifier = Modifier.weight(1f).fillMaxHeight(),
                             )
@@ -2651,18 +2698,18 @@ private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewMode
                                 playerName = account?.profile?.playerName.orEmpty(),
                                 texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
                                 variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                                onSave = viewModel::saveCurrentSkinToLibrary,
-                                onReset = viewModel::resetActiveSkin,
+                                onSave = actions::saveCurrentSkinToLibrary,
+                                onReset = actions::resetActiveSkin,
                                 modifier = Modifier.fillMaxWidth().height(250.dp),
                             )
                             HorizontalDivider(color = Rule)
                             SkinLibraryPanel(
                                 skins = state.savedSkins,
                                 selected = selected,
-                                onSelect = viewModel::selectSavedSkin,
-                                onNew = viewModel::openNewSkin,
-                                onUse = viewModel::useSelectedSkin,
-                                onEdit = viewModel::editSelectedSkin,
+                                onSelect = actions::selectSavedSkin,
+                                onNew = actions::openNewSkin,
+                                onUse = actions::useSelectedSkin,
+                                onEdit = actions::editSelectedSkin,
                                 onDelete = { confirmDelete = true },
                                 modifier = Modifier.fillMaxWidth().weight(1f),
                             )
@@ -2685,7 +2732,7 @@ private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewMode
                         TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
                         Button(
                             onClick = {
-                                viewModel.deleteSelectedSkin()
+                                actions.deleteSelectedSkin()
                                 confirmDelete = false
                             },
                             shape = RoundedCornerShape(8.dp),
@@ -2849,7 +2896,7 @@ private fun SkinLibraryItem(skin: SavedSkin, selected: Boolean, onClick: () -> U
 }
 
 @Composable
-private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val editor = state.skinStudio.editor
     val scope = rememberCoroutineScope()
     val picker = rememberFilePickerLauncher(
@@ -2858,19 +2905,20 @@ private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewMode
         if (file != null) {
             scope.launch {
                 runCatching { file.readBytes() }
-                    .onSuccess { viewModel.setSkinFile(file.name, it) }
-                    .onFailure { viewModel.reportSkinFileReadFailure() }
+                    .onSuccess { actions.setSkinFile(file.name, it) }
+                    .onFailure { actions.reportSkinFileReadFailure() }
             }
         }
     }
     Dialog(
-        onDismissRequest = viewModel::closeSkinEditor,
+        onDismissRequest = actions::closeSkinEditor,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
             color = Surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp),
+            modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp)
+                .testTag(LauncherTestTags.SKIN_EDITOR_DIALOG),
         ) {
             Column(Modifier.fillMaxSize()) {
                 Row(
@@ -2882,7 +2930,7 @@ private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewMode
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = viewModel::closeSkinEditor, enabled = !editor.isSaving) { Text("Close") }
+                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text("Close") }
                 }
                 HorizontalDivider(color = Rule)
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
@@ -2891,7 +2939,7 @@ private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewMode
                         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
                             SkinEditorPreview(editor)
                             Spacer(Modifier.height(20.dp))
-                            SkinEditorFields(editor, { picker.launch() }, viewModel)
+                            SkinEditorFields(editor, { picker.launch() }, actions)
                         }
                     } else {
                         Row(Modifier.fillMaxSize()) {
@@ -2900,7 +2948,7 @@ private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewMode
                             SkinEditorFields(
                                 editor = editor,
                                 onBrowse = { picker.launch() },
-                                viewModel = viewModel,
+                                actions = actions,
                                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
                             )
                         }
@@ -2911,14 +2959,14 @@ private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewMode
                     Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = viewModel::closeSkinEditor, enabled = !editor.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text("Cancel") }
                     OutlinedButton(
-                        onClick = { viewModel.saveSkin(useAfterSave = false) },
+                        onClick = { actions.saveSkin(useAfterSave = false) },
                         enabled = editor.canSave,
                         shape = RoundedCornerShape(8.dp),
                     ) { Text("Save") }
                     Button(
-                        onClick = { viewModel.saveSkin(useAfterSave = true) },
+                        onClick = { actions.saveSkin(useAfterSave = true) },
                         enabled = editor.canSave,
                         colors = ButtonDefaults.buttonColors(containerColor = Ochre),
                         shape = RoundedCornerShape(8.dp),
@@ -2946,13 +2994,13 @@ private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modi
 private fun SkinEditorFields(
     editor: SkinEditorState,
     onBrowse: () -> Unit,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         TextField(
             value = editor.name,
-            onValueChange = viewModel::setSkinName,
+            onValueChange = actions::setSkinName,
             label = { Text("Name") },
             singleLine = true,
             enabled = !editor.isSaving,
@@ -2965,7 +3013,7 @@ private fun SkinEditorFields(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RadioButton(
                             selected = editor.variant == variant,
-                            onClick = { viewModel.setSkinVariant(variant) },
+                            onClick = { actions.setSkinVariant(variant) },
                             enabled = !editor.isSaving,
                         )
                         Text(variant.label)
@@ -2997,19 +3045,20 @@ private val SkinEditorState.canSave: Boolean
     get() = name.isNotBlank() && texture != null && !isSaving
 
 @Composable
-private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.accountLogin
     val uriHandler = LocalUriHandler.current
     var passwordVisible by remember(form.method) { mutableStateOf(false) }
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
     Dialog(
-        onDismissRequest = { if (!form.isWaiting) viewModel.closeAccountLogin() },
+        onDismissRequest = { if (!form.isWaiting) actions.closeAccountLogin() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(10.dp),
-            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp),
+            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp)
+                .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
         ) {
             Column(
                 Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
@@ -3027,12 +3076,12 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                     enabled = !form.isWaiting,
                 ) { selected ->
                     AccountAuthenticationMethod.entries.firstOrNull { it.label == selected }
-                        ?.let(viewModel::setAccountLoginMethod)
+                        ?.let(actions::setAccountLoginMethod)
                 }
                 if (form.edition == MinecraftEdition.BEDROCK) {
                     TextField(
                         value = form.bedrockGameVersion,
-                        onValueChange = viewModel::setBedrockGameVersion,
+                        onValueChange = actions::setBedrockGameVersion,
                         label = { Text("Installed Bedrock version") },
                         placeholder = { Text("For example: 1.21.100") },
                         enabled = !form.isWaiting,
@@ -3050,7 +3099,7 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                 ) {
                     TextField(
                         value = form.email,
-                        onValueChange = viewModel::setAccountEmail,
+                        onValueChange = actions::setAccountEmail,
                         label = { Text("Microsoft account email") },
                         enabled = !form.isWaiting,
                         singleLine = true,
@@ -3062,7 +3111,7 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                     )
                     TextField(
                         value = form.password.reveal(),
-                        onValueChange = viewModel::setAccountPassword,
+                        onValueChange = actions::setAccountPassword,
                         label = { Text("Microsoft account password") },
                         enabled = !form.isWaiting,
                         singleLine = true,
@@ -3096,7 +3145,7 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                 if (form.method.requiresImportedSecret) {
                     TextField(
                         value = form.importedSecret.reveal(),
-                        onValueChange = viewModel::setImportedAccountSecret,
+                        onValueChange = actions::setImportedAccountSecret,
                         label = { Text(form.method.secretInputLabel) },
                         enabled = !form.isWaiting,
                         singleLine = form.method != AccountAuthenticationMethod.MICROSOFT_COOKIES,
@@ -3124,7 +3173,7 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                 if (form.method == AccountAuthenticationMethod.OFFLINE) {
                     TextField(
                         value = form.offlineUsername,
-                        onValueChange = viewModel::setOfflineUsername,
+                        onValueChange = actions::setOfflineUsername,
                         label = { Text("Offline username") },
                         isError = form.offlineUsername.isNotEmpty() &&
                             !form.offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$")),
@@ -3167,10 +3216,10 @@ private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewMo
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = viewModel::closeAccountLogin) { Text("Cancel") }
+                    TextButton(onClick = actions::closeAccountLogin) { Text("Cancel") }
                     if (form.authorization == null) {
                         Button(
-                            onClick = viewModel::signInAccount,
+                            onClick = actions::signInAccount,
                             enabled = !form.isWaiting && form.canSubmit,
                             shape = RoundedCornerShape(8.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
@@ -3243,12 +3292,12 @@ private val AccountLoginState.canSubmit: Boolean
     }
 
 @Composable
-private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
+private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     var sectionName by rememberSaveable { mutableStateOf(SettingsSection.RUNTIME.name) }
     val section = SettingsSection.entries.firstOrNull { it.name == sectionName } ?: SettingsSection.RUNTIME
     val runtimeScrollState = rememberScrollState()
     val logListState = rememberLazyListState()
-    Column(modifier.fillMaxSize()) {
+    Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
         PageHeader("Settings") {}
         HorizontalDivider(color = Rule)
         BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -3267,7 +3316,7 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                     SettingsSectionContent(
                         section,
                         state,
-                        viewModel,
+                        actions,
                         runtimeScrollState,
                         logListState,
                         Modifier.weight(1f),
@@ -3293,7 +3342,7 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                     SettingsSectionContent(
                         section,
                         state,
-                        viewModel,
+                        actions,
                         runtimeScrollState,
                         logListState,
                         Modifier.weight(1f),
@@ -3331,21 +3380,21 @@ private fun SettingsSectionButton(
 private fun SettingsSectionContent(
     section: SettingsSection,
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     runtimeScrollState: ScrollState,
     logListState: LazyListState,
     modifier: Modifier,
 ) {
     when (section) {
-        SettingsSection.RUNTIME -> RuntimeSettings(state, viewModel, runtimeScrollState, modifier)
-        SettingsSection.LOGS -> LauncherLog(state, viewModel, logListState, modifier)
+        SettingsSection.RUNTIME -> RuntimeSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.LOGS -> LauncherLog(state, actions, logListState, modifier)
     }
 }
 
 @Composable
 private fun RuntimeSettings(
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
@@ -3378,7 +3427,7 @@ private fun RuntimeSettings(
             modifier = Modifier.padding(top = 12.dp).widthIn(max = 640.dp),
         )
         OutlinedButton(
-            onClick = viewModel::refreshVersions,
+            onClick = actions::refreshVersions,
             shape = RoundedCornerShape(6.dp),
             modifier = Modifier.padding(top = 8.dp),
         ) { Text(if (state.isLoadingVersions) "Refreshing versions" else "Refresh versions") }
@@ -3388,7 +3437,7 @@ private fun RuntimeSettings(
 @Composable
 private fun LauncherLog(
     state: LauncherUiState,
-    viewModel: LauncherViewModel,
+    actions: LauncherUiActions,
     listState: LazyListState,
     modifier: Modifier,
 ) {
@@ -3403,7 +3452,7 @@ private fun LauncherLog(
                     Text("Launcher log", style = MaterialTheme.typography.titleLarge)
                     Text("Events from this session. Right-click an entry to copy diagnostics.", color = Muted)
                 }
-                TextButton(onClick = viewModel::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
+                TextButton(onClick = actions::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
             }
             Spacer(Modifier.height(16.dp))
         }
