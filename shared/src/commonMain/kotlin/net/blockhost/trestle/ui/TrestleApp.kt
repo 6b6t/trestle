@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -134,10 +135,18 @@ import kotlin.math.roundToInt
 
 private enum class Destination(val label: String) {
     LIBRARY("Library"),
-    DISCOVER("Mods"),
+    INSTANCE("Instance"),
+    DISCOVER("Discover"),
     ACCOUNTS("Accounts"),
     SETTINGS("Settings"),
 }
+
+private val globalDestinations = listOf(
+    Destination.LIBRARY,
+    Destination.DISCOVER,
+    Destination.ACCOUNTS,
+    Destination.SETTINGS,
+)
 
 private val browsableResourceTypes = listOf(
     ResourceType.MOD,
@@ -240,20 +249,22 @@ private fun WideLayout(
     onDestinationChange: (Destination) -> Unit,
     viewModel: LauncherViewModel,
 ) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        Sidebar(state, destination, onDestinationChange)
-        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Column(modifier = Modifier.fillMaxSize()) {
+        TopNavigation(state, destination, onDestinationChange)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         when (destination) {
-            Destination.LIBRARY -> Row(modifier = Modifier.weight(1f)) {
-                LibraryPane(
-                    state = state,
-                    modifier = Modifier.weight(1f),
-                    onNew = viewModel::openCreate,
-                    viewModel = viewModel,
-                )
-                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                DetailsPane(state, Modifier.width(360.dp), viewModel)
-            }
+            Destination.LIBRARY -> LibraryPage(
+                state,
+                Modifier.weight(1f),
+                viewModel,
+                onManage = { onDestinationChange(Destination.INSTANCE) },
+            )
+            Destination.INSTANCE -> InstanceWorkspace(
+                state,
+                Modifier.weight(1f),
+                viewModel,
+                onBack = { onDestinationChange(Destination.LIBRARY) },
+            )
             Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.weight(1f), viewModel)
             Destination.ACCOUNTS -> AccountsPage(state, Modifier.weight(1f), viewModel)
             Destination.SETTINGS -> SettingsPage(state, Modifier.weight(1f), viewModel)
@@ -284,7 +295,9 @@ private fun CompactLayout(
                     }
                 },
                 actions = {
-                    Text(
+                    state.accounts.firstOrNull { it.isActive }?.let { account ->
+                        AccountIdentity(account, compact = true) { onDestinationChange(Destination.ACCOUNTS) }
+                    } ?: Text(
                         currentPlatform,
                         modifier = Modifier.padding(end = 16.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -296,9 +309,9 @@ private fun CompactLayout(
         },
         bottomBar = {
             NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
-                Destination.entries.forEach { item ->
+                globalDestinations.forEach { item ->
                     NavigationBarItem(
-                        selected = destination == item,
+                        selected = destination == item || item == Destination.LIBRARY && destination == Destination.INSTANCE,
                         onClick = { onDestinationChange(item) },
                         icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
                         label = { Text(item.label) },
@@ -308,7 +321,20 @@ private fun CompactLayout(
         },
     ) { padding ->
         when (destination) {
-            Destination.LIBRARY -> CompactLibrary(state, padding, viewModel)
+            Destination.LIBRARY -> LibraryPage(
+                state,
+                Modifier.padding(padding),
+                viewModel,
+                compact = true,
+                onManage = { onDestinationChange(Destination.INSTANCE) },
+            )
+            Destination.INSTANCE -> InstanceWorkspace(
+                state,
+                Modifier.padding(padding),
+                viewModel,
+                onBack = { onDestinationChange(Destination.LIBRARY) },
+                compact = true,
+            )
             Destination.DISCOVER -> ResourceCatalogPage(state, Modifier.padding(padding), viewModel)
             Destination.ACCOUNTS -> AccountsPage(state, Modifier.padding(padding), viewModel)
             Destination.SETTINGS -> SettingsPage(state, Modifier.padding(padding), viewModel)
@@ -317,51 +343,40 @@ private fun CompactLayout(
 }
 
 @Composable
-private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinationChange: (Destination) -> Unit) {
-    Column(
-        Modifier.width(240.dp).fillMaxHeight()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(16.dp),
+private fun TopNavigation(
+    state: LauncherUiState,
+    destination: Destination,
+    onDestinationChange: (Destination) -> Unit,
+) {
+    Row(
+        Modifier.fillMaxWidth().height(68.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            modifier = Modifier.padding(end = 24.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             BridgeMark()
-            Text("Trestle", style = MaterialTheme.typography.titleLarge)
+            Text("TRESTLE", style = MaterialTheme.typography.titleLarge)
         }
-        Spacer(Modifier.height(24.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Destination.entries.forEach { item ->
-                NavigationDrawerItem(
-                    label = { Text(item.label) },
-                    selected = destination == item,
-                    onClick = { onDestinationChange(item) },
-                    icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+        NavigationItem(Destination.LIBRARY, destination == Destination.LIBRARY || destination == Destination.INSTANCE) {
+            onDestinationChange(Destination.LIBRARY)
+        }
+        NavigationItem(Destination.DISCOVER, destination == Destination.DISCOVER) {
+            onDestinationChange(Destination.DISCOVER)
         }
         Spacer(Modifier.weight(1f))
         state.accounts.firstOrNull { it.isActive }?.let { account ->
-            Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(account.profile.playerName, style = MaterialTheme.typography.labelLarge)
-                Text(
-                    when {
-                        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline account ready"
-                        !account.isAuthenticated -> "Sign-in required"
-                        account.profile.edition == MinecraftEdition.JAVA -> "Java account ready"
-                        else -> "Bedrock account ready"
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
+            AccountIdentity(account) { onDestinationChange(Destination.ACCOUNTS) }
+        } ?: TextButton(onClick = { onDestinationChange(Destination.ACCOUNTS) }) { Text("Add account") }
+        NavigationItem(Destination.SETTINGS, destination == Destination.SETTINGS) {
+            onDestinationChange(Destination.SETTINGS)
         }
         Text(
-            "$currentPlatform build ${BuildInfo.VERSION}",
-            modifier = Modifier.padding(8.dp),
+            currentPlatform,
+            modifier = Modifier.padding(start = 8.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -370,33 +385,103 @@ private fun Sidebar(state: LauncherUiState, destination: Destination, onDestinat
 
 private fun destinationIcon(destination: Destination): DrawableResource = when (destination) {
     Destination.LIBRARY -> Res.drawable.ic_library
+    Destination.INSTANCE -> Res.drawable.ic_library
     Destination.DISCOVER -> Res.drawable.ic_extension
     Destination.ACCOUNTS -> Res.drawable.ic_account
     Destination.SETTINGS -> Res.drawable.ic_settings
 }
 
 @Composable
-private fun LibraryPane(
+private fun NavigationItem(
+    destination: Destination,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Column(
+        modifier = modifier.height(52.dp).clickable(onClick = onClick).padding(horizontal = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.weight(1f))
+        Text(
+            destination.label,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Spacer(Modifier.weight(1f))
+        Box(
+            Modifier.height(3.dp).fillMaxWidth()
+                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
+        )
+    }
+}
+
+@Composable
+private fun AccountIdentity(account: ManagedAccount, compact: Boolean = false, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = if (compact) 0.dp else 8.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            Modifier.size(30.dp).background(Ochre, RoundedCornerShape(4.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(account.profile.playerName.take(1).uppercase(), color = Soot, style = MaterialTheme.typography.labelLarge)
+        }
+        if (!compact) {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Text(account.profile.playerName, style = MaterialTheme.typography.labelLarge)
+                Text(if (account.isReady) "Ready" else "Sign-in required", color = Muted, style = MaterialTheme.typography.labelMedium)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryPage(
     state: LauncherUiState,
     modifier: Modifier,
-    onNew: () -> Unit,
     viewModel: LauncherViewModel,
+    compact: Boolean = false,
+    onManage: () -> Unit,
 ) {
-    Column(modifier.fillMaxHeight()) {
-        PageHeader("Library") {
-            OutlinedButton(onClick = onNew, shape = RoundedCornerShape(8.dp)) { Text("New instance") }
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    var query by remember { mutableStateOf("") }
+    val filteredInstances = state.instances.filter {
+        query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
+            it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
+    }
+    Column(modifier.fillMaxSize()) {
         when {
             state.isInitializing -> LoadingRows(Modifier.fillMaxSize())
-            state.instances.isEmpty() -> EmptyLibrary(onNew, Modifier.fillMaxSize())
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(state.instances, key = { it.id.value }) { instance ->
-                    InstanceRow(instance, instance.id == state.selectedInstance?.id, viewModel)
+            state.instances.isEmpty() -> EmptyLibrary(viewModel::openCreate, Modifier.fillMaxSize())
+            else -> {
+                state.selectedInstance?.let { instance ->
+                    LaunchDeck(state, instance, viewModel, compact, onManage)
+                }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                InstanceShelfToolbar(query, { query = it }, compact, viewModel::openCreate)
+                if (filteredInstances.isEmpty()) {
+                    Column(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text("No matching instances", style = MaterialTheme.typography.titleLarge)
+                        Text("Try another name, version, or loader.", color = Muted)
+                    }
+                } else if (compact) {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        items(filteredInstances, key = { it.id.value }) { instance ->
+                            InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel, compact = true)
+                        }
+                    }
+                } else {
+                    InstanceGrid(filteredInstances, state, viewModel)
                 }
             }
         }
@@ -404,37 +489,49 @@ private fun LibraryPane(
 }
 
 @Composable
-private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewModel: LauncherViewModel) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = 16.dp,
-            top = padding.calculateTopPadding() + 12.dp,
-            end = 16.dp,
-            bottom = padding.calculateBottomPadding() + 16.dp,
-        ),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        item("heading") {
-            Row(Modifier.fillMaxWidth().padding(bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Library", style = MaterialTheme.typography.headlineMedium)
+private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit, compact: Boolean, onNew: () -> Unit) {
+    if (compact) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Instances", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
-                OutlinedButton(onClick = viewModel::openCreate, shape = RoundedCornerShape(8.dp)) { Text("New") }
+                Button(
+                    onClick = onNew,
+                    shape = RoundedCornerShape(6.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                ) { Text("New") }
             }
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search instances") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-        if (state.isInitializing) {
-            item("loading") { LoadingRows(Modifier.fillMaxWidth().height(180.dp)) }
-        } else if (state.instances.isEmpty()) {
-            item("empty") { EmptyLibrary(viewModel::openCreate, Modifier.fillMaxWidth().height(260.dp)) }
-        } else {
-            items(state.instances, key = { it.id.value }) { instance ->
-                Column {
-                    InstanceRow(instance, state.selectedInstance?.id == instance.id, viewModel)
-                    if (state.selectedInstance?.id == instance.id) {
-                        DetailsPane(state, Modifier.fillMaxWidth(), viewModel, compact = true)
-                    }
-                }
-            }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text("Instances", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            TextField(
+                value = query,
+                onValueChange = onQueryChange,
+                placeholder = { Text("Search instances") },
+                singleLine = true,
+                modifier = Modifier.widthIn(min = 220.dp, max = 300.dp),
+            )
+            Button(
+                onClick = onNew,
+                shape = RoundedCornerShape(6.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+            ) { Text("New instance") }
         }
     }
 }
@@ -507,64 +604,292 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
 }
 
 @Composable
-private fun InstanceRow(instance: GameInstance, selected: Boolean, viewModel: LauncherViewModel) {
-    val state = instance.installationState
-    val progress = state.installationProgress()
-    val selectInstance = { viewModel.selectInstance(instance.id) }
-    ContextActionArea(instanceContextActions(instance, viewModel)) {
-        Column(
-            modifier = Modifier.fillMaxWidth()
-                .background(
-                    if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surface,
-                    RoundedCornerShape(8.dp),
-                )
-                .selectable(
-                    selected = selected,
-                    onClick = selectInstance,
-                    role = Role.RadioButton,
-                )
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.size(width = 4.dp, height = 42.dp).background(Ochre, RoundedCornerShape(2.dp)))
-                Column(Modifier.weight(1f)) {
-                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "${instance.minecraftVersionId} · ${instance.modLoader.label} · Java ${instance.requiredJavaMajor}",
-                        color = Muted,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
+private fun LaunchDeck(
+    launcherState: LauncherUiState,
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    compact: Boolean,
+    onManage: () -> Unit,
+) {
+    val activeAccount = launcherState.accounts.firstOrNull { it.isActive }
+    val installationState = instance.installationState
+    val progress = installationState.installationProgress()
+    Column(Modifier.fillMaxWidth().background(Surface)) {
+        Box(Modifier.fillMaxWidth().height(5.dp).background(Ochre))
+        if (compact) {
+            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    InstanceArtwork(instance, 72.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
+                        Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                        Text(
+                            stateLabel(installationState),
+                            color = stateColor(installationState),
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                 }
-                Text(stateLabel(state), color = stateColor(state), style = MaterialTheme.typography.labelMedium)
+                InstallationProgress(installationState, progress)
+                LaunchContext(state = installationState, activeAccount = activeAccount)
+                LaunchReadiness(launcherState, instance)
+                LaunchDeckActions(instance, viewModel, state = launcherState, compact = true, onManage = onManage)
             }
-            if (progress != null) {
-                val progressFraction = progressFraction(
-                    completedBytes = progress.completedBytes,
-                    totalBytes = progress.totalBytes,
-                    completedFiles = progress.completedFiles,
-                    totalFiles = progress.totalFiles,
-                )
-                if (progressFraction != null) {
-                    LinearProgressIndicator(
-                        progress = { progressFraction },
-                        modifier = Modifier.fillMaxWidth(),
-                        color = Ochre,
-                        trackColor = Rule,
+        } else {
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 210.dp).padding(horizontal = 32.dp, vertical = 26.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(28.dp),
+            ) {
+                InstanceArtwork(instance, 128.dp)
+                Box(Modifier.width(6.dp).height(126.dp).background(Ochre))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(instance.displayName, style = MaterialTheme.typography.displaySmall)
+                    Text("Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                    Text(
+                        stateLabel(installationState),
+                        color = stateColor(installationState),
+                        style = MaterialTheme.typography.labelLarge,
                     )
-                } else {
-                    LinearProgressIndicator(Modifier.fillMaxWidth(), color = Ochre, trackColor = Rule)
+                    InstallationProgress(installationState, progress)
+                    LaunchContext(state = installationState, activeAccount = activeAccount)
+                    LaunchReadiness(launcherState, instance)
                 }
+                LaunchDeckActions(instance, viewModel, state = launcherState, compact = false, onManage = onManage)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
+    val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: return
+    val message = when (status) {
+        is LaunchStatus.Blocked -> "Required before launch: ${status.missingRequirements.joinToString()}"
+        is LaunchStatus.Failed -> status.message
+        is LaunchStatus.Unavailable -> status.reason
+        LaunchStatus.Checking -> "Checking launch requirements"
+        LaunchStatus.Starting -> "Starting Minecraft"
+        is LaunchStatus.Running -> status.processId?.let { "Minecraft is running · Process $it" } ?: "Minecraft is running"
+        else -> null
+    } ?: return
+    val color = when (status) {
+        is LaunchStatus.Blocked, is LaunchStatus.Failed -> ErrorText
+        else -> Muted
+    }
+    Text(message, color = color, style = MaterialTheme.typography.labelMedium)
+}
+
+@Composable
+private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccount?) {
+    val accountText = when {
+        activeAccount == null -> "No account selected"
+        !activeAccount.isReady -> "${activeAccount.profile.playerName} · Sign-in required"
+        else -> "${activeAccount.profile.playerName} · Ready to play"
+    }
+    Text(accountText, color = if (activeAccount?.isReady == true && state is InstallationState.Installed) Chalk else Muted)
+}
+
+@Composable
+private fun LaunchDeckActions(
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    state: LauncherUiState,
+    compact: Boolean,
+    onManage: () -> Unit,
+) {
+    if (compact) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { viewModel.openResourceBrowser() },
+                    enabled = instance.installationState is InstallationState.Installed,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(6.dp),
+                ) { Text("Content") }
+                OutlinedButton(
+                    onClick = onManage,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(6.dp),
+                ) { Text("Manage") }
+            }
+            PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
+        }
+    } else {
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            OutlinedButton(
+                onClick = { viewModel.openResourceBrowser() },
+                enabled = instance.installationState is InstallationState.Installed,
+                shape = RoundedCornerShape(6.dp),
+            ) { Text("Content") }
+            OutlinedButton(onClick = onManage, shape = RoundedCornerShape(6.dp)) { Text("Manage") }
+            PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
+        }
+    }
+}
+
+@Composable
+private fun PrimaryInstanceButton(
+    instance: GameInstance,
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+) {
+    when (instance.installationState) {
+        is InstallationState.Installing -> OutlinedButton(
+            onClick = viewModel::cancelInstall,
+            modifier = modifier,
+            shape = RoundedCornerShape(6.dp),
+        ) { Text("Pause") }
+        is InstallationState.Interrupted -> Button(
+            onClick = viewModel::installSelected,
+            modifier = modifier,
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) { Text("Resume install") }
+        is InstallationState.Failed -> Button(
+            onClick = viewModel::installSelected,
+            modifier = modifier,
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) { Text("Retry install") }
+        InstallationState.NotInstalled -> Button(
+            onClick = viewModel::installSelected,
+            modifier = modifier,
+            shape = RoundedCornerShape(6.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+        ) { Text("Install") }
+        is InstallationState.Installed -> LaunchButton(state, instance, viewModel, modifier)
+    }
+}
+
+@Composable
+private fun InstallationProgress(state: InstallationState, progress: InstallationProgressSnapshot?) {
+    if (progress == null) return
+    val fraction = progressFraction(
+        completedBytes = progress.completedBytes,
+        totalBytes = progress.totalBytes,
+        completedFiles = progress.completedFiles,
+        totalFiles = progress.totalFiles,
+    )
+    if (fraction != null) {
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
+            color = Ochre,
+            trackColor = Rule,
+        )
+    } else {
+        LinearProgressIndicator(Modifier.fillMaxWidth().widthIn(max = 520.dp), color = Ochre, trackColor = Rule)
+    }
+    Text(
+        if (state is InstallationState.Interrupted) {
+            "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
+        } else {
+            "${progress.completedFiles} of ${progress.totalFiles} files"
+        },
+        color = Muted,
+        style = MaterialTheme.typography.labelMedium,
+    )
+}
+
+@Composable
+private fun InstanceGrid(instances: List<GameInstance>, state: LauncherUiState, viewModel: LauncherViewModel) {
+    val grouped = instances.groupBy(::instanceGroupLabel)
+    LazyVerticalGrid(
+        columns = GridCells.Adaptive(168.dp),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 32.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        grouped.forEach { (group, groupInstances) ->
+            item(key = "group-$group", span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    if (state is InstallationState.Interrupted) {
-                        "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
-                    } else {
-                        "${progress.completedFiles} of ${progress.totalFiles} files"
-                    },
+                    group,
+                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
                     color = Muted,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            }
+            gridItems(groupInstances, key = { it.id.value }) { instance ->
+                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel)
+            }
+        }
+    }
+}
+
+private fun instanceGroupLabel(instance: GameInstance): String = when {
+    instance.iconReference != null -> "Modpacks"
+    instance.modLoader == ModLoader.VANILLA -> "Vanilla"
+    else -> "${instance.modLoader.label} instances"
+}
+
+@Composable
+private fun InstanceTile(
+    instance: GameInstance,
+    selected: Boolean,
+    launcherState: LauncherUiState,
+    viewModel: LauncherViewModel,
+    compact: Boolean = false,
+) {
+    val installationState = instance.installationState
+    val running = launcherState.launch.instanceId == instance.id && launcherState.launch.status is LaunchStatus.Running
+    val progress = installationState.installationProgress()
+    val selectionModifier = if (selected) Modifier.border(1.dp, Ochre, RoundedCornerShape(6.dp)) else Modifier
+    ContextActionArea(instanceContextActions(instance, viewModel)) {
+        if (compact) {
+            Row(
+                modifier = selectionModifier.fillMaxWidth().clickable { viewModel.selectInstance(instance.id) }
+                    .padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                InstanceArtwork(instance, 48.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
+                    Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                }
+                Text(if (running) "Running" else stateLabel(installationState), color = if (running) Ochre else stateColor(installationState))
+            }
+        } else {
+            Column(
+                modifier = selectionModifier.fillMaxWidth().clickable { viewModel.selectInstance(instance.id) }
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                InstanceArtwork(instance, 72.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(instance.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
+                    Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted, maxLines = 1)
+                }
+                HorizontalDivider(color = Rule)
+                Text(
+                    if (running) "Running" else stateLabel(installationState),
+                    color = if (running) Ochre else stateColor(installationState),
                     style = MaterialTheme.typography.labelMedium,
                 )
+                if (progress != null) InstallationProgress(installationState, progress)
             }
+        }
+    }
+}
+
+@Composable
+private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.unit.Dp) {
+    Box(
+        Modifier.size(size).background(RaisedSurface, RoundedCornerShape(6.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (instance.iconReference != null) {
+            AsyncImage(
+                model = instance.iconReference,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
+                contentScale = ContentScale.Crop,
+            )
+        } else {
+            BridgeMark(Modifier.size(width = size * 0.56f, height = size * 0.42f))
         }
     }
 }
@@ -610,109 +935,6 @@ private fun instanceContextActions(instance: GameInstance, viewModel: LauncherVi
 }
 
 @Composable
-private fun DetailsPane(
-    state: LauncherUiState,
-    modifier: Modifier,
-    viewModel: LauncherViewModel,
-    compact: Boolean = false,
-) {
-    val instance = state.selectedInstance
-    val layoutModifier = if (compact) {
-        modifier.padding(16.dp)
-    } else {
-        modifier.fillMaxHeight().padding(24.dp).verticalScroll(rememberScrollState())
-    }
-    if (instance == null) {
-        Column(layoutModifier) {
-            Text("Select an instance", style = MaterialTheme.typography.titleLarge)
-            Text("Its install state and launch checks will appear here.", color = Muted)
-        }
-        return
-    }
-    ContextActionArea(instanceContextActions(instance, viewModel)) {
-        Column(layoutModifier) {
-            Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
-            Spacer(Modifier.height(24.dp))
-            PropertyRow("Status", stateLabel(instance.installationState))
-            PropertyRow("Java", instance.requiredJavaMajor.toString())
-            PropertyRow("Directory", instance.instanceDirectory)
-            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never")
-
-            state.launchPlan?.let { plan ->
-                Spacer(Modifier.height(24.dp))
-                Text("Launch plan", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(8.dp))
-                PropertyRow("Main class", plan.mainClass)
-                PropertyRow("Classpath", "${plan.classpathEntries} entries")
-                PropertyRow("Natives", "${plan.nativeLibraries} libraries")
-                PropertyRow("Account", plan.authentication)
-            }
-
-            Spacer(Modifier.height(24.dp))
-            if (instance.installationState is InstallationState.Installed) {
-                OutlinedButton(
-                    onClick = { viewModel.openResourceBrowser() },
-                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                ) { Text("Add content") }
-            }
-            OutlinedButton(
-                onClick = viewModel::openInstanceSettings,
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) { Text("Launch settings") }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                when (instance.installationState) {
-                    is InstallationState.Installing -> OutlinedButton(
-                        onClick = viewModel::cancelInstall,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                    ) { Text("Pause") }
-                    is InstallationState.Interrupted -> Button(
-                        onClick = viewModel::installSelected,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                    ) { Text("Resume install") }
-                    is InstallationState.Installed -> {
-                        OutlinedButton(
-                            onClick = viewModel::inspectLaunchPlan,
-                            modifier = Modifier.weight(1f),
-                            shape = RoundedCornerShape(8.dp),
-                        ) { Text("Inspect") }
-                        LaunchButton(state, instance, viewModel, Modifier.weight(1f))
-                    }
-                    else -> Button(
-                        onClick = viewModel::installSelected,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                    ) { Text(if (instance.installationState is InstallationState.Failed) "Retry install" else "Install") }
-                }
-            }
-            val launchStatus = state.launch.takeIf { it.instanceId == instance.id }?.status
-            val launchDetail = when (launchStatus) {
-                is LaunchStatus.Blocked -> "Required before launch: ${launchStatus.missingRequirements.joinToString()}"
-                is LaunchStatus.Failed -> launchStatus.message
-                is LaunchStatus.Unavailable -> launchStatus.reason
-                else -> null
-            }
-            launchDetail?.let {
-                Text(
-                    it,
-                    color = if (launchStatus is LaunchStatus.Unavailable) Muted else ErrorText,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-            TextButton(onClick = viewModel::deleteSelected, modifier = Modifier.align(Alignment.End)) {
-                Text("Remove from library", color = Muted)
-            }
-        }
-    }
-}
-
-@Composable
 private fun LaunchButton(
     state: LauncherUiState,
     instance: GameInstance,
@@ -724,7 +946,7 @@ private fun LaunchButton(
         is LaunchStatus.Running -> OutlinedButton(
             onClick = viewModel::stopLaunch,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
         ) { Text("Stop") }
         LaunchStatus.Checking,
         LaunchStatus.Starting,
@@ -732,24 +954,24 @@ private fun LaunchButton(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
         ) { Text(if (status == LaunchStatus.Checking) "Checking…" else "Starting…") }
         is LaunchStatus.Blocked -> Button(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
         ) { Text("Launch") }
         is LaunchStatus.Unavailable -> Button(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
         ) { Text("Unavailable") }
         is LaunchStatus.Failed -> Button(
             onClick = viewModel::launchSelected,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Retry launch") }
         LaunchStatus.NotChecked,
@@ -757,7 +979,7 @@ private fun LaunchButton(
         -> Button(
             onClick = viewModel::launchSelected,
             modifier = modifier,
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(6.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Launch") }
     }
@@ -1294,6 +1516,7 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 @Composable
 private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
     val form = state.create
+    var showAdvanced by remember { mutableStateOf(false) }
     Dialog(
         onDismissRequest = { if (!form.isSaving) viewModel.closeCreate() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
@@ -1309,6 +1532,21 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text("New instance", style = MaterialTheme.typography.headlineMedium)
+                    Row(
+                        Modifier.fillMaxWidth().background(RaisedSurface).padding(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(
+                            Modifier.background(Surface, RoundedCornerShape(4.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+                        ) { Text("Custom", color = Chalk, style = MaterialTheme.typography.labelLarge) }
+                        TextButton(
+                            onClick = {
+                                viewModel.closeCreate()
+                                viewModel.openResourceBrowser(ResourceType.MODPACK)
+                            },
+                        ) { Text("Browse modpacks") }
+                    }
                     TextField(
                         value = form.name,
                         onValueChange = viewModel::setCreateName,
@@ -1342,7 +1580,21 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                         )
                     }
                     HorizontalDivider()
-                    ClientDefaultsFields(form, viewModel)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text("Client defaults", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                if (showAdvanced) "Configure first-launch accessibility, audio, and distance settings."
+                                else "Trestle will use balanced defaults for the first launch.",
+                                color = Muted,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
+                        TextButton(onClick = { showAdvanced = !showAdvanced }) {
+                            Text(if (showAdvanced) "Hide" else "Customize")
+                        }
+                    }
+                    if (showAdvanced) ClientDefaultsFields(form, viewModel, showHeading = false)
                 }
                 HorizontalDivider()
                 Row(
@@ -1372,22 +1624,36 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ClientDefaultsFields(form: CreateInstanceState, viewModel: LauncherViewModel) {
+private fun ClientDefaultsFields(
+    form: CreateInstanceState,
+    viewModel: LauncherViewModel,
+    showHeading: Boolean = true,
+) {
     val settings = form.clientSettings
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Client defaults", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
-                    color = Muted,
-                    style = MaterialTheme.typography.bodyMedium,
+        if (showHeading) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("Client defaults", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
+                        color = Muted,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+                Switch(
+                    checked = form.preconfigureClientSettings,
+                    onCheckedChange = viewModel::setCreateClientPreconfiguration,
                 )
             }
-            Switch(
-                checked = form.preconfigureClientSettings,
-                onCheckedChange = viewModel::setCreateClientPreconfiguration,
-            )
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text("Apply these defaults", modifier = Modifier.weight(1f), color = Muted)
+                Switch(
+                    checked = form.preconfigureClientSettings,
+                    onCheckedChange = viewModel::setCreateClientPreconfiguration,
+                )
+            }
         }
         if (!form.preconfigureClientSettings) return@Column
 
@@ -1594,6 +1860,179 @@ private fun LoadingRows(modifier: Modifier) {
     }
 }
 
+private enum class InstanceSection(val label: String) {
+    OVERVIEW("Overview"),
+    CONTENT("Content"),
+    SETTINGS("Settings"),
+}
+
+@Composable
+private fun InstanceWorkspace(
+    state: LauncherUiState,
+    modifier: Modifier,
+    viewModel: LauncherViewModel,
+    onBack: () -> Unit,
+    compact: Boolean = false,
+) {
+    val instance = state.selectedInstance
+    var section by remember(instance?.id) { mutableStateOf(InstanceSection.OVERVIEW) }
+    Column(modifier.fillMaxSize()) {
+        PageHeader(instance?.displayName ?: "Instance") {
+            TextButton(onClick = onBack) { Text("Back to library") }
+        }
+        HorizontalDivider(color = Rule)
+        if (instance == null) {
+            Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("No instance selected", style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onBack) { Text("Return to library") }
+            }
+            return@Column
+        }
+        Row(
+            Modifier.fillMaxWidth().background(Surface).padding(horizontal = if (compact) 8.dp else 24.dp),
+        ) {
+            InstanceSection.entries.forEach { item ->
+                NavigationTab(
+                    label = item.label,
+                    selected = section == item,
+                    modifier = if (compact) Modifier.weight(1f) else Modifier,
+                ) { section = item }
+            }
+        }
+        HorizontalDivider(color = Rule)
+        when (section) {
+            InstanceSection.OVERVIEW -> InstanceOverview(state, instance, viewModel, Modifier.weight(1f), compact)
+            InstanceSection.CONTENT -> InstanceContent(instance, viewModel, Modifier.weight(1f))
+            InstanceSection.SETTINGS -> InstanceConfiguration(instance, viewModel, Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun NavigationTab(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.height(50.dp).clickable(onClick = onClick).padding(horizontal = 16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.weight(1f))
+        Text(label, color = if (selected) Chalk else Muted, style = MaterialTheme.typography.labelLarge)
+        Spacer(Modifier.weight(1f))
+        Box(Modifier.fillMaxWidth().height(3.dp).background(if (selected) Ochre else Color.Transparent))
+    }
+}
+
+@Composable
+private fun InstanceOverview(
+    state: LauncherUiState,
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+    compact: Boolean,
+) {
+    LazyColumn(modifier, contentPadding = PaddingValues(24.dp)) {
+        item("identity") {
+            if (compact) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        InstanceArtwork(instance, 64.dp)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
+                            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                            Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
+                        }
+                    }
+                    PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
+                }
+            } else {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+                    InstanceArtwork(instance, 80.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
+                        Text("Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                        Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
+                    }
+                    PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
+                }
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+        item("properties") {
+            Text("Instance", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(8.dp))
+            PropertyRow("Java", instance.requiredJavaMajor.toString())
+            PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
+            PropertyRow("Directory", instance.instanceDirectory)
+            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.toString() ?: "Never")
+        }
+        state.launchPlan?.let { plan ->
+            item("launch-plan") {
+                Spacer(Modifier.height(24.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Launch plan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                    TextButton(onClick = viewModel::inspectLaunchPlan) { Text("Refresh") }
+                }
+                PropertyRow("Main class", plan.mainClass)
+                PropertyRow("Classpath", "${plan.classpathEntries} entries")
+                PropertyRow("Natives", "${plan.nativeLibraries} libraries")
+                PropertyRow("Account", plan.authentication)
+            }
+        } ?: item("inspect") {
+            Spacer(Modifier.height(20.dp))
+            OutlinedButton(
+                onClick = viewModel::inspectLaunchPlan,
+                enabled = instance.installationState is InstallationState.Installed,
+                shape = RoundedCornerShape(6.dp),
+            ) { Text("Inspect launch plan") }
+        }
+    }
+}
+
+@Composable
+private fun InstanceContent(instance: GameInstance, viewModel: LauncherViewModel, modifier: Modifier) {
+    LazyColumn(modifier, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)) {
+        item("intro") {
+            Text(
+                "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
+                modifier = Modifier.widthIn(max = 720.dp).padding(vertical = 16.dp),
+                color = Muted,
+            )
+        }
+        items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
+            ContentTypeRow(
+                type = type,
+                enabled = instance.installationState is InstallationState.Installed,
+                onClick = { viewModel.openResourceBrowser(type) },
+            )
+            HorizontalDivider(color = Rule)
+        }
+    }
+}
+
+@Composable
+private fun InstanceConfiguration(instance: GameInstance, viewModel: LauncherViewModel, modifier: Modifier) {
+    Column(modifier.verticalScroll(rememberScrollState()).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Launch settings", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Runtime values apply only to ${instance.displayName} and remain isolated from other instances.",
+            color = Muted,
+            modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
+        )
+        PropertyRow("Java", "Java ${instance.requiredJavaMajor}")
+        PropertyRow("Minimum memory", "${instance.memory.minimumMiB} MiB")
+        PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
+        PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
+        OutlinedButton(
+            onClick = viewModel::openInstanceSettings,
+            modifier = Modifier.padding(top = 12.dp),
+            shape = RoundedCornerShape(6.dp),
+        ) { Text("Edit launch settings") }
+    }
+}
+
 @Composable
 private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
     LaunchedEffect(state.resourceBrowser.visible, state.resourceBrowser.presentation) {
@@ -1615,6 +2054,31 @@ private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, view
         } else {
             LoadingRows(Modifier.fillMaxSize())
         }
+    }
+}
+
+@Composable
+private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> Unit) {
+    val description = when (type) {
+        ResourceType.MOD -> "Extend an installed game with compatible client mods and required dependencies."
+        ResourceType.MODPACK -> "Create a complete, isolated instance from a curated pack."
+        ResourceType.RESOURCE_PACK -> "Change textures, sounds, and presentation without changing game logic."
+        ResourceType.SHADER_PACK -> "Add compatible lighting and rendering effects to an installed instance."
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        Box(Modifier.size(56.dp).background(RaisedSurface, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
+            Text(type.label.take(1), color = Ochre, style = MaterialTheme.typography.headlineMedium)
+        }
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(type.label, style = MaterialTheme.typography.titleLarge)
+            Text(description, color = Muted, modifier = Modifier.widthIn(max = 680.dp))
+            if (!enabled) Text("Select and install an instance first.", color = ErrorText, style = MaterialTheme.typography.labelMedium)
+        }
+        OutlinedButton(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(6.dp)) { Text("Browse") }
     }
 }
 
@@ -1647,9 +2111,15 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
         } else {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(24.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
             ) {
+                item("accounts-summary") {
+                    Text(
+                        "Choose the identity Trestle uses to launch. Online credential state stays in the platform vault.",
+                        modifier = Modifier.widthIn(max = 720.dp).padding(vertical = 16.dp),
+                        color = Muted,
+                    )
+                }
                 items(state.accounts, key = { it.profile.profileId }) { account ->
                     AccountRow(
                         account = account,
@@ -1696,6 +2166,12 @@ private fun AccountRow(
             account.isAuthenticated &&
             account.profile.edition == MinecraftEdition.JAVA &&
             account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
+    val statusText = when {
+        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
+        !account.isAuthenticated -> "Sign-in required"
+        account.profile.edition == MinecraftEdition.JAVA -> "Ready to launch"
+        else -> "Bedrock saved"
+    }
     val actions = buildList {
         if (!account.isActive) {
             add(ContextAction("Use account") { viewModel.selectAccount(profileId) })
@@ -1719,69 +2195,80 @@ private fun AccountRow(
     }
 
     ContextActionArea(actions) {
-        Column(
-            Modifier.fillMaxWidth().background(
-                if (account.isActive) {
-                    MaterialTheme.colorScheme.surfaceContainerHigh
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 700.dp
+            Column(
+                Modifier.fillMaxWidth().background(
+                    if (account.isActive) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+                ),
+            ) {
+                if (compact) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            AccountMark(account, texture, compact = true)
+                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
+                                Text(account.profile.authenticationMethod.label, color = Muted, maxLines = 1)
+                            }
+                            if (account.isActive) Text("Active", color = Ochre, style = MaterialTheme.typography.labelMedium)
+                        }
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(statusText, modifier = Modifier.weight(1f), color = if (account.isReady) Ochre else ErrorText)
+                            if (!account.isActive) {
+                                OutlinedButton(
+                                    onClick = { viewModel.selectAccount(profileId) },
+                                    shape = RoundedCornerShape(6.dp),
+                                ) { Text("Use") }
+                            }
+                            if (canManageOfficialProfile) {
+                                TextButton(onClick = viewModel::openSkinStudio) { Text("Skins") }
+                            }
+                            if (account.isAuthenticated) {
+                                TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
+                            }
+                            TextButton(onClick = onForget) { Text("Forget") }
+                        }
+                    }
                 } else {
-                    MaterialTheme.colorScheme.surface
-                },
-            )
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(
-                    Modifier.size(width = 4.dp, height = 42.dp).background(
-                        if (account.isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                    ),
-                )
-                if (account.profile.edition == MinecraftEdition.JAVA && texture != null) {
-                    MinecraftSkinPreview(
-                        texture = texture,
-                        variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
-                        modifier = Modifier.size(width = 72.dp, height = 104.dp),
-                        interactive = false,
-                        animate = false,
-                    )
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        AccountMark(account, texture)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
+                                if (account.isActive) Text("Active", color = Ochre, style = MaterialTheme.typography.labelMedium)
+                            }
+                            Text(account.profile.authenticationMethod.label, color = Muted, maxLines = 1)
+                        }
+                        Column(Modifier.widthIn(min = 150.dp), horizontalAlignment = Alignment.End) {
+                            Text(statusText, color = if (account.isReady) Ochre else ErrorText)
+                            account.profile.skin?.let { skin ->
+                                Text(
+                                    "${skin.variant.name.lowercase().replaceFirstChar(Char::uppercase)} model",
+                                    color = Muted,
+                                    style = MaterialTheme.typography.labelMedium,
+                                )
+                            }
+                        }
+                        if (!account.isActive) {
+                            OutlinedButton(onClick = { viewModel.selectAccount(profileId) }, shape = RoundedCornerShape(6.dp)) {
+                                Text("Use")
+                            }
+                        } else if (canManageOfficialProfile) {
+                            OutlinedButton(onClick = viewModel::openSkinStudio, shape = RoundedCornerShape(6.dp)) {
+                                Text("Manage skins")
+                            }
+                        }
+                        if (account.isAuthenticated) {
+                            TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
+                        }
+                        TextButton(onClick = onForget) { Text("Forget") }
+                    }
                 }
-                Column(Modifier.weight(1f)) {
-                    Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                    Text(account.profile.authenticationMethod.label, color = Muted)
-                    Text(
-                        when {
-                            account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
-                                "Offline · No identity verification"
-                            !account.isAuthenticated -> "Sign-in required"
-                            account.profile.authenticationMethod == AccountAuthenticationMethod.THE_ALTENING ->
-                                "Ready via third-party session service"
-                            account.profile.edition == MinecraftEdition.JAVA -> "Verified and ready to launch"
-                            else -> "Bedrock account ready · Runtime not available"
-                        },
-                        color = if (account.isReady) Ochre else Muted,
-                    )
-                }
-                if (!account.isActive) {
-                    OutlinedButton(
-                        onClick = { viewModel.selectAccount(profileId) },
-                        shape = RoundedCornerShape(8.dp),
-                    ) { Text("Use account") }
-                }
-            }
-            if (canManageOfficialProfile) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    OutlinedButton(
-                        onClick = viewModel::openSkinStudio,
-                        shape = RoundedCornerShape(8.dp),
-                    ) { Text("Manage skins") }
-                    TextButton(onClick = viewModel::refreshActiveAccount) { Text("Refresh profile") }
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                if (account.isAuthenticated) {
-                    TextButton(onClick = { viewModel.signOutAccount(profileId) }) { Text("Sign out") }
-                }
-                TextButton(onClick = onForget) { Text("Forget account") }
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -1913,6 +2400,30 @@ private fun CurrentSkinPanel(
             TextButton(onClick = onSave, enabled = texture != null) { Text("Save to library") }
             TextButton(onClick = onReset) { Text("Reset to default") }
         }
+    }
+}
+
+@Composable
+private fun AccountMark(account: ManagedAccount, texture: ByteArray?, compact: Boolean = false) {
+    if (account.profile.edition == MinecraftEdition.JAVA && texture != null) {
+        MinecraftSkinPreview(
+            texture = texture,
+            variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
+            modifier = if (compact) Modifier.size(width = 44.dp, height = 64.dp) else Modifier.size(width = 56.dp, height = 80.dp),
+            interactive = false,
+            animate = false,
+        )
+        return
+    }
+    Box(
+        Modifier.size(48.dp).background(if (account.isActive) Ochre else Surface, RoundedCornerShape(4.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            account.profile.playerName.take(1).uppercase(),
+            color = if (account.isActive) Soot else Chalk,
+            style = MaterialTheme.typography.titleLarge,
+        )
     }
 }
 
@@ -2409,66 +2920,145 @@ private val AccountLoginState.canSubmit: Boolean
 
 @Composable
 private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: LauncherViewModel) {
+    var section by remember { mutableStateOf(SettingsSection.RUNTIME) }
     Column(modifier.fillMaxSize()) {
         PageHeader("Settings") {}
         HorizontalDivider(color = Rule)
-        LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            item("runtime") {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Runtime", style = MaterialTheme.typography.titleLarge)
-                    PropertyRow("Platform", currentPlatform)
-                    PropertyRow("Instances", state.instances.size.toString())
-                    PropertyRow("Accounts", state.accounts.size.toString())
-                    state.credentialProtection?.let { protection ->
-                        PropertyRow(
-                            "Credential vault",
-                            if (protection.encryptionOperational) protection.effectiveLevel else "Unavailable",
-                        )
-                    }
-                    Text(
-                        if (currentPlatform == "Android") {
-                            "Android can manage and install instances. A native game runtime is not installed."
-                        } else {
-                            "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
-                        },
-                        color = Muted,
-                        modifier = Modifier.padding(top = 8.dp).widthIn(max = 640.dp),
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = viewModel::refreshVersions,
-                        enabled = !state.isLoadingVersions,
-                        shape = RoundedCornerShape(8.dp),
-                    ) {
-                        if (state.isLoadingVersions) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text("Refreshing versions…", modifier = Modifier.padding(start = 8.dp))
-                        } else {
-                            Text("Refresh versions")
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth < 640.dp) {
+                Column(Modifier.fillMaxSize()) {
+                    Row(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 12.dp)) {
+                        SettingsSection.entries.forEach { item ->
+                            SettingsSectionButton(
+                                item,
+                                selected = section == item,
+                                modifier = Modifier.weight(1f),
+                            ) { section = item }
                         }
                     }
-                }
-            }
-            item("logs-heading") {
-                Row(
-                    Modifier.fillMaxWidth().padding(top = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("Launcher log", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = viewModel::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
-                }
-            }
-            if (state.logs.isEmpty()) {
-                item("logs-empty") { Text("No launcher events in this session.", color = Muted) }
-            } else {
-                items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
-                    LogRow(entry)
                     HorizontalDivider(color = Rule)
+                    SettingsSectionContent(section, state, viewModel, Modifier.weight(1f))
                 }
+            } else {
+                Row(Modifier.fillMaxSize()) {
+                    Column(Modifier.width(210.dp).fillMaxHeight().background(Surface).padding(12.dp)) {
+                        SettingsSection.entries.forEach { item ->
+                            SettingsSectionButton(item, selected = section == item, modifier = Modifier.fillMaxWidth()) {
+                                section = item
+                            }
+                        }
+                        Spacer(Modifier.weight(1f))
+                        Text(
+                            "$currentPlatform build ${BuildInfo.VERSION}",
+                            modifier = Modifier.padding(12.dp),
+                            color = Muted,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SettingsSectionContent(section, state, viewModel, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+private enum class SettingsSection(val label: String) {
+    RUNTIME("Runtime"),
+    LOGS("Launcher log"),
+}
+
+@Composable
+private fun SettingsSectionButton(
+    section: SettingsSection,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier.clickable(onClick = onClick).background(if (selected) RaisedSurface else Color.Transparent)
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(Modifier.width(3.dp).height(22.dp).background(if (selected) Ochre else Color.Transparent))
+        Text(section.label, color = if (selected) Chalk else Muted, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+private fun SettingsSectionContent(
+    section: SettingsSection,
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    modifier: Modifier,
+) {
+    when (section) {
+        SettingsSection.RUNTIME -> RuntimeSettings(state, viewModel, modifier)
+        SettingsSection.LOGS -> LauncherLog(state, viewModel, modifier)
+    }
+}
+
+@Composable
+private fun RuntimeSettings(state: LauncherUiState, viewModel: LauncherViewModel, modifier: Modifier) {
+    Column(
+        modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text("Runtime", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Trestle resolves the platform runtime and compatible Minecraft metadata automatically.",
+            color = Muted,
+            modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
+        )
+        PropertyRow("Platform", currentPlatform)
+        PropertyRow("Instances", state.instances.size.toString())
+        PropertyRow("Accounts", state.accounts.size.toString())
+        state.credentialProtection?.let { protection ->
+            PropertyRow(
+                "Credential vault",
+                if (protection.encryptionOperational) protection.effectiveLevel else "Unavailable",
+            )
+        }
+        Text(
+            if (currentPlatform == "Android") {
+                "Android can manage and install instances. A native game runtime is not installed."
+            } else {
+                "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
+            },
+            color = Muted,
+            modifier = Modifier.padding(top = 12.dp).widthIn(max = 640.dp),
+        )
+        OutlinedButton(
+            onClick = viewModel::refreshVersions,
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.padding(top = 8.dp),
+        ) { Text(if (state.isLoadingVersions) "Refreshing versions" else "Refresh versions") }
+    }
+}
+
+@Composable
+private fun LauncherLog(state: LauncherUiState, viewModel: LauncherViewModel, modifier: Modifier) {
+    LazyColumn(
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+    ) {
+        item("logs-heading") {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Launcher log", style = MaterialTheme.typography.titleLarge)
+                    Text("Events from this session. Right-click an entry to copy diagnostics.", color = Muted)
+                }
+                TextButton(onClick = viewModel::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+        if (state.logs.isEmpty()) {
+            item("logs-empty") { Text("No launcher events in this session.", color = Muted) }
+        } else {
+            items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
+                LogRow(entry)
+                HorizontalDivider(color = Rule)
             }
         }
     }
@@ -2583,19 +3173,25 @@ private fun PageHeader(title: String, action: @Composable () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().height(80.dp).padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.headlineMedium)
-        Spacer(Modifier.weight(1f))
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.headlineMedium,
+        )
         action()
     }
 }
 
 @Composable
-private fun BridgeMark() {
+private fun BridgeMark(modifier: Modifier = Modifier.size(width = 32.dp, height = 24.dp)) {
     Image(
         painter = painterResource(Res.drawable.trestle_mark),
         contentDescription = null,
-        modifier = Modifier.size(width = 32.dp, height = 24.dp),
+        modifier = modifier,
     )
 }
 
