@@ -170,6 +170,8 @@ private val browsableResourceTypes = listOf(
 
 private val installableResourceTypes = browsableResourceTypes.toSet()
 
+private val WideContentWidth = 1200.dp
+
 @Composable
 fun TrestleApp(state: LauncherUiState, viewModel: LauncherViewModel) {
     var destinationName by rememberSaveable { mutableStateOf(Destination.LIBRARY.name) }
@@ -345,38 +347,43 @@ private fun TopNavigation(
     destination: Destination,
     onDestinationChange: (Destination) -> Unit,
 ) {
-    Row(
-        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    Box(
+        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface),
+        contentAlignment = Alignment.Center,
     ) {
         Row(
-            modifier = Modifier.padding(end = 24.dp),
+            Modifier.widthIn(max = WideContentWidth).fillMaxWidth().height(60.dp).padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            BridgeMark()
-            Text("TRESTLE", style = MaterialTheme.typography.titleLarge)
+            Row(
+                modifier = Modifier.padding(end = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                BridgeMark()
+                Text("TRESTLE", style = MaterialTheme.typography.titleLarge)
+            }
+            NavigationItem(Destination.LIBRARY, destination == Destination.LIBRARY || destination == Destination.INSTANCE) {
+                onDestinationChange(Destination.LIBRARY)
+            }
+            NavigationItem(Destination.DISCOVER, destination == Destination.DISCOVER) {
+                onDestinationChange(Destination.DISCOVER)
+            }
+            Spacer(Modifier.weight(1f))
+            state.accounts.firstOrNull { it.isActive }?.let { account ->
+                AccountIdentity(account) { onDestinationChange(Destination.ACCOUNTS) }
+            } ?: TextButton(onClick = { onDestinationChange(Destination.ACCOUNTS) }) { Text("Add account") }
+            NavigationItem(Destination.SETTINGS, destination == Destination.SETTINGS) {
+                onDestinationChange(Destination.SETTINGS)
+            }
+            Text(
+                currentPlatform,
+                modifier = Modifier.padding(start = 8.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
         }
-        NavigationItem(Destination.LIBRARY, destination == Destination.LIBRARY || destination == Destination.INSTANCE) {
-            onDestinationChange(Destination.LIBRARY)
-        }
-        NavigationItem(Destination.DISCOVER, destination == Destination.DISCOVER) {
-            onDestinationChange(Destination.DISCOVER)
-        }
-        Spacer(Modifier.weight(1f))
-        state.accounts.firstOrNull { it.isActive }?.let { account ->
-            AccountIdentity(account) { onDestinationChange(Destination.ACCOUNTS) }
-        } ?: TextButton(onClick = { onDestinationChange(Destination.ACCOUNTS) }) { Text("Add account") }
-        NavigationItem(Destination.SETTINGS, destination == Destination.SETTINGS) {
-            onDestinationChange(Destination.SETTINGS)
-        }
-        Text(
-            currentPlatform,
-            modifier = Modifier.padding(start = 8.dp),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelMedium,
-        )
     }
 }
 
@@ -2112,8 +2119,12 @@ private fun InstanceWorkspace(
     val contentListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
     Column(modifier.fillMaxSize()) {
-        PageHeader(instance?.displayName ?: "Instance") {
-            TextButton(onClick = onBack) { Text("Back to library") }
+        if (compact || instance == null) {
+            PageHeader(instance?.displayName ?: "Instance") {
+                TextButton(onClick = onBack) { Text("Back to library") }
+            }
+        } else {
+            InstanceWorkspaceHeader(state, instance, viewModel, onBack)
         }
         HorizontalDivider(color = Rule)
         if (instance == null) {
@@ -2127,34 +2138,83 @@ private fun InstanceWorkspace(
             }
             return@Column
         }
-        Row(
-            Modifier.fillMaxWidth().background(Surface).padding(horizontal = if (compact) 8.dp else 24.dp),
+        Box(
+            Modifier.fillMaxWidth().background(Surface),
+            contentAlignment = Alignment.Center,
         ) {
-            InstanceSection.entries.forEach { item ->
-                NavigationTab(
-                    label = item.label,
-                    selected = section == item,
-                    modifier = if (compact) Modifier.weight(1f) else Modifier,
-                ) { sectionName = item.name }
+            Row(
+                Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
+                    .padding(horizontal = if (compact) 8.dp else 24.dp),
+            ) {
+                InstanceSection.entries.forEach { item ->
+                    NavigationTab(
+                        label = item.label,
+                        selected = section == item,
+                        modifier = if (compact) Modifier.weight(1f) else Modifier,
+                    ) { sectionName = item.name }
+                }
             }
         }
         HorizontalDivider(color = Rule)
-        when (section) {
-            InstanceSection.OVERVIEW -> InstanceOverview(
-                state,
-                instance,
-                viewModel,
-                overviewListState,
-                Modifier.weight(1f),
-                compact,
-            )
-            InstanceSection.CONTENT -> InstanceContent(instance, viewModel, contentListState, Modifier.weight(1f))
-            InstanceSection.SETTINGS -> InstanceConfiguration(
-                instance,
-                viewModel,
-                configurationScrollState,
-                Modifier.weight(1f),
-            )
+        Box(
+            Modifier.weight(1f).fillMaxWidth(),
+            contentAlignment = Alignment.TopCenter,
+        ) {
+            val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
+            when (section) {
+                InstanceSection.OVERVIEW -> InstanceOverview(
+                    state,
+                    instance,
+                    viewModel,
+                    overviewListState,
+                    contentModifier,
+                    compact,
+                )
+                InstanceSection.CONTENT -> InstanceContent(instance, viewModel, contentListState, contentModifier)
+                InstanceSection.SETTINGS -> InstanceConfiguration(
+                    instance,
+                    viewModel,
+                    configurationScrollState,
+                    contentModifier,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstanceWorkspaceHeader(
+    state: LauncherUiState,
+    instance: GameInstance,
+    viewModel: LauncherViewModel,
+    onBack: () -> Unit,
+) {
+    Box(Modifier.fillMaxWidth().height(88.dp), contentAlignment = Alignment.Center) {
+        Row(
+            Modifier.widthIn(max = WideContentWidth).fillMaxWidth().padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            TextButton(onClick = onBack) {
+                Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
+                Spacer(Modifier.width(6.dp))
+                Text("Library")
+            }
+            InstanceArtwork(instance, 52.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    instance.displayName,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label} · ${stateLabel(instance.installationState)}",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
         }
     }
 }
@@ -2182,8 +2242,8 @@ private fun InstanceOverview(
     compact: Boolean,
 ) {
     LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(24.dp)) {
-        item("identity") {
-            if (compact) {
+        if (compact) {
+            item("identity") {
                 Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                         InstanceArtwork(instance, 64.dp)
@@ -2195,46 +2255,45 @@ private fun InstanceOverview(
                     }
                     PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
                 }
-            } else {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                    InstanceArtwork(instance, 80.dp)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-                        Text("Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
-                        Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
-                    }
-                    PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
-                }
+                Spacer(Modifier.height(24.dp))
             }
-            Spacer(Modifier.height(24.dp))
         }
         item("properties") {
-            Text("Instance", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.height(8.dp))
-            PropertyRow("Java", instance.requiredJavaMajor.toString())
-            PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
-            PropertyRow("Directory", instance.instanceDirectory)
-            PropertyRow("Last launch", instance.lastLaunchAtEpochMillis?.toString() ?: "Never")
+            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+                Text("Instance", style = MaterialTheme.typography.titleLarge)
+                Spacer(Modifier.height(8.dp))
+                PropertyRow("Java", instance.requiredJavaMajor.toString())
+                PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
+                PropertyRow("Directory", instance.instanceDirectory)
+                PropertyRow(
+                    "Last launch",
+                    instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never",
+                )
+            }
         }
         state.launchPlan?.let { plan ->
             item("launch-plan") {
-                Spacer(Modifier.height(24.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Launch plan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                    TextButton(onClick = viewModel::inspectLaunchPlan) { Text("Refresh") }
+                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+                    Spacer(Modifier.height(24.dp))
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Launch plan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = viewModel::inspectLaunchPlan) { Text("Refresh") }
+                    }
+                    PropertyRow("Main class", plan.mainClass)
+                    PropertyRow("Classpath", "${plan.classpathEntries} entries")
+                    PropertyRow("Natives", "${plan.nativeLibraries} libraries")
+                    PropertyRow("Account", plan.authentication)
                 }
-                PropertyRow("Main class", plan.mainClass)
-                PropertyRow("Classpath", "${plan.classpathEntries} entries")
-                PropertyRow("Natives", "${plan.nativeLibraries} libraries")
-                PropertyRow("Account", plan.authentication)
             }
         } ?: item("inspect") {
-            Spacer(Modifier.height(20.dp))
-            OutlinedButton(
-                onClick = viewModel::inspectLaunchPlan,
-                enabled = instance.installationState is InstallationState.Installed,
-                shape = RoundedCornerShape(6.dp),
-            ) { Text("Inspect launch plan") }
+            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+                Spacer(Modifier.height(20.dp))
+                OutlinedButton(
+                    onClick = viewModel::inspectLaunchPlan,
+                    enabled = instance.installationState is InstallationState.Installed,
+                    shape = RoundedCornerShape(6.dp),
+                ) { Text("Inspect launch plan") }
+            }
         }
     }
 }
@@ -2250,17 +2309,19 @@ private fun InstanceContent(
         item("intro") {
             Text(
                 "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
-                modifier = Modifier.widthIn(max = 720.dp).padding(vertical = 16.dp),
+                modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(vertical = 16.dp),
                 color = Muted,
             )
         }
         items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
-            ContentTypeRow(
-                type = type,
-                enabled = instance.installationState is InstallationState.Installed,
-                onClick = { viewModel.openResourceBrowser(type) },
-            )
-            HorizontalDivider(color = Rule)
+            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+                ContentTypeRow(
+                    type = type,
+                    enabled = instance.installationState is InstallationState.Installed,
+                    onClick = { viewModel.openResourceBrowser(type) },
+                )
+                HorizontalDivider(color = Rule)
+            }
         }
     }
 }
@@ -2272,22 +2333,27 @@ private fun InstanceConfiguration(
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
-    Column(modifier.verticalScroll(scrollState).padding(24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Instance settings", style = MaterialTheme.typography.titleLarge)
-        Text(
-            "Launch and Minecraft client settings apply only to ${instance.displayName}.",
-            color = Muted,
-            modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
-        )
-        PropertyRow("Java", "Java ${instance.requiredJavaMajor}")
-        PropertyRow("Minimum memory", "${instance.memory.minimumMiB} MiB")
-        PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
-        PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
-        OutlinedButton(
-            onClick = viewModel::openInstanceSettings,
-            modifier = Modifier.padding(top = 12.dp),
-            shape = RoundedCornerShape(6.dp),
-        ) { Text("Edit instance settings") }
+    Column(modifier.verticalScroll(scrollState).padding(24.dp)) {
+        Column(
+            Modifier.widthIn(max = 820.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("Instance settings", style = MaterialTheme.typography.titleLarge)
+            Text(
+                "Launch and Minecraft client settings apply only to ${instance.displayName}.",
+                color = Muted,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            PropertyRow("Java", "Java ${instance.requiredJavaMajor}")
+            PropertyRow("Minimum memory", "${instance.memory.minimumMiB} MiB")
+            PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
+            PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
+            OutlinedButton(
+                onClick = viewModel::openInstanceSettings,
+                modifier = Modifier.padding(top = 12.dp),
+                shape = RoundedCornerShape(6.dp),
+            ) { Text("Edit instance settings") }
+        }
     }
 }
 
@@ -3458,19 +3524,24 @@ private fun PropertyRow(label: String, value: String) {
 
 @Composable
 private fun PageHeader(title: String, action: @Composable () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth().height(80.dp).padding(horizontal = 24.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Box(
+        modifier = Modifier.fillMaxWidth().height(80.dp),
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            title,
-            modifier = Modifier.weight(1f),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.headlineMedium,
-        )
-        action()
+        Row(
+            modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth().padding(horizontal = 24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.headlineMedium,
+            )
+            action()
+        }
     }
 }
 
