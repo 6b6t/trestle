@@ -64,6 +64,8 @@ gradle/       Version catalog and Gradle wrapper files
 licenses/     Licenses for bundled third-party assets
 ```
 
-## Fonts
+## License
 
-Trestle includes the Barlow font family. The font uses the SIL Open Font License 1.1. See [`licenses/OFL-Barlow.txt`](licenses/OFL-Barlow.txt).
+Trestle source code uses the [Apache License 2.0](LICENSE).
+
+The bundled Barlow fonts use the SIL Open Font License 1.1. See [`licenses/OFL-Barlow.txt`](licenses/OFL-Barlow.txt).
