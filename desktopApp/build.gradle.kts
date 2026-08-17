@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.resources)
+    implementation(libs.filekit.dialogs.compose)
     implementation(libs.jna.platform)
     runtimeOnly(libs.slf4j.simple)
     testImplementation(kotlin("test"))
@@ -35,6 +36,7 @@ compose.desktop {
                 "java.sql",
                 "jdk.httpserver",
                 "jdk.management",
+                "jdk.security.auth",
                 "jdk.unsupported",
             )
             targetFormats(

@@ -7,6 +7,7 @@ import net.blockhost.trestle.auth.FileAccountManager
 import net.blockhost.trestle.auth.MinecraftProfileClient
 import net.blockhost.trestle.auth.MinecraftAuthenticator
 import net.blockhost.trestle.auth.SessionProvider
+import net.blockhost.trestle.auth.SkinLibrary
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.install.EpochClock
 import net.blockhost.trestle.install.LauncherDirectories
@@ -43,6 +44,7 @@ class LauncherServices private constructor(
     val accounts: AccountManager,
     val credentialStore: AccountCredentialStore,
     val profileClient: MinecraftProfileClient,
+    val skinLibrary: SkinLibrary,
     val logger: LauncherLogger,
     val clock: EpochClock,
     private val httpClient: HttpClient,
@@ -153,7 +155,8 @@ class LauncherServices private constructor(
                 systemProfile,
                 accounts,
                 credentialStore,
-                MinecraftProfileClient(httpClient, fileSystem, logger = logger),
+                MinecraftProfileClient(httpClient, logger = logger),
+                SkinLibrary(fileSystem, root / "skins", clock::nowMillis),
                 logger,
                 clock,
                 httpClient,

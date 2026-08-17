@@ -2,6 +2,7 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -23,6 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -34,6 +38,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -47,6 +52,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +77,8 @@ import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.auth.MinecraftEdition
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.ManagedAccount
+import net.blockhost.trestle.auth.SavedSkin
+import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.app.BuildInfo
@@ -80,6 +88,11 @@ import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.DependencyKind
 import net.blockhost.trestle.instance.MinecraftNarratorMode
+import io.github.vinceglb.filekit.dialogs.FileKitType
+import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
+import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.readBytes
+import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 private enum class Destination(val label: String) {
@@ -124,6 +137,8 @@ fun TrestleApp(viewModel: LauncherViewModel) {
             if (state.resourceBrowser.visible) ResourceBrowserDialog(state, viewModel)
             if (state.instanceSettings.visible) InstanceSettingsDialog(state, viewModel)
             if (state.accountLogin.visible) AccountLoginDialog(state, viewModel)
+            if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, viewModel)
+            if (state.skinStudio.editor.visible) SkinEditorDialog(state, viewModel)
         }
     }
 }
@@ -1431,7 +1446,11 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 items(state.accounts, key = { it.profile.profileId }) { account ->
-                    AccountRow(account, viewModel) { pendingRemoval = account.profile.profileId }
+                    AccountRow(
+                        account = account,
+                        texture = state.accountSkinTextures[account.profile.profileId],
+                        viewModel = viewModel,
+                    ) { pendingRemoval = account.profile.profileId }
                 }
             }
         }
@@ -1442,7 +1461,10 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Forget account?", style = MaterialTheme.typography.headlineMedium)
                     Text("This removes the local profile and any saved credential state. It does not change the source account.")
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
                         TextButton(onClick = { pendingRemoval = null }) { Text("Cancel") }
                         Button(
                             onClick = {
@@ -1461,6 +1483,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
 @Composable
 private fun AccountRow(
     account: ManagedAccount,
+    texture: ByteArray?,
     viewModel: LauncherViewModel,
     onForget: () -> Unit,
 ) {
@@ -1476,6 +1499,7 @@ private fun AccountRow(
             add(ContextAction("Use account") { viewModel.selectAccount(profileId) })
         }
         if (canManageOfficialProfile) {
+            add(ContextAction("Manage skins") { viewModel.openSkinStudio() })
             add(ContextAction("Refresh profile") { viewModel.refreshActiveAccount() })
             add(ContextAction("Reset skin") { viewModel.resetActiveSkin() })
         }
@@ -1500,6 +1524,15 @@ private fun AccountRow(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(width = 4.dp, height = 42.dp).background(if (account.isActive) Ochre else Rule))
+                if (account.profile.edition == MinecraftEdition.JAVA && texture != null) {
+                    MinecraftSkinPreview(
+                        texture = texture,
+                        variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
+                        modifier = Modifier.size(width = 72.dp, height = 104.dp),
+                        interactive = false,
+                        animate = false,
+                    )
+                }
                 Column(Modifier.weight(1f)) {
                     Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
                     Text(account.profile.authenticationMethod.label, color = Muted)
@@ -1523,20 +1556,13 @@ private fun AccountRow(
                     ) { Text("Use account") }
                 }
             }
-            account.profile.skin?.let { skin ->
-                PropertyRow("Skin", skin.variant.name.lowercase().replaceFirstChar(Char::uppercase))
-                Text(
-                    skin.url,
-                    color = Muted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
             if (canManageOfficialProfile) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    OutlinedButton(
+                        onClick = viewModel::openSkinStudio,
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text("Manage skins") }
                     TextButton(onClick = viewModel::refreshActiveAccount) { Text("Refresh profile") }
-                    TextButton(onClick = viewModel::resetActiveSkin) { Text("Reset skin") }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -1548,6 +1574,380 @@ private fun AccountRow(
         }
     }
 }
+
+@Composable
+private fun SkinStudioDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+    val account = state.accounts.firstOrNull { it.isActive }
+    val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
+    var confirmDelete by remember { mutableStateOf(false) }
+    Dialog(
+        onDismissRequest = viewModel::closeSkinStudio,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            color = Soot,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text("Skins", style = MaterialTheme.typography.headlineMedium)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = viewModel::closeSkinStudio) { Text("Close") }
+                }
+                HorizontalDivider(color = Rule)
+                BoxWithConstraints(Modifier.fillMaxSize()) {
+                    if (maxWidth >= 720.dp) {
+                        Row(Modifier.fillMaxSize()) {
+                            CurrentSkinPanel(
+                                playerName = account?.profile?.playerName.orEmpty(),
+                                texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                                variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                                onSave = viewModel::saveCurrentSkinToLibrary,
+                                onReset = viewModel::resetActiveSkin,
+                                modifier = Modifier.width(310.dp).fillMaxHeight(),
+                            )
+                            VerticalDivider(color = Rule)
+                            SkinLibraryPanel(
+                                skins = state.savedSkins,
+                                selected = selected,
+                                onSelect = viewModel::selectSavedSkin,
+                                onNew = viewModel::openNewSkin,
+                                onUse = viewModel::useSelectedSkin,
+                                onEdit = viewModel::editSelectedSkin,
+                                onDelete = { confirmDelete = true },
+                                modifier = Modifier.weight(1f).fillMaxHeight(),
+                            )
+                        }
+                    } else {
+                        Column(Modifier.fillMaxSize()) {
+                            CurrentSkinPanel(
+                                playerName = account?.profile?.playerName.orEmpty(),
+                                texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                                variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                                onSave = viewModel::saveCurrentSkinToLibrary,
+                                onReset = viewModel::resetActiveSkin,
+                                modifier = Modifier.fillMaxWidth().height(250.dp),
+                            )
+                            HorizontalDivider(color = Rule)
+                            SkinLibraryPanel(
+                                skins = state.savedSkins,
+                                selected = selected,
+                                onSelect = viewModel::selectSavedSkin,
+                                onNew = viewModel::openNewSkin,
+                                onUse = viewModel::useSelectedSkin,
+                                onEdit = viewModel::editSelectedSkin,
+                                onDelete = { confirmDelete = true },
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if (confirmDelete && selected != null) {
+        Dialog(onDismissRequest = { confirmDelete = false }) {
+            Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 420.dp)) {
+                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Text("Remove ${selected.profile.name}?", style = MaterialTheme.typography.headlineMedium)
+                    Text("This deletes the local skin profile and its PNG. Your active Minecraft skin does not change.")
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    ) {
+                        TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
+                        Button(
+                            onClick = {
+                                viewModel.deleteSelectedSkin()
+                                confirmDelete = false
+                            },
+                            shape = RoundedCornerShape(8.dp),
+                        ) { Text("Remove skin") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CurrentSkinPanel(
+    playerName: String,
+    texture: ByteArray?,
+    variant: SkinVariant,
+    onSave: () -> Unit,
+    onReset: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("Current", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
+        MinecraftSkinPreview(
+            texture = texture,
+            variant = variant,
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 16.dp),
+            emptyLabel = "Loading skin preview",
+        )
+        Text(playerName, style = MaterialTheme.typography.titleMedium)
+        Text(
+            "${variant.label} model · Drag to rotate",
+            color = Muted,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = onSave, enabled = texture != null) { Text("Save to library") }
+            TextButton(onClick = onReset) { Text("Reset to default") }
+        }
+    }
+}
+
+@Composable
+private fun SkinLibraryPanel(
+    skins: List<SavedSkin>,
+    selected: SavedSkin?,
+    onSelect: (String) -> Unit,
+    onNew: () -> Unit,
+    onUse: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier.padding(24.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Library", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.weight(1f))
+            Button(
+                onClick = onNew,
+                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                shape = RoundedCornerShape(8.dp),
+            ) { Text("New skin") }
+        }
+        Spacer(Modifier.height(16.dp))
+        if (skins.isEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().weight(1f),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("No saved skins", style = MaterialTheme.typography.titleMedium)
+                Text("Import a 64×64 or legacy 64×32 PNG to start your local library.", color = Muted)
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(onClick = onNew, shape = RoundedCornerShape(8.dp)) { Text("Choose a skin file") }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(128.dp),
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                contentPadding = PaddingValues(bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                gridItems(skins, key = { it.profile.id }) { skin ->
+                    SkinLibraryItem(
+                        skin = skin,
+                        selected = skin.profile.id == selected?.profile?.id,
+                        onClick = { onSelect(skin.profile.id) },
+                    )
+                }
+            }
+            HorizontalDivider(color = Rule)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                TextButton(onClick = onDelete, enabled = selected != null) { Text("Delete") }
+                TextButton(onClick = onEdit, enabled = selected != null) { Text("Edit") }
+                Button(
+                    onClick = onUse,
+                    enabled = selected != null,
+                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                    shape = RoundedCornerShape(8.dp),
+                ) { Text("Use skin") }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkinLibraryItem(skin: SavedSkin, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        Modifier.fillMaxWidth()
+            .border(1.dp, if (selected) Ochre else Rule, shape)
+            .background(if (selected) RaisedSurface else Surface, shape)
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        MinecraftSkinPreview(
+            texture = skin.texture,
+            variant = skin.profile.variant,
+            modifier = Modifier.fillMaxWidth().height(142.dp),
+            interactive = false,
+            animate = false,
+        )
+        Text(
+            skin.profile.name,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.labelLarge,
+        )
+        Text(skin.profile.variant.label, color = Muted, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun SkinEditorDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
+    val editor = state.skinStudio.editor
+    val scope = rememberCoroutineScope()
+    val picker = rememberFilePickerLauncher(
+        type = FileKitType.File(extensions = listOf("png")),
+    ) { file ->
+        if (file != null) {
+            scope.launch {
+                runCatching { file.readBytes() }
+                    .onSuccess { viewModel.setSkinFile(file.name, it) }
+                    .onFailure { viewModel.reportSkinFileReadFailure() }
+            }
+        }
+    }
+    Dialog(
+        onDismissRequest = viewModel::closeSkinEditor,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        Surface(
+            color = Surface,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp),
+        ) {
+            Column(Modifier.fillMaxSize()) {
+                Row(
+                    Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        if (editor.profileId == null) "Add new skin" else "Edit skin",
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = viewModel::closeSkinEditor, enabled = !editor.isSaving) { Text("Close") }
+                }
+                HorizontalDivider(color = Rule)
+                BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                    val compact = maxWidth < 650.dp
+                    if (compact) {
+                        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp)) {
+                            SkinEditorPreview(editor)
+                            Spacer(Modifier.height(20.dp))
+                            SkinEditorFields(editor, { picker.launch() }, viewModel)
+                        }
+                    } else {
+                        Row(Modifier.fillMaxSize()) {
+                            SkinEditorPreview(editor, Modifier.width(300.dp).fillMaxHeight().padding(24.dp))
+                            VerticalDivider(color = Rule)
+                            SkinEditorFields(
+                                editor = editor,
+                                onBrowse = { picker.launch() },
+                                viewModel = viewModel,
+                                modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                            )
+                        }
+                    }
+                }
+                HorizontalDivider(color = Rule)
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    TextButton(onClick = viewModel::closeSkinEditor, enabled = !editor.isSaving) { Text("Cancel") }
+                    OutlinedButton(
+                        onClick = { viewModel.saveSkin(useAfterSave = false) },
+                        enabled = editor.canSave,
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text("Save") }
+                    Button(
+                        onClick = { viewModel.saveSkin(useAfterSave = true) },
+                        enabled = editor.canSave,
+                        colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                        shape = RoundedCornerShape(8.dp),
+                    ) { Text(if (editor.isSaving) "Saving" else "Save and use") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modifier.fillMaxWidth().height(260.dp)) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        MinecraftSkinPreview(
+            texture = editor.texture,
+            variant = editor.variant,
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            emptyLabel = "Choose a skin PNG",
+        )
+        Text("Drag to rotate", color = Muted, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+@Composable
+private fun SkinEditorFields(
+    editor: SkinEditorState,
+    onBrowse: () -> Unit,
+    viewModel: LauncherViewModel,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        TextField(
+            value = editor.name,
+            onValueChange = viewModel::setSkinName,
+            label = { Text("Name") },
+            singleLine = true,
+            enabled = !editor.isSaving,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Player model", style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                SkinVariant.entries.forEach { variant ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        RadioButton(
+                            selected = editor.variant == variant,
+                            onClick = { viewModel.setSkinVariant(variant) },
+                            enabled = !editor.isSaving,
+                        )
+                        Text(variant.label)
+                    }
+                }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Skin file", style = MaterialTheme.typography.labelLarge)
+            OutlinedButton(onClick = onBrowse, enabled = !editor.isSaving, shape = RoundedCornerShape(8.dp)) {
+                Text(if (editor.texture == null) "Choose PNG" else "Replace PNG")
+            }
+            editor.sourceFileName?.let {
+                Text(it, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Text("Use a 64×64 PNG, or a legacy 64×32 skin.", color = Muted, style = MaterialTheme.typography.labelMedium)
+        }
+        editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    }
+}
+
+private val SkinVariant.label: String
+    get() = when (this) {
+        SkinVariant.CLASSIC -> "Classic"
+        SkinVariant.SLIM -> "Slim"
+    }
+
+private val SkinEditorState.canSave: Boolean
+    get() = name.isNotBlank() && texture != null && !isSaving
 
 @Composable
 private fun AccountLoginDialog(state: LauncherUiState, viewModel: LauncherViewModel) {

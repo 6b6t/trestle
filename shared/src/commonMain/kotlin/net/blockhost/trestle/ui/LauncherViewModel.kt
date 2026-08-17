@@ -15,6 +15,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.app.LauncherServices
 import net.blockhost.trestle.auth.ManagedAccount
+import net.blockhost.trestle.auth.SavedSkin
+import net.blockhost.trestle.auth.SkinVariant
+import net.blockhost.trestle.auth.inspectMinecraftSkin
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.AccountLoginRequest
 import net.blockhost.trestle.auth.DeviceAuthorization
@@ -143,6 +146,23 @@ data class AccountLoginState(
     val edition: MinecraftEdition get() = method.edition
 }
 
+data class SkinEditorState(
+    val visible: Boolean = false,
+    val profileId: String? = null,
+    val name: String = "",
+    val variant: SkinVariant = SkinVariant.CLASSIC,
+    val texture: ByteArray? = null,
+    val sourceFileName: String? = null,
+    val error: String? = null,
+    val isSaving: Boolean = false,
+)
+
+data class SkinStudioState(
+    val visible: Boolean = false,
+    val selectedProfileId: String? = null,
+    val editor: SkinEditorState = SkinEditorState(),
+)
+
 class SensitiveText(private val raw: String = "") {
     fun reveal(): String = raw
     fun isBlank(): Boolean = raw.isBlank()
@@ -169,6 +189,9 @@ data class LauncherUiState(
     val instanceSettings: InstanceSettingsState = InstanceSettingsState(),
     val accounts: List<ManagedAccount> = emptyList(),
     val accountLogin: AccountLoginState = AccountLoginState(),
+    val savedSkins: List<SavedSkin> = emptyList(),
+    val accountSkinTextures: Map<String, ByteArray> = emptyMap(),
+    val skinStudio: SkinStudioState = SkinStudioState(),
     val logs: List<LogEntry> = emptyList(),
     val credentialProtection: CredentialProtection? = null,
 ) {
@@ -190,6 +213,7 @@ class LauncherViewModel(
     private var launchCheckJob: Job? = null
     private var launchJob: Job? = null
     private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
+    private val loadedSkinUrls = mutableMapOf<String, String>()
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
     init {
@@ -205,6 +229,20 @@ class LauncherViewModel(
         scope.launch {
             services.accounts.accounts.collectLatest { accounts ->
                 mutableState.update { it.copy(accounts = accounts) }
+                loadAccountSkinTextures(accounts)
+            }
+        }
+        scope.launch {
+            services.skinLibrary.skins.collectLatest { skins ->
+                mutableState.update { state ->
+                    val selection = state.skinStudio.selectedProfileId?.takeIf { selected ->
+                        skins.any { it.profile.id == selected }
+                    } ?: skins.firstOrNull()?.profile?.id
+                    state.copy(
+                        savedSkins = skins,
+                        skinStudio = state.skinStudio.copy(selectedProfileId = selection),
+                    )
+                }
             }
         }
         scope.launch {
@@ -227,6 +265,7 @@ class LauncherViewModel(
             val initialized = runCatching {
                 services.repository.initialize()
                 services.accounts.initialize()
+                services.skinLibrary.initialize()
             }
                 .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
             val instances = services.repository.instances.value
@@ -1108,6 +1147,181 @@ class LauncherViewModel(
         }
     }
 
+    fun openSkinStudio() {
+        loadAccountSkinTextures(mutableState.value.accounts)
+        val selected = mutableState.value.skinStudio.selectedProfileId
+            ?: mutableState.value.savedSkins.firstOrNull()?.profile?.id
+        mutableState.update {
+            it.copy(
+                skinStudio = SkinStudioState(visible = true, selectedProfileId = selected),
+                error = null,
+            )
+        }
+    }
+
+    fun closeSkinStudio() {
+        mutableState.update { it.copy(skinStudio = SkinStudioState()) }
+    }
+
+    fun selectSavedSkin(profileId: String) {
+        mutableState.update { it.copy(skinStudio = it.skinStudio.copy(selectedProfileId = profileId)) }
+    }
+
+    fun openNewSkin() {
+        mutableState.update {
+            it.copy(skinStudio = it.skinStudio.copy(editor = SkinEditorState(visible = true)))
+        }
+    }
+
+    fun saveCurrentSkinToLibrary() {
+        val account = mutableState.value.accounts.firstOrNull { it.isActive } ?: return
+        val texture = mutableState.value.accountSkinTextures[account.profile.profileId] ?: return
+        mutableState.update {
+            it.copy(
+                skinStudio = it.skinStudio.copy(
+                    editor = SkinEditorState(
+                        visible = true,
+                        name = "${account.profile.playerName}'s skin",
+                        variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
+                        texture = texture.copyOf(),
+                        sourceFileName = "current-skin.png",
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun editSelectedSkin() {
+        val saved = mutableState.value.savedSkins.firstOrNull {
+            it.profile.id == mutableState.value.skinStudio.selectedProfileId
+        } ?: return
+        mutableState.update {
+            it.copy(
+                skinStudio = it.skinStudio.copy(
+                    editor = SkinEditorState(
+                        visible = true,
+                        profileId = saved.profile.id,
+                        name = saved.profile.name,
+                        variant = saved.profile.variant,
+                        texture = saved.texture.copyOf(),
+                        sourceFileName = saved.profile.textureFile,
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun closeSkinEditor() {
+        mutableState.update {
+            it.copy(skinStudio = it.skinStudio.copy(editor = SkinEditorState()))
+        }
+    }
+
+    fun setSkinName(value: String) {
+        mutableState.update {
+            it.copy(skinStudio = it.skinStudio.copy(editor = it.skinStudio.editor.copy(name = value, error = null)))
+        }
+    }
+
+    fun setSkinVariant(value: SkinVariant) {
+        mutableState.update {
+            it.copy(skinStudio = it.skinStudio.copy(editor = it.skinStudio.editor.copy(variant = value, error = null)))
+        }
+    }
+
+    fun setSkinFile(fileName: String, bytes: ByteArray) {
+        val error = runCatching { inspectMinecraftSkin(bytes) }.exceptionOrNull()
+        mutableState.update { state ->
+            val editor = state.skinStudio.editor
+            state.copy(
+                skinStudio = state.skinStudio.copy(
+                    editor = editor.copy(
+                        name = if (editor.name.isBlank() && error == null) {
+                            fileName.substringBeforeLast('.').take(64)
+                        } else {
+                            editor.name
+                        },
+                        texture = bytes.copyOf().takeIf { error == null } ?: editor.texture,
+                        sourceFileName = fileName.takeIf { error == null } ?: editor.sourceFileName,
+                        error = error?.message,
+                    ),
+                ),
+            )
+        }
+    }
+
+    fun reportSkinFileReadFailure() {
+        mutableState.update {
+            it.copy(
+                skinStudio = it.skinStudio.copy(
+                    editor = it.skinStudio.editor.copy(error = "The selected skin file could not be read."),
+                ),
+            )
+        }
+    }
+
+    fun saveSkin(useAfterSave: Boolean) {
+        val editor = mutableState.value.skinStudio.editor
+        val texture = editor.texture ?: return
+        if (editor.name.isBlank() || editor.isSaving) return
+        scope.launch {
+            mutableState.update {
+                it.copy(
+                    skinStudio = it.skinStudio.copy(editor = editor.copy(isSaving = true, error = null)),
+                    operation = OperationStatus(if (useAfterSave) "Saving and applying skin" else "Saving skin"),
+                )
+            }
+            try {
+                val saved = services.skinLibrary.save(editor.name, editor.variant, texture, editor.profileId)
+                if (useAfterSave) applySkin(saved)
+                mutableState.update {
+                    it.copy(
+                        skinStudio = it.skinStudio.copy(
+                            selectedProfileId = saved.profile.id,
+                            editor = SkinEditorState(),
+                        ),
+                        operation = null,
+                        notice = if (useAfterSave) "${saved.profile.name} is now your active skin." else "Skin saved.",
+                    )
+                }
+            } catch (error: Exception) {
+                mutableState.update {
+                    it.copy(
+                        skinStudio = it.skinStudio.copy(
+                            editor = it.skinStudio.editor.copy(isSaving = false, error = error.message),
+                        ),
+                        operation = null,
+                    )
+                }
+            }
+        }
+    }
+
+    fun useSelectedSkin() {
+        val saved = mutableState.value.savedSkins.firstOrNull {
+            it.profile.id == mutableState.value.skinStudio.selectedProfileId
+        } ?: return
+        scope.launch {
+            mutableState.update { it.copy(operation = OperationStatus("Applying ${saved.profile.name}"), error = null) }
+            try {
+                applySkin(saved)
+                mutableState.update { it.copy(operation = null, notice = "${saved.profile.name} is now your active skin.") }
+            } catch (error: Exception) {
+                mutableState.update { it.copy(operation = null) }
+                showError(error)
+            }
+        }
+    }
+
+    fun deleteSelectedSkin() {
+        val profileId = mutableState.value.skinStudio.selectedProfileId ?: return
+        scope.launch {
+            runCatching { services.skinLibrary.delete(profileId) }
+                .onSuccess { mutableState.update { it.copy(notice = "Skin removed from the local library.") } }
+                .onFailure(::showError)
+        }
+    }
+
     fun clearLogs() = services.logger.clear()
 
     fun close() {
@@ -1116,6 +1330,59 @@ class LauncherViewModel(
         resourceJob?.cancel()
         scope.cancel()
         services.close()
+    }
+
+    private suspend fun applySkin(saved: SavedSkin) {
+        val session = services.accounts.currentSession()
+            ?: error("The selected account needs to sign in again.")
+        val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
+            ?: error("The selected account is not available.")
+        val profile = services.profileClient.uploadSkin(session, saved.texture, saved.profile.variant).copy(
+            authenticationMethod = existing.authenticationMethod,
+            lastAuthenticatedAtEpochMillis = existing.lastAuthenticatedAtEpochMillis,
+        )
+        services.accounts.updateProfile(profile)
+        profile.skin?.let { skin -> loadedSkinUrls[profile.profileId] = skin.url }
+        mutableState.update { state ->
+            state.copy(accountSkinTextures = state.accountSkinTextures + (profile.profileId to saved.texture.copyOf()))
+        }
+    }
+
+    private fun loadAccountSkinTextures(accounts: List<ManagedAccount>) {
+        val profileIds = accounts.mapTo(mutableSetOf()) { it.profile.profileId }
+        loadedSkinUrls.keys.retainAll(profileIds)
+        mutableState.update { state ->
+            state.copy(accountSkinTextures = state.accountSkinTextures.filterKeys { it in profileIds })
+        }
+        accounts.forEach { account ->
+            val profileId = account.profile.profileId
+            val skin = account.profile.skin
+            if (skin == null) {
+                loadedSkinUrls.remove(profileId)
+                mutableState.update { state ->
+                    state.copy(accountSkinTextures = state.accountSkinTextures - profileId)
+                }
+                return@forEach
+            }
+            if (loadedSkinUrls[profileId] == skin.url) return@forEach
+            loadedSkinUrls[profileId] = skin.url
+            scope.launch {
+                runCatching { services.profileClient.fetchSkinTexture(skin.url) }
+                    .onSuccess { texture ->
+                        val currentUrl = mutableState.value.accounts
+                            .firstOrNull { it.profile.profileId == profileId }
+                            ?.profile?.skin?.url
+                        if (currentUrl == skin.url) {
+                            mutableState.update { state ->
+                                state.copy(accountSkinTextures = state.accountSkinTextures + (profileId to texture))
+                            }
+                        }
+                    }
+                    .onFailure {
+                        if (loadedSkinUrls[profileId] == skin.url) loadedSkinUrls.remove(profileId)
+                    }
+            }
+        }
     }
 
     private fun searchResources(append: Boolean) {

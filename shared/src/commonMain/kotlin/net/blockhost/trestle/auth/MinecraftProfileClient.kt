@@ -9,6 +9,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
@@ -18,8 +19,6 @@ import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
-import okio.FileSystem
-import okio.Path
 
 @Serializable
 private data class ProfileSkinResponse(
@@ -38,21 +37,13 @@ private data class MinecraftProfileResponse(
 
 class MinecraftProfileClient(
     private val httpClient: HttpClient,
-    private val fileSystem: FileSystem,
     private val baseUrl: String = "https://api.minecraftservices.com",
     private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
     suspend fun fetchProfile(session: AuthSession): LauncherAccount = requestProfile(session, "fetch")
 
-    suspend fun uploadSkin(session: AuthSession, path: Path, variant: SkinVariant): LauncherAccount {
-        val bytes = try {
-            fileSystem.read(path) { readByteArray() }
-        } catch (error: Exception) {
-            throw LauncherException.FileSystem("The selected skin could not be read.", error)
-        }
-        if (bytes.size !in 1..MAX_SKIN_BYTES) {
-            throw LauncherException.FileSystem("The selected skin must be a PNG smaller than 2 MiB.")
-        }
+    suspend fun uploadSkin(session: AuthSession, bytes: ByteArray, variant: SkinVariant): LauncherAccount {
+        inspectMinecraftSkin(bytes)
         return execute("upload") {
             httpClient.post("$baseUrl/minecraft/profile/skins") {
                 bearerAuth(session.requireAccessToken().reveal())
@@ -85,6 +76,14 @@ class MinecraftProfileClient(
             }
         }
         return requestProfile(session, "refresh")
+    }
+
+    suspend fun fetchSkinTexture(url: String): ByteArray = execute("download") {
+        val response = httpClient.get(url)
+        if (!response.status.isSuccess()) {
+            throw LauncherException.Network("Skin download failed with HTTP ${response.status.value}.")
+        }
+        response.bodyAsBytes().also(::inspectMinecraftSkin)
     }
 
     private suspend fun requestProfile(session: AuthSession, operation: String): LauncherAccount = execute(operation) {
@@ -130,7 +129,6 @@ class MinecraftProfileClient(
     }
 
     private companion object {
-        const val MAX_SKIN_BYTES = 2 * 1024 * 1024
         val profileJson = Json { ignoreUnknownKeys = true }
     }
 }

@@ -10,6 +10,7 @@ import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
+import io.github.vinceglb.filekit.FileKit
 import net.blockhost.trestle.app.createDesktopLauncherServices
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
@@ -19,6 +20,7 @@ import org.jetbrains.compose.resources.painterResource
 
 fun main() {
     configureDesktopProperties()
+    FileKit.init(appId = "net.blockhost.trestle")
     val viewModel = LauncherViewModel(createDesktopLauncherServices())
     application {
         val icon = painterResource(Res.drawable.trestle_icon)
