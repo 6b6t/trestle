@@ -17,6 +17,7 @@ import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.runtime.DesktopMinecraftRuntime
+import net.blockhost.trestle.runtime.MojangJavaResolver
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.Path.Companion.toPath
 import java.io.File
@@ -28,6 +29,12 @@ fun createDesktopLauncherServices(): LauncherServices {
     val environment = desktopEnvironment()
     val root = desktopDataDirectory(environment.operatingSystem)
     val loggerSink = Slf4jLogSink()
+    val httpClient = HttpClient(CIO) {
+        install(HttpTimeout) {
+            requestTimeoutMillis = 60_000
+            connectTimeoutMillis = 15_000
+        }
+    }
     val credentialStore = KSafeAccountCredentialStore(
         KSafe(
             fileName = "credentials",
@@ -38,12 +45,7 @@ fun createDesktopLauncherServices(): LauncherServices {
     )
     return LauncherServices.create(
         root = root.toPath(),
-        httpClient = HttpClient(CIO) {
-            install(HttpTimeout) {
-                requestTimeoutMillis = 60_000
-                connectTimeoutMillis = 15_000
-            }
-        },
+        httpClient = httpClient,
         environment = environment,
         idFactory = InstanceIdFactory { InstanceId(UUID.randomUUID().toString()) },
         clock = EpochClock(System::currentTimeMillis),
@@ -54,12 +56,19 @@ fun createDesktopLauncherServices(): LauncherServices {
             bedrockConfiguration = OfficialMinecraftApplications.bedrockDesktop,
             nowMillis = System::currentTimeMillis,
         ),
-    ) { directories, installer, sessionProvider, logger ->
+    ) { directories, installer, sessionProvider, logger, downloadPipeline ->
         DesktopMinecraftRuntime(
             environment = environment,
             directories = directories,
             sessionProvider = sessionProvider,
             installedVersionReader = installer::readInstalledVersion,
+            javaResolver = MojangJavaResolver(
+                environment = environment,
+                directories = directories,
+                httpClient = httpClient,
+                downloadPipeline = downloadPipeline,
+                logger = logger,
+            ),
             logger = logger,
         )
     }

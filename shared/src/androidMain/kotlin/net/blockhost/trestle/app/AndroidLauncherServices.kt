@@ -66,5 +66,5 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
             bedrockConfiguration = OfficialMinecraftApplications.bedrockAndroid,
             nowMillis = System::currentTimeMillis,
         ),
-    ) { _, _, _, _ -> AndroidMinecraftRuntime() }
+    ) { _, _, _, _, _ -> AndroidMinecraftRuntime() }
 }

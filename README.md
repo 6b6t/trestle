@@ -9,6 +9,7 @@ The first functional milestone provides:
 - Isolated, persisted Minecraft instances with atomic registry writes.
 - Vanilla and Fabric metadata resolution and installation.
 - Verified Mojang asset, library, native, logging, and client downloads.
+- Managed Mojang Java runtimes for desktop launch.
 - Modrinth and CurseForge file resolvers in shared Kotlin code.
 - Desktop launch preparation with safe diagnostics and native extraction.
 - An honest Android runtime boundary that does not claim game launch support.

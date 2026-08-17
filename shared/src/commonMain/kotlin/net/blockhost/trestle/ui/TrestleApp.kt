@@ -1057,7 +1057,7 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, viewModel: 
                         if (currentPlatform == "Android") {
                             "Android can manage and install instances. A native game runtime is not installed."
                         } else {
-                            "Desktop launch preparation uses the selected Java identity and a compatible Java runtime."
+                            "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
                         },
                         color = Muted,
                         modifier = Modifier.padding(top = 8.dp).widthIn(max = 640.dp),

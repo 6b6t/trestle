@@ -8,6 +8,7 @@ import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.InstalledVersion
+import net.blockhost.trestle.metadata.JavaVersionRequirement
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.ResolvedLibrary
@@ -17,6 +18,7 @@ import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DesktopMinecraftRuntimeTest {
     @Test
@@ -34,6 +36,7 @@ class DesktopMinecraftRuntimeTest {
             metadata = VersionMetadata(
                 id = "1.21.8",
                 mainClass = "net.minecraft.client.main.Main",
+                javaVersion = JavaVersionRequirement("java-runtime-delta", 21),
             ),
             libraries = listOf(
                 ResolvedLibrary(
@@ -49,16 +52,25 @@ class DesktopMinecraftRuntimeTest {
             gameArguments = listOf("--username", "${'$'}{auth_player_name}", "--accessToken", "${'$'}{auth_access_token}"),
             jvmArguments = listOf("-Djava.library.path=${'$'}{natives_directory}", "-cp", "${'$'}{classpath}"),
         )
+        var resolvedComponent: String? = null
+        var resolvedMajor = 0
         val runtime = DesktopMinecraftRuntime(
             environment = PlatformEnvironment(OperatingSystem.LINUX, Architecture.X86_64),
             directories = LauncherDirectories(root),
             sessionProvider = NoSessionProvider,
             installedVersionReader = { installed },
-            javaResolver = JavaResolver { "/managed/java-21/bin/java" },
+            javaResolver = JavaResolver { component, major ->
+                resolvedComponent = component
+                resolvedMajor = major
+                "/managed/java-21/bin/java"
+            },
         )
 
         val plan = runtime.prepare(instance)
 
+        assertTrue(runtime.capabilities.supportsManagedJava)
+        assertEquals("java-runtime-delta", resolvedComponent)
+        assertEquals(21, resolvedMajor)
         assertEquals(listOf("Java account"), plan.missingRequirements)
         assertEquals(2, plan.classpathEntries.size)
         assertFalse(plan.safeCommand().joinToString(" ").contains("access-token"))

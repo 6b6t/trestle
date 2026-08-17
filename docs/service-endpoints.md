@@ -20,6 +20,20 @@ GET https://resources.download.minecraft.net/{first-two-sha1-characters}/{sha1}
 
 Legacy Maven entries use `https://libraries.minecraft.net/` when the metadata has no repository URL. Trestle uses URLs from metadata when they exist.
 
+## Mojang Java runtimes
+
+The version JSON names a Java runtime component and its required major version. Trestle uses this runtime index for desktop packages:
+
+```text
+GET https://piston-meta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json
+```
+
+The index groups runtime releases by component and platform. Each release contains a package manifest URL, SHA-1, version, and availability state.
+
+The package manifest lists directories, links, executable flags, and file downloads. Trestle downloads raw files from their Mojang URLs and validates each SHA-1.
+
+Trestle activates a runtime only after all files are complete. A completed runtime remains available for offline launches.
+
 The [Mojang API reference](https://minecraft.wiki/w/Mojang_API) describes related profile and service APIs. These APIs are not substitutes for version metadata.
 
 ## Fabric

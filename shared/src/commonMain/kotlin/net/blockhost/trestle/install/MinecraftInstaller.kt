@@ -34,6 +34,7 @@ data class LauncherDirectories(
     val libraries: Path = root / "libraries",
     val assets: Path = root / "assets",
     val versions: Path = root / "versions",
+    val runtimes: Path = root / "runtimes",
     val logging: Path = root / "logging",
     val staging: Path = root / "staging",
 )

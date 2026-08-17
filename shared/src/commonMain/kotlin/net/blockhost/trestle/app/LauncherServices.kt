@@ -64,7 +64,13 @@ class LauncherServices private constructor(
             logSink: LogSink,
             credentialStore: AccountCredentialStore,
             authenticator: MinecraftAuthenticator,
-            runtimeFactory: (LauncherDirectories, MinecraftInstaller, SessionProvider, LauncherLogger) -> MinecraftRuntime,
+            runtimeFactory: (
+                LauncherDirectories,
+                MinecraftInstaller,
+                SessionProvider,
+                LauncherLogger,
+                DownloadPipeline,
+            ) -> MinecraftRuntime,
         ): LauncherServices {
             val fileSystem = FileSystem.SYSTEM
             val directories = LauncherDirectories(root)
@@ -120,7 +126,7 @@ class LauncherServices private constructor(
                 metadataClient,
                 fabricMetadataClient,
                 installer,
-                runtimeFactory(directories, installer, accounts, logger),
+                runtimeFactory(directories, installer, accounts, logger, downloadPipeline),
                 directories,
                 environment,
                 systemProfile,

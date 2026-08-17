@@ -28,13 +28,13 @@ class DesktopMinecraftRuntime(
     private val directories: LauncherDirectories,
     private val sessionProvider: SessionProvider,
     private val installedVersionReader: (GameInstance) -> InstalledVersion,
-    private val javaResolver: JavaResolver = SystemJavaResolver,
+    private val javaResolver: JavaResolver,
     private val logger: LauncherLogger = NoopLauncherLogger,
 ) : MinecraftRuntime {
     override val capabilities = RuntimeCapabilities(
         canPrepareLaunch = true,
         canLaunch = true,
-        supportsManagedJava = false,
+        supportsManagedJava = true,
         supportsNativeExtraction = true,
     )
 
@@ -42,7 +42,10 @@ class DesktopMinecraftRuntime(
         withContext(Dispatchers.IO) {
             val session = sessionProvider.currentSession()
             val installed = installedVersionReader(instance)
-            val java = javaResolver.resolve(installed.requiredJavaMajor)
+            val java = javaResolver.resolve(
+                component = installed.metadata.javaVersion?.component,
+                requiredMajor = installed.requiredJavaMajor,
+            )
             val nativeDirectory = extractNatives(instance, installed)
             val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
             val classpathEntries = installed.libraries.filterNot { it.native }
@@ -247,28 +250,5 @@ class DesktopMinecraftRuntime(
 }
 
 fun interface JavaResolver {
-    fun resolve(requiredMajor: Int): String
-}
-
-object SystemJavaResolver : JavaResolver {
-    override fun resolve(requiredMajor: Int): String {
-        val configuredHome = System.getProperty("trestle.java.$requiredMajor.home")
-            ?: System.getenv("TRESTLE_JAVA_${requiredMajor}_HOME")
-        if (configuredHome != null) return executable(configuredHome)
-
-        val currentMajor = Runtime.version().feature()
-        if (currentMajor == requiredMajor) return executable(System.getProperty("java.home"))
-        throw LauncherException.RuntimeUnavailable(
-            "Java $requiredMajor is required. Configure TRESTLE_JAVA_${requiredMajor}_HOME.",
-        )
-    }
-
-    private fun executable(javaHome: String): String {
-        val name = if (System.getProperty("os.name").lowercase().contains("win")) "java.exe" else "java"
-        val path = Path.of(javaHome, "bin", name)
-        if (!Files.isExecutable(path)) {
-            throw LauncherException.RuntimeUnavailable("The configured Java executable is not usable: $path")
-        }
-        return path.toString()
-    }
+    suspend fun resolve(component: String?, requiredMajor: Int): String
 }

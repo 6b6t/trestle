@@ -401,7 +401,15 @@ class LauncherViewModel(
     fun validateLaunch() {
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
-            mutableState.value = mutableState.value.copy(operation = OperationStatus("Checking launch requirements"))
+            mutableState.value = mutableState.value.copy(
+                operation = OperationStatus(
+                    "Preparing launch",
+                    "Downloading Mojang's Java runtime when needed",
+                ),
+                error = null,
+                errorRecovery = null,
+                notice = null,
+            )
             try {
                 val prepared = services.runtime.prepare(instance)
                 mutableState.value = mutableState.value.copy(
@@ -411,6 +419,8 @@ class LauncherViewModel(
                         "The launch plan is valid. Select a ready Java account before launch."
                     },
                     operation = null,
+                    error = null,
+                    errorRecovery = null,
                 )
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(operation = null)
