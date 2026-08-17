@@ -5,6 +5,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.configureSwingGlobalsForCompose
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
@@ -18,7 +20,9 @@ import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
 import org.jetbrains.compose.resources.painterResource
 
+@OptIn(ExperimentalComposeUiApi::class)
 fun main() {
+    configureSwingGlobalsForCompose()
     configureDesktopProperties()
     FileKit.init(appId = "net.blockhost.trestle")
     val viewModel = LauncherViewModel(createDesktopLauncherServices())
