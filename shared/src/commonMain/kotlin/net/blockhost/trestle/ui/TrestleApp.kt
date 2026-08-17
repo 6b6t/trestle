@@ -344,7 +344,7 @@ private fun TopNavigation(
     onDestinationChange: (Destination) -> Unit,
 ) {
     Row(
-        Modifier.fillMaxWidth().height(68.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 24.dp),
+        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface).padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -394,7 +394,7 @@ private fun NavigationItem(
     onClick: () -> Unit,
 ) {
     Column(
-        modifier = modifier.height(52.dp).clickable(onClick = onClick).padding(horizontal = 12.dp),
+        modifier = modifier.width(84.dp).height(52.dp).clickable(onClick = onClick).padding(horizontal = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.weight(1f))
@@ -448,41 +448,83 @@ private fun LibraryPage(
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
     }
-    Column(modifier.fillMaxSize()) {
-        when {
-            state.isInitializing -> LoadingRows(Modifier.fillMaxSize())
-            state.instances.isEmpty() -> EmptyLibrary(viewModel::openCreate, Modifier.fillMaxSize())
-            else -> {
-                state.selectedInstance?.let { instance ->
-                    LaunchDeck(state, instance, viewModel, compact, onManage)
-                }
+    when {
+        state.isInitializing -> LoadingRows(modifier.fillMaxSize())
+        state.instances.isEmpty() -> EmptyLibrary(viewModel::openCreate, modifier.fillMaxSize())
+        compact -> Column(modifier.fillMaxSize()) {
+            InstanceShelfToolbar(query, { query = it }, compact = true, viewModel::openCreate)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            state.selectedInstance?.let { instance ->
+                CompactLaunchStrip(state, instance, viewModel, onManage)
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                InstanceShelfToolbar(query, { query = it }, compact, viewModel::openCreate)
-                if (filteredInstances.isEmpty()) {
-                    Column(
-                        Modifier.fillMaxSize().padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text("No matching instances", style = MaterialTheme.typography.titleLarge)
-                        Text("Try another name, version, or loader.", color = Muted)
-                    }
-                } else if (compact) {
-                    LazyColumn(
-                        state = compactListState,
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        items(filteredInstances, key = { it.id.value }) { instance ->
-                            InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel, compact = true)
-                        }
-                    }
-                } else {
-                    InstanceGrid(filteredInstances, state, viewModel, gridState)
-                }
+            }
+            InstanceCollection(
+                instances = filteredInstances,
+                state = state,
+                viewModel = viewModel,
+                compact = true,
+                compactListState = compactListState,
+                gridState = gridState,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        else -> Row(modifier.fillMaxSize()) {
+            Column(Modifier.weight(1f).fillMaxHeight()) {
+                InstanceShelfToolbar(query, { query = it }, compact = false, viewModel::openCreate)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                InstanceCollection(
+                    instances = filteredInstances,
+                    state = state,
+                    viewModel = viewModel,
+                    compact = false,
+                    compactListState = compactListState,
+                    gridState = gridState,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SelectedInstancePanel(
+                state = state,
+                viewModel = viewModel,
+                onManage = onManage,
+                modifier = Modifier.width(300.dp).fillMaxHeight(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun InstanceCollection(
+    instances: List<GameInstance>,
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    compact: Boolean,
+    compactListState: LazyListState,
+    gridState: LazyGridState,
+    modifier: Modifier,
+) {
+    if (instances.isEmpty()) {
+        Column(
+            modifier.padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("No matching instances", style = MaterialTheme.typography.titleLarge)
+            Text("Try another name, version, or loader.", color = Muted)
+        }
+    } else if (compact) {
+        LazyColumn(
+            state = compactListState,
+            modifier = modifier,
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            items(instances, key = { it.id.value }) { instance ->
+                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, viewModel, compact = true)
             }
         }
+    } else {
+        InstanceGrid(instances, state, viewModel, gridState, modifier)
     }
 }
 
@@ -502,10 +544,10 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                     colors = ButtonDefaults.buttonColors(containerColor = Ochre),
                 ) { Text("New") }
             }
-            TextField(
+            OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Search instances") },
+                placeholder = { Text("Search instances…") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -518,12 +560,12 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
         ) {
             Text("Instances", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
-            TextField(
+            OutlinedTextField(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Search instances") },
+                placeholder = { Text("Search instances…") },
                 singleLine = true,
-                modifier = Modifier.widthIn(min = 220.dp, max = 300.dp),
+                modifier = Modifier.width(260.dp),
             )
             Button(
                 onClick = onNew,
@@ -602,60 +644,101 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
 }
 
 @Composable
-private fun LaunchDeck(
+private fun CompactLaunchStrip(
     launcherState: LauncherUiState,
     instance: GameInstance,
     viewModel: LauncherViewModel,
-    compact: Boolean,
     onManage: () -> Unit,
 ) {
     val activeAccount = launcherState.accounts.firstOrNull { it.isActive }
     val installationState = instance.installationState
     val progress = installationState.installationProgress()
-    Column(Modifier.fillMaxWidth().background(Surface)) {
-        Box(Modifier.fillMaxWidth().height(5.dp).background(Ochre))
-        if (compact) {
-            Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InstanceArtwork(instance, 72.dp)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-                        Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
-                        Text(
-                            stateLabel(installationState),
-                            color = stateColor(installationState),
-                            style = MaterialTheme.typography.labelLarge,
-                        )
-                    }
-                }
-                InstallationProgress(installationState, progress)
-                LaunchContext(state = installationState, activeAccount = activeAccount)
-                LaunchReadiness(launcherState, instance)
-                LaunchDeckActions(instance, viewModel, state = launcherState, compact = true, onManage = onManage)
+    Column(
+        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            InstanceArtwork(instance, 52.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(instance.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
+                Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted, maxLines = 1)
             }
-        } else {
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 210.dp).padding(horizontal = 32.dp, vertical = 26.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(28.dp),
-            ) {
-                InstanceArtwork(instance, 128.dp)
-                Box(Modifier.width(6.dp).height(126.dp).background(Ochre))
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(instance.displayName, style = MaterialTheme.typography.displaySmall)
-                    Text("Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
-                    Text(
-                        stateLabel(installationState),
-                        color = stateColor(installationState),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    InstallationProgress(installationState, progress)
-                    LaunchContext(state = installationState, activeAccount = activeAccount)
-                    LaunchReadiness(launcherState, instance)
-                }
-                LaunchDeckActions(instance, viewModel, state = launcherState, compact = false, onManage = onManage)
+            Text(
+                stateLabel(installationState),
+                color = stateColor(installationState),
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+        InstallationProgress(installationState, progress)
+        LaunchContext(state = installationState, activeAccount = activeAccount)
+        LaunchReadiness(launcherState, instance)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton(
+                onClick = { viewModel.openResourceBrowser() },
+                enabled = installationState is InstallationState.Installed,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(6.dp),
+            ) { Text("Content") }
+            OutlinedButton(
+                onClick = onManage,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(6.dp),
+            ) { Text("Manage") }
+        }
+        PrimaryInstanceButton(instance, launcherState, viewModel, Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun SelectedInstancePanel(
+    state: LauncherUiState,
+    viewModel: LauncherViewModel,
+    onManage: () -> Unit,
+    modifier: Modifier,
+) {
+    val instance = state.selectedInstance
+    if (instance == null) {
+        Column(
+            modifier.background(MaterialTheme.colorScheme.surface).padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Select an instance", style = MaterialTheme.typography.titleLarge)
+            Text("Choose one from the library.", color = Muted)
+        }
+        return
+    }
+
+    val installationState = instance.installationState
+    val activeAccount = state.accounts.firstOrNull { it.isActive }
+    Column(
+        modifier.background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState()).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            InstanceArtwork(instance, 64.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(instance.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
+                Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
             }
         }
+        Text(stateLabel(installationState), color = stateColor(installationState), style = MaterialTheme.typography.labelLarge)
+        InstallationProgress(installationState, installationState.installationProgress())
+        LaunchContext(state = installationState, activeAccount = activeAccount)
+        LaunchReadiness(state, instance)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
+        OutlinedButton(
+            onClick = { viewModel.openResourceBrowser() },
+            enabled = installationState is InstallationState.Installed,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(6.dp),
+        ) { Text("Manage content") }
+        OutlinedButton(
+            onClick = onManage,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(6.dp),
+        ) { Text("Instance settings") }
     }
 }
 
@@ -686,44 +769,6 @@ private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccoun
         else -> "${activeAccount.profile.playerName} · Ready to play"
     }
     Text(accountText, color = if (activeAccount?.isReady == true && state is InstallationState.Installed) Chalk else Muted)
-}
-
-@Composable
-private fun LaunchDeckActions(
-    instance: GameInstance,
-    viewModel: LauncherViewModel,
-    state: LauncherUiState,
-    compact: Boolean,
-    onManage: () -> Unit,
-) {
-    if (compact) {
-        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(
-                    onClick = { viewModel.openResourceBrowser() },
-                    enabled = instance.installationState is InstallationState.Installed,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(6.dp),
-                ) { Text("Content") }
-                OutlinedButton(
-                    onClick = onManage,
-                    modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(6.dp),
-                ) { Text("Manage") }
-            }
-            PrimaryInstanceButton(instance, state, viewModel, Modifier.fillMaxWidth())
-        }
-    } else {
-        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(
-                onClick = { viewModel.openResourceBrowser() },
-                enabled = instance.installationState is InstallationState.Installed,
-                shape = RoundedCornerShape(6.dp),
-            ) { Text("Content") }
-            OutlinedButton(onClick = onManage, shape = RoundedCornerShape(6.dp)) { Text("Manage") }
-            PrimaryInstanceButton(instance, state, viewModel, Modifier.widthIn(min = 132.dp))
-        }
-    }
 }
 
 @Composable
@@ -797,15 +842,16 @@ private fun InstanceGrid(
     state: LauncherUiState,
     viewModel: LauncherViewModel,
     gridState: LazyGridState,
+    modifier: Modifier = Modifier,
 ) {
     val grouped = instances.groupBy(::instanceGroupLabel)
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Adaptive(168.dp),
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 24.dp, top = 8.dp, end = 24.dp, bottom = 32.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        columns = GridCells.Adaptive(136.dp),
+        modifier = modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 24.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         grouped.forEach { (group, groupInstances) ->
             item(key = "group-$group", span = { GridItemSpan(maxLineSpan) }) {
@@ -840,7 +886,9 @@ private fun InstanceTile(
     val installationState = instance.installationState
     val running = launcherState.launch.instanceId == instance.id && launcherState.launch.status is LaunchStatus.Running
     val progress = installationState.installationProgress()
-    val selectionModifier = if (selected) Modifier.border(1.dp, Ochre, RoundedCornerShape(6.dp)) else Modifier
+    val selectionModifier = Modifier
+        .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent, RoundedCornerShape(6.dp))
+        .then(if (selected) Modifier.border(1.dp, Ochre, RoundedCornerShape(6.dp)) else Modifier)
     ContextActionArea(instanceContextActions(instance, viewModel)) {
         if (compact) {
             Row(
@@ -859,15 +907,14 @@ private fun InstanceTile(
         } else {
             Column(
                 modifier = selectionModifier.fillMaxWidth().clickable { viewModel.selectInstance(instance.id) }
-                    .padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                InstanceArtwork(instance, 72.dp)
+                InstanceArtwork(instance, 58.dp)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(instance.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
                     Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted, maxLines = 1)
                 }
-                HorizontalDivider(color = Rule)
                 Text(
                     if (running) "Running" else stateLabel(installationState),
                     color = if (running) Ochre else stateColor(installationState),
@@ -882,7 +929,9 @@ private fun InstanceTile(
 @Composable
 private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.unit.Dp) {
     Box(
-        Modifier.size(size).background(RaisedSurface, RoundedCornerShape(6.dp)),
+        Modifier.size(size)
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
         contentAlignment = Alignment.Center,
     ) {
         if (instance.iconReference != null) {
@@ -893,7 +942,11 @@ private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.un
                 contentScale = ContentScale.Crop,
             )
         } else {
-            BridgeMark(Modifier.size(width = size * 0.56f, height = size * 0.42f))
+            Text(
+                instance.modLoader.label.take(2).uppercase(),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = if (size >= 56.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
@@ -3315,7 +3368,7 @@ private fun stateLabel(state: InstallationState): String = when (state) {
 
 @Composable
 private fun stateColor(state: InstallationState) = when (state) {
-    is InstallationState.Installed -> MaterialTheme.colorScheme.primary
+    is InstallationState.Installed -> MaterialTheme.colorScheme.onSurfaceVariant
     is InstallationState.Interrupted -> MaterialTheme.colorScheme.primary
     is InstallationState.Failed -> MaterialTheme.colorScheme.onErrorContainer
     else -> MaterialTheme.colorScheme.onSurfaceVariant
