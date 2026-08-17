@@ -37,4 +37,52 @@ class FileInstanceRepositoryTest {
         assertIs<InstallationState.Installed>(reloaded.instances.value.single().installationState)
         assertEquals(emptyList(), fileSystem.list("/data".toPath()).filter { it.name.endsWith(".tmp") })
     }
+
+    @Test
+    fun recoversPersistedInstallingStateAsInterrupted() = runTest {
+        val fileSystem = FakeFileSystem()
+        val registry = "/data/instances.json".toPath()
+        val instances = "/data/instances".toPath()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            registry,
+            instances,
+            InstanceIdFactory { InstanceId("test01") },
+        )
+        repository.initialize()
+        val created = repository.create(CreateInstanceRequest("Main", "1.21.8"))
+        repository.update(
+            created.copy(
+                installationState = InstallationState.Installing(
+                    completedBytes = 120,
+                    totalBytes = 1_000,
+                    completedFiles = 2,
+                    totalFiles = 10,
+                ),
+            ),
+        )
+
+        val reloaded = FileInstanceRepository(
+            fileSystem,
+            registry,
+            instances,
+            InstanceIdFactory { InstanceId("test02") },
+        )
+        reloaded.initialize()
+
+        val recovered = assertIs<InstallationState.Interrupted>(
+            reloaded.instances.value.single().installationState,
+        )
+        assertEquals(120, recovered.completedBytes)
+        assertEquals(2, recovered.completedFiles)
+
+        val secondReload = FileInstanceRepository(
+            fileSystem,
+            registry,
+            instances,
+            InstanceIdFactory { InstanceId("test03") },
+        )
+        secondReload.initialize()
+        assertIs<InstallationState.Interrupted>(secondReload.instances.value.single().installationState)
+    }
 }

@@ -2,7 +2,10 @@ package net.blockhost.trestle.download
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsChannel
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import io.ktor.utils.io.readAvailable
 import kotlinx.coroutines.CancellationException
@@ -69,7 +72,7 @@ class DownloadPipeline(
                 required.mapIndexed { index, request ->
                     async {
                         semaphore.withPermit {
-                            if (isValid(request.destination, request.sha1)) {
+                            if (isValid(request.destination, request, allowUnverified = true)) {
                                 lock.lock()
                                 try {
                                     completedBytes += request.size ?: fileSystem.metadata(request.destination).size ?: 0L
@@ -107,35 +110,33 @@ class DownloadPipeline(
                                     lock.unlock()
                                 }
                             }
-                            validate(staged, request.sha1, request.destination.name)
-                            StagedDownload(request, staged)
+                            fileSystem.createDirectories(requireNotNull(request.destination.parent))
+                            fileSystem.atomicMove(staged, request.destination)
+                            lock.lock()
+                            try {
+                                completedFiles++
+                                onProgress(
+                                    DownloadProgress(
+                                        completedBytes,
+                                        totalBytes,
+                                        completedFiles,
+                                        required.size,
+                                        request.destination.name,
+                                    ),
+                                )
+                            } finally {
+                                lock.unlock()
+                            }
                         }
                     }
-                }.awaitAll().filterIsInstance<StagedDownload>().also { stagedDownloads ->
-                    for (download in stagedDownloads) {
-                        fileSystem.createDirectories(requireNotNull(download.request.destination.parent))
-                        fileSystem.atomicMove(download.stagedPath, download.request.destination)
-                        completedFiles++
-                        onProgress(
-                            DownloadProgress(
-                                completedBytes,
-                                totalBytes,
-                                completedFiles,
-                                required.size,
-                                download.request.destination.name,
-                            ),
-                        )
-                    }
-                }
+                }.awaitAll()
             }
             deleteTree(stagingDirectory)
             logger.info("downloads", "Artifact download completed", mapOf("files" to required.size))
         } catch (error: CancellationException) {
-            deleteTree(stagingDirectory)
-            logger.info("downloads", "Artifact download cancelled", mapOf("files" to required.size))
+            logger.info("downloads", "Artifact download paused", mapOf("files" to required.size))
             throw error
         } catch (error: LauncherException) {
-            deleteTree(stagingDirectory)
             logger.error(
                 "downloads",
                 "Artifact download failed",
@@ -144,7 +145,6 @@ class DownloadPipeline(
             )
             throw error
         } catch (error: Exception) {
-            deleteTree(stagingDirectory)
             logger.error(
                 "downloads",
                 "Artifact download could not be activated",
@@ -173,17 +173,49 @@ class DownloadPipeline(
         onBytes: suspend (Long) -> Unit,
     ) {
         var lastError: Throwable? = null
+        if (isValid(stagedPath, request, allowUnverified = false)) {
+            onBytes(fileSize(stagedPath))
+            return
+        }
+        var accountedBytes = resumableBytes(stagedPath, request)
+        if (accountedBytes > 0L) onBytes(accountedBytes)
         repeat(maxAttempts) { attempt ->
             try {
-                if (fileSystem.exists(stagedPath)) fileSystem.delete(stagedPath)
-                val response = httpClient.get(request.url)
+                var existingBytes = fileSize(stagedPath)
+                if (request.size != null && existingBytes >= request.size) {
+                    resetStaged(stagedPath, accountedBytes, onBytes)
+                    accountedBytes = 0L
+                    existingBytes = 0L
+                }
+                val response = httpClient.get(request.url) {
+                    if (existingBytes > 0L) header(HttpHeaders.Range, "bytes=$existingBytes-")
+                }
                 if (!response.status.isSuccess()) {
                     val status = response.status.value
+                    if (status == HttpStatusCode.RequestedRangeNotSatisfiable.value && existingBytes > 0L) {
+                        resetStaged(stagedPath, accountedBytes, onBytes)
+                        accountedBytes = 0L
+                        throw InvalidRangeResponseException("The server rejected the saved byte range.")
+                    }
                     if (status !in TRANSIENT_HTTP_CODES) throw PermanentDownloadException("HTTP $status")
                     throw TransientDownloadException("HTTP $status")
                 }
+                val appending = existingBytes > 0L && response.status == HttpStatusCode.PartialContent
+                if (appending) {
+                    val contentRange = response.headers[HttpHeaders.ContentRange]
+                    if (contentRange == null || !contentRange.startsWith("bytes $existingBytes-")) {
+                        resetStaged(stagedPath, accountedBytes, onBytes)
+                        accountedBytes = 0L
+                        throw InvalidRangeResponseException("The server returned an invalid byte range.")
+                    }
+                } else if (existingBytes > 0L) {
+                    resetStaged(stagedPath, accountedBytes, onBytes)
+                    accountedBytes = 0L
+                    existingBytes = 0L
+                }
                 fileSystem.createDirectories(requireNotNull(stagedPath.parent))
-                fileSystem.sink(stagedPath).buffer().use { sink ->
+                val rawSink = if (appending) fileSystem.appendingSink(stagedPath) else fileSystem.sink(stagedPath)
+                rawSink.buffer().use { sink ->
                     val channel = response.bodyAsChannel()
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     while (true) {
@@ -191,17 +223,25 @@ class DownloadPipeline(
                         if (count == -1) break
                         if (count == 0) continue
                         sink.write(buffer, 0, count)
+                        accountedBytes += count.toLong()
                         onBytes(count.toLong())
                     }
                     sink.flush()
                 }
+                validateCompleted(stagedPath, request)
                 return
             } catch (error: CancellationException) {
                 throw error
             } catch (error: PermanentDownloadException) {
                 throw LauncherException.Network("Download failed with ${error.message}.", error)
             } catch (error: LauncherException.ChecksumMismatch) {
-                throw error
+                lastError = error
+                resetStaged(stagedPath, accountedBytes, onBytes)
+                accountedBytes = 0L
+            } catch (error: IncompleteDownloadException) {
+                lastError = error
+                resetStaged(stagedPath, accountedBytes, onBytes)
+                accountedBytes = 0L
             } catch (error: LauncherException) {
                 throw error
             } catch (error: Exception) {
@@ -220,16 +260,50 @@ class DownloadPipeline(
         throw LauncherException.Network("Download failed after $maxAttempts attempts.", lastError)
     }
 
-    private suspend fun isValid(path: Path, sha1: String?): Boolean {
+    private suspend fun isValid(
+        path: Path,
+        request: DownloadRequest,
+        allowUnverified: Boolean,
+    ): Boolean {
         if (!fileSystem.exists(path)) return false
-        if (sha1 == null) return true
+        if (request.sha1 == null && request.size == null) return allowUnverified
         return try {
-            validate(path, sha1)
+            validateCompleted(path, request)
             true
-        } catch (_: LauncherException.ChecksumMismatch) {
+        } catch (_: LauncherException) {
+            false
+        } catch (_: IncompleteDownloadException) {
             false
         }
     }
+
+    private suspend fun validateCompleted(path: Path, request: DownloadRequest) {
+        request.size?.let { expectedSize ->
+            val actualSize = fileSize(path)
+            if (actualSize != expectedSize) {
+                throw IncompleteDownloadException(expectedSize, actualSize)
+            }
+        }
+        validate(path, request.sha1, request.destination.name)
+    }
+
+    private suspend fun resetStaged(
+        path: Path,
+        accountedBytes: Long,
+        onBytes: suspend (Long) -> Unit,
+    ) {
+        if (accountedBytes > 0L) onBytes(-accountedBytes)
+        fileSystem.delete(path, mustExist = false)
+    }
+
+    private fun resumableBytes(path: Path, request: DownloadRequest): Long {
+        val size = fileSize(path)
+        if (size <= 0L) return 0L
+        return if (request.size == null || size < request.size) size else 0L
+    }
+
+    private fun fileSize(path: Path): Long =
+        if (fileSystem.exists(path)) fileSystem.metadata(path).size ?: 0L else 0L
 
     private fun deleteTree(path: Path) {
         if (!fileSystem.exists(path)) return
@@ -238,9 +312,11 @@ class DownloadPipeline(
         fileSystem.delete(path, mustExist = false)
     }
 
-    private data class StagedDownload(val request: DownloadRequest, val stagedPath: Path)
     private class TransientDownloadException(message: String) : Exception(message)
     private class PermanentDownloadException(message: String) : Exception(message)
+    private class InvalidRangeResponseException(message: String) : Exception(message)
+    private class IncompleteDownloadException(expected: Long, actual: Long) :
+        Exception("Expected $expected bytes but received $actual.")
 
     private companion object {
         val TRANSIENT_HTTP_CODES = setOf(408, 425, 429, 500, 502, 503, 504)

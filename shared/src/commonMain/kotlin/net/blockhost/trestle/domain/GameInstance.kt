@@ -43,6 +43,15 @@ sealed interface InstallationState {
     ) : InstallationState
 
     @Serializable
+    @SerialName("interrupted")
+    data class Interrupted(
+        val completedBytes: Long,
+        val totalBytes: Long?,
+        val completedFiles: Int,
+        val totalFiles: Int,
+    ) : InstallationState
+
+    @Serializable
     @SerialName("installed")
     data class Installed(val installedAtEpochMillis: Long) : InstallationState
 

@@ -117,7 +117,7 @@ private fun WideLayout(
                     modifier = Modifier.weight(1f),
                     onNew = viewModel::openCreate,
                     onSelect = { viewModel.selectInstance(it.id) },
-                    onRetry = viewModel::refreshVersions,
+                    onRetry = viewModel::retryError,
                 )
                 VerticalDivider(color = Rule)
                 DetailsPane(state, Modifier.width(360.dp), viewModel)
@@ -279,7 +279,11 @@ private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewM
                 OutlinedButton(onClick = viewModel::openCreate, shape = RoundedCornerShape(8.dp)) { Text("New") }
             }
         }
-        state.error?.let { message -> item("error") { InlineMessage(message, true, viewModel::refreshVersions) } }
+        state.error?.let { message ->
+            item("error") {
+                InlineMessage(message, true, viewModel::retryError.takeIf { state.errorRecovery != null })
+            }
+        }
         state.notice?.let { message -> item("notice") { InlineMessage(message, false, null) } }
         if (state.isInitializing) {
             item("loading") { LoadingRows(Modifier.fillMaxWidth().height(180.dp)) }
@@ -300,7 +304,7 @@ private fun CompactLibrary(state: LauncherUiState, padding: PaddingValues, viewM
 
 @Composable
 private fun MessageStrip(state: LauncherUiState, onRetry: () -> Unit) {
-    state.error?.let { InlineMessage(it, true, onRetry) }
+    state.error?.let { InlineMessage(it, true, onRetry.takeIf { state.errorRecovery != null }) }
     state.notice?.let { InlineMessage(it, false, null) }
 }
 
@@ -348,7 +352,7 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
                     )
                 }
             }
-            if (status.cancellable) TextButton(onClick = onCancel) { Text("Cancel") }
+            if (status.cancellable) TextButton(onClick = onCancel) { Text("Pause") }
         }
     }
 }
@@ -356,6 +360,7 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
 @Composable
 private fun InstanceRow(instance: GameInstance, selected: Boolean, onClick: () -> Unit) {
     val state = instance.installationState
+    val progress = state.installationProgress()
     Column(
         modifier = Modifier.fillMaxWidth()
             .background(if (selected) RaisedSurface else Surface, RoundedCornerShape(8.dp))
@@ -374,11 +379,11 @@ private fun InstanceRow(instance: GameInstance, selected: Boolean, onClick: () -
             }
             Text(stateLabel(state), color = stateColor(state), style = MaterialTheme.typography.labelMedium)
         }
-        if (state is InstallationState.Installing) {
-            val total = state.totalBytes
+        if (progress != null) {
+            val total = progress.totalBytes
             if (total != null && total > 0) {
                 LinearProgressIndicator(
-                    progress = { (state.completedBytes.toFloat() / total).coerceIn(0f, 1f) },
+                    progress = { (progress.completedBytes.toFloat() / total).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth(),
                     color = Ochre,
                     trackColor = Rule,
@@ -387,7 +392,11 @@ private fun InstanceRow(instance: GameInstance, selected: Boolean, onClick: () -
                 LinearProgressIndicator(Modifier.fillMaxWidth(), color = Ochre, trackColor = Rule)
             }
             Text(
-                "${state.completedFiles} of ${state.totalFiles} files",
+                if (state is InstallationState.Interrupted) {
+                    "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
+                } else {
+                    "${progress.completedFiles} of ${progress.totalFiles} files"
+                },
                 color = Muted,
                 style = MaterialTheme.typography.labelMedium,
             )
@@ -450,7 +459,13 @@ private fun DetailsPane(
                     onClick = viewModel::cancelInstall,
                     modifier = Modifier.weight(1f),
                     shape = RoundedCornerShape(8.dp),
-                ) { Text("Cancel") }
+                ) { Text("Pause") }
+                is InstallationState.Interrupted -> Button(
+                    onClick = viewModel::installSelected,
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
+                ) { Text("Resume install") }
                 is InstallationState.Installed -> {
                     OutlinedButton(
                         onClick = viewModel::inspectLaunchPlan,
@@ -1131,12 +1146,37 @@ private fun BridgeMark() {
 private fun stateLabel(state: InstallationState): String = when (state) {
     InstallationState.NotInstalled -> "Not installed"
     is InstallationState.Installing -> "Installing"
+    is InstallationState.Interrupted -> "Ready to resume"
     is InstallationState.Installed -> "Installed"
     is InstallationState.Failed -> "Install failed"
 }
 
 private fun stateColor(state: InstallationState) = when (state) {
     is InstallationState.Installed -> Ochre
+    is InstallationState.Interrupted -> Ochre
     is InstallationState.Failed -> ErrorText
     else -> Muted
+}
+
+private data class InstallationProgressSnapshot(
+    val completedBytes: Long,
+    val totalBytes: Long?,
+    val completedFiles: Int,
+    val totalFiles: Int,
+)
+
+private fun InstallationState.installationProgress(): InstallationProgressSnapshot? = when (this) {
+    is InstallationState.Installing -> InstallationProgressSnapshot(
+        completedBytes,
+        totalBytes,
+        completedFiles,
+        totalFiles,
+    )
+    is InstallationState.Interrupted -> InstallationProgressSnapshot(
+        completedBytes,
+        totalBytes,
+        completedFiles,
+        totalFiles,
+    )
+    else -> null
 }

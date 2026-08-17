@@ -3,7 +3,9 @@ package net.blockhost.trestle.download
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
@@ -14,6 +16,8 @@ import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class DownloadPipelineTest {
     @Test
@@ -30,7 +34,7 @@ class DownloadPipelineTest {
     }
 
     @Test
-    fun reportsHttpFailureAndCleansStaging() = runTest {
+    fun reportsHttpFailureAndPreservesStaging() = runTest {
         val fileSystem = FakeFileSystem()
         val client = HttpClient(MockEngine { respond("unavailable", HttpStatusCode.ServiceUnavailable) })
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1, maxAttempts = 1)
@@ -42,11 +46,11 @@ class DownloadPipelineTest {
                 staging,
             )
         }
-        assertFalse(fileSystem.exists(staging))
+        assertTrue(fileSystem.exists(staging))
     }
 
     @Test
-    fun cancellationCleansStaging() = runTest {
+    fun cancellationPreservesStaging() = runTest {
         val fileSystem = FakeFileSystem()
         val client = HttpClient(MockEngine {
             delay(Long.MAX_VALUE)
@@ -63,6 +67,156 @@ class DownloadPipelineTest {
         testScheduler.runCurrent()
         job.cancelAndJoin()
 
+        assertTrue(fileSystem.exists(staging))
+    }
+
+    @Test
+    fun resumesFromCommittedArtifacts() = runTest {
+        val fileSystem = FakeFileSystem()
+        val cached = "/downloads/cached.jar".toPath()
+        val missing = "/downloads/missing.jar".toPath()
+        fileSystem.createDirectories(requireNotNull(cached.parent))
+        fileSystem.write(cached) { writeUtf8("cached") }
+        val requested = mutableListOf<String>()
+        val client = HttpClient(MockEngine { request ->
+            requested += request.url.toString()
+            respond("missing")
+        })
+        val progress = mutableListOf<DownloadProgress>()
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest("https://example.test/cached", cached, size = 6),
+                DownloadRequest("https://example.test/missing", missing, size = 7),
+            ),
+            stagingDirectory = "/staging".toPath(),
+            onProgress = progress::add,
+        )
+
+        assertEquals(listOf("https://example.test/missing"), requested)
+        assertEquals("missing", fileSystem.read(missing) { readUtf8() })
+        assertEquals(2, progress.last().completedFiles)
+        assertEquals(13, progress.last().completedBytes)
+        assertFalse(fileSystem.exists("/staging".toPath()))
+    }
+
+    @Test
+    fun commitsACompletedStagedArtifactWithoutDownloadingItAgain() = runTest {
+        val fileSystem = FakeFileSystem()
+        val staging = "/staging".toPath()
+        fileSystem.createDirectories(staging)
+        fileSystem.write(staging / "0.part") { writeUtf8("cached") }
+        var requestCount = 0
+        val client = HttpClient(MockEngine {
+            requestCount++
+            respond("unexpected")
+        })
+        val destination = "/downloads/cached.jar".toPath()
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest("https://example.test/cached", destination, size = 6),
+            ),
+            stagingDirectory = staging,
+        )
+
+        assertEquals(0, requestCount)
+        assertEquals("cached", fileSystem.read(destination) { readUtf8() })
         assertFalse(fileSystem.exists(staging))
+    }
+
+    @Test
+    fun resumesAPartialStagedArtifactWithAByteRange() = runTest {
+        val fileSystem = FakeFileSystem()
+        val staging = "/staging".toPath()
+        fileSystem.createDirectories(staging)
+        fileSystem.write(staging / "0.part") { writeUtf8("part") }
+        val requestedRanges = mutableListOf<String?>()
+        val client = HttpClient(MockEngine { request ->
+            requestedRanges += request.headers[HttpHeaders.Range]
+            respond(
+                content = "ial",
+                status = HttpStatusCode.PartialContent,
+                headers = headersOf(HttpHeaders.ContentRange, "bytes 4-6/7"),
+            )
+        })
+        val destination = "/downloads/partial.jar".toPath()
+        val progress = mutableListOf<DownloadProgress>()
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest("https://example.test/partial", destination, size = 7),
+            ),
+            stagingDirectory = staging,
+            onProgress = progress::add,
+        )
+
+        assertEquals(listOf<String?>("bytes=4-"), requestedRanges)
+        assertEquals("partial", fileSystem.read(destination) { readUtf8() })
+        assertEquals(7L, progress.last().completedBytes)
+        assertEquals(1, progress.last().completedFiles)
+    }
+
+    @Test
+    fun restartsTheArtifactWhenTheServerIgnoresAByteRange() = runTest {
+        val fileSystem = FakeFileSystem()
+        val staging = "/staging".toPath()
+        fileSystem.createDirectories(staging)
+        fileSystem.write(staging / "0.part") { writeUtf8("old") }
+        val requestedRanges = mutableListOf<String?>()
+        val client = HttpClient(MockEngine { request ->
+            requestedRanges += request.headers[HttpHeaders.Range]
+            respond("replacement")
+        })
+        val destination = "/downloads/replacement.jar".toPath()
+        val progress = mutableListOf<DownloadProgress>()
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest("https://example.test/replacement", destination, size = 11),
+            ),
+            stagingDirectory = staging,
+            onProgress = progress::add,
+        )
+
+        assertEquals(listOf<String?>("bytes=3-"), requestedRanges)
+        assertEquals("replacement", fileSystem.read(destination) { readUtf8() })
+        assertEquals(11L, progress.last().completedBytes)
+    }
+
+    @Test
+    fun restartsTheArtifactWhenTheServerRejectsTheSavedByteRange() = runTest {
+        val fileSystem = FakeFileSystem()
+        val staging = "/staging".toPath()
+        fileSystem.createDirectories(staging)
+        fileSystem.write(staging / "0.part") { writeUtf8("old") }
+        val requestedRanges = mutableListOf<String?>()
+        val client = HttpClient(MockEngine { request ->
+            requestedRanges += request.headers[HttpHeaders.Range]
+            if (requestedRanges.size == 1) {
+                respond("", HttpStatusCode.RequestedRangeNotSatisfiable)
+            } else {
+                respond("replacement")
+            }
+        })
+        val destination = "/downloads/replacement.jar".toPath()
+        val progress = mutableListOf<DownloadProgress>()
+        val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest("https://example.test/replacement", destination, size = 11),
+            ),
+            stagingDirectory = staging,
+            onProgress = progress::add,
+        )
+
+        assertEquals(listOf("bytes=3-", null), requestedRanges)
+        assertEquals("replacement", fileSystem.read(destination) { readUtf8() })
+        assertEquals(11L, progress.last().completedBytes)
     }
 }

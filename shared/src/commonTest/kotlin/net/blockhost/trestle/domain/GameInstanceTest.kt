@@ -13,6 +13,7 @@ class GameInstanceTest {
     @Test
     fun installingInstanceCannotLaunch() {
         assertFalse(instance(InstallationState.Installing(5, 10, 1, 2)).canPrepareLaunch())
+        assertFalse(instance(InstallationState.Interrupted(5, 10, 1, 2)).canPrepareLaunch())
     }
 
     private fun instance(state: InstallationState) = GameInstance(

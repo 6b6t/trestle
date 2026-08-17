@@ -71,6 +71,12 @@ data class OperationStatus(
     val cancellable: Boolean = false,
 )
 
+enum class ErrorRecoveryAction {
+    INITIALIZE,
+    REFRESH_VERSIONS,
+    RETRY_INSTALLATION,
+}
+
 data class InstanceSettingsState(
     val visible: Boolean = false,
     val minimumMemoryMiB: String = "",
@@ -111,6 +117,7 @@ data class LauncherUiState(
     val isInitializing: Boolean = true,
     val isLoadingVersions: Boolean = false,
     val error: String? = null,
+    val errorRecovery: ErrorRecoveryAction? = null,
     val notice: String? = null,
     val create: CreateInstanceState = CreateInstanceState(),
     val launchPlan: LaunchPlanSummary? = null,
@@ -169,7 +176,7 @@ class LauncherViewModel(
                 services.repository.initialize()
                 services.accounts.initialize()
             }
-                .onFailure { showError(it) }
+                .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
             mutableState.value = mutableState.value.copy(isInitializing = false, operation = null)
             refreshVersions()
         }
@@ -199,7 +206,7 @@ class LauncherViewModel(
                 throw error
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(isLoadingVersions = false, operation = null)
-                showError(error)
+                showError(error, ErrorRecoveryAction.REFRESH_VERSIONS)
             }
         }
     }
@@ -282,20 +289,29 @@ class LauncherViewModel(
     }
 
     fun installSelected() {
+        if (installJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
-        installJob?.cancel()
+        val resuming = instance.installationState is InstallationState.Interrupted
         installJob = scope.launch {
             mutableState.value = mutableState.value.copy(
                 error = null,
                 notice = null,
                 launchPlan = null,
-                operation = OperationStatus("Preparing installation", instance.displayName, cancellable = true),
+                operation = OperationStatus(
+                    if (resuming) "Preparing installation resume" else "Preparing installation",
+                    instance.displayName,
+                    cancellable = true,
+                ),
             )
             try {
                 services.installer.install(instance) { progress ->
                     mutableState.value = mutableState.value.copy(
                         operation = OperationStatus(
-                            title = "Installing ${instance.displayName}",
+                            title = if (resuming) {
+                                "Resuming ${instance.displayName}"
+                            } else {
+                                "Installing ${instance.displayName}"
+                            },
                             detail = progress.activeFile,
                             completed = progress.completedBytes,
                             total = progress.totalBytes,
@@ -305,16 +321,43 @@ class LauncherViewModel(
                 }
                 mutableState.value = mutableState.value.copy(notice = "Installation is complete.", operation = null)
             } catch (_: CancellationException) {
-                mutableState.value = mutableState.value.copy(notice = "Installation cancelled.", operation = null)
+                mutableState.value = mutableState.value.copy(
+                    notice = "Installation paused. Resume it when you are ready.",
+                    operation = null,
+                )
             } catch (error: Exception) {
                 mutableState.value = mutableState.value.copy(operation = null)
-                showError(error)
+                showError(error, ErrorRecoveryAction.RETRY_INSTALLATION)
+            } finally {
+                installJob = null
             }
         }
     }
 
     fun cancelInstall() {
-        installJob?.cancel()
+        val activeJob = installJob
+        if (activeJob?.isActive == true) {
+            activeJob.cancel()
+            return
+        }
+        val instance = mutableState.value.selectedInstance ?: return
+        val progress = instance.installationState as? InstallationState.Installing ?: return
+        scope.launch {
+            services.repository.update(
+                instance.copy(
+                    installationState = InstallationState.Interrupted(
+                        completedBytes = progress.completedBytes,
+                        totalBytes = progress.totalBytes,
+                        completedFiles = progress.completedFiles,
+                        totalFiles = progress.totalFiles,
+                    ),
+                ),
+            )
+            mutableState.value = mutableState.value.copy(
+                notice = "Installation paused. Resume it when you are ready.",
+                operation = null,
+            )
+        }
     }
 
     fun inspectLaunchPlan() {
@@ -442,7 +485,18 @@ class LauncherViewModel(
     }
 
     fun clearMessage() {
-        mutableState.value = mutableState.value.copy(error = null, notice = null)
+        mutableState.value = mutableState.value.copy(error = null, errorRecovery = null, notice = null)
+    }
+
+    fun retryError() {
+        val recovery = mutableState.value.errorRecovery
+        mutableState.value = mutableState.value.copy(error = null, errorRecovery = null)
+        when (recovery) {
+            ErrorRecoveryAction.INITIALIZE -> initialize()
+            ErrorRecoveryAction.REFRESH_VERSIONS -> refreshVersions()
+            ErrorRecoveryAction.RETRY_INSTALLATION -> installSelected()
+            null -> Unit
+        }
     }
 
     fun openInstanceSettings() {
@@ -737,9 +791,10 @@ class LauncherViewModel(
         }
     }
 
-    private fun showError(error: Throwable) {
+    private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null) {
         mutableState.value = mutableState.value.copy(
             error = error.message ?: "The operation failed.",
+            errorRecovery = recovery,
             notice = null,
         )
     }

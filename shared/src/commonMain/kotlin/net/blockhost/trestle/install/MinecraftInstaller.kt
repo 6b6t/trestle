@@ -1,6 +1,8 @@
 package net.blockhost.trestle.install
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
@@ -48,16 +50,26 @@ class MinecraftInstaller(
     private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
     suspend fun install(instance: GameInstance, onProgress: suspend (DownloadProgress) -> Unit = {}): GameInstance {
+        val previousProgress = instance.installationState as? InstallationState.Interrupted
         var working = instance.copy(
-            installationState = InstallationState.Installing(0, null, 0, 0),
-        )
-        repository.update(working)
-        logger.info(
-            "installer",
-            "Installing Minecraft instance",
-            mapOf("instance" to instance.id.value, "version" to instance.minecraftVersionId, "loader" to instance.modLoader),
+            installationState = InstallationState.Installing(
+                completedBytes = previousProgress?.completedBytes ?: 0L,
+                totalBytes = previousProgress?.totalBytes,
+                completedFiles = previousProgress?.completedFiles ?: 0,
+                totalFiles = previousProgress?.totalFiles ?: 0,
+            ),
         )
         try {
+            repository.update(working)
+            logger.info(
+                "installer",
+                "Installing Minecraft instance",
+                mapOf(
+                    "instance" to instance.id.value,
+                    "version" to instance.minecraftVersionId,
+                    "loader" to instance.modLoader,
+                ),
+            )
             val vanilla = metadataClient.resolveVersion(instance.minecraftVersionId)
             val effective = when (instance.modLoader) {
                 ModLoader.VANILLA -> vanilla
@@ -173,8 +185,20 @@ class MinecraftInstaller(
                 logger.info("installer", "Instance installation completed", mapOf("instance" to instance.id.value))
             }
         } catch (error: CancellationException) {
-            repository.update(instance.copy(installationState = InstallationState.NotInstalled))
-            logger.info("installer", "Instance installation cancelled", mapOf("instance" to instance.id.value))
+            val progress = working.installationState as InstallationState.Installing
+            withContext(NonCancellable) {
+                repository.update(
+                    working.copy(
+                        installationState = InstallationState.Interrupted(
+                            completedBytes = progress.completedBytes,
+                            totalBytes = progress.totalBytes,
+                            completedFiles = progress.completedFiles,
+                            totalFiles = progress.totalFiles,
+                        ),
+                    ),
+                )
+            }
+            logger.info("installer", "Instance installation paused", mapOf("instance" to instance.id.value))
             throw error
         } catch (error: Exception) {
             val message = error.message ?: "Installation failed."

@@ -11,17 +11,12 @@ class Slf4jLogSink : LogSink {
                 append(" ")
                 append(entry.details.entries.joinToString { (key, value) -> "$key=$value" })
             }
-            cause?.let {
-                append("\n")
-                append(it::class.qualifiedName ?: "Throwable")
-                it.stackTrace.forEach { frame -> append("\n\tat ").append(frame) }
-            }
         }
         when (entry.level) {
-            LogLevel.DEBUG -> logger.debug(message)
-            LogLevel.INFO -> logger.info(message)
-            LogLevel.WARN -> logger.warn(message)
-            LogLevel.ERROR -> logger.error(message)
+            LogLevel.DEBUG -> if (cause == null) logger.debug(message) else logger.debug(message, cause)
+            LogLevel.INFO -> if (cause == null) logger.info(message) else logger.info(message, cause)
+            LogLevel.WARN -> if (cause == null) logger.warn(message) else logger.warn(message, cause)
+            LogLevel.ERROR -> if (cause == null) logger.error(message) else logger.error(message, cause)
         }
     }
 }

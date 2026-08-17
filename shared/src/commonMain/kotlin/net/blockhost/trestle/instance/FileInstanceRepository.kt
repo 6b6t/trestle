@@ -7,6 +7,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
@@ -43,8 +44,31 @@ class FileInstanceRepository(
                     "Instance registry schema ${registry.schemaVersion} is not supported.",
                 )
             }
-            mutableInstances.value = registry.instances.sortedBy { it.displayName.lowercase() }
-            logger.info("instances", "Loaded instance registry", mapOf("count" to registry.instances.size))
+            val recoveredCount = registry.instances.count { it.installationState is InstallationState.Installing }
+            val recoveredInstances = registry.instances.map { instance ->
+                val installing = instance.installationState as? InstallationState.Installing
+                    ?: return@map instance
+                instance.copy(
+                    installationState = InstallationState.Interrupted(
+                        completedBytes = installing.completedBytes,
+                        totalBytes = installing.totalBytes,
+                        completedFiles = installing.completedFiles,
+                        totalFiles = installing.totalFiles,
+                    ),
+                )
+            }
+            if (recoveredInstances != registry.instances) {
+                writeRegistry(registry.copy(instances = recoveredInstances))
+                logger.warn(
+                    "instances",
+                    "Recovered interrupted installations",
+                    details = mapOf(
+                        "count" to recoveredCount,
+                    ),
+                )
+            }
+            mutableInstances.value = recoveredInstances.sortedBy { it.displayName.lowercase() }
+            logger.info("instances", "Loaded instance registry", mapOf("count" to recoveredInstances.size))
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
