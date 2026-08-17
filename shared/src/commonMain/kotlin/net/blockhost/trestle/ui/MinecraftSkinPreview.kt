@@ -98,7 +98,7 @@ fun MinecraftSkinPreview(
         } else {
             Text(
                 emptyLabel,
-                color = Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.align(Alignment.Center),
             )

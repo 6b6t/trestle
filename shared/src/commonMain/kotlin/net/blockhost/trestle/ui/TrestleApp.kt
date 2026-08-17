@@ -1,10 +1,12 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -23,12 +25,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -39,12 +41,12 @@ import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
@@ -52,18 +54,26 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SearchBarDefaults
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -74,6 +84,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -103,19 +114,21 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil3.compose.AsyncImage
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ic_add
 import net.blockhost.trestle.resources.ic_account
 import net.blockhost.trestle.resources.ic_arrow_back
 import net.blockhost.trestle.resources.ic_extension
 import net.blockhost.trestle.resources.ic_library
+import net.blockhost.trestle.resources.ic_close
+import net.blockhost.trestle.resources.ic_search
 import net.blockhost.trestle.resources.ic_settings
 import net.blockhost.trestle.resources.ic_visibility
 import net.blockhost.trestle.resources.ic_visibility_off
@@ -180,6 +193,7 @@ internal object LauncherTestTags {
     const val TOP_NAVIGATION = "top-navigation"
     const val LIBRARY = "library"
     const val INSTANCE_SEARCH = "instance-search"
+    const val RESOURCE_SEARCH = "resource-search"
     const val NEW_INSTANCE = "new-instance"
     const val SELECTED_INSTANCE = "selected-instance"
     const val PRIMARY_INSTANCE_ACTION = "primary-instance-action"
@@ -315,9 +329,9 @@ private fun WideLayout(
     onDestinationChange: (LauncherDestination) -> Unit,
     destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
-        TopNavigation(state, destination, onDestinationChange)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Row(modifier = Modifier.fillMaxSize()) {
+        WideNavigationRail(state, destination, onDestinationChange)
+        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         destinationContent(Modifier.weight(1f), false)
     }
 }
@@ -375,49 +389,45 @@ private fun CompactLayout(
 }
 
 @Composable
-private fun TopNavigation(
+private fun WideNavigationRail(
     state: LauncherUiState,
     destination: LauncherDestination,
     onDestinationChange: (LauncherDestination) -> Unit,
 ) {
-    Box(
-        Modifier.fillMaxWidth().height(60.dp).background(MaterialTheme.colorScheme.surface)
-            .testTag(LauncherTestTags.TOP_NAVIGATION),
-        contentAlignment = Alignment.Center,
+    NavigationRail(
+        modifier = Modifier.fillMaxHeight().testTag(LauncherTestTags.TOP_NAVIGATION),
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        windowInsets = WindowInsets(0, 0, 0, 0),
+        header = {
+            BridgeMark(Modifier.padding(vertical = 16.dp).size(width = 36.dp, height = 28.dp))
+        },
     ) {
-        Row(
-            Modifier.widthIn(max = WideContentWidth).fillMaxWidth().height(60.dp).padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                modifier = Modifier.padding(end = 24.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                BridgeMark()
-                Text("TRESTLE", style = MaterialTheme.typography.titleLarge)
-            }
-            NavigationItem(LauncherDestination.LIBRARY, destination == LauncherDestination.LIBRARY || destination == LauncherDestination.INSTANCE) {
-                onDestinationChange(LauncherDestination.LIBRARY)
-            }
-            NavigationItem(LauncherDestination.DISCOVER, destination == LauncherDestination.DISCOVER) {
-                onDestinationChange(LauncherDestination.DISCOVER)
-            }
-            Spacer(Modifier.weight(1f))
-            state.accounts.firstOrNull { it.isActive }?.let { account ->
-                AccountIdentity(account) { onDestinationChange(LauncherDestination.ACCOUNTS) }
-            } ?: TextButton(onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) }) { Text("Add account") }
-            NavigationItem(LauncherDestination.SETTINGS, destination == LauncherDestination.SETTINGS) {
-                onDestinationChange(LauncherDestination.SETTINGS)
-            }
-            Text(
-                currentPlatform,
-                modifier = Modifier.padding(start = 8.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
+        globalDestinations.forEach { item ->
+            NavigationRailItem(
+                selected = destination == item || item == LauncherDestination.LIBRARY && destination == LauncherDestination.INSTANCE,
+                onClick = { onDestinationChange(item) },
+                icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
+                label = { Text(item.label) },
+                modifier = Modifier.testTag(LauncherTestTags.navigation(item)),
             )
         }
+        Spacer(Modifier.weight(1f))
+        state.accounts.firstOrNull { it.isActive }?.let { account ->
+            Text(
+                account.profile.playerName.take(8),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
+        Text(
+            currentPlatform,
+            modifier = Modifier.padding(bottom = 12.dp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+        )
     }
 }
 
@@ -430,49 +440,14 @@ private fun destinationIcon(destination: LauncherDestination): DrawableResource 
 }
 
 @Composable
-private fun NavigationItem(
-    destination: LauncherDestination,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    Column(
-        modifier = modifier.width(84.dp).height(52.dp).testTag(LauncherTestTags.navigation(destination))
-            .clickable(onClick = onClick).padding(horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
-        Text(
-            destination.label,
-            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Spacer(Modifier.weight(1f))
-        Box(
-            Modifier.height(3.dp).fillMaxWidth()
-                .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent),
-        )
-    }
-}
-
-@Composable
 private fun AccountIdentity(account: ManagedAccount, compact: Boolean = false, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier.clickable(onClick = onClick).padding(horizontal = if (compact) 0.dp else 8.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(
-            Modifier.size(30.dp).background(Ochre, RoundedCornerShape(4.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(account.profile.playerName.take(1).uppercase(), color = Soot, style = MaterialTheme.typography.labelLarge)
+    if (compact) {
+        FilledTonalIconButton(onClick = onClick) {
+            Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
         }
-        if (!compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(account.profile.playerName, style = MaterialTheme.typography.labelLarge)
-                Text(if (account.isReady) "Ready" else "Sign-in required", color = Muted, style = MaterialTheme.typography.labelMedium)
-            }
+    } else {
+        FilledTonalButton(onClick = onClick) {
+            Text(account.profile.playerName)
         }
     }
 }
@@ -554,7 +529,7 @@ private fun InstanceCollection(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("No matching instances", style = MaterialTheme.typography.titleLarge)
-            Text("Try another name, version, or loader.", color = Muted)
+            Text("Try another name, version, or loader.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else if (compact) {
         LazyColumn(
@@ -574,117 +549,156 @@ private fun InstanceCollection(
 
 @Composable
 private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit, compact: Boolean, onNew: () -> Unit) {
-    if (compact) {
-        Column(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (compact || maxWidth < 620.dp) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Instances", style = MaterialTheme.typography.titleLarge)
+                    Spacer(Modifier.weight(1f))
+                    Button(
+                        onClick = onNew,
+                        modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
+                    ) {
+                        Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("New")
+                    }
+                }
+                TrestleSearchField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Search instances…") },
+                    modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.INSTANCE_SEARCH),
+                )
+            }
+        } else {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 Text("Instances", style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
+                TrestleSearchField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = { Text("Search instances…") },
+                    modifier = Modifier.width(320.dp).testTag(LauncherTestTags.INSTANCE_SEARCH),
+                )
                 Button(
                     onClick = onNew,
                     modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                    shape = RoundedCornerShape(6.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                ) { Text("New") }
+                ) {
+                    Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("New instance")
+                }
             }
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search instances…") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.INSTANCE_SEARCH),
-            )
-        }
-    } else {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text("Instances", style = MaterialTheme.typography.titleLarge)
-            Spacer(Modifier.weight(1f))
-            OutlinedTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                placeholder = { Text("Search instances…") },
-                singleLine = true,
-                modifier = Modifier.width(260.dp).testTag(LauncherTestTags.INSTANCE_SEARCH),
-            )
-            Button(
-                onClick = onNew,
-                modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                shape = RoundedCornerShape(6.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-            ) { Text("New instance") }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TrestleSearchField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    searching: Boolean = false,
+    onSearch: (String) -> Unit = {},
+    placeholder: @Composable () -> Unit,
+) {
+    SearchBarDefaults.InputField(
+        query = value,
+        onQueryChange = onValueChange,
+        onSearch = onSearch,
+        expanded = false,
+        onExpandedChange = {},
+        enabled = enabled,
+        placeholder = placeholder,
+        leadingIcon = {
+            Icon(painterResource(Res.drawable.ic_search), contentDescription = null)
+        },
+        trailingIcon = {
+            when {
+                searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                value.isNotEmpty() -> IconButton(onClick = { onValueChange("") }) {
+                    Icon(painterResource(Res.drawable.ic_close), contentDescription = "Clear search")
+                }
+            }
+        },
+        modifier = modifier,
+    )
+}
+
 @Composable
 private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)?) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(
-            if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-        ).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    Surface(
+        color = if (error) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Text(
-            message,
-            modifier = Modifier.weight(1f),
-            color = if (error) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onSurface,
-        )
-        onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(message, modifier = Modifier.weight(1f))
+            onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
+        }
     }
 }
 
 @Composable
 private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .windowInsetsPadding(WindowInsets.navigationBars),
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars),
     ) {
-        val progress = progressFraction(
-            completedBytes = status.completed,
-            totalBytes = status.total,
-            completedFiles = status.completedItems,
-            totalFiles = status.totalItems,
-        )
-        if (progress != null) {
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant,
+        Column {
+            val progress = progressFraction(
+                completedBytes = status.completed,
+                totalBytes = status.total,
+                completedFiles = status.completedItems,
+                totalFiles = status.totalItems,
             )
-        } else {
-            LinearProgressIndicator(
-                Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = MaterialTheme.colorScheme.outlineVariant,
-            )
-        }
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(status.title, style = MaterialTheme.typography.labelLarge)
-                status.detail?.let {
-                    Text(
-                        it,
-                        color = Muted,
-                        style = MaterialTheme.typography.labelMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+            if (progress != null) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant,
+                )
+            } else {
+                LinearProgressIndicator(
+                    Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.outlineVariant,
+                )
             }
-            if (status.cancellable) TextButton(onClick = onCancel) { Text(status.cancelLabel) }
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(status.title, style = MaterialTheme.typography.labelLarge)
+                    status.detail?.let {
+                        Text(
+                            it,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                if (status.cancellable) TextButton(onClick = onCancel) { Text(status.cancelLabel) }
+            }
         }
     }
 }
@@ -699,39 +713,48 @@ private fun CompactLaunchStrip(
     val activeAccount = launcherState.accounts.firstOrNull { it.isActive }
     val installationState = instance.installationState
     val progress = installationState.installationProgress()
-    Column(
-        Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth(),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            InstanceArtwork(instance, 52.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(instance.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
-                Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted, maxLines = 1)
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                InstanceArtwork(instance, 52.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        instance.displayName,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                Text(
+                    stateLabel(installationState),
+                    color = stateColor(installationState),
+                    style = MaterialTheme.typography.labelMedium,
+                )
             }
-            Text(
-                stateLabel(installationState),
-                color = stateColor(installationState),
-                style = MaterialTheme.typography.labelMedium,
-            )
+            InstallationProgress(installationState, progress)
+            LaunchContext(state = installationState, activeAccount = activeAccount)
+            LaunchReadiness(launcherState, instance)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilledTonalButton(
+                    onClick = { actions.openResourceBrowser() },
+                    enabled = installationState is InstallationState.Installed,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Content") }
+                OutlinedButton(
+                    onClick = onManage,
+                    modifier = Modifier.weight(1f),
+                ) { Text("Manage") }
+            }
+            PrimaryInstanceButton(instance, launcherState, actions, Modifier.fillMaxWidth())
         }
-        InstallationProgress(installationState, progress)
-        LaunchContext(state = installationState, activeAccount = activeAccount)
-        LaunchReadiness(launcherState, instance)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(
-                onClick = { actions.openResourceBrowser() },
-                enabled = installationState is InstallationState.Installed,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(6.dp),
-            ) { Text("Content") }
-            OutlinedButton(
-                onClick = onManage,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(6.dp),
-            ) { Text("Manage") }
-        }
-        PrimaryInstanceButton(instance, launcherState, actions, Modifier.fillMaxWidth())
     }
 }
 
@@ -744,48 +767,60 @@ private fun SelectedInstancePanel(
 ) {
     val instance = state.selectedInstance
     if (instance == null) {
-        Column(
-            modifier.background(MaterialTheme.colorScheme.surface).padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("Select an instance", style = MaterialTheme.typography.titleLarge)
-            Text("Choose one from the library.", color = Muted)
+        Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier) {
+            Column(
+                Modifier.fillMaxSize().padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text("Select an instance", style = MaterialTheme.typography.titleLarge)
+                Text("Choose one from the library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         return
     }
 
     val installationState = instance.installationState
     val activeAccount = state.accounts.firstOrNull { it.isActive }
-    Column(
-        modifier.background(MaterialTheme.colorScheme.surface).verticalScroll(rememberScrollState())
-            .testTag(LauncherTestTags.SELECTED_INSTANCE).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = modifier.testTag(LauncherTestTags.SELECTED_INSTANCE),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            InstanceArtwork(instance, 64.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(instance.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleLarge)
-                Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                InstanceArtwork(instance, 64.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        instance.displayName,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+            Text(stateLabel(installationState), color = stateColor(installationState), style = MaterialTheme.typography.labelLarge)
+            InstallationProgress(installationState, installationState.installationProgress())
+            LaunchContext(state = installationState, activeAccount = activeAccount)
+            LaunchReadiness(state, instance)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
+            FilledTonalButton(
+                onClick = { actions.openResourceBrowser() },
+                enabled = installationState is InstallationState.Installed,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Manage content") }
+            OutlinedButton(
+                onClick = onManage,
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("Instance settings") }
         }
-        Text(stateLabel(installationState), color = stateColor(installationState), style = MaterialTheme.typography.labelLarge)
-        InstallationProgress(installationState, installationState.installationProgress())
-        LaunchContext(state = installationState, activeAccount = activeAccount)
-        LaunchReadiness(state, instance)
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
-        OutlinedButton(
-            onClick = { actions.openResourceBrowser() },
-            enabled = installationState is InstallationState.Installed,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(6.dp),
-        ) { Text("Manage content") }
-        OutlinedButton(
-            onClick = onManage,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(6.dp),
-        ) { Text("Instance settings") }
     }
 }
 
@@ -802,8 +837,8 @@ private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
         else -> null
     } ?: return
     val color = when (status) {
-        is LaunchStatus.Blocked, is LaunchStatus.Failed -> ErrorText
-        else -> Muted
+        is LaunchStatus.Blocked, is LaunchStatus.Failed -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(message, color = color, style = MaterialTheme.typography.labelMedium)
 }
@@ -815,7 +850,14 @@ private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccoun
         !activeAccount.isReady -> "${activeAccount.profile.playerName} · Sign-in required"
         else -> "${activeAccount.profile.playerName} · Ready to play"
     }
-    Text(accountText, color = if (activeAccount?.isReady == true && state is InstallationState.Installed) Chalk else Muted)
+    Text(
+        accountText,
+        color = if (activeAccount?.isReady == true && state is InstallationState.Installed) {
+            MaterialTheme.colorScheme.onSurface
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        },
+    )
 }
 
 @Composable
@@ -829,25 +871,18 @@ private fun PrimaryInstanceButton(
         is InstallationState.Installing -> OutlinedButton(
             onClick = actions::cancelInstall,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-            shape = RoundedCornerShape(6.dp),
         ) { Text("Pause") }
         is InstallationState.Interrupted -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-            shape = RoundedCornerShape(6.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Resume install") }
         is InstallationState.Failed -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-            shape = RoundedCornerShape(6.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Retry install") }
         InstallationState.NotInstalled -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-            shape = RoundedCornerShape(6.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Install") }
         is InstallationState.Installed -> LaunchButton(
             state,
@@ -871,11 +906,15 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
         LinearProgressIndicator(
             progress = { fraction },
             modifier = Modifier.fillMaxWidth().widthIn(max = 520.dp),
-            color = Ochre,
-            trackColor = Rule,
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
         )
     } else {
-        LinearProgressIndicator(Modifier.fillMaxWidth().widthIn(max = 520.dp), color = Ochre, trackColor = Rule)
+        LinearProgressIndicator(
+            Modifier.fillMaxWidth().widthIn(max = 520.dp),
+            color = MaterialTheme.colorScheme.primary,
+            trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
     }
     Text(
         if (state is InstallationState.Interrupted) {
@@ -883,7 +922,7 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
         } else {
             "${progress.completedFiles} of ${progress.totalFiles} files"
         },
-        color = Muted,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
     )
 }
@@ -910,7 +949,7 @@ private fun InstanceGrid(
                 Text(
                     group,
                     modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
@@ -938,43 +977,61 @@ private fun InstanceTile(
     val installationState = instance.installationState
     val running = launcherState.launch.instanceId == instance.id && launcherState.launch.status is LaunchStatus.Running
     val progress = installationState.installationProgress()
-    val selectionModifier = Modifier
-        .background(if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent, RoundedCornerShape(6.dp))
-        .then(if (selected) Modifier.border(1.dp, Ochre, RoundedCornerShape(6.dp)) else Modifier)
     ContextActionArea(instanceContextActions(instance, actions)) {
-        if (compact) {
-            Row(
-                modifier = selectionModifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id))
-                    .clickable { actions.selectInstance(instance.id) }
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                InstanceArtwork(instance, 48.dp)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
-                    Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+        Card(
+            onClick = { actions.selectInstance(instance.id) },
+            modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id)),
+            colors = CardDefaults.cardColors(
+                containerColor = if (selected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerLow
+                },
+            ),
+            border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
+        ) {
+            if (compact) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    InstanceArtwork(instance, 48.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Text(
+                        if (running) "Running" else stateLabel(installationState),
+                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
+                    )
                 }
-                Text(if (running) "Running" else stateLabel(installationState), color = if (running) Ochre else stateColor(installationState))
-            }
-        } else {
-            Column(
-                modifier = selectionModifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id))
-                    .clickable { actions.selectInstance(instance.id) }
-                    .padding(10.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                InstanceArtwork(instance, 58.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(instance.displayName, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.titleMedium)
-                    Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted, maxLines = 1)
+            } else {
+                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InstanceArtwork(instance, 58.dp)
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            instance.displayName,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                        )
+                    }
+                    Text(
+                        if (running) "Running" else stateLabel(installationState),
+                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    if (progress != null) InstallationProgress(installationState, progress)
                 }
-                Text(
-                    if (running) "Running" else stateLabel(installationState),
-                    color = if (running) Ochre else stateColor(installationState),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                if (progress != null) InstallationProgress(installationState, progress)
             }
         }
     }
@@ -984,15 +1041,15 @@ private fun InstanceTile(
 private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.unit.Dp) {
     Box(
         Modifier.size(size)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(6.dp))
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp)),
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.small)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small),
         contentAlignment = Alignment.Center,
     ) {
         if (instance.iconReference != null) {
             AsyncImage(
                 model = instance.iconReference,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(6.dp)),
+                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small),
                 contentScale = ContentScale.Crop,
             )
         } else {
@@ -1057,7 +1114,6 @@ private fun LaunchButton(
         is LaunchStatus.Running -> OutlinedButton(
             onClick = actions::stopLaunch,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
         ) { Text("Stop") }
         LaunchStatus.Checking,
         LaunchStatus.Starting,
@@ -1065,33 +1121,26 @@ private fun LaunchButton(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
         ) { Text(if (status == LaunchStatus.Checking) "Checking…" else "Starting…") }
         is LaunchStatus.Blocked -> Button(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
         ) { Text("Launch") }
         is LaunchStatus.Unavailable -> Button(
             onClick = {},
             enabled = false,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
         ) { Text("Unavailable") }
         is LaunchStatus.Failed -> Button(
             onClick = actions::launchSelected,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Retry launch") }
         LaunchStatus.NotChecked,
         LaunchStatus.Ready,
         -> Button(
             onClick = actions::launchSelected,
             modifier = modifier,
-            shape = RoundedCornerShape(6.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) { Text("Launch") }
     }
 }
@@ -1113,13 +1162,13 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
         minimum != null && maximum < minimum -> "Maximum memory must be at least the minimum."
         else -> null
     }
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp)
                 .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
         ) {
@@ -1160,10 +1209,10 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         }
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(form.recommendation.orEmpty(), color = Muted, modifier = Modifier.weight(1f))
+                        Text(form.recommendation.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                         TextButton(onClick = actions::applyRecommendedMemory) { Text("Use recommended") }
                     }
-                    form.warnings.forEach { warning -> Text(warning, color = ErrorText) }
+                    form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
                     TextField(
                         value = form.jvmArguments,
                         onValueChange = actions::setJvmArguments,
@@ -1178,7 +1227,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     Text("Minecraft client", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     when {
@@ -1187,9 +1236,9 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text("Loading client settings", color = Muted)
+                            Text("Loading client settings", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        form.clientSettingsError != null -> Text(form.clientSettingsError, color = ErrorText)
+                        form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
                         form.clientSettings != null -> ClientSettingsFields(
                             form.clientSettings,
                             actions::setInstanceClientSettings,
@@ -1205,7 +1254,6 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     Button(
                         onClick = actions::saveInstanceSettings,
                         enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
-                        shape = RoundedCornerShape(8.dp),
                     ) {
                         if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                         else Text("Save changes")
@@ -1219,13 +1267,13 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
 @Composable
 private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val browser = state.resourceBrowser
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = actions::closeResourceBrowser,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp)
                 .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
         ) {
@@ -1246,7 +1294,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                             } else {
                                 "Compatible with ${instance.minecraftVersionId} · ${instance.modLoader.label}"
                             },
-                            color = Muted,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
@@ -1343,23 +1391,14 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, actions: Launc
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextField(
-                value = browser.query,
-                onValueChange = actions::setResourceQuery,
-                label = { Text("Search") },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { actions.searchResources() }),
-                modifier = Modifier.weight(1f),
-            )
-            Button(
-                onClick = actions::searchResources,
-                enabled = !browser.isSearching,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-            ) { Text("Search") }
-        }
+        TrestleSearchField(
+            value = browser.query,
+            onValueChange = actions::setResourceQuery,
+            searching = browser.isSearching,
+            onSearch = { actions.searchResources() },
+            placeholder = { Text("Search mods, packs, and shaders") },
+            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp).testTag(LauncherTestTags.RESOURCE_SEARCH),
+        )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 600.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1387,7 +1426,7 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, actions: Launc
             }
         }
         if (!browser.curseForgeAvailable) {
-            Text("CurseForge requires a Trestle API key configured by the application build.", color = Muted)
+            Text("CurseForge requires a Trestle API key configured by the application build.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -1423,7 +1462,7 @@ private fun ResourceResultList(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("No results", style = MaterialTheme.typography.titleLarge)
-            Text("Change the search or content type.", color = Muted)
+            Text("Change the search or content type.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         else -> LazyColumn(
             state = listState,
@@ -1453,48 +1492,63 @@ private fun ResourceResultList(
 
 @Composable
 private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(
-                if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
-                RoundedCornerShape(8.dp),
-            )
-            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top,
+    Card(
+        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        ),
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
-        ResourceProjectLogo(
-            project = project,
-            modifier = Modifier.size(64.dp),
-        )
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    project.name,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(formatDownloads(project.downloads), color = Muted, style = MaterialTheme.typography.labelMedium)
-            }
-            Text(
-                "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
-                color = Ochre,
-                style = MaterialTheme.typography.labelMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+        Row(
+            Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            ResourceProjectLogo(
+                project = project,
+                modifier = Modifier.size(64.dp),
             )
-            Text(project.summary, color = Muted, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            if (project.categories.isNotEmpty()) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        project.name,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        formatDownloads(project.downloads),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
                 Text(
-                    project.categories.take(3).joinToString(" · "),
-                    color = Muted,
-                    style = MaterialTheme.typography.labelSmall,
+                    "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                Text(
+                    project.summary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                if (project.categories.isNotEmpty()) {
+                    Text(
+                        project.categories.take(3).joinToString(" · "),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
         }
     }
@@ -1503,12 +1557,13 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
 @Composable
 private fun ResourceProjectLogo(project: ResourceProject, modifier: Modifier) {
     Box(
-        modifier.aspectRatio(1f).clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
+        modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             project.name.firstOrNull()?.uppercase() ?: "?",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.titleLarge,
         )
         project.iconUrl?.let { iconUrl ->
@@ -1529,7 +1584,8 @@ private fun ResourceProjectBanner(project: ResourceProject, modifier: Modifier) 
         model = bannerUrl,
         contentDescription = null,
         contentScale = ContentScale.Fit,
-        modifier = modifier.aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
+        modifier = modifier.aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     )
 }
 
@@ -1549,7 +1605,7 @@ private fun ResourceSelection(
     ) {
         if (project == null) {
             Text("Select a result", style = MaterialTheme.typography.titleLarge)
-            Text("Available versions and installation details will appear here.", color = Muted)
+            Text("Available versions and installation details will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
         Row(
@@ -1562,12 +1618,12 @@ private fun ResourceSelection(
                 Text(project.name, style = MaterialTheme.typography.titleLarge)
                 Text(
                     "by ${project.author.ifBlank { "Unknown author" }} on ${project.provider.label}",
-                    color = Ochre,
+                    color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
         }
-        Text(project.summary, color = Muted)
+        Text(project.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
         ResourceProjectDetails(project)
         project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
             TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("View on ${project.provider.label}") }
@@ -1585,7 +1641,7 @@ private fun ResourceSelection(
             }
         }
         if (browser.isLoadingVersions) {
-            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = Ochre)
+            CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MaterialTheme.colorScheme.primary)
         } else if (browser.versions.isNotEmpty()) {
             ResourceVersionPicker(browser, actions)
         }
@@ -1596,26 +1652,25 @@ private fun ResourceSelection(
             if (optionalDependencies.isNotEmpty()) {
                 Text("Optional dependencies", style = MaterialTheme.typography.titleMedium)
                 optionalDependencies.forEach { dependency ->
-                    Row(
-                        Modifier.fillMaxWidth().toggleable(
+                    ListItem(
+                        headlineContent = {
+                            Text(dependency.fileName ?: dependency.projectId ?: dependency.versionId ?: "External dependency")
+                        },
+                        leadingContent = {
+                            Checkbox(
+                                checked = dependency.selectionKey in browser.selectedOptionalDependencies,
+                                onCheckedChange = null,
+                                enabled = dependency.selectionKey.isNotBlank(),
+                            )
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                        modifier = Modifier.fillMaxWidth().toggleable(
                             value = dependency.selectionKey in browser.selectedOptionalDependencies,
                             enabled = dependency.selectionKey.isNotBlank(),
                             role = Role.Checkbox,
                             onValueChange = { actions.toggleOptionalDependency(dependency.selectionKey) },
-                        ).padding(vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Checkbox(
-                            checked = dependency.selectionKey in browser.selectedOptionalDependencies,
-                            onCheckedChange = null,
-                            enabled = dependency.selectionKey.isNotBlank(),
-                        )
-                        Text(
-                            dependency.fileName ?: dependency.projectId ?: dependency.versionId ?: "External dependency",
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                        ),
+                    )
                 }
             }
         }
@@ -1624,11 +1679,11 @@ private fun ResourceSelection(
         val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
         val selectedFile = version?.primaryFile
         val downloadable = selectedFile?.url != null || selectedFile?.sha1 != null
-        if (!supportedType) Text("This content type cannot be installed into an instance yet.", color = ErrorText)
+        if (!supportedType) Text("This content type cannot be installed into an instance yet.", color = MaterialTheme.colorScheme.error)
         if (selectedFile?.url == null && selectedFile?.sha1 != null) {
-            Text("CurseForge blocks this file. Trestle will look for the identical file on Modrinth.", color = Muted)
+            Text("CurseForge blocks this file. Trestle will look for the identical file on Modrinth.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (version != null && !downloadable) {
-            Text("The author blocks downloads from third-party launchers.", color = ErrorText)
+            Text("The author blocks downloads from third-party launchers.", color = MaterialTheme.colorScheme.error)
         }
         if (
             project.provider == ResourceProvider.CURSEFORGE &&
@@ -1640,15 +1695,12 @@ private fun ResourceSelection(
             OutlinedButton(
                 onClick = { uriHandler.openUri(manualUrl) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
             ) { Text("Open manual download") }
         }
         Button(
             onClick = actions::installSelectedResource,
             enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
         ) {
             if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
@@ -1710,13 +1762,13 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.create
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp)
                 .testTag(LauncherTestTags.CREATE_DIALOG),
         ) {
@@ -1726,19 +1778,21 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text("New instance", style = MaterialTheme.typography.headlineMedium)
-                    Row(
-                        Modifier.fillMaxWidth().background(RaisedSurface).padding(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Box(
-                            Modifier.background(Surface, RoundedCornerShape(4.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
-                        ) { Text("Custom", color = Chalk, style = MaterialTheme.typography.labelLarge) }
-                        TextButton(
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        SegmentedButton(
+                            selected = true,
+                            onClick = {},
+                            shape = SegmentedButtonDefaults.itemShape(0, 2),
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Custom") }
+                        SegmentedButton(
+                            selected = false,
                             onClick = {
                                 actions.closeCreate()
                                 actions.openResourceBrowser(ResourceType.MODPACK)
                             },
+                            shape = SegmentedButtonDefaults.itemShape(1, 2),
+                            modifier = Modifier.weight(1f),
                         ) { Text("Browse modpacks") }
                     }
                     TextField(
@@ -1780,7 +1834,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             Text(
                                 if (showAdvanced) "Configure first-launch accessibility, audio, and distance settings."
                                 else "Trestle will use balanced defaults for the first launch.",
-                                color = Muted,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
@@ -1800,7 +1854,6 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         onClick = actions::createInstance,
                         enabled = form.name.isNotBlank() && form.versionId.isNotBlank() &&
                             (form.modLoader != ModLoader.FABRIC || form.loaderVersion != null) && !form.isSaving,
-                        shape = RoundedCornerShape(8.dp),
                     ) {
                         if (form.isSaving) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -1831,7 +1884,7 @@ private fun ClientDefaultsFields(
                     Text("Client defaults", style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 }
@@ -1842,7 +1895,7 @@ private fun ClientDefaultsFields(
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Apply these defaults", modifier = Modifier.weight(1f), color = Muted)
+                Text("Apply these defaults", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Switch(
                     checked = form.preconfigureClientSettings,
                     onCheckedChange = actions::setCreateClientPreconfiguration,
@@ -2026,7 +2079,7 @@ private fun IntegerSlider(
 private fun SliderSetting(label: String, value: String, slider: @Composable () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(Modifier.fillMaxWidth()) {
-            Text(label, color = Muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
             Text(value, style = MaterialTheme.typography.labelMedium)
         }
         slider()
@@ -2035,14 +2088,16 @@ private fun SliderSetting(label: String, value: String, slider: @Composable () -
 
 @Composable
 private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(label, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
+    ListItem(
+        headlineContent = { Text(label) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth().toggleable(
+            value = checked,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -2125,9 +2180,9 @@ private fun EmptyLibrary(onNew: () -> Unit, modifier: Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("No instances yet", style = MaterialTheme.typography.titleLarge)
-        Text("Create an isolated Vanilla or Fabric instance.", color = Muted)
+        Text("Create an isolated Vanilla or Fabric instance.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onNew, shape = RoundedCornerShape(8.dp)) { Text("Create instance") }
+        Button(onClick = onNew) { Text("Create instance") }
     }
 }
 
@@ -2143,7 +2198,7 @@ private fun LoadingRows(modifier: Modifier) {
                         } else {
                             MaterialTheme.colorScheme.surface
                         },
-                        RoundedCornerShape(8.dp),
+                        MaterialTheme.shapes.medium,
                     ),
             )
         }
@@ -2178,7 +2233,7 @@ private fun InstanceWorkspace(
         } else {
             InstanceWorkspaceHeader(state, instance, actions, onBack)
         }
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (instance == null) {
             Column(
                 Modifier.fillMaxSize().padding(24.dp),
@@ -2190,24 +2245,21 @@ private fun InstanceWorkspace(
             }
             return@Column
         }
-        Box(
-            Modifier.fillMaxWidth().background(Surface),
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
-                    .padding(horizontal = if (compact) 8.dp else 24.dp),
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            SecondaryTabRow(
+                selectedTabIndex = section.ordinal,
+                modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth(),
             ) {
                 InstanceSection.entries.forEach { item ->
-                    NavigationTab(
-                        label = item.label,
+                    Tab(
                         selected = section == item,
-                        modifier = Modifier.weight(1f).testTag(LauncherTestTags.instanceSection(item.name)),
-                    ) { sectionName = item.name }
+                        onClick = { sectionName = item.name },
+                        modifier = Modifier.testTag(LauncherTestTags.instanceSection(item.name)),
+                        text = { Text(item.label) },
+                    )
                 }
             }
         }
-        HorizontalDivider(color = Rule)
         Box(
             Modifier.weight(1f).fillMaxWidth(),
             contentAlignment = Alignment.TopCenter,
@@ -2262,25 +2314,12 @@ private fun InstanceWorkspaceHeader(
                 )
                 Text(
                     "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label} · ${stateLabel(instance.installationState)}",
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             PrimaryInstanceButton(instance, state, actions, Modifier.widthIn(min = 132.dp))
         }
-    }
-}
-
-@Composable
-private fun NavigationTab(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(
-        modifier.height(50.dp).clickable(onClick = onClick).padding(horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.weight(1f))
-        Text(label, color = if (selected) Chalk else Muted, style = MaterialTheme.typography.labelLarge)
-        Spacer(Modifier.weight(1f))
-        Box(Modifier.fillMaxWidth().height(3.dp).background(if (selected) Ochre else Color.Transparent))
     }
 }
 
@@ -2301,7 +2340,7 @@ private fun InstanceOverview(
                         InstanceArtwork(instance, 64.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-                            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = Muted)
+                            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
                         }
                     }
@@ -2343,7 +2382,6 @@ private fun InstanceOverview(
                 OutlinedButton(
                     onClick = actions::inspectLaunchPlan,
                     enabled = instance.installationState is InstallationState.Installed,
-                    shape = RoundedCornerShape(6.dp),
                 ) { Text("Inspect launch plan") }
             }
         }
@@ -2362,7 +2400,7 @@ private fun InstanceContent(
             Text(
                 "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
                 modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(vertical = 16.dp),
-                color = Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
@@ -2372,7 +2410,7 @@ private fun InstanceContent(
                     enabled = instance.installationState is InstallationState.Installed,
                     onClick = { actions.openResourceBrowser(type) },
                 )
-                HorizontalDivider(color = Rule)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -2393,7 +2431,7 @@ private fun InstanceConfiguration(
             Text("Instance settings", style = MaterialTheme.typography.titleLarge)
             Text(
                 "Launch and Minecraft client settings apply only to ${instance.displayName}.",
-                color = Muted,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
             PropertyRow("Java", "Java ${instance.requiredJavaMajor}")
@@ -2403,7 +2441,6 @@ private fun InstanceConfiguration(
             OutlinedButton(
                 onClick = actions::openInstanceSettings,
                 modifier = Modifier.padding(top = 12.dp),
-                shape = RoundedCornerShape(6.dp),
             ) { Text("Edit instance settings") }
         }
     }
@@ -2441,21 +2478,38 @@ private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> 
         ResourceType.RESOURCE_PACK -> "Change textures, sounds, and presentation without changing game logic."
         ResourceType.SHADER_PACK -> "Add compatible lighting and rendering effects to an installed instance."
     }
-    Row(
-        Modifier.fillMaxWidth().padding(vertical = 18.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-    ) {
-        Box(Modifier.size(56.dp).background(RaisedSurface, RoundedCornerShape(6.dp)), contentAlignment = Alignment.Center) {
-            Text(type.label.take(1), color = Ochre, style = MaterialTheme.typography.headlineMedium)
-        }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(type.label, style = MaterialTheme.typography.titleLarge)
-            Text(description, color = Muted, modifier = Modifier.widthIn(max = 680.dp))
-            if (!enabled) Text("Select and install an instance first.", color = ErrorText, style = MaterialTheme.typography.labelMedium)
-        }
-        OutlinedButton(onClick = onClick, enabled = enabled, shape = RoundedCornerShape(6.dp)) { Text("Browse") }
-    }
+    ListItem(
+        headlineContent = { Text(type.label) },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(description)
+                if (!enabled) {
+                    Text(
+                        "Select and install an instance first.",
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+            }
+        },
+        leadingContent = {
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.size(56.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(type.label.take(1), style = MaterialTheme.typography.headlineMedium)
+                }
+            }
+        },
+        trailingContent = {
+            OutlinedButton(onClick = onClick, enabled = enabled) { Text("Browse") }
+        },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 @Composable
@@ -2463,11 +2517,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS)) {
         PageHeader("Accounts") {
-            Button(
-                onClick = actions::openAccountLogin,
-                shape = RoundedCornerShape(8.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-            ) { Text("Add account") }
+            Button(onClick = actions::openAccountLogin) { Text("Add account") }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (state.accounts.isEmpty()) {
@@ -2480,7 +2530,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
                 Text(
                     "Add a verified Java or Bedrock account, import an existing session, or create an offline profile. " +
                         "Trestle encrypts saved online authentication state in the platform credential vault.",
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.widthIn(max = 620.dp),
                 )
             }
@@ -2493,7 +2543,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
                     Text(
                         "Choose the identity Trestle uses to launch. Online credential state stays in the platform vault.",
                         modifier = Modifier.widthIn(max = 720.dp).padding(vertical = 16.dp),
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 items(state.accounts, key = { it.profile.profileId }) { account ->
@@ -2573,9 +2623,14 @@ private fun AccountRow(
     ContextActionArea(contextActions) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 700.dp
-            Column(
-                Modifier.fillMaxWidth().background(
-                    if (account.isActive) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent,
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (account.isActive) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    },
                 ),
             ) {
                 if (compact) {
@@ -2584,16 +2639,19 @@ private fun AccountRow(
                             AccountMark(account, texture, compact = true)
                             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                 Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                Text(account.profile.authenticationMethod.label, color = Muted, maxLines = 1)
+                                Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             }
-                            if (account.isActive) Text("Active", color = Ochre, style = MaterialTheme.typography.labelMedium)
+                            if (account.isActive) Text("Active", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(statusText, modifier = Modifier.weight(1f), color = if (account.isReady) Ochre else ErrorText)
+                            Text(
+                                statusText,
+                                modifier = Modifier.weight(1f),
+                                color = if (account.isReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            )
                             if (!account.isActive) {
                                 OutlinedButton(
                                     onClick = { actions.selectAccount(profileId) },
-                                    shape = RoundedCornerShape(6.dp),
                                 ) { Text("Use") }
                             }
                             if (canManageOfficialProfile) {
@@ -2615,26 +2673,29 @@ private fun AccountRow(
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                if (account.isActive) Text("Active", color = Ochre, style = MaterialTheme.typography.labelMedium)
+                                if (account.isActive) Text("Active", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                             }
-                            Text(account.profile.authenticationMethod.label, color = Muted, maxLines = 1)
+                            Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         }
                         Column(Modifier.widthIn(min = 150.dp), horizontalAlignment = Alignment.End) {
-                            Text(statusText, color = if (account.isReady) Ochre else ErrorText)
+                            Text(
+                                statusText,
+                                color = if (account.isReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                            )
                             account.profile.skin?.let { skin ->
                                 Text(
                                     "${skin.variant.name.lowercase().replaceFirstChar(Char::uppercase)} model",
-                                    color = Muted,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = MaterialTheme.typography.labelMedium,
                                 )
                             }
                         }
                         if (!account.isActive) {
-                            OutlinedButton(onClick = { actions.selectAccount(profileId) }, shape = RoundedCornerShape(6.dp)) {
+                            OutlinedButton(onClick = { actions.selectAccount(profileId) }) {
                                 Text("Use")
                             }
                         } else if (canManageOfficialProfile) {
-                            OutlinedButton(onClick = actions::openSkinStudio, shape = RoundedCornerShape(6.dp)) {
+                            OutlinedButton(onClick = actions::openSkinStudio) {
                                 Text("Manage skins")
                             }
                         }
@@ -2644,7 +2705,6 @@ private fun AccountRow(
                         TextButton(onClick = onForget) { Text("Forget") }
                     }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -2655,13 +2715,13 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
     val account = state.accounts.firstOrNull { it.isActive }
     val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
     var confirmDelete by remember { mutableStateOf(false) }
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = actions::closeSkinStudio,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            color = Soot,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp)
                 .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
         ) {
@@ -2674,7 +2734,7 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = actions::closeSkinStudio) { Text("Close") }
                 }
-                HorizontalDivider(color = Rule)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 BoxWithConstraints(Modifier.fillMaxSize()) {
                     if (maxWidth >= 720.dp) {
                         Row(Modifier.fillMaxSize()) {
@@ -2686,7 +2746,7 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
                                 onReset = actions::resetActiveSkin,
                                 modifier = Modifier.width(310.dp).fillMaxHeight(),
                             )
-                            VerticalDivider(color = Rule)
+                            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             SkinLibraryPanel(
                                 skins = state.savedSkins,
                                 selected = selected,
@@ -2708,7 +2768,7 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
                                 onReset = actions::resetActiveSkin,
                                 modifier = Modifier.fillMaxWidth().height(250.dp),
                             )
-                            HorizontalDivider(color = Rule)
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             SkinLibraryPanel(
                                 skins = state.savedSkins,
                                 selected = selected,
@@ -2726,8 +2786,12 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
         }
     }
     if (confirmDelete && selected != null) {
-        Dialog(onDismissRequest = { confirmDelete = false }) {
-            Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 420.dp)) {
+        BasicAlertDialog(onDismissRequest = { confirmDelete = false }) {
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                shape = MaterialTheme.shapes.large,
+                modifier = Modifier.widthIn(max = 420.dp),
+            ) {
                 Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text("Remove ${selected.profile.name}?", style = MaterialTheme.typography.headlineMedium)
                     Text("This deletes the local skin profile and its PNG. Your active Minecraft skin does not change.")
@@ -2741,7 +2805,6 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
                                 actions.deleteSelectedSkin()
                                 confirmDelete = false
                             },
-                            shape = RoundedCornerShape(8.dp),
                         ) { Text("Remove skin") }
                     }
                 }
@@ -2770,7 +2833,7 @@ private fun CurrentSkinPanel(
         Text(playerName, style = MaterialTheme.typography.titleMedium)
         Text(
             "${variant.label} model · Drag to rotate",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -2793,12 +2856,15 @@ private fun AccountMark(account: ManagedAccount, texture: ByteArray?, compact: B
         return
     }
     Box(
-        Modifier.size(48.dp).background(if (account.isActive) Ochre else Surface, RoundedCornerShape(4.dp)),
+        Modifier.size(48.dp).background(
+            if (account.isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainer,
+            MaterialTheme.shapes.small,
+        ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             account.profile.playerName.take(1).uppercase(),
-            color = if (account.isActive) Soot else Chalk,
+            color = if (account.isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
             style = MaterialTheme.typography.titleLarge,
         )
     }
@@ -2819,11 +2885,7 @@ private fun SkinLibraryPanel(
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Library", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
-            Button(
-                onClick = onNew,
-                colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                shape = RoundedCornerShape(8.dp),
-            ) { Text("New skin") }
+            Button(onClick = onNew) { Text("New skin") }
         }
         Spacer(Modifier.height(16.dp))
         if (skins.isEmpty()) {
@@ -2833,9 +2895,9 @@ private fun SkinLibraryPanel(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text("No saved skins", style = MaterialTheme.typography.titleMedium)
-                Text("Import a 64×64 or legacy 64×32 PNG to start your local library.", color = Muted)
+                Text("Import a 64×64 or legacy 64×32 PNG to start your local library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(onClick = onNew, shape = RoundedCornerShape(8.dp)) { Text("Choose a skin file") }
+                OutlinedButton(onClick = onNew) { Text("Choose a skin file") }
             }
         } else {
             LazyVerticalGrid(
@@ -2853,7 +2915,7 @@ private fun SkinLibraryPanel(
                     )
                 }
             }
-            HorizontalDivider(color = Rule)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Row(
                 Modifier.fillMaxWidth().padding(top = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -2864,8 +2926,6 @@ private fun SkinLibraryPanel(
                 Button(
                     onClick = onUse,
                     enabled = selected != null,
-                    colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                    shape = RoundedCornerShape(8.dp),
                 ) { Text("Use skin") }
             }
         }
@@ -2874,30 +2934,41 @@ private fun SkinLibraryPanel(
 
 @Composable
 private fun SkinLibraryItem(skin: SavedSkin, selected: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(8.dp)
-    Column(
-        Modifier.fillMaxWidth()
-            .border(1.dp, if (selected) Ochre else Rule, shape)
-            .background(if (selected) RaisedSurface else Surface, shape)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+    Card(
+        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            },
+        ),
+        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
     ) {
-        MinecraftSkinPreview(
-            texture = skin.texture,
-            variant = skin.profile.variant,
-            modifier = Modifier.fillMaxWidth().height(142.dp),
-            interactive = false,
-            animate = false,
-        )
-        Text(
-            skin.profile.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Text(skin.profile.variant.label, color = Muted, style = MaterialTheme.typography.labelMedium)
+        Column(
+            Modifier.padding(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            MinecraftSkinPreview(
+                texture = skin.texture,
+                variant = skin.profile.variant,
+                modifier = Modifier.fillMaxWidth().height(142.dp),
+                interactive = false,
+                animate = false,
+            )
+            Text(
+                skin.profile.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                skin.profile.variant.label,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
     }
 }
 
@@ -2916,13 +2987,13 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
             }
         }
     }
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = actions::closeSkinEditor,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Surface(
-            color = Surface,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp)
                 .testTag(LauncherTestTags.SKIN_EDITOR_DIALOG),
         ) {
@@ -2938,7 +3009,7 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                     Spacer(Modifier.weight(1f))
                     TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text("Close") }
                 }
-                HorizontalDivider(color = Rule)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
                     val compact = maxWidth < 650.dp
                     if (compact) {
@@ -2950,7 +3021,7 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                     } else {
                         Row(Modifier.fillMaxSize()) {
                             SkinEditorPreview(editor, Modifier.width(300.dp).fillMaxHeight().padding(24.dp))
-                            VerticalDivider(color = Rule)
+                            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             SkinEditorFields(
                                 editor = editor,
                                 onBrowse = { picker.launch() },
@@ -2960,7 +3031,7 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                         }
                     }
                 }
-                HorizontalDivider(color = Rule)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
@@ -2969,13 +3040,10 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                     OutlinedButton(
                         onClick = { actions.saveSkin(useAfterSave = false) },
                         enabled = editor.canSave,
-                        shape = RoundedCornerShape(8.dp),
                     ) { Text("Save") }
                     Button(
                         onClick = { actions.saveSkin(useAfterSave = true) },
                         enabled = editor.canSave,
-                        colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                        shape = RoundedCornerShape(8.dp),
                     ) { Text(if (editor.isSaving) "Saving" else "Save and use") }
                 }
             }
@@ -2992,7 +3060,7 @@ private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modi
             modifier = Modifier.fillMaxWidth().weight(1f),
             emptyLabel = "Choose a skin PNG",
         )
-        Text("Drag to rotate", color = Muted, style = MaterialTheme.typography.labelMedium)
+        Text("Drag to rotate", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -3029,13 +3097,13 @@ private fun SkinEditorFields(
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Skin file", style = MaterialTheme.typography.labelLarge)
-            OutlinedButton(onClick = onBrowse, enabled = !editor.isSaving, shape = RoundedCornerShape(8.dp)) {
+            OutlinedButton(onClick = onBrowse, enabled = !editor.isSaving) {
                 Text(if (editor.texture == null) "Choose PNG" else "Replace PNG")
             }
             editor.sourceFileName?.let {
-                Text(it, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text("Use a 64×64 PNG, or a legacy 64×32 skin.", color = Muted, style = MaterialTheme.typography.labelMedium)
+            Text("Use a 64×64 PNG, or a legacy 64×32 skin.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
         editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
@@ -3056,13 +3124,13 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
     val uriHandler = LocalUriHandler.current
     var passwordVisible by remember(form.method) { mutableStateOf(false) }
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
-    Dialog(
+    BasicAlertDialog(
         onDismissRequest = { if (!form.isWaiting) actions.closeAccountLogin() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = RoundedCornerShape(10.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp)
                 .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
         ) {
@@ -3073,7 +3141,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                 Text("Add account", style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Choose how Trestle should create or verify this account.",
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Selector(
                     label = "Login method",
@@ -3096,7 +3164,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     )
                     Text(
                         "Bedrock authentication is stored for the future runtime adapter. Trestle cannot launch Bedrock yet.",
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (
@@ -3145,7 +3213,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     Text(
                         "Microsoft discourages direct password login and it cannot complete MFA. " +
                             "Trestle discards the password after this attempt and stores only encrypted token state.",
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (form.method.requiresImportedSecret) {
@@ -3174,7 +3242,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Text(form.method.importWarning, color = Muted)
+                    Text(form.method.importWarning, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (form.method == AccountAuthenticationMethod.OFFLINE) {
                     TextField(
@@ -3201,24 +3269,28 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     )
                     Text(
                         "Offline accounts prove no ownership. They only work with single-player and servers that allow offline identities.",
-                        color = Muted,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 form.authorization?.let { authorization ->
-                    Column(
-                        Modifier.fillMaxWidth()
-                            .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(8.dp))
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    Surface(
+                        color = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
-                        Text("Enter this code", color = Muted)
-                        Text(authorization.userCode, style = MaterialTheme.typography.headlineMedium, color = Ochre)
-                        Text(authorization.verificationUri, color = Muted)
-                        Button(
-                            onClick = { uriHandler.openUri(authorization.directVerificationUri) },
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
-                        ) { Text("Open Microsoft sign-in") }
+                        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("Enter this code", color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(
+                                authorization.userCode,
+                                style = MaterialTheme.typography.headlineMedium,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(authorization.verificationUri, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Button(
+                                onClick = { uriHandler.openUri(authorization.directVerificationUri) },
+                            ) { Text("Open Microsoft sign-in") }
+                        }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -3227,8 +3299,6 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         Button(
                             onClick = actions::signInAccount,
                             enabled = !form.isWaiting && form.canSubmit,
-                            shape = RoundedCornerShape(8.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Ochre),
                         ) {
                             Text(
                                 if (form.isWaiting) {
@@ -3305,20 +3375,19 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
     val logListState = rememberLazyListState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
         PageHeader("Settings") {}
-        HorizontalDivider(color = Rule)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth < 640.dp) {
                 Column(Modifier.fillMaxSize()) {
-                    Row(Modifier.fillMaxWidth().background(Surface).padding(horizontal = 12.dp)) {
+                    SecondaryTabRow(selectedTabIndex = section.ordinal) {
                         SettingsSection.entries.forEach { item ->
-                            SettingsSectionButton(
-                                item,
+                            Tab(
                                 selected = section == item,
-                                modifier = Modifier.weight(1f),
-                            ) { sectionName = item.name }
+                                onClick = { sectionName = item.name },
+                                text = { Text(item.label) },
+                            )
                         }
                     }
-                    HorizontalDivider(color = Rule)
                     SettingsSectionContent(
                         section,
                         state,
@@ -3330,19 +3399,24 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
                 }
             } else {
                 Row(Modifier.fillMaxSize()) {
-                    Column(Modifier.width(210.dp).fillMaxHeight().background(Surface).padding(12.dp)) {
-                        SettingsSection.entries.forEach { item ->
-                            SettingsSectionButton(item, selected = section == item, modifier = Modifier.fillMaxWidth()) {
-                                sectionName = item.name
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.width(210.dp).fillMaxHeight(),
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            SettingsSection.entries.forEach { item ->
+                                SettingsSectionButton(item, selected = section == item, modifier = Modifier.fillMaxWidth()) {
+                                    sectionName = item.name
+                                }
                             }
+                            Spacer(Modifier.weight(1f))
+                            Text(
+                                "$currentPlatform build ${BuildInfo.VERSION}",
+                                modifier = Modifier.padding(12.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
                         }
-                        Spacer(Modifier.weight(1f))
-                        Text(
-                            "$currentPlatform build ${BuildInfo.VERSION}",
-                            modifier = Modifier.padding(12.dp),
-                            color = Muted,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
                     }
                     VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SettingsSectionContent(
@@ -3371,15 +3445,12 @@ private fun SettingsSectionButton(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
 ) {
-    Row(
-        modifier.clickable(onClick = onClick).background(if (selected) RaisedSurface else Color.Transparent)
-            .padding(horizontal = 12.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Box(Modifier.width(3.dp).height(22.dp).background(if (selected) Ochre else Color.Transparent))
-        Text(section.label, color = if (selected) Chalk else Muted, style = MaterialTheme.typography.labelLarge)
-    }
+    NavigationDrawerItem(
+        label = { Text(section.label) },
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -3411,7 +3482,7 @@ private fun RuntimeSettings(
         Text("Runtime", style = MaterialTheme.typography.titleLarge)
         Text(
             "Trestle resolves the platform runtime and compatible Minecraft metadata automatically.",
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
         )
         PropertyRow("Platform", currentPlatform)
@@ -3429,12 +3500,11 @@ private fun RuntimeSettings(
             } else {
                 "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
             },
-            color = Muted,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp).widthIn(max = 640.dp),
         )
         OutlinedButton(
             onClick = actions::refreshVersions,
-            shape = RoundedCornerShape(6.dp),
             modifier = Modifier.padding(top = 8.dp),
         ) { Text(if (state.isLoadingVersions) "Refreshing versions" else "Refresh versions") }
     }
@@ -3456,18 +3526,18 @@ private fun LauncherLog(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("Launcher log", style = MaterialTheme.typography.titleLarge)
-                    Text("Events from this session. Right-click an entry to copy diagnostics.", color = Muted)
+                    Text("Events from this session. Right-click an entry to copy diagnostics.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 TextButton(onClick = actions::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
             }
             Spacer(Modifier.height(16.dp))
         }
         if (state.logs.isEmpty()) {
-            item("logs-empty") { Text("No launcher events in this session.", color = Muted) }
+            item("logs-empty") { Text("No launcher events in this session.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
                 LogRow(entry)
-                HorizontalDivider(color = Rule)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
     }
@@ -3491,8 +3561,15 @@ private fun LogRow(entry: LogEntry) {
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(Modifier.width(68.dp)) {
-                Text(formatUtcTime(entry.timestampEpochMillis), color = Muted, style = MaterialTheme.typography.labelSmall)
-                Text(entry.level.name, color = if (entry.level.name == "ERROR") ErrorText else Muted)
+                Text(formatUtcTime(entry.timestampEpochMillis), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    entry.level.name,
+                    color = if (entry.level.name == "ERROR") {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
             }
             Column(Modifier.weight(1f)) {
                 Text(entry.message, style = MaterialTheme.typography.bodyMedium)
@@ -3504,7 +3581,7 @@ private fun LogRow(entry: LogEntry) {
                             append(formatLogDetails(entry))
                         }
                     },
-                    color = Muted,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
             }
@@ -3570,34 +3647,29 @@ private fun formatLogEntryForClipboard(entry: LogEntry): String = buildString {
 
 @Composable
 private fun PropertyRow(label: String, value: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text(label, modifier = Modifier.width(92.dp), color = Muted, style = MaterialTheme.typography.bodyMedium)
-        Text(value, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-    }
-    HorizontalDivider(color = Rule)
+    ListItem(
+        headlineContent = { Text(value) },
+        overlineContent = { Text(label) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
 private fun PageHeader(title: String, action: @Composable () -> Unit) {
-    Box(
-        modifier = Modifier.fillMaxWidth().height(80.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Row(
-            modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth().padding(horizontal = 24.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+    TopAppBar(
+        title = {
             Text(
                 title,
-                modifier = Modifier.weight(1f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.headlineMedium,
             )
-            action()
-        }
-    }
+        },
+        actions = { action() },
+        windowInsets = WindowInsets(0, 0, 0, 0),
+    )
 }
 
 @Composable

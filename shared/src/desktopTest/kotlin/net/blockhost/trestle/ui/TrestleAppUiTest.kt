@@ -108,6 +108,21 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun discoverKeepsResourceSearchVisible() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.discover,
+                    actions = NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.RESOURCE_SEARCH).assertIsDisplayed()
+    }
+
+    @Test
     fun initialDestinationCanRenderWithoutNavigationSideEffects() = runComposeUiTest {
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {

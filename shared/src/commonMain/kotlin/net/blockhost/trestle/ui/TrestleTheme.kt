@@ -1,6 +1,8 @@
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -8,6 +10,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.barlow_condensed_semibold
@@ -15,15 +18,15 @@ import net.blockhost.trestle.resources.barlow_medium
 import net.blockhost.trestle.resources.barlow_regular
 import org.jetbrains.compose.resources.Font
 
-internal val Soot = Color(0xFF171715)
-internal val Surface = Color(0xFF24231F)
-internal val RaisedSurface = Color(0xFF2E2C27)
-internal val Ochre = Color(0xFFBE8F45)
-internal val Chalk = Color(0xFFE7E3D9)
-internal val Muted = Color(0xFFA9A49A)
-internal val Rule = Color(0xFF3A3833)
-internal val ErrorSurface = Color(0xFF3A2520)
-internal val ErrorText = Color(0xFFF0AA94)
+private val Soot = Color(0xFF171715)
+private val Surface = Color(0xFF24231F)
+private val RaisedSurface = Color(0xFF2E2C27)
+private val Ochre = Color(0xFFBE8F45)
+private val Chalk = Color(0xFFE7E3D9)
+private val Muted = Color(0xFFA9A49A)
+private val Rule = Color(0xFF3A3833)
+private val ErrorSurface = Color(0xFF3A2520)
+private val ErrorText = Color(0xFFF0AA94)
 
 private val TrestleColors = darkColorScheme(
     primary = Ochre,
@@ -57,6 +60,14 @@ private val TrestleColors = darkColorScheme(
     inverseOnSurface = Soot,
     inversePrimary = Color(0xFF765A2D),
     scrim = Color.Black,
+)
+
+private val TrestleShapes = Shapes(
+    extraSmall = RoundedCornerShape(4.dp),
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(12.dp),
+    large = RoundedCornerShape(16.dp),
+    extraLarge = RoundedCornerShape(20.dp),
 )
 
 @Composable
@@ -150,6 +161,7 @@ internal fun TrestleTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = TrestleColors,
         typography = trestleTypography(),
+        shapes = TrestleShapes,
         content = content,
     )
 }
