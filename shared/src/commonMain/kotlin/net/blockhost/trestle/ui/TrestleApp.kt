@@ -194,6 +194,7 @@ internal object LauncherTestTags {
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 
     fun instance(id: InstanceId): String = "instance-${id.value}"
+    fun instanceSection(section: String): String = "instance-section-${section.lowercase()}"
     fun navigation(destination: LauncherDestination): String = "navigation-${destination.name.lowercase()}"
 }
 
@@ -2196,7 +2197,7 @@ private fun InstanceWorkspace(
                     NavigationTab(
                         label = item.label,
                         selected = section == item,
-                        modifier = if (compact) Modifier.weight(1f) else Modifier,
+                        modifier = Modifier.weight(1f).testTag(LauncherTestTags.instanceSection(item.name)),
                     ) { sectionName = item.name }
                 }
             }

@@ -160,7 +160,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun instanceWorkspaceCanBeRenderedDirectlyForPreviewAndTesting() = runComposeUiTest {
+    fun wideInstanceWorkspaceKeepsAllSectionsVisible() = runComposeUiTest {
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {
                 TrestleApp(
@@ -172,7 +172,26 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
-        onNodeWithText("Overview").assertIsDisplayed().assertHasClickAction()
+        listOf("overview", "content", "settings").forEach { section ->
+            onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
+        }
+    }
+
+    @Test
+    fun compactInstanceWorkspaceKeepsAllSectionsVisible() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(600.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.INSTANCE,
+                )
+            }
+        }
+
+        listOf("overview", "content", "settings").forEach { section ->
+            onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
+        }
     }
 
     @Test
