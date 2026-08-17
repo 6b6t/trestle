@@ -8,6 +8,7 @@ plugins {
 
 val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
 val trestleVersionCode = providers.gradleProperty("trestle.versionCode").orElse("1")
+val curseForgeApiKey = providers.gradleProperty("trestle.curseforge.apiKey").orElse("")
 
 dependencies {
     implementation(project(":shared"))
@@ -27,6 +28,7 @@ compose.desktop {
     application {
         mainClass = "net.blockhost.trestle.desktop.MainKt"
         jvmArgs += "-Djava.desktop.appName=trestle-Trestle.desktop"
+        jvmArgs += "-Dtrestle.curseforge.apiKey=${curseForgeApiKey.get()}"
 
         nativeDistributions {
             modules(
