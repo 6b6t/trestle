@@ -99,4 +99,48 @@ class MetadataResolverTest {
             parseLegacyArguments("--username \"Player One\" --demo"),
         )
     }
+
+    @Test
+    fun loaderOverlayReplacesBaseLibraryAndKeepsModernJvmArguments() {
+        val base = VersionMetadata(
+            id = "1.21.1",
+            mainClass = "net.minecraft.client.main.Main",
+            downloads = VersionDownloads(client = DownloadReference(url = "https://cdn.test/client.jar")),
+            libraries = listOf(MojangLibrary("example:library:1.0")),
+            arguments = ModernArguments(
+                game = buildJsonArray { add("--base-game") },
+                jvm = buildJsonArray { add("--base-jvm") },
+            ),
+        )
+        val overlay = VersionMetadata(
+            id = "neoforge-21.1.1",
+            mainClass = "io.example.Wrapper",
+            libraries = listOf(MojangLibrary("example:library:2.0")),
+            minecraftArguments = "--launchTarget neoforgeclient",
+            inheritsFrom = "1.21.1",
+        )
+
+        val resolved = MinecraftMetadataResolver.resolve(MinecraftMetadataResolver.merge(base, overlay), linux)
+
+        assertEquals(listOf("example:library:2.0"), resolved.libraries.map { it.name })
+        assertEquals(listOf("--launchTarget", "neoforgeclient"), resolved.gameArguments)
+        assertEquals(listOf("--base-jvm"), resolved.jvmArguments)
+    }
+
+    @Test
+    fun marksGeneratedLoaderArtifactsAsOffClasspath() {
+        val library = MojangLibrary(
+            name = "example:generated:1.0",
+            downloads = LibraryDownloads(
+                artifact = DownloadReference(
+                    url = "https://cdn.test/generated.jar",
+                    path = "example/generated/1.0/generated-1.0.jar",
+                ),
+            ),
+        )
+
+        val resolved = MinecraftMetadataResolver.resolveLibraries(listOf(library), linux, classpath = false)
+
+        assertFalse(resolved.single().classpath)
+    }
 }

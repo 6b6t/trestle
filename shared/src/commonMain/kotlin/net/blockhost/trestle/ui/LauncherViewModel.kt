@@ -363,7 +363,7 @@ class LauncherViewModel(
 
     override fun setCreateVersion(value: String) {
         mutableState.update { it.copy(create = it.create.copy(versionId = value, loaderVersion = null)) }
-        if (mutableState.value.create.modLoader == ModLoader.FABRIC) loadFabricVersions()
+        loadCreateLoaderVersions(mutableState.value.create.modLoader)
     }
 
     override fun setCreateLoader(value: ModLoader) {
@@ -373,10 +373,11 @@ class LauncherViewModel(
                     modLoader = value,
                     loaderVersion = null,
                     loaderVersions = emptyList(),
+                    isResolvingLoader = false,
                 ),
             )
         }
-        if (value == ModLoader.FABRIC) loadFabricVersions()
+        loadCreateLoaderVersions(value)
     }
 
     override fun setCreateLoaderVersion(value: String) {
@@ -1542,15 +1543,35 @@ class LauncherViewModel(
         )
     }
 
-    private fun loadFabricVersions() {
+    private fun loadCreateLoaderVersions(loader: ModLoader) {
+        if (loader !in setOf(ModLoader.FABRIC, ModLoader.NEOFORGE)) return
         val gameVersion = mutableState.value.create.versionId
         if (gameVersion.isBlank()) return
         scope.launch {
             mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = true)) }
             try {
-                val versions = services.fabricMetadataClient.loaderVersions(gameVersion)
-                    .sortedWith(compareByDescending<net.blockhost.trestle.metadata.FabricLoaderVersion> { it.stable }.thenByDescending { it.build })
-                    .map { it.version }
+                val versions = when (loader) {
+                    ModLoader.FABRIC -> services.fabricMetadataClient.loaderVersions(gameVersion)
+                        .sortedWith(
+                            compareByDescending<net.blockhost.trestle.metadata.FabricLoaderVersion> { it.stable }
+                                .thenByDescending { it.build },
+                        )
+                        .map { it.version }
+                    ModLoader.NEOFORGE -> services.neoForgeMetadataClient.loaderVersions(gameVersion)
+                        .sortedWith(
+                            compareByDescending<net.blockhost.trestle.metadata.NeoForgeLoaderVersion> { it.stable }
+                                .thenByDescending { it.recommended }
+                                .thenByDescending { it.releaseTime },
+                        )
+                        .map { it.version }
+                    else -> emptyList()
+                }
+                if (
+                    mutableState.value.create.versionId != gameVersion ||
+                    mutableState.value.create.modLoader != loader
+                ) {
+                    return@launch
+                }
                 mutableState.update {
                     it.copy(
                         create = it.create.copy(
@@ -1560,9 +1581,16 @@ class LauncherViewModel(
                         ),
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
-                mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = false)) }
-                showError(error)
+                if (
+                    mutableState.value.create.versionId == gameVersion &&
+                    mutableState.value.create.modLoader == loader
+                ) {
+                    mutableState.update { it.copy(create = it.create.copy(isResolvingLoader = false)) }
+                    showError(error)
+                }
             }
         }
     }

@@ -12,6 +12,7 @@ data class ResolvedLibrary(
     val size: Long?,
     val native: Boolean,
     val extractionExcludes: List<String> = emptyList(),
+    val classpath: Boolean = true,
 )
 
 data class ResolvedVersion(
@@ -40,55 +41,11 @@ object MinecraftMetadataResolver {
     fun resolve(metadata: VersionMetadata, environment: PlatformEnvironment): ResolvedVersion {
         val client = metadata.downloads.client
             ?: throw LauncherException.InvalidMetadata("Version ${metadata.id} has no client download.")
-        val libraries = buildList {
-            for (library in metadata.libraries) {
-                if (!MojangRuleEvaluator.allows(library.rules, environment)) continue
-                library.downloads?.artifact?.let { artifact ->
-                    add(
-                        ResolvedLibrary(
-                            name = library.name,
-                            path = artifact.path ?: MavenCoordinate.parse(library.name).path(),
-                            url = artifact.url,
-                            sha1 = artifact.sha1,
-                            size = artifact.size,
-                            native = false,
-                        ),
-                    )
-                } ?: run {
-                    val repository = library.url ?: OFFICIAL_LIBRARY_REPOSITORY
-                    val path = MavenCoordinate.parse(library.name).path()
-                    add(
-                        ResolvedLibrary(
-                            name = library.name,
-                            path = path,
-                            url = repository.trimEnd('/') + "/" + path,
-                            sha1 = null,
-                            size = null,
-                            native = false,
-                        ),
-                    )
-                }
-
-                val classifierTemplate = library.natives[environment.operatingSystem.ruleName] ?: continue
-                val classifier = classifierTemplate.replace("\${arch}", environment.architecture.bits.toString())
-                val native = library.downloads?.classifiers?.get(classifier) ?: continue
-                add(
-                    ResolvedLibrary(
-                        name = "${library.name}:$classifier",
-                        path = native.path ?: nativeCoordinatePath(library.name, classifier),
-                        url = native.url,
-                        sha1 = native.sha1,
-                        size = native.size,
-                        native = true,
-                        extractionExcludes = library.extract?.exclude.orEmpty(),
-                    ),
-                )
-            }
-        }.distinctBy { it.path }
+        val libraries = resolveLibraries(metadata.libraries, environment)
 
         val modern = metadata.arguments
-        val gameArguments = modern?.let { MojangArguments.resolve(it.game, environment) }
-            ?: metadata.minecraftArguments?.let(::parseLegacyArguments).orEmpty()
+        val gameArguments = metadata.minecraftArguments?.let(::parseLegacyArguments)
+            ?: modern?.let { MojangArguments.resolve(it.game, environment) }.orEmpty()
         val jvmArguments = modern?.let { MojangArguments.resolve(it.jvm, environment) }.orEmpty()
 
         return ResolvedVersion(
@@ -103,6 +60,59 @@ object MinecraftMetadataResolver {
         )
     }
 
+    fun resolveLibraries(
+        libraries: List<MojangLibrary>,
+        environment: PlatformEnvironment,
+        classpath: Boolean = true,
+    ): List<ResolvedLibrary> = buildList {
+        for (library in libraries) {
+            if (!MojangRuleEvaluator.allows(library.rules, environment)) continue
+            library.downloads?.artifact?.let { artifact ->
+                add(
+                    ResolvedLibrary(
+                        name = library.name,
+                        path = artifact.path ?: MavenCoordinate.parse(library.name).path(),
+                        url = artifact.url,
+                        sha1 = artifact.sha1,
+                        size = artifact.size,
+                        native = false,
+                        classpath = classpath,
+                    ),
+                )
+            } ?: run {
+                val repository = library.url ?: OFFICIAL_LIBRARY_REPOSITORY
+                val path = MavenCoordinate.parse(library.name).path()
+                add(
+                    ResolvedLibrary(
+                        name = library.name,
+                        path = path,
+                        url = repository.trimEnd('/') + "/" + path,
+                        sha1 = null,
+                        size = null,
+                        native = false,
+                        classpath = classpath,
+                    ),
+                )
+            }
+
+            val classifierTemplate = library.natives[environment.operatingSystem.ruleName] ?: continue
+            val classifier = classifierTemplate.replace("\${arch}", environment.architecture.bits.toString())
+            val native = library.downloads?.classifiers?.get(classifier) ?: continue
+            add(
+                ResolvedLibrary(
+                    name = "${library.name}:$classifier",
+                    path = native.path ?: nativeCoordinatePath(library.name, classifier),
+                    url = native.url,
+                    sha1 = native.sha1,
+                    size = native.size,
+                    native = true,
+                    extractionExcludes = library.extract?.exclude.orEmpty(),
+                    classpath = classpath,
+                ),
+            )
+        }
+    }.distinctBy { it.path }
+
     fun merge(base: VersionMetadata, overlay: VersionMetadata): VersionMetadata {
         require(overlay.inheritsFrom == null || overlay.inheritsFrom == base.id) {
             "Metadata overlay does not inherit from ${base.id}."
@@ -110,7 +120,7 @@ object MinecraftMetadataResolver {
         return base.copy(
             id = overlay.id,
             mainClass = overlay.mainClass,
-            libraries = (base.libraries + overlay.libraries).distinctBy { it.name },
+            libraries = (overlay.libraries + base.libraries).distinctBy(::libraryModuleKey),
             arguments = mergeArguments(base.arguments, overlay.arguments),
             minecraftArguments = overlay.minecraftArguments ?: base.minecraftArguments,
             javaVersion = overlay.javaVersion ?: base.javaVersion,
@@ -129,6 +139,16 @@ object MinecraftMetadataResolver {
     private fun nativeCoordinatePath(name: String, classifier: String): String {
         val base = MavenCoordinate.parse(name)
         return base.copy(classifier = classifier).path()
+    }
+
+    private fun libraryModuleKey(library: MojangLibrary): String {
+        val coordinate = MavenCoordinate.parse(library.name)
+        return listOf(
+            coordinate.group,
+            coordinate.artifact,
+            coordinate.classifier.orEmpty(),
+            coordinate.extension,
+        ).joinToString(":")
     }
 
     private const val OFFICIAL_LIBRARY_REPOSITORY = "https://libraries.minecraft.net/"

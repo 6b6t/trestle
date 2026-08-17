@@ -93,6 +93,22 @@ class ResourcePlatformsTest {
     }
 
     @Test
+    fun usesNativeNeoForgeFiltersForBothProviders() = runTest {
+        val modrinthEngine = MockEngine { request ->
+            assertTrue(requireNotNull(request.url.parameters["facets"]).contains("categories:neoforge"))
+            respond("""{"hits":[],"offset":0,"total_hits":0}""", headers = jsonHeaders)
+        }
+        val curseForgeEngine = MockEngine { request ->
+            assertEquals("6", request.url.parameters["modLoaderType"])
+            respond("""{"data":[],"pagination":{"index":0,"totalCount":0}}""", headers = jsonHeaders)
+        }
+        val search = ResourceSearchRequest("", ResourceType.MOD, "1.21.1", ModLoader.NEOFORGE)
+
+        ModrinthResourcePlatform(HttpClient(modrinthEngine), "Trestle test").search(search)
+        CurseForgeResourcePlatform(HttpClient(curseForgeEngine), "application-key").search(search)
+    }
+
+    @Test
     fun preservesBlockedCurseForgeVersionForManualExplanation() = runTest {
         val engine = MockEngine {
             respond(

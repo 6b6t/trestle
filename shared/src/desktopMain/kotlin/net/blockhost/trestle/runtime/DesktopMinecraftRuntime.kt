@@ -12,10 +12,12 @@ import net.blockhost.trestle.auth.SessionProvider
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
 import net.blockhost.trestle.metadata.InstalledVersion
+import net.blockhost.trestle.metadata.MavenCoordinate
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import okio.Path.Companion.toPath
@@ -50,7 +52,7 @@ class DesktopMinecraftRuntime(
             )
             val nativeDirectory = extractNatives(instance, installed)
             val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
-            val classpathEntries = installed.libraries.filterNot { it.native }
+            val classpathEntries = installed.libraries.filter { !it.native && it.classpath }
                 .map { (directories.libraries / it.path).toString() } + clientJar.toString()
             val separator = if (environment.operatingSystem == OperatingSystem.WINDOWS) ";" else ":"
             val classpath = classpathEntries.joinToString(separator)
@@ -74,6 +76,7 @@ class DesktopMinecraftRuntime(
                 }
                 addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted)
                 addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted)
+                addAll(loaderBootstrapArguments(instance, installed, clientJar))
                 if (session?.authenticationMethod == net.blockhost.trestle.auth.AccountAuthenticationMethod.THE_ALTENING) {
                     addAll(THE_ALTENING_ENVIRONMENT_ARGUMENTS)
                 }
@@ -217,6 +220,28 @@ class DesktopMinecraftRuntime(
 
     private fun substitutePublic(argument: String, values: Map<String, String>): String =
         PLACEHOLDER.replace(argument) { match -> values[match.groupValues[1]] ?: match.value }
+
+    private fun loaderBootstrapArguments(
+        instance: GameInstance,
+        installed: InstalledVersion,
+        clientJar: okio.Path,
+    ): List<String> {
+        if (instance.modLoader != ModLoader.NEOFORGE) return emptyList()
+        val loaderVersion = instance.loaderVersion
+            ?: throw LauncherException.InvalidMetadata("The NeoForge instance has no loader version.")
+        val installerCoordinate = if ("--fml.neoForgeVersion" in installed.gameArguments) {
+            "net.neoforged:neoforge:$loaderVersion:installer"
+        } else {
+            "net.neoforged:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
+        }
+        val installer = directories.libraries /
+            MavenCoordinate.parse(installerCoordinate).path()
+        return listOf(
+            "-Dforgewrapper.librariesDir=${directories.libraries}",
+            "-Dforgewrapper.minecraft=$clientJar",
+            "-Dforgewrapper.installer=$installer",
+        )
+    }
 
     private fun substituteArgument(
         argument: String,

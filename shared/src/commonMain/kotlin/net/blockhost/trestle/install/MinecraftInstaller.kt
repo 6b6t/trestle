@@ -16,6 +16,8 @@ import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.InstalledVersion
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataResolver
+import net.blockhost.trestle.metadata.MojangLibrary
+import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.downloads
 import net.blockhost.trestle.logging.LauncherLogger
@@ -43,6 +45,7 @@ class MinecraftInstaller(
     private val repository: InstanceRepository,
     private val metadataClient: MinecraftMetadataClient,
     private val fabricMetadataClient: FabricMetadataClient,
+    private val neoForgeMetadataClient: NeoForgeMetadataClient,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
     private val directories: LauncherDirectories,
@@ -72,6 +75,7 @@ class MinecraftInstaller(
                 ),
             )
             val vanilla = metadataClient.resolveVersion(instance.minecraftVersionId)
+            var auxiliaryLibraries = emptyList<MojangLibrary>()
             val effective = when (instance.modLoader) {
                 ModLoader.VANILLA -> vanilla
                 ModLoader.FABRIC -> {
@@ -81,14 +85,40 @@ class MinecraftInstaller(
                         ?: throw LauncherException.InvalidMetadata(
                             "No stable Fabric loader supports ${instance.minecraftVersionId}.",
                         )
+                    working = working.copy(loaderVersion = loaderVersion)
                     MinecraftMetadataResolver.merge(
                         vanilla,
                         fabricMetadataClient.profile(instance.minecraftVersionId, loaderVersion),
                     )
                 }
+                ModLoader.NEOFORGE -> {
+                    val loaderVersion = instance.loaderVersion
+                        ?: neoForgeMetadataClient.loaderVersions(instance.minecraftVersionId)
+                            .let { versions ->
+                                versions.firstOrNull { it.stable } ?: versions.firstOrNull()
+                            }
+                            ?.version
+                        ?: throw LauncherException.InvalidMetadata(
+                            "No NeoForge version supports ${instance.minecraftVersionId}.",
+                        )
+                    working = working.copy(loaderVersion = loaderVersion)
+                    val profile = neoForgeMetadataClient.profile(instance.minecraftVersionId, loaderVersion)
+                    auxiliaryLibraries = profile.mavenFiles
+                    MinecraftMetadataResolver.merge(vanilla, profile.metadata)
+                }
                 else -> throw LauncherException.UnsupportedLoader(instance.modLoader)
             }
-            val resolved = MinecraftMetadataResolver.resolve(effective, environment)
+            val baseResolved = MinecraftMetadataResolver.resolve(effective, environment)
+            val resolved = if (auxiliaryLibraries.isEmpty()) {
+                baseResolved
+            } else {
+                val auxiliary = MinecraftMetadataResolver.resolveLibraries(
+                    auxiliaryLibraries,
+                    environment,
+                    classpath = false,
+                )
+                baseResolved.copy(libraries = (baseResolved.libraries + auxiliary).distinctBy { it.path })
+            }
             val assetIndex = resolved.assetIndex?.let { metadataClient.fetchAssetIndex(it) }
             val requests = buildList {
                 add(

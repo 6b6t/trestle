@@ -7,12 +7,12 @@ Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin an
 Trestle provides:
 
 - Isolated, persisted Minecraft instances with atomic registry writes.
-- Vanilla and Fabric metadata resolution and installation.
+- Vanilla, Fabric, and NeoForge metadata resolution and installation.
 - Verified Mojang asset, library, native, logging, and client downloads.
 - Managed Mojang Java runtimes for desktop launch.
 - Modrinth and CurseForge search for mods, modpacks, resource packs, and shaders.
 - Compatible version selection, required dependency resolution, and verified resource downloads.
-- Modrinth and CurseForge modpack installation for Vanilla and Fabric packs.
+- Modrinth and CurseForge modpack installation for Vanilla, Fabric, and NeoForge packs.
 - Desktop launch preparation with safe diagnostics and native extraction.
 - An honest Android runtime boundary that does not claim game launch support.
 

@@ -19,6 +19,7 @@ import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
+import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.FileSystem
@@ -30,6 +31,7 @@ class ModpackInstaller(
     private val repository: InstanceRepository,
     private val metadataClient: MinecraftMetadataClient,
     private val fabricMetadataClient: FabricMetadataClient,
+    private val neoForgeMetadataClient: NeoForgeMetadataClient,
     private val minecraftInstaller: MinecraftInstaller,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
@@ -181,11 +183,12 @@ class ModpackInstaller(
         val primaryLoader = manifest.minecraft.modLoaders.firstOrNull { it.primary }
             ?: manifest.minecraft.modLoaders.firstOrNull()
         val loaderId = primaryLoader?.id.orEmpty()
+        val normalizedLoaderId = loaderId.lowercase()
         val loader = when {
-            loaderId.startsWith("fabric-") -> ModLoader.FABRIC
-            loaderId.startsWith("neoforge-") -> ModLoader.NEOFORGE
-            loaderId.startsWith("forge-") -> ModLoader.FORGE
-            loaderId.startsWith("quilt-") -> ModLoader.QUILT
+            normalizedLoaderId.startsWith("fabric-") -> ModLoader.FABRIC
+            normalizedLoaderId.startsWith("neoforge-") -> ModLoader.NEOFORGE
+            normalizedLoaderId.startsWith("forge-") -> ModLoader.FORGE
+            normalizedLoaderId.startsWith("quilt-") -> ModLoader.QUILT
             loaderId.isBlank() -> ModLoader.VANILLA
             else -> throw LauncherException.InvalidMetadata("The modpack uses unsupported loader $loaderId.")
         }
@@ -235,6 +238,15 @@ class ModpackInstaller(
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
                         "Fabric Loader $requested does not support Minecraft ${plan.minecraftVersion}.",
+                    )
+                }
+            }
+            ModLoader.NEOFORGE -> {
+                val requested = requireNotNull(plan.loaderVersion)
+                val available = neoForgeMetadataClient.loaderVersions(plan.minecraftVersion)
+                if (available.none { it.version == requested }) {
+                    throw LauncherException.InvalidMetadata(
+                        "NeoForge $requested does not support Minecraft ${plan.minecraftVersion}.",
                     )
                 }
             }

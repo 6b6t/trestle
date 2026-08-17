@@ -17,6 +17,7 @@ import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
+import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.logging.BufferedLauncherLogger
 import net.blockhost.trestle.logging.LauncherLogger
@@ -36,6 +37,7 @@ class LauncherServices private constructor(
     val repository: InstanceRepository,
     val metadataClient: MinecraftMetadataClient,
     val fabricMetadataClient: FabricMetadataClient,
+    val neoForgeMetadataClient: NeoForgeMetadataClient,
     val installer: MinecraftInstaller,
     val runtime: MinecraftRuntime,
     val directories: LauncherDirectories,
@@ -64,6 +66,7 @@ class LauncherServices private constructor(
         repository = repository,
         metadataClient = metadataClient,
         fabricMetadataClient = fabricMetadataClient,
+        neoForgeMetadataClient = neoForgeMetadataClient,
         minecraftInstaller = installer,
         downloadPipeline = resourceDownloadPipeline,
         fileSystem = FileSystem.SYSTEM,
@@ -132,11 +135,13 @@ class LauncherServices private constructor(
             )
             val metadataClient = MinecraftMetadataClient(httpClient, logger = logger)
             val fabricMetadataClient = FabricMetadataClient(httpClient)
+            val neoForgeMetadataClient = NeoForgeMetadataClient(httpClient, BuildInfo.USER_AGENT)
             val downloadPipeline = DownloadPipeline(httpClient, fileSystem, logger = logger)
             val installer = MinecraftInstaller(
                 repository,
                 metadataClient,
                 fabricMetadataClient,
+                neoForgeMetadataClient,
                 downloadPipeline,
                 fileSystem,
                 directories,
@@ -148,6 +153,7 @@ class LauncherServices private constructor(
                 repository,
                 metadataClient,
                 fabricMetadataClient,
+                neoForgeMetadataClient,
                 installer,
                 runtimeFactory(directories, installer, accounts, logger, downloadPipeline),
                 directories,

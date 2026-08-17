@@ -2,9 +2,12 @@ package net.blockhost.trestle.metadata
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
@@ -16,6 +19,7 @@ private val metadataJson = Json {
     ignoreUnknownKeys = true
     explicitNulls = false
 }
+private const val NEOFORGE_MINECRAFT_COMPONENT = "net.minecraft"
 
 class MinecraftMetadataClient(
     private val httpClient: HttpClient,
@@ -108,6 +112,127 @@ class FabricMetadataClient(
         } catch (error: Exception) {
             throw LauncherException.Network("Fabric metadata request failed.", error)
         }
+    }
+}
+
+@Serializable
+data class NeoForgeLoaderVersion(
+    val version: String,
+    val recommended: Boolean = false,
+    val releaseTime: String = "",
+) {
+    val stable: Boolean get() = '-' !in version
+}
+
+data class NeoForgeInstallProfile(
+    val metadata: VersionMetadata,
+    val mavenFiles: List<MojangLibrary>,
+)
+
+@Serializable
+private data class NeoForgeVersionIndex(
+    val versions: List<NeoForgeVersionReference>,
+)
+
+@Serializable
+private data class NeoForgeVersionReference(
+    val version: String,
+    val recommended: Boolean = false,
+    val releaseTime: String = "",
+    val sha256: String,
+    val requires: List<ComponentRequirement> = emptyList(),
+) {
+    fun supports(gameVersion: String): Boolean = requires.any {
+        it.uid == NEOFORGE_MINECRAFT_COMPONENT && it.exactVersion == gameVersion
+    }
+}
+
+@Serializable
+private data class NeoForgeComponentProfile(
+    val version: String,
+    val mainClass: String,
+    val libraries: List<MojangLibrary> = emptyList(),
+    val mavenFiles: List<MojangLibrary> = emptyList(),
+    val minecraftArguments: String,
+    val requires: List<ComponentRequirement> = emptyList(),
+)
+
+@Serializable
+private data class ComponentRequirement(
+    val uid: String,
+    @SerialName("equals") val exactVersion: String? = null,
+)
+
+class NeoForgeMetadataClient(
+    private val httpClient: HttpClient,
+    private val userAgent: String,
+    private val baseUrl: String = "https://meta.prismlauncher.org/v1/net.neoforged",
+) {
+    suspend fun loaderVersions(gameVersion: String): List<NeoForgeLoaderVersion> =
+        versionReferences(gameVersion).map {
+            NeoForgeLoaderVersion(it.version, it.recommended, it.releaseTime)
+        }
+
+    suspend fun profile(gameVersion: String, loaderVersion: String): NeoForgeInstallProfile {
+        val reference = versionReferences(gameVersion).firstOrNull { it.version == loaderVersion }
+            ?: throw LauncherException.InvalidMetadata(
+                "NeoForge $loaderVersion does not support Minecraft $gameVersion.",
+            )
+        val body = get("$baseUrl/$loaderVersion.json")
+        val actualSha256 = body.encodeUtf8().sha256().hex()
+        if (!actualSha256.equals(reference.sha256, ignoreCase = true)) {
+            throw LauncherException.ChecksumMismatch(
+                "NeoForge $loaderVersion metadata",
+                reference.sha256,
+                actualSha256,
+            )
+        }
+        val profile = decode<NeoForgeComponentProfile>(body)
+        val declaredGameVersion = profile.requires
+            .firstOrNull { it.uid == NEOFORGE_MINECRAFT_COMPONENT }
+            ?.exactVersion
+        if (profile.version != loaderVersion || declaredGameVersion != gameVersion) {
+            throw LauncherException.InvalidMetadata(
+                "NeoForge $loaderVersion metadata does not target Minecraft $gameVersion.",
+            )
+        }
+        return NeoForgeInstallProfile(
+            metadata = VersionMetadata(
+                id = "neoforge-$loaderVersion",
+                mainClass = profile.mainClass,
+                libraries = profile.libraries,
+                minecraftArguments = profile.minecraftArguments,
+                inheritsFrom = gameVersion,
+            ),
+            mavenFiles = profile.mavenFiles,
+        )
+    }
+
+    private suspend fun versionReferences(gameVersion: String): List<NeoForgeVersionReference> =
+        decode<NeoForgeVersionIndex>(get("$baseUrl/index.json")).versions.filter { it.supports(gameVersion) }
+
+    private suspend fun get(url: String): String {
+        try {
+            val response = httpClient.get(url) { header(HttpHeaders.UserAgent, userAgent) }
+            if (!response.status.isSuccess()) {
+                throw LauncherException.Network(
+                    "NeoForge metadata request failed with HTTP ${response.status.value}.",
+                )
+            }
+            return response.bodyAsText()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: LauncherException) {
+            throw error
+        } catch (error: Exception) {
+            throw LauncherException.Network("NeoForge metadata request failed.", error)
+        }
+    }
+
+    private inline fun <reified T> decode(body: String): T = try {
+        metadataJson.decodeFromString(body)
+    } catch (error: Exception) {
+        throw LauncherException.InvalidMetadata("NeoForge returned invalid component metadata.", error)
     }
 }
 

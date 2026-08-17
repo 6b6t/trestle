@@ -1815,12 +1815,12 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     Selector(
                         label = "Loader",
                         value = form.modLoader.label,
-                        values = listOf(ModLoader.VANILLA, ModLoader.FABRIC).map { it.label },
+                        values = listOf(ModLoader.VANILLA, ModLoader.FABRIC, ModLoader.NEOFORGE).map { it.label },
                         onSelect = { label -> actions.setCreateLoader(ModLoader.entries.first { it.label == label }) },
                     )
-                    if (form.modLoader == ModLoader.FABRIC) {
+                    if (form.modLoader in setOf(ModLoader.FABRIC, ModLoader.NEOFORGE)) {
                         Selector(
-                            label = "Fabric Loader",
+                            label = "${form.modLoader.label} version",
                             value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading" else "No compatible loader",
                             values = form.loaderVersions,
                             enabled = !form.isResolvingLoader,

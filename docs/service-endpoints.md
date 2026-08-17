@@ -47,6 +47,27 @@ GET https://meta.fabricmc.net/v2/versions/loader/{game-version}/{loader-version}
 
 The installer merges the Fabric profile with the matching Mojang version. Mojang remains the source for the client, assets, and base libraries.
 
+## NeoForge
+
+Trestle uses the [Prism Launcher metadata service](https://meta.prismlauncher.org/) for NeoForge component metadata:
+
+```text
+GET https://meta.prismlauncher.org/v1/net.neoforged/index.json
+GET https://meta.prismlauncher.org/v1/net.neoforged/{loader-version}.json
+```
+
+The index maps each NeoForge version to an exact Minecraft version. Trestle shows only versions that match the selected Minecraft version.
+
+The index also supplies a SHA-256 for each component profile. Trestle validates this hash before it reads the profile.
+
+The profile contains launch libraries, generated Maven files, game arguments, and the main class. Each downloadable file includes its source and SHA-1.
+
+Trestle merges the launch profile with Mojang metadata. Mojang remains the source for the client, assets, base libraries, and Java requirement.
+
+Prism metadata uses ForgeWrapper as the NeoForge bootstrap. Trestle gives ForgeWrapper the Trestle library directory, installer file, and Mojang client path.
+
+NeoForge 1.20.1 uses the transitional `net.neoforged:forge` installer. Newer NeoForge versions use the `net.neoforged:neoforge` installer.
+
 ## Resource platforms
 
 Trestle uses one resource model for projects, versions, files, and dependencies. The model supports mods, modpacks, resource packs, and shaders.
@@ -106,7 +127,7 @@ The archive extractor rejects paths outside the staging directory. It also limit
 
 Trestle downloads pack files before it creates the instance. A canceled download does not leave an incomplete instance in the library.
 
-Trestle currently installs Vanilla and Fabric packs. Forge, NeoForge, and Quilt packs remain visible, but installation stops with a loader error.
+Trestle installs Vanilla, Fabric, and NeoForge packs. Forge and Quilt packs remain visible, but installation stops with a loader error.
 
 ## Microsoft authentication
 
