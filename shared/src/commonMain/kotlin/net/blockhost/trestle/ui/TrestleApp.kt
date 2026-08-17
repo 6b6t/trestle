@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -1463,9 +1464,9 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        ResourceProjectImage(
+        ResourceProjectLogo(
             project = project,
-            modifier = Modifier.size(width = 96.dp, height = 64.dp),
+            modifier = Modifier.size(64.dp),
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -1500,12 +1501,9 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
 }
 
 @Composable
-private fun ResourceProjectImage(project: ResourceProject, modifier: Modifier) {
-    var useIconFallback by remember(project.provider, project.id, project.featuredImageUrl) { mutableStateOf(false) }
-    val showingFeaturedImage = project.featuredImageUrl != null && !useIconFallback
-    val imageUrl = if (showingFeaturedImage) project.featuredImageUrl else project.iconUrl
+private fun ResourceProjectLogo(project: ResourceProject, modifier: Modifier) {
     Box(
-        modifier.clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
+        modifier.aspectRatio(1f).clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -1513,18 +1511,26 @@ private fun ResourceProjectImage(project: ResourceProject, modifier: Modifier) {
             color = Muted,
             style = MaterialTheme.typography.titleLarge,
         )
-        if (imageUrl != null) {
+        project.iconUrl?.let { iconUrl ->
             AsyncImage(
-                model = imageUrl,
+                model = iconUrl,
                 contentDescription = null,
-                contentScale = if (showingFeaturedImage) ContentScale.Crop else ContentScale.Fit,
-                onError = {
-                    if (showingFeaturedImage && project.iconUrl != null) useIconFallback = true
-                },
-                modifier = Modifier.fillMaxSize().padding(if (showingFeaturedImage) 0.dp else 8.dp),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(8.dp),
             )
         }
     }
+}
+
+@Composable
+private fun ResourceProjectBanner(project: ResourceProject, modifier: Modifier) {
+    val bannerUrl = project.featuredImageUrl ?: return
+    AsyncImage(
+        model = bannerUrl,
+        contentDescription = null,
+        contentScale = ContentScale.Fit,
+        modifier = modifier.aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp)).background(RaisedSurface),
+    )
 }
 
 @Composable
@@ -1546,17 +1552,12 @@ private fun ResourceSelection(
             Text("Available versions and installation details will appear here.", color = Muted)
             return@Column
         }
-        if (project.featuredImageUrl != null) {
-            ResourceProjectImage(project, Modifier.fillMaxWidth().height(156.dp))
-        }
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (project.featuredImageUrl == null && project.iconUrl != null) {
-                ResourceProjectImage(project, Modifier.size(56.dp))
-            }
+            ResourceProjectLogo(project, Modifier.size(56.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(project.name, style = MaterialTheme.typography.titleLarge)
                 Text(
@@ -1651,6 +1652,10 @@ private fun ResourceSelection(
         ) {
             if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
             else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+        }
+        if (project.featuredImageUrl != null) {
+            Spacer(Modifier.height(8.dp))
+            ResourceProjectBanner(project, Modifier.fillMaxWidth())
         }
     }
 }

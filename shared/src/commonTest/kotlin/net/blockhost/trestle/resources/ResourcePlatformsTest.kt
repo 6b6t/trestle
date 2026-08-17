@@ -38,6 +38,7 @@ class ResourcePlatformsTest {
 
         assertEquals("AABBCCDD", result.projects.single().id)
         assertEquals("https://modrinth.com/mod/sodium", result.projects.single().websiteUrl)
+        assertEquals("https://cdn.test/icon.png", result.projects.single().iconUrl)
         assertEquals("https://cdn.test/featured.png", result.projects.single().featuredImageUrl)
         assertEquals(listOf("optimization"), result.projects.single().categories)
         assertEquals(ResourceEnvironmentSupport.REQUIRED, result.projects.single().clientSupport)
@@ -84,6 +85,7 @@ class ResourcePlatformsTest {
 
         assertEquals("238222", result.projects.single().id)
         assertEquals("mezz", result.projects.single().author)
+        assertEquals("https://cdn.test/logo.png", result.projects.single().iconUrl)
         assertEquals("https://cdn.test/screenshot.png", result.projects.single().featuredImageUrl)
         assertEquals("https://github.com/mezz/JustEnoughItems", result.projects.single().sourceUrl)
         assertEquals("https://github.com/mezz/JustEnoughItems/issues", result.projects.single().issuesUrl)
