@@ -35,7 +35,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -77,6 +79,8 @@ import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.DependencyKind
+import net.blockhost.trestle.instance.MinecraftNarratorMode
+import kotlin.math.roundToInt
 
 private enum class Destination(val label: String) {
     LIBRARY("Library"),
@@ -1114,39 +1118,56 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherViewModel) {
     val form = state.create
     Dialog(onDismissRequest = viewModel::closeCreate) {
-        Surface(color = Surface, shape = RoundedCornerShape(10.dp), modifier = Modifier.widthIn(max = 520.dp)) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("New instance", style = MaterialTheme.typography.headlineMedium)
-                TextField(
-                    value = form.name,
-                    onValueChange = viewModel::setCreateName,
-                    label = { Text("Name") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Selector(
-                    label = "Minecraft version",
-                    value = form.versionId.ifBlank { if (state.isLoadingVersions) "Loading versions" else "No versions available" },
-                    values = state.versions.take(200).map { it.id },
-                    enabled = !state.isLoadingVersions,
-                    onSelect = viewModel::setCreateVersion,
-                )
-                Selector(
-                    label = "Loader",
-                    value = form.modLoader.label,
-                    values = listOf(ModLoader.VANILLA, ModLoader.FABRIC).map { it.label },
-                    onSelect = { label -> viewModel.setCreateLoader(ModLoader.entries.first { it.label == label }) },
-                )
-                if (form.modLoader == ModLoader.FABRIC) {
-                    Selector(
-                        label = "Fabric Loader",
-                        value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading" else "No compatible loader",
-                        values = form.loaderVersions,
-                        enabled = !form.isResolvingLoader,
-                        onSelect = viewModel::setCreateLoaderVersion,
+        Surface(
+            color = Surface,
+            shape = RoundedCornerShape(10.dp),
+            modifier = Modifier.widthIn(max = 560.dp).heightIn(max = 760.dp),
+        ) {
+            Column {
+                Column(
+                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Text("New instance", style = MaterialTheme.typography.headlineMedium)
+                    TextField(
+                        value = form.name,
+                        onValueChange = viewModel::setCreateName,
+                        label = { Text("Name") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
                     )
+                    Selector(
+                        label = "Minecraft version",
+                        value = form.versionId.ifBlank {
+                            if (state.isLoadingVersions) "Loading versions" else "No versions available"
+                        },
+                        values = state.versions.take(200).map { it.id },
+                        enabled = !state.isLoadingVersions,
+                        onSelect = viewModel::setCreateVersion,
+                    )
+                    Selector(
+                        label = "Loader",
+                        value = form.modLoader.label,
+                        values = listOf(ModLoader.VANILLA, ModLoader.FABRIC).map { it.label },
+                        onSelect = { label -> viewModel.setCreateLoader(ModLoader.entries.first { it.label == label }) },
+                    )
+                    if (form.modLoader == ModLoader.FABRIC) {
+                        Selector(
+                            label = "Fabric Loader",
+                            value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading" else "No compatible loader",
+                            values = form.loaderVersions,
+                            enabled = !form.isResolvingLoader,
+                            onSelect = viewModel::setCreateLoaderVersion,
+                        )
+                    }
+                    HorizontalDivider(color = Rule)
+                    ClientDefaultsFields(form, viewModel)
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                HorizontalDivider(color = Rule)
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.End,
+                ) {
                     TextButton(onClick = viewModel::closeCreate) { Text("Cancel") }
                     Button(
                         onClick = viewModel::createInstance,
@@ -1160,6 +1181,128 @@ private fun CreateInstanceDialog(state: LauncherUiState, viewModel: LauncherView
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ClientDefaultsFields(form: CreateInstanceState, viewModel: LauncherViewModel) {
+    val settings = form.clientSettings
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Client defaults", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
+                    color = Muted,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
+            Switch(
+                checked = form.preconfigureClientSettings,
+                onCheckedChange = viewModel::setCreateClientPreconfiguration,
+            )
+        }
+        if (!form.preconfigureClientSettings) return@Column
+
+        Selector(
+            label = "Narrator",
+            value = settings.narratorMode.label,
+            values = MinecraftNarratorMode.entries.map { it.label },
+            onSelect = { label ->
+                viewModel.setCreateClientSettings(
+                    settings.copy(narratorMode = MinecraftNarratorMode.entries.first { it.label == label }),
+                )
+            },
+        )
+        PercentageSlider(
+            label = "Master volume",
+            value = settings.masterVolumePercent,
+            onValueChange = { viewModel.setCreateClientSettings(settings.copy(masterVolumePercent = it)) },
+        )
+        PercentageSlider(
+            label = "Music volume",
+            value = settings.musicVolumePercent,
+            onValueChange = { viewModel.setCreateClientSettings(settings.copy(musicVolumePercent = it)) },
+        )
+        ChunkDistanceSlider(
+            label = "Render distance",
+            value = settings.renderDistanceChunks,
+            range = 2..32,
+            onValueChange = { viewModel.setCreateClientSettings(settings.copy(renderDistanceChunks = it)) },
+        )
+        ChunkDistanceSlider(
+            label = "Simulation distance",
+            value = settings.simulationDistanceChunks,
+            range = 5..32,
+            onValueChange = { viewModel.setCreateClientSettings(settings.copy(simulationDistanceChunks = it)) },
+        )
+        ClientSettingSwitch(
+            label = "Auto-jump",
+            checked = settings.autoJump,
+            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(autoJump = it)) },
+        )
+        ClientSettingSwitch(
+            label = "Subtitles",
+            checked = settings.showSubtitles,
+            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(showSubtitles = it)) },
+        )
+        ClientSettingSwitch(
+            label = "VSync",
+            checked = settings.enableVsync,
+            onCheckedChange = { viewModel.setCreateClientSettings(settings.copy(enableVsync = it)) },
+        )
+    }
+}
+
+@Composable
+private fun PercentageSlider(label: String, value: Int, onValueChange: (Int) -> Unit) {
+    SliderSetting(label, "$value%") {
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt()) },
+            valueRange = 0f..100f,
+            steps = 19,
+        )
+    }
+}
+
+@Composable
+private fun ChunkDistanceSlider(
+    label: String,
+    value: Int,
+    range: IntRange,
+    onValueChange: (Int) -> Unit,
+) {
+    SliderSetting(label, "$value chunks") {
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onValueChange(it.roundToInt()) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = range.last - range.first - 1,
+        )
+    }
+}
+
+@Composable
+private fun SliderSetting(label: String, value: String, slider: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(label, color = Muted, style = MaterialTheme.typography.labelMedium, modifier = Modifier.weight(1f))
+            Text(value, style = MaterialTheme.typography.labelMedium)
+        }
+        slider()
+    }
+}
+
+@Composable
+private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

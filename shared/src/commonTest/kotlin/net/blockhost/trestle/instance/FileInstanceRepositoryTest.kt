@@ -7,9 +7,91 @@ import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 
 class FileInstanceRepositoryTest {
+    @Test
+    fun writesVersionCompatibleClientSettingsForNewInstance() = runTest {
+        val fileSystem = FakeFileSystem()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { InstanceId("test01") },
+        )
+        repository.initialize()
+
+        repository.create(
+            CreateInstanceRequest(
+                displayName = "Main",
+                minecraftVersionId = "1.21.8",
+                clientSettings = MinecraftClientSettings(
+                    narratorMode = MinecraftNarratorMode.OFF,
+                    masterVolumePercent = 45,
+                    musicVolumePercent = 15,
+                    renderDistanceChunks = 14,
+                    simulationDistanceChunks = 8,
+                    autoJump = false,
+                    showSubtitles = true,
+                    enableVsync = true,
+                ),
+            ),
+        )
+
+        val options = fileSystem.read("/data/instances/test01/game/options.txt".toPath()) { readUtf8() }
+        assertEquals(
+            """
+            enableVsync:true
+            renderDistance:14
+            soundCategory_master:0.45
+            soundCategory_music:0.15
+            showSubtitles:true
+            autoJump:false
+            narrator:0
+            simulationDistance:8
+            """.trimIndent() + "\n",
+            options,
+        )
+    }
+
+    @Test
+    fun omitsClientSettingsUnknownToLegacyVersions() = runTest {
+        val fileSystem = FakeFileSystem()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { InstanceId("legacy01") },
+        )
+        repository.initialize()
+
+        repository.create(CreateInstanceRequest("Legacy", "1.5.2"))
+
+        assertFalse(fileSystem.exists("/data/instances/legacy01/game/options.txt".toPath()))
+    }
+
+    @Test
+    fun limitsClientSettingsToOptionsSupportedByTheSelectedVersion() = runTest {
+        val fileSystem = FakeFileSystem()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { InstanceId("test1710") },
+        )
+        repository.initialize()
+
+        repository.create(CreateInstanceRequest("Legacy modded", "1.7.10"))
+
+        val options = fileSystem.read("/data/instances/test1710/game/options.txt".toPath()) { readUtf8() }
+        assertTrue("renderDistance:12" in options)
+        assertTrue("soundCategory_master:0.5" in options)
+        assertFalse("narrator:" in options)
+        assertFalse("simulationDistance:" in options)
+    }
+
     @Test
     fun persistsRegistryAtomicallyAndReloadsIt() = runTest {
         val fileSystem = FakeFileSystem()

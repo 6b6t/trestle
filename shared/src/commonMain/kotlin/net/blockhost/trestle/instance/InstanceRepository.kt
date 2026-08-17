@@ -29,6 +29,7 @@ data class CreateInstanceRequest(
     val memory: MemorySettings = MemorySettings(),
     val gameArguments: List<String> = emptyList(),
     val iconReference: String? = null,
+    val clientSettings: MinecraftClientSettings? = MinecraftClientSettings(),
 )
 
 fun interface InstanceIdFactory {

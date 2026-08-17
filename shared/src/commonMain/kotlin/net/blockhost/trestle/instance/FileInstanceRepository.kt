@@ -94,7 +94,13 @@ class FileInstanceRepository(
             gameArguments = request.gameArguments,
             iconReference = request.iconReference,
         )
-        fileSystem.createDirectories((instancesDirectory / id.value) / "game")
+        val gameDirectory = (instancesDirectory / id.value) / "game"
+        fileSystem.createDirectories(gameDirectory)
+        request.clientSettings?.toOptionsText(request.minecraftVersionId)?.takeIf(String::isNotEmpty)?.let { options ->
+            fileSystem.write(gameDirectory / "options.txt") {
+                writeUtf8(options)
+            }
+        }
         persist(mutableInstances.value + instance)
         logger.info("instances", "Created instance", mapOf("id" to instance.id.value, "version" to instance.minecraftVersionId))
         instance

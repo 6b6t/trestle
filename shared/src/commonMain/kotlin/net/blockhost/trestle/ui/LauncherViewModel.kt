@@ -32,6 +32,7 @@ import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.PreparedLaunch
 import net.blockhost.trestle.instance.CreateInstanceRequest
+import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
@@ -49,6 +50,8 @@ data class CreateInstanceState(
     val loaderVersions: List<String> = emptyList(),
     val isResolvingLoader: Boolean = false,
     val isSaving: Boolean = false,
+    val preconfigureClientSettings: Boolean = true,
+    val clientSettings: MinecraftClientSettings = MinecraftClientSettings(),
 )
 
 data class LaunchPlanSummary(
@@ -329,6 +332,14 @@ class LauncherViewModel(
         mutableState.update { it.copy(create = it.create.copy(loaderVersion = value)) }
     }
 
+    fun setCreateClientPreconfiguration(value: Boolean) {
+        mutableState.update { it.copy(create = it.create.copy(preconfigureClientSettings = value)) }
+    }
+
+    fun setCreateClientSettings(value: MinecraftClientSettings) {
+        mutableState.update { it.copy(create = it.create.copy(clientSettings = value)) }
+    }
+
     fun createInstance() {
         val form = mutableState.value.create
         if (form.name.isBlank() || form.versionId.isBlank()) return
@@ -344,6 +355,7 @@ class LauncherViewModel(
                         loaderVersion = form.loaderVersion,
                         requiredJavaMajor = metadata.javaVersion?.majorVersion ?: 8,
                         memory = LaunchTuningAdvisor.recommendMemory(form.modLoader, services.systemProfile),
+                        clientSettings = form.clientSettings.takeIf { form.preconfigureClientSettings },
                     ),
                 )
                 mutableState.update {
