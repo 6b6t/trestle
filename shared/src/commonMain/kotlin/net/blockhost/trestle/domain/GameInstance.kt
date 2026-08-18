@@ -74,6 +74,11 @@ data class GameInstance(
     val gameArguments: List<String> = emptyList(),
     val javaExecutable: String? = null,
     val environmentVariables: Map<String, String> = emptyMap(),
+    val notes: String = "",
+    val preLaunchCommand: List<String> = emptyList(),
+    val wrapperCommand: List<String> = emptyList(),
+    val postExitCommand: List<String> = emptyList(),
+    val accountProfileId: String? = null,
     val installationState: InstallationState = InstallationState.NotInstalled,
     val lastLaunchAtEpochMillis: Long? = null,
     val iconReference: String? = null,
@@ -91,6 +96,10 @@ data class GameInstance(
         require(playTimeMillis >= 0) { "Play time must not be negative." }
         require(javaExecutable?.isNotBlank() != false) { "The Java executable must not be blank." }
         require(environmentVariables.keys.none(String::isBlank)) { "Environment variable names must not be blank." }
+        require(preLaunchCommand.none(String::isBlank)) { "Pre-launch command arguments must not be blank." }
+        require(wrapperCommand.none(String::isBlank)) { "Wrapper command arguments must not be blank." }
+        require(postExitCommand.none(String::isBlank)) { "Post-exit command arguments must not be blank." }
+        require(accountProfileId?.isNotBlank() != false) { "The account profile ID must not be blank." }
         require(modLoader != ModLoader.VANILLA || loaderVersion == null) {
             "Vanilla instances cannot have a loader version."
         }

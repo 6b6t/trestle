@@ -111,6 +111,69 @@ class DesktopMinecraftRuntimeTest {
 
         assertTrue(events.first() is LaunchEvent.Started)
         assertEquals(0, (events.last() as LaunchEvent.Exited).exitCode)
+        assertTrue(Files.readString(root.resolve(".trestle/logs/latest.log")).isNotBlank())
+    }
+
+    @Test
+    fun runsCommandsBeforeAndAfterMinecraft() = runTest {
+        val root = Files.createTempDirectory("trestle-command-test")
+        val hook = root.resolve("LaunchHook.java")
+        Files.writeString(
+            hook,
+            """
+            import java.nio.file.*;
+            class LaunchHook {
+                public static void main(String[] args) throws Exception {
+                    Files.writeString(Path.of(args[0]), System.getenv("INST_NAME"));
+                }
+            }
+            """.trimIndent(),
+        )
+        val before = root.resolve("before.txt")
+        val after = root.resolve("after.txt")
+        val wrapper = root.resolve("LaunchWrapper.java")
+        Files.writeString(
+            wrapper,
+            """
+            import java.nio.file.*;
+            import java.util.*;
+            class LaunchWrapper {
+                public static void main(String[] args) throws Exception {
+                    var command = Arrays.copyOfRange(args, 1, args.length);
+                    Files.writeString(Path.of(args[0]), String.join("\n", command));
+                    System.exit(new ProcessBuilder(command).inheritIO().start().waitFor());
+                }
+            }
+            """.trimIndent(),
+        )
+        val wrapped = root.resolve("wrapped.txt")
+        val runtime = DesktopMinecraftRuntime(
+            environment = PlatformEnvironment(OperatingSystem.LINUX, Architecture.X86_64),
+            directories = LauncherDirectories(root.toString().toPath()),
+            sessionProvider = NoSessionProvider,
+            installedVersionReader = { error("Not used by launch") },
+            javaResolver = JavaResolver { _, _ -> error("Not used by launch") },
+        )
+        val launch = PreparedLaunch(
+            instanceId = "test01",
+            executable = javaExecutable(),
+            arguments = listOf(CommandArgument.Public("-version")),
+            workingDirectory = root.toString(),
+            environment = mapOf("INST_NAME" to "Command Test"),
+            mainClass = "unused",
+            classpathEntries = emptyList(),
+            nativeDirectory = root.toString(),
+            preLaunchCommand = listOf(javaExecutable(), hook.toString(), before.toString()),
+            wrapperCommand = listOf(javaExecutable(), wrapper.toString(), wrapped.toString()),
+            postExitCommand = listOf(javaExecutable(), hook.toString(), after.toString()),
+        )
+
+        val events = runtime.launch(launch).toList()
+
+        assertEquals("Command Test", Files.readString(before))
+        assertEquals("Command Test", Files.readString(after))
+        assertTrue(Files.readString(wrapped).startsWith(javaExecutable()))
+        assertEquals(0, (events.last() as LaunchEvent.Exited).exitCode)
     }
 
     @Test

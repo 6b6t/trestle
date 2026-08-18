@@ -15,9 +15,12 @@ Trestle provides:
 - Modrinth, CurseForge, Prism Launcher, and MultiMC pack import.
 - Portable instance export with Prism-compatible metadata.
 - Instance cloning, grouping, custom icons, launch statistics, and component changes.
-- World backups, data-pack controls, server bookmarks, screenshots, and crash reports.
+- World import, copy, rename, backup, data-pack, icon, and seed controls.
+- Server status, player counts, ordering, resource-pack policy, and direct join controls.
+- Screenshot management, instance notes, searchable game logs, and crash reports.
 - Microsoft, imported-session, The Altening, and offline account profiles.
-- Desktop launch controls, custom Java paths, environment variables, and live console output.
+- Per-instance accounts, custom Java paths, environment variables, and live console output.
+- Desktop pre-launch, wrapper, and post-exit commands.
 - Android launch support for Vanilla Minecraft 26.2 on compatible 64-bit ARM devices.
 - Android touch, keyboard, mouse, and gamepad input.
 

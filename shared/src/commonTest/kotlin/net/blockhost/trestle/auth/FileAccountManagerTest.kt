@@ -27,6 +27,7 @@ class FileAccountManagerTest {
         manager.select("profile-b")
 
         assertEquals("profile-b", manager.currentSession()?.profileId)
+        assertEquals("profile-a", manager.currentSession("profile-a")?.profileId)
         assertFalse(fileSystem.read(registry) { readUtf8() }.contains("secret-a"))
         assertFalse(fileSystem.read(registry) { readUtf8() }.contains("secret-b"))
 

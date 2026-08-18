@@ -113,6 +113,31 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun instanceWorkspaceSavesNotesThroughTheActionContract() = runComposeUiTest {
+        var savedNotes: String? = null
+        val actions = object : LauncherUiActions {
+            override fun saveInstanceNotes(value: String) {
+                savedNotes = value
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = actions,
+                    initialDestination = LauncherDestination.INSTANCE,
+                )
+            }
+        }
+
+        onNodeWithText("Notes").performClick()
+        onNodeWithText("Write notes for Building world").performTextInput("Use the survival seed")
+        onNodeWithText("Save notes").performClick()
+
+        assertEquals("Use the survival seed", savedNotes)
+    }
+
+    @Test
     fun discoverKeepsResourceSearchVisible() = runComposeUiTest {
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {

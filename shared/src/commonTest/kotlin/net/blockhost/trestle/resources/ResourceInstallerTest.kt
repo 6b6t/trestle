@@ -118,7 +118,8 @@ class ResourceInstallerTest {
 
         assertEquals(1, summary.dependencyCount)
         val installed = installer.installedContent(instance(root))
-        assertEquals(listOf("root-version", "dependency-version"), installed.map { it.name })
+        assertEquals(listOf("root", "dependency-version"), installed.map { it.name })
+        assertEquals(listOf("1.0.0", "1.0.0"), installed.map { it.versionNumber })
         assertTrue(installed.first().direct)
         assertFalse(installed.last().direct)
         assertTrue(fileSystem.exists(root / "game" / "mods" / "root.jar"))

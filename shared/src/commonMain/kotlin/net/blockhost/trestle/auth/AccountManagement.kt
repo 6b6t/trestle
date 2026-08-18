@@ -173,8 +173,8 @@ class FileAccountManager(
         persist()
     }
 
-    override suspend fun currentSession(): AuthSession? = mutex.withLock {
-        activeProfileId?.let(sessions::get)
+    override suspend fun currentSession(profileId: String?): AuthSession? = mutex.withLock {
+        (profileId ?: activeProfileId)?.let(sessions::get)
     }
 
     private fun persist() {

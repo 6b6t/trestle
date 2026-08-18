@@ -103,7 +103,7 @@ class AndroidMinecraftRuntime internal constructor(
                         "Java ${installed.requiredJavaMajor}.",
                 )
             }
-            val session = sessionProvider.currentSession()
+            val session = sessionProvider.currentSession(instance.accountProfileId)
                 ?: return@withContext PreparedLaunch(
                     instanceId = instance.id.value,
                     executable = "",
@@ -190,7 +190,8 @@ class AndroidMinecraftRuntime internal constructor(
                 executable = java.home.toString(),
                 arguments = allArguments,
                 workingDirectory = gameDirectory.toString(),
-                environment = androidEnvironment(java.home.toString(), components.nativeDirectory.toString()),
+                environment = androidEnvironment(java.home.toString(), components.nativeDirectory.toString()) +
+                    instance.environmentVariables,
                 mainClass = installed.metadata.mainClass,
                 classpathEntries = classpathEntries,
                 nativeDirectory = components.nativeDirectory.toString(),

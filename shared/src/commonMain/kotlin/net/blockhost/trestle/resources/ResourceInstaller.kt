@@ -27,7 +27,11 @@ data class InstalledContent(
     val provider: ResourceProvider? = null,
     val projectId: String? = null,
     val versionId: String? = null,
+    val versionNumber: String? = null,
+    val websiteUrl: String? = null,
     val requiredByCount: Int = 0,
+    val sizeBytes: Long = 0,
+    val lastModifiedEpochMillis: Long? = null,
 ) {
     val isTracked: Boolean get() = provider != null && projectId != null
     val canManage: Boolean get() = direct
@@ -43,6 +47,9 @@ class ResourceInstaller(
         val manifest = readManifest(root / ".trestle" / "resources.json")
         val trackedFiles = manifest.resources.flatMapTo(mutableSetOf()) { it.files }
         val tracked = manifest.resources.map { resource ->
+            val fileMetadata = resource.files.mapNotNull { relativePath ->
+                fileSystem.metadataOrNull(root / "game" / relativePath)
+            }
             InstalledContent(
                 key = resourceKey(resource.provider, resource.projectId),
                 name = resource.name,
@@ -53,7 +60,11 @@ class ResourceInstaller(
                 provider = resource.provider,
                 projectId = resource.projectId,
                 versionId = resource.versionId,
+                versionNumber = resource.versionNumber,
+                websiteUrl = resource.websiteUrl,
                 requiredByCount = resource.requiredBy.size,
+                sizeBytes = fileMetadata.sumOf { it.size ?: 0L },
+                lastModifiedEpochMillis = fileMetadata.mapNotNull { it.lastModifiedAtMillis }.maxOrNull(),
             )
         }
         val local = MANAGED_RESOURCE_TYPES.flatMap { type ->
@@ -76,6 +87,8 @@ class ResourceInstaller(
                     fileNames = listOf(file.name),
                     enabled = enabled,
                     direct = true,
+                    sizeBytes = fileSystem.metadataOrNull(file)?.size ?: 0L,
+                    lastModifiedEpochMillis = fileSystem.metadataOrNull(file)?.lastModifiedAtMillis,
                 )
             }
         }
@@ -229,7 +242,9 @@ class ResourceInstaller(
                 projectId = resolvedVersion.version.projectId,
                 versionId = resolvedVersion.version.id,
                 type = if (resolvedVersion.isRoot) project.type else ResourceType.MOD,
-                name = resolvedVersion.version.name,
+                name = if (resolvedVersion.isRoot) project.name else resolvedVersion.version.name,
+                versionNumber = resolvedVersion.version.versionNumber,
+                websiteUrl = if (resolvedVersion.isRoot) project.websiteUrl else null,
                 files = ownedFiles,
                 direct = resolvedVersion.isRoot,
                 requiredBy = if (resolvedVersion.isRoot) emptyList() else listOf(rootKey),
@@ -533,6 +548,8 @@ private data class InstalledResource(
     val versionId: String,
     val type: ResourceType,
     val name: String,
+    val versionNumber: String? = null,
+    val websiteUrl: String? = null,
     val files: List<String>,
     val direct: Boolean = true,
     val requiredBy: List<String> = emptyList(),

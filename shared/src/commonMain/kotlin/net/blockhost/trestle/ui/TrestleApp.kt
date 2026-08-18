@@ -56,6 +56,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -80,6 +81,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.SecondaryTabRow
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -136,6 +138,10 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -179,9 +185,11 @@ import net.blockhost.trestle.resources.DependencyKind
 import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.instance.MinecraftNarratorMode
 import net.blockhost.trestle.instance.MinecraftParticleSetting
+import net.blockhost.trestle.instance.ServerStatus
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
+import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.readBytes
 import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.launch
@@ -1525,6 +1533,9 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
     val form = state.instanceSettings
     val instance = form.instanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
     val focusManager = LocalFocusManager.current
+    val javaPicker = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
+        file?.let { actions.setJavaExecutable(it.path) }
+    }
     val minimum = form.minimumMemoryMiB.toIntOrNull()
     val maximum = form.maximumMemoryMiB.toIntOrNull()
     val valid = form.name.isNotBlank() && form.minecraftVersionId.isNotBlank() &&
@@ -1533,6 +1544,11 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
     val availableLoaders = ModLoader.entries.filter { loader ->
         state.supportedModLoaders == null || loader in state.supportedModLoaders
     }
+    val accountChoices = listOf("Use active account" to null) + state.accounts
+        .filter { it.profile.edition == MinecraftEdition.JAVA }
+        .map { account ->
+            "${account.profile.playerName} (${account.profile.profileId.takeLast(6)})" to account.profile.profileId
+        }
     val componentsChanged = instance != null && (
         instance.minecraftVersionId != form.minecraftVersionId || instance.modLoader != form.modLoader
     )
@@ -1617,6 +1633,15 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
 
                     HorizontalDivider()
                     Text("Launch", style = MaterialTheme.typography.titleMedium)
+                    Selector(
+                        label = "Account",
+                        value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
+                            ?: "Use active account",
+                        values = accountChoices.map { it.first },
+                        onSelect = { selected ->
+                            actions.setInstanceAccount(accountChoices.firstOrNull { it.first == selected }?.second)
+                        },
+                    )
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
                         val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
                             val error = if (isMinimum) minimumError else maximumError
@@ -1676,14 +1701,29 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (state.supportsCustomJava) {
-                        TextField(
-                            value = form.javaExecutable,
-                            onValueChange = actions::setJavaExecutable,
-                            label = { Text("Custom Java executable") },
-                            supportingText = { Text("Leave blank to use Trestle's managed Mojang runtime.") },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val javaField: @Composable (Modifier) -> Unit = { fieldModifier ->
+                                TextField(
+                                    value = form.javaExecutable,
+                                    onValueChange = actions::setJavaExecutable,
+                                    label = { Text("Custom Java executable") },
+                                    supportingText = { Text("Leave blank to use Trestle's managed Mojang runtime.") },
+                                    singleLine = true,
+                                    modifier = fieldModifier,
+                                )
+                            }
+                            if (maxWidth < 440.dp) {
+                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    javaField(Modifier.fillMaxWidth())
+                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text("Browse") }
+                                }
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                                    javaField(Modifier.weight(1f))
+                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text("Browse") }
+                                }
+                            }
+                        }
                     }
                     TextField(
                         value = form.environmentVariables,
@@ -1693,6 +1733,35 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         minLines = 2,
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (state.supportsLaunchCommands) {
+                        HorizontalDivider()
+                        Text("Custom commands", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        TextField(
+                            value = form.preLaunchCommand,
+                            onValueChange = actions::setPreLaunchCommand,
+                            label = { Text("Pre-launch command") },
+                            supportingText = { Text("Must exit successfully before Minecraft starts.") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextField(
+                            value = form.wrapperCommand,
+                            onValueChange = actions::setWrapperCommand,
+                            label = { Text("Wrapper command") },
+                            supportingText = { Text("Runs before the Java executable, for example gamescope --.") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        TextField(
+                            value = form.postExitCommand,
+                            onValueChange = actions::setPostExitCommand,
+                            label = { Text("Post-exit command") },
+                            supportingText = { Text("Runs after Minecraft exits.") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
 
                     HorizontalDivider()
                     Text("Minecraft client", style = MaterialTheme.typography.titleMedium)
@@ -2860,6 +2929,8 @@ private enum class InstanceSection(val label: String) {
     OVERVIEW("Overview"),
     CONTENT("Content"),
     GAME_DATA("Game data"),
+    NOTES("Notes"),
+    LOGS("Logs"),
     SETTINGS("Settings"),
 }
 
@@ -2899,9 +2970,10 @@ private fun InstanceWorkspace(
             return@Column
         }
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SecondaryTabRow(
+            SecondaryScrollableTabRow(
                 selectedTabIndex = section.ordinal,
                 modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth(),
+                edgePadding = 0.dp,
             ) {
                 InstanceSection.entries.forEach { item ->
                     Tab(
@@ -2935,6 +3007,8 @@ private fun InstanceWorkspace(
                     gameDataListState,
                     contentModifier,
                 )
+                InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
+                InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
                 InstanceSection.SETTINGS -> InstanceConfiguration(
                     instance,
                     actions,
@@ -2955,6 +3029,11 @@ private fun InstanceGameData(
     modifier: Modifier,
 ) {
     val openPath = rememberOpenPath()
+    val copyText = rememberCopyText()
+    var screenshotToRename by rememberSaveable(instance.id) { mutableStateOf<String?>(null) }
+    var screenshotName by rememberSaveable(instance.id) { mutableStateOf("") }
+    var worldToRename by rememberSaveable(instance.id) { mutableStateOf<String?>(null) }
+    var worldName by rememberSaveable(instance.id) { mutableStateOf("") }
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -2989,20 +3068,60 @@ private fun InstanceGameData(
         }
         item("worlds") {
             GameDataSection("Worlds", if (state.gameData.worlds.isEmpty()) "No local worlds yet." else null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    WorldImportButton(actions)
+                }
                 state.gameData.worlds.forEach { world ->
                     ListItem(
+                        leadingContent = world.iconPath?.let { iconPath ->
+                            {
+                                AsyncImage(
+                                    model = iconPath,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                        },
                         headlineContent = { Text(world.name) },
                         supportingContent = {
-                            Text("${formatFileSize(world.sizeBytes)} · ${world.dataPacks.size} data packs")
+                            val details = listOfNotNull(
+                                world.gameMode,
+                                formatFileSize(world.sizeBytes),
+                                "${world.dataPacks.size} data packs",
+                            )
+                            Text(details.joinToString(" · "))
                         },
                         trailingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(onClick = { actions.backupWorld(world.key) }) { Text("Back up") }
-                                TextButton(onClick = { actions.deleteWorld(world.key) }) { Text("Delete") }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { actions.launchWorld(world.key) }) { Text("Play") }
+                                InstanceItemActions(
+                                    buildList {
+                                        add(
+                                            "Rename" to {
+                                                worldToRename = world.key
+                                                worldName = world.name
+                                            },
+                                        )
+                                        add("Copy" to { actions.copyWorld(world.key) })
+                                        add("Back up" to { actions.backupWorld(world.key) })
+                                        if (world.iconPath != null) add("Reset icon" to { actions.resetWorldIcon(world.key) })
+                                        add("Delete" to { actions.deleteWorld(world.key) })
+                                    },
+                                )
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     )
+                    world.seed?.let { seed ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text("Seed $seed", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                            TextButton(onClick = { copyText(seed.toString()) }) { Text("Copy seed") }
+                        }
+                    }
                     world.dataPacks.forEach { pack ->
                         Row(
                             Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
@@ -3030,12 +3149,41 @@ private fun InstanceGameData(
                 }
                 state.gameData.servers.forEach { server ->
                     ListItem(
+                        leadingContent = server.iconDataUrl?.let { iconDataUrl ->
+                            {
+                                AsyncImage(
+                                    model = iconDataUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(42.dp).clip(MaterialTheme.shapes.small),
+                                    contentScale = ContentScale.Crop,
+                                )
+                            }
+                        },
                         headlineContent = { Text(server.name) },
-                        supportingContent = { Text(server.address) },
+                        supportingContent = {
+                            val status = when (server.status) {
+                                ServerStatus.ONLINE -> listOfNotNull(
+                                    server.onlinePlayers?.let { online ->
+                                        server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
+                                    },
+                                    server.pingMillis?.let { "${it} ms" },
+                                ).joinToString(" · ")
+                                ServerStatus.OFFLINE -> "Offline"
+                                ServerStatus.UNKNOWN -> "Not checked"
+                            }
+                            Text("${server.address} · $status")
+                        },
                         trailingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                TextButton(onClick = { actions.openServerEditor(server.key) }) { Text("Edit") }
-                                TextButton(onClick = { actions.removeServer(server.key) }) { Text("Remove") }
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TextButton(onClick = { actions.joinServer(server.key) }) { Text("Join") }
+                                InstanceItemActions(
+                                    listOf(
+                                        "Move up" to { actions.moveServer(server.key, -1) },
+                                        "Move down" to { actions.moveServer(server.key, 1) },
+                                        "Edit" to { actions.openServerEditor(server.key) },
+                                        "Remove" to { actions.removeServer(server.key) },
+                                    ),
+                                )
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -3072,16 +3220,271 @@ private fun InstanceGameData(
                         headlineContent = { Text(screenshot.fileName) },
                         supportingContent = { Text(formatFileSize(screenshot.sizeBytes)) },
                         trailingContent = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 TextButton(
                                     onClick = { openPath(screenshot.path) },
                                     enabled = currentPlatform == "Desktop",
                                 ) { Text("Open") }
-                                TextButton(onClick = { actions.deleteScreenshot(screenshot.key) }) { Text("Delete") }
+                                InstanceItemActions(
+                                    listOf(
+                                        "Copy file path" to { copyText(screenshot.path) },
+                                        "Rename" to {
+                                            screenshotToRename = screenshot.key
+                                            screenshotName = screenshot.fileName.substringBeforeLast('.')
+                                        },
+                                        "Delete" to { actions.deleteScreenshot(screenshot.key) },
+                                    ),
+                                )
                             }
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     )
+                }
+            }
+        }
+    }
+    worldToRename?.let { worldKey ->
+        AlertDialog(
+            onDismissRequest = { worldToRename = null },
+            title = { Text("Rename world") },
+            text = {
+                OutlinedTextField(
+                    value = worldName,
+                    onValueChange = { worldName = it },
+                    label = { Text("World name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            dismissButton = { TextButton(onClick = { worldToRename = null }) { Text("Cancel") } },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        actions.renameWorld(worldKey, worldName)
+                        worldToRename = null
+                    },
+                    enabled = worldName.isNotBlank(),
+                ) { Text("Rename") }
+            },
+        )
+    }
+    screenshotToRename?.let { screenshotKey ->
+        AlertDialog(
+            onDismissRequest = { screenshotToRename = null },
+            title = { Text("Rename screenshot") },
+            text = {
+                OutlinedTextField(
+                    value = screenshotName,
+                    onValueChange = { screenshotName = it },
+                    label = { Text("File name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            dismissButton = {
+                TextButton(onClick = { screenshotToRename = null }) { Text("Cancel") }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        actions.renameScreenshot(screenshotKey, screenshotName)
+                        screenshotToRename = null
+                    },
+                    enabled = screenshotName.isNotBlank(),
+                ) { Text("Rename") }
+            },
+        )
+    }
+}
+
+@Composable
+private fun WorldImportButton(actions: LauncherUiActions) {
+    val scope = rememberCoroutineScope()
+    val picker = rememberFilePickerLauncher(type = FileKitType.File(extensions = listOf("zip"))) { file ->
+        if (file != null) {
+            scope.launch {
+                if (runCatching { file.size() }.getOrDefault(-1L) > MAX_LOCAL_IMPORT_BYTES) {
+                    actions.reportLocalFileTooLarge(file.name)
+                } else {
+                    runCatching { file.readBytes() }
+                        .onSuccess { actions.importWorld(file.name, it) }
+                        .onFailure { actions.reportLocalFileReadFailure(file.name) }
+                }
+            }
+        }
+    }
+    TextButton(onClick = { picker.launch() }) { Text("Import world") }
+}
+
+@Composable
+private fun InstanceNotes(
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+) {
+    var draft by rememberSaveable(instance.id, instance.notes) { mutableStateOf(instance.notes) }
+    Column(
+        modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(Modifier.widthIn(max = 820.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Notes", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Keep setup details, server information, or reminders with this instance.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Button(
+                    onClick = { actions.saveInstanceNotes(draft) },
+                    enabled = draft.trimEnd() != instance.notes,
+                ) { Text("Save notes") }
+            }
+            OutlinedTextField(
+                value = draft,
+                onValueChange = { draft = it },
+                placeholder = { Text("Write notes for ${instance.displayName}") },
+                minLines = 16,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun InstanceLogs(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+) {
+    var query by rememberSaveable(instance.id) { mutableStateOf("") }
+    var followLaunch by rememberSaveable(instance.id) { mutableStateOf(true) }
+    var wrapLines by rememberSaveable(instance.id) { mutableStateOf(true) }
+    var colorLines by rememberSaveable(instance.id) { mutableStateOf(true) }
+    val copyText = rememberCopyText()
+    val outputScroll = rememberScrollState()
+    val selectedKey = state.selectedInstanceLogKey
+    val launchActive = state.activeLaunch?.status.let { it == LaunchStatus.Starting || it is LaunchStatus.Running }
+    LaunchedEffect(state.gameData.logs, selectedKey) {
+        if (selectedKey == null) state.gameData.logs.firstOrNull()?.let { actions.selectInstanceLog(it.key) }
+    }
+    val streamedLog = selectedKey?.endsWith(".trestle/logs/latest.log") == true && state.gameLogLines.isNotEmpty()
+    val rawText = if (followLaunch && streamedLog) state.gameLogLines.joinToString("\n") else state.selectedInstanceLogText
+    val visibleText = if (query.isBlank()) rawText else rawText.lineSequence()
+        .filter { it.contains(query, ignoreCase = true) }
+        .joinToString("\n")
+    val renderedText = if (colorLines) {
+        buildAnnotatedString {
+            visibleText.lineSequence().forEachIndexed { index, line ->
+                val color = when {
+                    "error" in line.lowercase() || "fatal" in line.lowercase() -> MaterialTheme.colorScheme.error
+                    "warn" in line.lowercase() -> MaterialTheme.colorScheme.tertiary
+                    else -> MaterialTheme.colorScheme.onSurface
+                }
+                if (index > 0) append('\n')
+                withStyle(SpanStyle(color = color)) { append(line) }
+            }
+        }
+    } else {
+        AnnotatedString(visibleText)
+    }
+    LaunchedEffect(visibleText, followLaunch) {
+        if (followLaunch) outputScroll.scrollTo(outputScroll.maxValue)
+    }
+    Column(modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.widthIn(max = 1000.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Instance logs", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Review Minecraft output, archived logs, and crash reports.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(
+                    onClick = { selectedKey?.let(actions::selectInstanceLog) },
+                    enabled = selectedKey != null && !state.isLoadingInstanceLog,
+                ) { Text("Reload") }
+                InstanceItemActions(
+                    buildList {
+                        if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
+                        if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
+                        if (selectedKey != null && !launchActive) {
+                            add("Delete log file" to { actions.deleteInstanceLog(selectedKey) })
+                        }
+                    },
+                )
+            }
+            if (state.gameData.logs.isEmpty()) {
+                Text(
+                    "Logs appear here after Minecraft starts.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                Selector(
+                    label = "Log file",
+                    value = selectedKey.orEmpty(),
+                    values = state.gameData.logs.map { it.key },
+                    enabled = !state.isLoadingInstanceLog,
+                    onSelect = actions::selectInstanceLog,
+                )
+            }
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    label = { Text("Find in log") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    Row(
+                        Modifier.toggleable(followLaunch, role = Role.Checkbox) { followLaunch = it },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(followLaunch, onCheckedChange = null)
+                        Text("Follow launch")
+                    }
+                    Row(
+                        Modifier.toggleable(wrapLines, role = Role.Checkbox) { wrapLines = it },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(wrapLines, onCheckedChange = null)
+                        Text("Wrap lines")
+                    }
+                }
+                Row(
+                    Modifier.toggleable(colorLines, role = Role.Checkbox) { colorLines = it },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(colorLines, onCheckedChange = null)
+                    Text("Color warnings and errors")
+                }
+            }
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth().weight(1f),
+            ) {
+                when {
+                    state.isLoadingInstanceLog -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                    else -> androidx.compose.foundation.text.selection.SelectionContainer {
+                        Text(
+                            if (renderedText.isEmpty()) AnnotatedString("No matching log lines.") else renderedText,
+                            modifier = Modifier.fillMaxSize().verticalScroll(outputScroll).padding(12.dp),
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                            style = MaterialTheme.typography.bodySmall,
+                            softWrap = wrapLines,
+                        )
+                    }
                 }
             }
         }
@@ -3100,6 +3503,26 @@ private fun GameDataSection(title: String, emptyMessage: String?, content: @Comp
             )
         }
         content()
+    }
+}
+
+@Composable
+private fun InstanceItemActions(actions: List<Pair<String, () -> Unit>>) {
+    if (actions.isEmpty()) return
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        TextButton(onClick = { expanded = true }) { Text("More") }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            actions.forEach { (label, action) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        expanded = false
+                        action()
+                    },
+                )
+            }
+        }
     }
 }
 
@@ -3126,6 +3549,16 @@ private fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiAction
                     supportingText = { Text("For example, play.example.net:25565") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
+                )
+                Selector(
+                    label = "Server resource packs",
+                    value = when (editor.acceptTextures) {
+                        true -> "Always"
+                        false -> "Never"
+                        null -> "Ask"
+                    },
+                    values = listOf("Ask", "Always", "Never"),
+                    onSelect = actions::setServerResourcePacks,
                 )
             }
         },
@@ -3224,6 +3657,18 @@ private fun InstanceOverview(
                     "Last launch",
                     instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never",
                 )
+                Spacer(Modifier.height(24.dp))
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Version components", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    TextButton(onClick = actions::openInstanceSettings) { Text("Change") }
+                }
+                PropertyRow("Minecraft", instance.minecraftVersionId)
+                if (instance.modLoader == ModLoader.VANILLA) {
+                    PropertyRow("Loader", "Vanilla")
+                } else {
+                    PropertyRow(instance.modLoader.label, instance.loaderVersion ?: "Select during installation")
+                }
+                PropertyRow("Java runtime", "Java ${instance.requiredJavaMajor}")
             }
         }
         state.launchPlan?.let { plan ->
@@ -3354,6 +3799,8 @@ private fun InstalledContentPanel(
     instance: GameInstance,
     actions: LauncherUiActions,
 ) {
+    val openPath = rememberOpenPath()
+    val copyText = rememberCopyText()
     Column(
         Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -3381,6 +3828,22 @@ private fun InstalledContentPanel(
             ) {
                 Text(if (state.isCheckingInstalledContentUpdates) "Checking…" else "Check updates")
             }
+            InstanceItemActions(
+                buildList {
+                    add("Copy installed list" to {
+                        copyText(
+                            state.installedContent.filter { it.direct }
+                                .joinToString("\n") { content ->
+                                    listOfNotNull(content.name, content.versionNumber).joinToString(" ")
+                                },
+                        )
+                    })
+                    if (currentPlatform == "Desktop") {
+                        add("Open game folder" to { openPath("${instance.instanceDirectory}/game") })
+                        add("Open config folder" to { openPath("${instance.instanceDirectory}/game/config") })
+                    }
+                },
+            )
         }
         when {
             state.isLoadingInstalledContent -> Row(
@@ -3402,14 +3865,26 @@ private fun InstalledContentPanel(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            else -> Column {
-                state.installedContent.forEach { content ->
-                    InstalledContentRow(
-                        content = content,
-                        update = state.installedContentUpdates[content.key],
-                        actions = actions,
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            else -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                browsableResourceTypes.filterNot { it == ResourceType.MODPACK }.forEach { type ->
+                    val contentForType = state.installedContent.filter { it.type == type }
+                    if (contentForType.isNotEmpty()) {
+                        Column {
+                            Text(
+                                "${type.label} (${contentForType.size})",
+                                style = MaterialTheme.typography.titleMedium,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
+                            )
+                            contentForType.forEach { content ->
+                                InstalledContentRow(
+                                    content = content,
+                                    update = state.installedContentUpdates[content.key],
+                                    actions = actions,
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -3422,6 +3897,7 @@ private fun InstalledContentRow(
     update: ResourceVersion?,
     actions: LauncherUiActions,
 ) {
+    val uriHandler = LocalUriHandler.current
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         ListItem(
             headlineContent = {
@@ -3441,7 +3917,14 @@ private fun InstalledContentRow(
                 val role = if (content.direct) source else {
                     "Dependency${if (content.requiredByCount > 1) " for ${content.requiredByCount} items" else ""}"
                 }
-                Text("${content.type.label.removeSuffix("s")} · $role · ${content.fileNames.joinToString()}")
+                val details = buildList {
+                    add(content.type.label.removeSuffix("s"))
+                    content.versionNumber?.let(::add)
+                    add(role)
+                    if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
+                    content.lastModifiedEpochMillis?.let { add("Modified ${formatLocalDateTime(it)}") }
+                }
+                Text(details.joinToString(" · "))
             },
             leadingContent = {
                 Surface(
@@ -3469,6 +3952,9 @@ private fun InstalledContentRow(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
+                content.websiteUrl?.let { websiteUrl ->
+                    TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("Homepage") }
+                }
                 if (update != null) {
                     FilledTonalButton(onClick = { actions.updateInstalledContent(content.key) }) {
                         Text("Update")
@@ -3505,6 +3991,15 @@ private fun InstanceConfiguration(
             PropertyRow("Game arguments", instance.gameArguments.joinToString().ifBlank { "None" })
             PropertyRow("Java runtime", instance.javaExecutable ?: "Managed Java ${instance.requiredJavaMajor}")
             PropertyRow("Environment", if (instance.environmentVariables.isEmpty()) "Inherited" else "${instance.environmentVariables.size} custom")
+            if (instance.preLaunchCommand.isNotEmpty()) {
+                PropertyRow("Pre-launch", instance.preLaunchCommand.joinToString(" "))
+            }
+            if (instance.wrapperCommand.isNotEmpty()) {
+                PropertyRow("Wrapper", instance.wrapperCommand.joinToString(" "))
+            }
+            if (instance.postExitCommand.isNotEmpty()) {
+                PropertyRow("Post-exit", instance.postExitCommand.joinToString(" "))
+            }
             OutlinedButton(
                 onClick = actions::openInstanceSettings,
                 modifier = Modifier.padding(top = 12.dp),

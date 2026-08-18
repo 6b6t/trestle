@@ -11,6 +11,7 @@ data class RuntimeCapabilities(
     val supportsManagedJava: Boolean,
     val supportsNativeExtraction: Boolean,
     val supportsCustomJava: Boolean = false,
+    val supportsLaunchCommands: Boolean = false,
     val unavailableReason: String? = null,
     val supportedMinecraftVersions: Set<String>? = null,
     val supportedModLoaders: Set<ModLoader>? = null,
@@ -48,8 +49,11 @@ data class PreparedLaunch(
     val missingRequirements: List<String> = emptyList(),
     val jvmArguments: List<CommandArgument> = emptyList(),
     val gameArguments: List<CommandArgument> = emptyList(),
+    val preLaunchCommand: List<String> = emptyList(),
+    val wrapperCommand: List<String> = emptyList(),
+    val postExitCommand: List<String> = emptyList(),
 ) {
-    fun safeCommand(): List<String> = listOf(executable) + arguments.map {
+    fun safeCommand(): List<String> = wrapperCommand + executable + arguments.map {
         when (it) {
             is CommandArgument.Public -> it.value
             is CommandArgument.Secret -> "[REDACTED]"

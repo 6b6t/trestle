@@ -37,6 +37,7 @@ import net.blockhost.trestle.domain.MemorySettings
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.runtime.JvmArgumentPolicy
 import net.blockhost.trestle.runtime.LaunchEvent
+import net.blockhost.trestle.runtime.LaunchOptions
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.PreparedLaunch
 import net.blockhost.trestle.runtime.RuntimePreparationProgress
@@ -197,6 +198,10 @@ data class InstanceSettingsState(
     val gameArguments: String = "",
     val javaExecutable: String = "",
     val environmentVariables: String = "",
+    val preLaunchCommand: String = "",
+    val wrapperCommand: String = "",
+    val postExitCommand: String = "",
+    val accountProfileId: String? = null,
     val clientSettings: MinecraftClientSettings? = null,
     val isLoadingClientSettings: Boolean = false,
     val clientSettingsError: String? = null,
@@ -210,6 +215,7 @@ data class ServerEditorState(
     val key: String? = null,
     val name: String = "",
     val address: String = "",
+    val acceptTextures: Boolean? = null,
     val isSaving: Boolean = false,
 )
 
@@ -290,7 +296,11 @@ data class LauncherUiState(
     val isLoadingGameData: Boolean = false,
     val serverEditor: ServerEditorState = ServerEditorState(),
     val supportsCustomJava: Boolean = false,
+    val supportsLaunchCommands: Boolean = false,
     val gameLogLines: List<String> = emptyList(),
+    val selectedInstanceLogKey: String? = null,
+    val selectedInstanceLogText: String = "",
+    val isLoadingInstanceLog: Boolean = false,
     val lastCrashReport: String? = null,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val availableUpdate: LauncherUpdate? = null,
@@ -313,6 +323,7 @@ class LauncherViewModel(
             credentialProtection = services.credentialStore.protection,
             supportedMinecraftVersions = services.runtime.capabilities.supportedMinecraftVersions,
             supportedModLoaders = services.runtime.capabilities.supportedModLoaders,
+            supportsLaunchCommands = services.runtime.capabilities.supportsLaunchCommands,
             supportsCustomJava = services.runtime.capabilities.supportsCustomJava,
             themePreference = services.preferences.read().theme,
         ),
@@ -447,6 +458,9 @@ class LauncherViewModel(
                 installedContent = emptyList(),
                 installedContentUpdates = emptyMap(),
                 gameData = GameDataInventory(),
+                selectedInstanceLogKey = null,
+                selectedInstanceLogText = "",
+                isLoadingInstanceLog = false,
             )
         }
         checkLaunchReadiness(mutableState.value.selectedInstance)
@@ -723,7 +737,9 @@ class LauncherViewModel(
         if (instance.installationState !is InstallationState.Installed) return
         try {
             val installed = services.installer.readInstalledVersion(instance)
-            val activeAccount = mutableState.value.accounts.firstOrNull { it.isActive }
+            val activeAccount = instance.accountProfileId?.let { profileId ->
+                mutableState.value.accounts.firstOrNull { it.profile.profileId == profileId }
+            } ?: mutableState.value.accounts.firstOrNull { it.isActive }
             mutableState.update {
                 it.copy(
                     launchPlan = LaunchPlanSummary(
@@ -752,7 +768,9 @@ class LauncherViewModel(
         }
     }
 
-    override fun launchSelected() {
+    override fun launchSelected() = launchSelected(LaunchOptions())
+
+    private fun launchSelected(options: LaunchOptions) {
         if (launchJob?.isActive == true) return
         if (!services.runtime.capabilities.canLaunch) return
         val instance = mutableState.value.selectedInstance ?: return
@@ -773,15 +791,15 @@ class LauncherViewModel(
             updateLaunch(instance.id, LaunchStatus.Starting, activeEvent = true)
             try {
                 val prepared = cachedLaunch
-                    ?.takeIf { (cachedInstance) -> cachedInstance == instance }
+                    ?.takeIf { (cachedInstance) -> cachedInstance == instance && options == LaunchOptions() }
                     ?.second
-                    ?: services.runtime.prepare(instance, onProgress = ::updateRuntimePreparation)
+                    ?: services.runtime.prepare(instance, options, ::updateRuntimePreparation)
                 if (prepared.missingRequirements.isNotEmpty()) {
                     cachedLaunch = null
                     updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements), activeEvent = true)
                     return@launch
                 }
-                cachedLaunch = instance to prepared
+                if (options == LaunchOptions()) cachedLaunch = instance to prepared
                 services.runtime.launch(prepared).collect { event ->
                     when (event) {
                         is LaunchEvent.Started -> {
@@ -864,6 +882,7 @@ class LauncherViewModel(
                 )
             } finally {
                 mutableState.update { it.copy(operation = null) }
+                refreshGameData()
                 launchJob = null
             }
         }
@@ -1340,6 +1359,34 @@ class LauncherViewModel(
         "Restored ${world.name}."
     }
 
+    override fun importWorld(fileName: String, bytes: ByteArray) = runGameDataOperation("Importing world") { instance ->
+        val world = services.gameDataManager.importWorld(instance, fileName, bytes)
+        "Imported ${world.name}."
+    }
+
+    override fun copyWorld(worldKey: String) = runGameDataOperation("Copying world") { instance ->
+        val world = services.gameDataManager.copyWorld(instance, worldKey)
+        "Created ${world.name}."
+    }
+
+    override fun renameWorld(worldKey: String, newName: String) {
+        if (newName.isBlank()) return
+        runGameDataOperation("Renaming world") { instance ->
+            val world = services.gameDataManager.renameWorld(instance, worldKey, newName)
+            "Renamed world to ${world.name}."
+        }
+    }
+
+    override fun resetWorldIcon(worldKey: String) = runGameDataOperation("Resetting world icon") { instance ->
+        services.gameDataManager.resetWorldIcon(instance, worldKey)
+        "Reset the world icon."
+    }
+
+    override fun launchWorld(worldKey: String) {
+        if (mutableState.value.gameData.worlds.none { it.key == worldKey }) return
+        launchSelected(LaunchOptions(additionalGameArguments = listOf("--quickPlaySingleplayer", worldKey)))
+    }
+
     override fun deleteWorld(worldKey: String) {
         if (mutableState.value.gameData.worlds.none { it.key == worldKey }) return
         mutableState.update { it.copy(pendingWorldDeletionKey = worldKey) }
@@ -1363,6 +1410,14 @@ class LauncherViewModel(
         "Deleted $screenshotKey."
     }
 
+    override fun renameScreenshot(screenshotKey: String, newName: String) {
+        if (newName.isBlank()) return
+        runGameDataOperation("Renaming screenshot") { instance ->
+            val screenshot = services.gameDataManager.renameScreenshot(instance, screenshotKey, newName.trim())
+            "Renamed screenshot to ${screenshot.fileName}."
+        }
+    }
+
     override fun toggleDataPack(worldKey: String, dataPackKey: String) {
         val pack = mutableState.value.gameData.worlds.firstOrNull { it.key == worldKey }
             ?.dataPacks?.firstOrNull { it.key == dataPackKey } ?: return
@@ -1381,6 +1436,7 @@ class LauncherViewModel(
                     key = server?.key,
                     name = server?.name.orEmpty(),
                     address = server?.address.orEmpty(),
+                    acceptTextures = server?.acceptTextures,
                 ),
             )
         }
@@ -1398,6 +1454,15 @@ class LauncherViewModel(
         mutableState.update { it.copy(serverEditor = it.serverEditor.copy(address = value)) }
     }
 
+    override fun setServerResourcePacks(value: String) {
+        val acceptTextures = when (value) {
+            "Always" -> true
+            "Never" -> false
+            else -> null
+        }
+        mutableState.update { it.copy(serverEditor = it.serverEditor.copy(acceptTextures = acceptTextures)) }
+    }
+
     override fun saveServer() {
         val editor = mutableState.value.serverEditor
         if (!editor.visible || editor.name.isBlank() || editor.address.isBlank()) return
@@ -1407,7 +1472,12 @@ class LauncherViewModel(
             try {
                 services.gameDataManager.upsertServer(
                     instance,
-                    SavedServer(editor.key.orEmpty(), editor.name.trim(), editor.address.trim()),
+                    SavedServer(
+                        editor.key.orEmpty(),
+                        editor.name.trim(),
+                        editor.address.trim(),
+                        editor.acceptTextures,
+                    ),
                 )
                 val inventory = services.gameDataManager.inventory(instance)
                 mutableState.update {
@@ -1430,6 +1500,63 @@ class LauncherViewModel(
         val server = mutableState.value.gameData.servers.firstOrNull { it.key == serverKey }
         services.gameDataManager.removeServer(instance, serverKey)
         "Removed ${server?.name ?: "server"}."
+    }
+
+    override fun moveServer(serverKey: String, offset: Int) = runGameDataOperation("Reordering servers") { instance ->
+        services.gameDataManager.moveServer(instance, serverKey, offset)
+        "Updated the server order."
+    }
+
+    override fun joinServer(serverKey: String) {
+        val server = mutableState.value.gameData.servers.firstOrNull { it.key == serverKey } ?: return
+        launchSelected(LaunchOptions(additionalGameArguments = listOf("--server", server.address)))
+    }
+
+    override fun selectInstanceLog(logKey: String) {
+        val instance = mutableState.value.selectedInstance ?: return
+        if (mutableState.value.gameData.logs.none { it.key == logKey }) return
+        scope.launch {
+            mutableState.update {
+                it.copy(
+                    selectedInstanceLogKey = logKey,
+                    selectedInstanceLogText = "",
+                    isLoadingInstanceLog = true,
+                )
+            }
+            try {
+                val text = services.gameDataManager.readLog(instance, logKey)
+                mutableState.update { state ->
+                    if (state.selectedId != instance.id || state.selectedInstanceLogKey != logKey) state
+                    else state.copy(selectedInstanceLogText = text, isLoadingInstanceLog = false)
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                mutableState.update { it.copy(isLoadingInstanceLog = false) }
+                showError(error)
+            }
+        }
+    }
+
+    override fun deleteInstanceLog(logKey: String) = runGameDataOperation("Deleting log") { instance ->
+        services.gameDataManager.deleteLog(instance, logKey)
+        mutableState.update { state ->
+            if (state.selectedInstanceLogKey == logKey) {
+                state.copy(selectedInstanceLogKey = null, selectedInstanceLogText = "")
+            } else {
+                state
+            }
+        }
+        "Deleted ${logKey.substringAfterLast('/')}"
+    }
+
+    override fun saveInstanceNotes(value: String) {
+        val instance = mutableState.value.selectedInstance ?: return
+        scope.launch {
+            runCatching { services.repository.update(instance.copy(notes = value.trimEnd())) }
+                .onSuccess { mutableState.update { it.copy(notice = "Saved notes for ${instance.displayName}.") } }
+                .onFailure(::showError)
+        }
     }
 
     private fun runGameDataOperation(
@@ -1718,6 +1845,12 @@ class LauncherViewModel(
                     environmentVariables = instance.environmentVariables.entries.joinToString("\n") { (key, value) ->
                         "$key=$value"
                     },
+                    preLaunchCommand = instance.preLaunchCommand.joinToCommandLine(),
+                    wrapperCommand = instance.wrapperCommand.joinToCommandLine(),
+                    postExitCommand = instance.postExitCommand.joinToCommandLine(),
+                    accountProfileId = instance.accountProfileId?.takeIf { profileId ->
+                        mutableState.value.accounts.any { it.profile.profileId == profileId }
+                    },
                     isLoadingClientSettings = true,
                     recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
                     warnings = recommendation.warnings,
@@ -1795,6 +1928,22 @@ class LauncherViewModel(
         mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(environmentVariables = value)) }
     }
 
+    override fun setPreLaunchCommand(value: String) {
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(preLaunchCommand = value)) }
+    }
+
+    override fun setWrapperCommand(value: String) {
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(wrapperCommand = value)) }
+    }
+
+    override fun setPostExitCommand(value: String) {
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(postExitCommand = value)) }
+    }
+
+    override fun setInstanceAccount(profileId: String?) {
+        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(accountProfileId = profileId)) }
+    }
+
     override fun setInstanceName(value: String) {
         mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(name = value)) }
     }
@@ -1854,6 +2003,22 @@ class LauncherViewModel(
                 val review = JvmArgumentPolicy.review(arguments)
                 val gameArguments = parseCommandLine(form.gameArguments)
                 val environmentVariables = parseEnvironmentVariables(form.environmentVariables)
+                val supportsLaunchCommands = services.runtime.capabilities.supportsLaunchCommands
+                val preLaunchCommand = if (supportsLaunchCommands) {
+                    parseCommandLine(form.preLaunchCommand)
+                } else {
+                    instance.preLaunchCommand
+                }
+                val wrapperCommand = if (supportsLaunchCommands) {
+                    parseCommandLine(form.wrapperCommand)
+                } else {
+                    instance.wrapperCommand
+                }
+                val postExitCommand = if (supportsLaunchCommands) {
+                    parseCommandLine(form.postExitCommand)
+                } else {
+                    instance.postExitCommand
+                }
                 val componentsChanged = form.minecraftVersionId != instance.minecraftVersionId ||
                     form.modLoader != instance.modLoader
                 val requiredJavaMajor = if (form.minecraftVersionId != instance.minecraftVersionId) {
@@ -1875,6 +2040,10 @@ class LauncherViewModel(
                         gameArguments = gameArguments,
                         javaExecutable = form.javaExecutable.trim().ifBlank { null },
                         environmentVariables = environmentVariables,
+                        preLaunchCommand = preLaunchCommand,
+                        wrapperCommand = wrapperCommand,
+                        postExitCommand = postExitCommand,
+                        accountProfileId = form.accountProfileId,
                         installationState = if (componentsChanged) {
                             InstallationState.NotInstalled
                         } else {
@@ -2665,6 +2834,14 @@ private fun parseCommandLine(value: String): List<String> {
     if (escaping) current.append('\\')
     if (started || current.isNotEmpty()) arguments += current.toString()
     return arguments
+}
+
+private fun List<String>.joinToCommandLine(): String = joinToString(" ") { argument ->
+    if (argument.isNotEmpty() && argument.none { it.isWhitespace() || it in setOf('\\', '\'', '"') }) {
+        argument
+    } else {
+        "\"${argument.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+    }
 }
 
 private fun AccountLoginState.toLoginRequest(): AccountLoginRequest? = when (method) {

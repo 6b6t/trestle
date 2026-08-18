@@ -21,9 +21,9 @@ data class AuthSession(
 )
 
 interface SessionProvider {
-    suspend fun currentSession(): AuthSession?
+    suspend fun currentSession(profileId: String? = null): AuthSession?
 }
 
 object NoSessionProvider : SessionProvider {
-    override suspend fun currentSession(): AuthSession? = null
+    override suspend fun currentSession(profileId: String?): AuthSession? = null
 }

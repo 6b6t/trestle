@@ -61,17 +61,29 @@ interface LauncherUiActions {
     fun refreshGameData() {}
     fun backupWorld(worldKey: String) {}
     fun restoreWorldBackup(backupKey: String) {}
+    fun importWorld(fileName: String, bytes: ByteArray) {}
+    fun copyWorld(worldKey: String) {}
+    fun renameWorld(worldKey: String, newName: String) {}
+    fun resetWorldIcon(worldKey: String) {}
+    fun launchWorld(worldKey: String) {}
     fun deleteWorld(worldKey: String) {}
     fun cancelWorldDeletion() {}
     fun confirmWorldDeletion() {}
     fun deleteScreenshot(screenshotKey: String) {}
+    fun renameScreenshot(screenshotKey: String, newName: String) {}
     fun toggleDataPack(worldKey: String, dataPackKey: String) {}
     fun openServerEditor(serverKey: String? = null) {}
     fun closeServerEditor() {}
     fun setServerName(value: String) {}
     fun setServerAddress(value: String) {}
+    fun setServerResourcePacks(value: String) {}
     fun saveServer() {}
     fun removeServer(serverKey: String) {}
+    fun moveServer(serverKey: String, offset: Int) {}
+    fun joinServer(serverKey: String) {}
+    fun selectInstanceLog(logKey: String) {}
+    fun deleteInstanceLog(logKey: String) {}
+    fun saveInstanceNotes(value: String) {}
     fun deleteSelected() {}
     fun moveSelectedToTrash() {}
     fun cancelInstanceRemoval() {}
@@ -99,6 +111,10 @@ interface LauncherUiActions {
     fun setGameArguments(value: String) {}
     fun setJavaExecutable(value: String) {}
     fun setEnvironmentVariables(value: String) {}
+    fun setPreLaunchCommand(value: String) {}
+    fun setWrapperCommand(value: String) {}
+    fun setPostExitCommand(value: String) {}
+    fun setInstanceAccount(profileId: String?) {}
     fun setInstanceName(value: String) {}
     fun setInstanceGroup(value: String) {}
     fun setInstanceIconReference(value: String) {}

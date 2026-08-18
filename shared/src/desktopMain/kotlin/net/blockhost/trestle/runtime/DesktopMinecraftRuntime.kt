@@ -1,6 +1,7 @@
 package net.blockhost.trestle.runtime
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
@@ -41,6 +42,7 @@ class DesktopMinecraftRuntime(
         supportsManagedJava = true,
         supportsNativeExtraction = true,
         supportsCustomJava = true,
+        supportsLaunchCommands = true,
     )
 
     override suspend fun prepare(
@@ -49,7 +51,7 @@ class DesktopMinecraftRuntime(
         onProgress: suspend (RuntimePreparationProgress) -> Unit,
     ): PreparedLaunch =
         withContext(Dispatchers.IO) {
-            val session = sessionProvider.currentSession()
+            val session = sessionProvider.currentSession(instance.accountProfileId)
             val installed = installedVersionReader(instance)
             val java = instance.javaExecutable ?: javaResolver.resolve(
                 component = installed.metadata.javaVersion?.component,
@@ -99,16 +101,27 @@ class DesktopMinecraftRuntime(
                 gameArguments.forEach { argument -> add(substituteArgument(argument, values, session)) }
                 if (options.demo) add(CommandArgument.Public("--demo"))
             }
+            val hookEnvironment = instance.environmentVariables + mapOf(
+                "INST_NAME" to instance.displayName,
+                "INST_ID" to instance.id.value,
+                "INST_DIR" to instance.instanceDirectory,
+                "INST_MC_DIR" to (instance.instanceDirectory.toPath() / "game").toString(),
+                "INST_JAVA" to java,
+                "INST_JAVA_ARGS" to jvmArguments.joinToString(" "),
+            )
             PreparedLaunch(
                 instanceId = instance.id.value,
                 executable = java,
                 arguments = commandArguments,
                 workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
-                environment = instance.environmentVariables,
+                environment = hookEnvironment,
                 mainClass = installed.metadata.mainClass,
                 classpathEntries = classpathEntries,
                 nativeDirectory = nativeDirectory.toString(),
                 missingRequirements = if (session == null) listOf("Java account") else emptyList(),
+                preLaunchCommand = instance.preLaunchCommand,
+                wrapperCommand = instance.wrapperCommand,
+                postExitCommand = instance.postExitCommand,
             ).also { prepared ->
                 logger.info(
                     "runtime",
@@ -126,7 +139,19 @@ class DesktopMinecraftRuntime(
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = channelFlow {
         var process: Process? = null
         try {
-            val command = listOf(preparedLaunch.executable) + preparedLaunch.processArguments()
+            if (preparedLaunch.preLaunchCommand.isNotEmpty()) {
+                val exitCode = runAuxiliaryCommand(preparedLaunch.preLaunchCommand, preparedLaunch) { line ->
+                    logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId, "command" to "pre-launch"))
+                    send(LaunchEvent.Log("[pre-launch] $line"))
+                }
+                if (exitCode != 0) {
+                    send(LaunchEvent.Failed("The pre-launch command exited with code $exitCode."))
+                    return@channelFlow
+                }
+            }
+            val command = preparedLaunch.wrapperCommand + preparedLaunch.executable + preparedLaunch.processArguments()
+            val logPath = Path.of(preparedLaunch.workingDirectory, ".trestle", "logs", "latest.log")
+            Files.createDirectories(logPath.parent)
             process = ProcessBuilder(command)
                 .directory(File(preparedLaunch.workingDirectory))
                 .redirectErrorStream(true)
@@ -140,15 +165,32 @@ class DesktopMinecraftRuntime(
             )
             send(LaunchEvent.Started(processId))
             val outputJob = launch(Dispatchers.IO) {
-                process.inputStream.bufferedReader().useLines { lines ->
-                    lines.forEach { line ->
-                        logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
-                        send(LaunchEvent.Log(line))
+                Files.newBufferedWriter(logPath).use { writer ->
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        lines.forEach { line ->
+                            writer.appendLine(line)
+                            writer.flush()
+                            logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
+                            send(LaunchEvent.Log(line))
+                        }
                     }
                 }
             }
             val exitCode = runInterruptible(Dispatchers.IO) { process.waitFor() }
             outputJob.join()
+            if (preparedLaunch.postExitCommand.isNotEmpty()) {
+                val hookExitCode = runAuxiliaryCommand(preparedLaunch.postExitCommand, preparedLaunch) { line ->
+                    logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId, "command" to "post-exit"))
+                    send(LaunchEvent.Log("[post-exit] $line"))
+                }
+                if (hookExitCode != 0) {
+                    logger.warn(
+                        "runtime",
+                        "Post-exit command failed",
+                        details = mapOf("instanceId" to preparedLaunch.instanceId, "exitCode" to hookExitCode),
+                    )
+                }
+            }
             val details = mapOf("instanceId" to preparedLaunch.instanceId, "exitCode" to exitCode)
             if (exitCode == 0) {
                 logger.info("runtime", "Minecraft process exited", details)
@@ -170,6 +212,33 @@ class DesktopMinecraftRuntime(
                 mapOf("instanceId" to preparedLaunch.instanceId),
             )
             send(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
+        }
+    }
+
+    private suspend fun runAuxiliaryCommand(
+        command: List<String>,
+        preparedLaunch: PreparedLaunch,
+        onLine: suspend (String) -> Unit,
+    ): Int {
+        val process = ProcessBuilder(command)
+            .directory(File(preparedLaunch.workingDirectory))
+            .redirectErrorStream(true)
+            .apply { environment().putAll(preparedLaunch.environment) }
+            .start()
+        return try {
+            coroutineScope {
+                val outputJob = launch(Dispatchers.IO) {
+                    process.inputStream.bufferedReader().useLines { lines ->
+                        for (line in lines) onLine(line)
+                    }
+                }
+                val exitCode = runInterruptible(Dispatchers.IO) { process.waitFor() }
+                outputJob.join()
+                exitCode
+            }
+        } catch (error: CancellationException) {
+            process.destroy()
+            throw error
         }
     }
 
