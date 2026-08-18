@@ -14,10 +14,19 @@ dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
     implementation(libs.compose.resources)
+    implementation(libs.dbus.java.core)
+    implementation(libs.dbus.java.transport.native.unixsocket)
     implementation(libs.filekit.dialogs.compose)
     implementation(libs.jna.platform)
+    implementation(libs.java.objc.bridge)
     runtimeOnly(libs.slf4j.simple)
     testImplementation(kotlin("test"))
+}
+
+tasks.processResources {
+    from(rootProject.file("licenses")) {
+        into("licenses")
+    }
 }
 
 kotlin {

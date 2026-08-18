@@ -218,6 +218,7 @@ fun TrestleApp(
     state: LauncherUiState,
     actions: LauncherUiActions,
     initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
+    accentColor: Color? = null,
 ) {
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
@@ -241,7 +242,7 @@ fun TrestleApp(
         }
     }
 
-    TrestleTheme {
+    TrestleTheme(accentColor) {
         LaunchedEffect(state.error, state.notice) {
             val message = state.error ?: state.notice ?: return@LaunchedEffect
             val actionLabel = "Retry".takeIf { state.error != null && state.errorRecovery != null }

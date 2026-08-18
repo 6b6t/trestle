@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.configureSwingGlobalsForCompose
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPosition
@@ -30,6 +31,8 @@ fun main() {
         val icon = painterResource(Res.drawable.trestle_icon)
         val state by viewModel.state.collectAsState()
         val desktopIntegration = remember { DesktopIntegration() }
+        val systemAccent = remember { SystemAccent() }
+        val accentArgb by systemAccent.color
         val windowState = rememberWindowState(
             width = 1180.dp,
             height = 760.dp,
@@ -44,6 +47,9 @@ fun main() {
             title = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle",
             icon = icon,
         ) {
+            DisposableEffect(systemAccent) {
+                onDispose { systemAccent.close() }
+            }
             DisposableEffect(window) {
                 desktopIntegration.prepare(window)
                 onDispose { desktopIntegration.clear(window) }
@@ -51,7 +57,11 @@ fun main() {
             LaunchedEffect(window, state.operation, state.error) {
                 desktopIntegration.update(window, state.desktopIndicator())
             }
-            TrestleApp(state, viewModel)
+            TrestleApp(
+                state = state,
+                actions = viewModel,
+                accentColor = accentArgb?.let(::Color),
+            )
         }
     }
 }

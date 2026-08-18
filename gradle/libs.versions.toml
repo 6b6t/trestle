@@ -5,6 +5,7 @@ android-compileSdk = "37"
 android-minSdk = "26"
 android-targetSdk = "37"
 compose = "1.11.1"
+dbus-java = "5.2.0"
 coil = "3.5.0"
 coroutines = "1.11.0"
 filekit = "0.14.2"
@@ -14,6 +15,7 @@ ktor = "3.5.2"
 kotlin = "2.4.10"
 kotlinx-serialization = "1.11.0"
 jna = "5.19.1"
+java-objc-bridge = "1.2"
 minecraft-auth = "5.0.2"
 okio = "3.18.1"
 ksafe = "3.0.0"
@@ -26,6 +28,8 @@ androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-ru
 androidx-lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel", version.ref = "lifecycle" }
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor3 = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbus-java" }
 compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "compose" }
 compose-material3 = { module = "org.jetbrains.compose.material3:material3", version = "1.11.0-alpha07" }
 compose-material3-adaptive = { module = "org.jetbrains.compose.material3.adaptive:adaptive", version.ref = "material3-adaptive" }
@@ -48,6 +52,7 @@ ktor-client-mock = { module = "io.ktor:ktor-client-mock", version.ref = "ktor" }
 ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
+java-objc-bridge = { module = "ca.weblite:java-objc-bridge", version.ref = "java-objc-bridge" }
 ksafe = { module = "eu.anifantakis:ksafe", version.ref = "ksafe" }
 minecraft-auth = { module = "net.raphimc:MinecraftAuth", version.ref = "minecraft-auth" }
 okio = { module = "com.squareup.okio:okio", version.ref = "okio" }

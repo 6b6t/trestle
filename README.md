@@ -101,3 +101,5 @@ licenses/     Licenses for bundled third-party assets
 Trestle source code uses the [Apache License 2.0](LICENSE).
 
 The bundled Barlow fonts use the SIL Open Font License 1.1. See [`licenses/OFL-Barlow.txt`](licenses/OFL-Barlow.txt).
+
+The vendored PlatformTools accent readers use the MIT License. See [`licenses/MIT-PlatformTools.txt`](licenses/MIT-PlatformTools.txt).

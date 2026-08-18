@@ -1,12 +1,16 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -61,6 +65,55 @@ private val TrestleColors = darkColorScheme(
     inversePrimary = Color(0xFF765A2D),
     scrim = Color.Black,
 )
+
+internal fun trestleColorScheme(accentColor: Color? = null): ColorScheme {
+    if (accentColor == null) return TrestleColors
+    val primary = primaryAccent(accentColor)
+    val primaryContainer = lerp(Surface, primary, 0.32f)
+    return TrestleColors.copy(
+        primary = primary,
+        onPrimary = contentColor(primary),
+        primaryContainer = primaryContainer,
+        onPrimaryContainer = contentColor(primaryContainer),
+        tertiary = primary,
+        onTertiary = contentColor(primary),
+        inversePrimary = accessibleAccent(accentColor, Chalk, Soot),
+    )
+}
+
+private fun primaryAccent(accentColor: Color): Color {
+    var candidate = accentColor.copy(alpha = 1f)
+    repeat(12) {
+        val surfaceContrast = contrastRatio(candidate, Surface)
+        val contentContrast = contrastRatio(contentColor(candidate), candidate)
+        if (surfaceContrast >= MINIMUM_ACCENT_CONTRAST && contentContrast >= MINIMUM_CONTENT_CONTRAST) {
+            return candidate
+        }
+        candidate = lerp(candidate, Chalk, 0.16f)
+    }
+    return candidate
+}
+
+private fun accessibleAccent(accentColor: Color, background: Color, target: Color): Color {
+    var candidate = accentColor.copy(alpha = 1f)
+    repeat(12) {
+        if (contrastRatio(candidate, background) >= MINIMUM_ACCENT_CONTRAST) return candidate
+        candidate = lerp(candidate, target, 0.16f)
+    }
+    return candidate
+}
+
+private fun contentColor(background: Color): Color =
+    if (contrastRatio(Soot, background) >= contrastRatio(Chalk, background)) Soot else Chalk
+
+internal fun contrastRatio(first: Color, second: Color): Float {
+    val lighter = maxOf(first.luminance(), second.luminance())
+    val darker = minOf(first.luminance(), second.luminance())
+    return (lighter + 0.05f) / (darker + 0.05f)
+}
+
+private const val MINIMUM_ACCENT_CONTRAST = 3f
+private const val MINIMUM_CONTENT_CONTRAST = 4.5f
 
 private val TrestleShapes = Shapes(
     extraSmall = RoundedCornerShape(4.dp),
@@ -157,9 +210,10 @@ private fun trestleTypography(): Typography {
 }
 
 @Composable
-internal fun TrestleTheme(content: @Composable () -> Unit) {
+internal fun TrestleTheme(accentColor: Color? = null, content: @Composable () -> Unit) {
+    val colorScheme = remember(accentColor) { trestleColorScheme(accentColor) }
     MaterialTheme(
-        colorScheme = TrestleColors,
+        colorScheme = colorScheme,
         typography = trestleTypography(),
         shapes = TrestleShapes,
         content = content,
