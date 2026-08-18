@@ -1,5 +1,6 @@
 package net.blockhost.trestle.ui
 
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.graphics.Color
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -31,5 +32,21 @@ class TrestleThemeTest {
 
         assertTrue(contrastRatio(scheme.primary, scheme.surface) >= 3f)
         assertTrue(contrastRatio(scheme.onPrimary, scheme.primary) >= 4.5f)
+    }
+
+    @Test
+    fun `high contrast preserves a supplied color scheme while strengthening outlines`() {
+        val supplied = darkColorScheme(
+            primary = Color(0xFF7BA4FF),
+            onSurface = Color.White,
+            surface = Color(0xFF181818),
+            outline = Color(0xFF454545),
+        )
+
+        val contrasted = supplied.withHighContrast(true)
+
+        assertEquals(supplied.primary, contrasted.primary)
+        assertEquals(supplied.onSurface, contrasted.outline)
+        assertTrue(contrastRatio(contrasted.outlineVariant, contrasted.surface) >= 3f)
     }
 }

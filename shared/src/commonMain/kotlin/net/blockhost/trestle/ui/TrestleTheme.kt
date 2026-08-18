@@ -1,25 +1,26 @@
 package net.blockhost.trestle.ui
 
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
+import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.app.ThemePreference
+import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.roboto_variable
 import org.jetbrains.compose.resources.Font
 
@@ -106,14 +107,7 @@ internal fun trestleColorScheme(
     highContrast: Boolean = false,
 ): ColorScheme {
     val base = if (darkTheme) TrestleDarkColors else TrestleLightColors
-    val contrastedBase = if (highContrast) {
-        base.copy(
-            outline = base.onSurface,
-            outlineVariant = lerp(base.surface, base.onSurface, 0.62f),
-        )
-    } else {
-        base
-    }
+    val contrastedBase = base.withHighContrast(highContrast)
     if (accentColor == null) return contrastedBase
     val primary = primaryAccent(accentColor, contrastedBase.surface, if (darkTheme) Chalk else Soot)
     val primaryContainer = lerp(contrastedBase.surface, primary, if (darkTheme) 0.32f else 0.18f)
@@ -131,6 +125,16 @@ internal fun trestleColorScheme(
         ),
     )
 }
+
+internal fun ColorScheme.withHighContrast(enabled: Boolean): ColorScheme =
+    if (enabled) {
+        copy(
+            outline = onSurface,
+            outlineVariant = lerp(surface, onSurface, 0.62f),
+        )
+    } else {
+        this
+    }
 
 private fun primaryAccent(accentColor: Color, surface: Color, target: Color): Color {
     var candidate = accentColor.copy(alpha = 1f)
@@ -188,10 +192,12 @@ private fun trestleTypography(): Typography {
 @Composable
 internal fun TrestleTheme(
     accentColor: Color? = null,
+    colorSchemeOverride: ColorScheme? = null,
     preference: ThemePreference = ThemePreference.SYSTEM,
     systemDarkTheme: Boolean? = null,
     highContrast: Boolean = false,
     reducedMotion: Boolean = false,
+    windowAdaptiveInfo: WindowAdaptiveInfo? = null,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = when (preference) {
@@ -199,10 +205,14 @@ internal fun TrestleTheme(
         ThemePreference.DARK -> true
         ThemePreference.LIGHT -> false
     }
-    val colorScheme = remember(accentColor, darkTheme, highContrast) {
-        trestleColorScheme(accentColor, darkTheme, highContrast)
+    val colorScheme = remember(colorSchemeOverride, accentColor, darkTheme, highContrast) {
+        colorSchemeOverride?.withHighContrast(highContrast)
+            ?: trestleColorScheme(accentColor, darkTheme, highContrast)
     }
-    CompositionLocalProvider(LocalReduceMotion provides reducedMotion) {
+    CompositionLocalProvider(
+        LocalReduceMotion provides reducedMotion,
+        LocalTrestleWindowAdaptiveInfo provides windowAdaptiveInfo,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = trestleTypography(),

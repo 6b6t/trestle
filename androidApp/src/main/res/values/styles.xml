@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="TrestleTheme" parent="android:style/Theme.Material.NoActionBar">
-        <item name="android:navigationBarColor">#171715</item>
-        <item name="android:statusBarColor">#171715</item>
-        <item name="android:windowLightStatusBar">false</item>
+    <style name="TrestleTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:navigationBarColor">#F8F5ED</item>
+        <item name="android:statusBarColor">#F8F5ED</item>
+        <item name="android:windowBackground">#F8F5ED</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowLightStatusBar">true</item>
     </style>
     <style name="TrestleGameTheme" parent="android:style/Theme.Material.NoActionBar">
         <item name="android:fontFamily">sans</item>

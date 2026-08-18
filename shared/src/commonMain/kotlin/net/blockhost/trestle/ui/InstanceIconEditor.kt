@@ -60,8 +60,8 @@ import net.blockhost.trestle.domain.MANAGED_INSTANCE_ICON_PREFIX
 import net.blockhost.trestle.domain.MAX_INSTANCE_ICON_BYTES
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.instance_logo_archive
-import net.blockhost.trestle.resources.instance_logo_citadel
 import net.blockhost.trestle.resources.instance_logo_circuit
+import net.blockhost.trestle.resources.instance_logo_citadel
 import net.blockhost.trestle.resources.instance_logo_compass
 import net.blockhost.trestle.resources.instance_logo_forge
 import net.blockhost.trestle.resources.instance_logo_lantern
@@ -71,10 +71,19 @@ import net.blockhost.trestle.resources.instance_logo_peaks
 import net.blockhost.trestle.resources.instance_logo_portal
 import net.blockhost.trestle.resources.instance_logo_potion
 import net.blockhost.trestle.resources.instance_logo_terrain
+import net.blockhost.trestle.resources.ui_built_in_logos
+import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_choose_image
+import net.blockhost.trestle.resources.ui_custom_image
+import net.blockhost.trestle.resources.ui_done
+import net.blockhost.trestle.resources.ui_edit_image
+import net.blockhost.trestle.resources.ui_edit_instance_image
+import net.blockhost.trestle.resources.ui_image
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
 internal data class BuiltInInstanceIcon(
     val id: String,
@@ -170,7 +179,7 @@ internal fun InstanceIconSetting(
             pendingIcon = form.pendingIcon,
         )
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text("Image", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(Res.string.ui_image), style = MaterialTheme.typography.titleSmall)
             Text(
                 "Shown as a square crop.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -180,7 +189,7 @@ internal fun InstanceIconSetting(
         OutlinedButton(
             onClick = onEdit,
             modifier = Modifier.testTag(LauncherTestTags.INSTANCE_ICON_EDIT),
-        ) { Text("Edit image") }
+        ) { Text(stringResource(Res.string.ui_edit_image)) }
     }
 }
 
@@ -229,10 +238,11 @@ internal fun InstanceIconEditorDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(0.9f).widthIn(max = 560.dp).heightIn(max = 720.dp)
+        TrestleDialogSurface(
+            maxWidth = 560.dp,
+            maxHeight = 720.dp,
+            widthFraction = 0.9f,
+            modifier = Modifier
                 .testTag(LauncherTestTags.INSTANCE_ICON_DIALOG),
         ) {
             Column {
@@ -240,7 +250,7 @@ internal fun InstanceIconEditorDialog(
                     modifier = Modifier.weight(1f).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("Edit instance image", style = MaterialTheme.typography.headlineSmall)
+                    Text(stringResource(Res.string.ui_edit_instance_image), style = MaterialTheme.typography.headlineSmall)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -265,7 +275,7 @@ internal fun InstanceIconEditorDialog(
                             )
                         }
                     }
-                    Text("Built-in logos", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_built_in_logos), style = MaterialTheme.typography.titleMedium)
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(92.dp),
                         modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
@@ -314,7 +324,7 @@ internal fun InstanceIconEditorDialog(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Custom image", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(Res.string.ui_custom_image), style = MaterialTheme.typography.titleMedium)
                             Text(
                                 "PNG, JPEG, or WebP up to 5 MB.",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -324,7 +334,7 @@ internal fun InstanceIconEditorDialog(
                         OutlinedButton(
                             onClick = { picker.launch() },
                             modifier = Modifier.testTag(LauncherTestTags.INSTANCE_ICON_UPLOAD),
-                        ) { Text("Choose image") }
+                        ) { Text(stringResource(Res.string.ui_choose_image)) }
                     }
                     fileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
@@ -333,10 +343,10 @@ internal fun InstanceIconEditorDialog(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancel") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_cancel)) }
                     Button(
                         onClick = { onSave(selectedReference, selectedPendingIcon) },
-                    ) { Text("Done") }
+                    ) { Text(stringResource(Res.string.ui_done)) }
                 }
             }
         }

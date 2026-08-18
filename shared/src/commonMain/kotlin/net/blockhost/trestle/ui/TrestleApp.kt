@@ -10,12 +10,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,6 +20,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -38,29 +34,35 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -70,22 +72,18 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.NavigationRail
-import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SearchBarDefaults
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SecondaryScrollableTabRow
-import androidx.compose.material3.Slider
+import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -99,11 +97,18 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
+import androidx.compose.material3.adaptive.WindowAdaptiveInfo
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -115,13 +120,12 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -131,80 +135,309 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import androidx.window.core.layout.WindowSizeClass
 import coil3.compose.AsyncImage
-import net.blockhost.trestle.resources.Res
-import net.blockhost.trestle.resources.ic_add
-import net.blockhost.trestle.resources.ic_account
-import net.blockhost.trestle.resources.ic_arrow_back
-import net.blockhost.trestle.resources.ic_extension
-import net.blockhost.trestle.resources.ic_library
-import net.blockhost.trestle.resources.ic_close
-import net.blockhost.trestle.resources.ic_search
-import net.blockhost.trestle.resources.ic_settings
-import net.blockhost.trestle.resources.ic_visibility
-import net.blockhost.trestle.resources.ic_visibility_off
-import net.blockhost.trestle.resources.trestle_mark
-import org.jetbrains.compose.resources.DrawableResource
-import org.jetbrains.compose.resources.painterResource
-import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
-import net.blockhost.trestle.domain.InstallationState
-import net.blockhost.trestle.domain.ModLoader
-import net.blockhost.trestle.auth.MinecraftEdition
-import net.blockhost.trestle.auth.AccountAuthenticationMethod
-import net.blockhost.trestle.auth.ManagedAccount
-import net.blockhost.trestle.auth.SavedSkin
-import net.blockhost.trestle.auth.SkinVariant
-import net.blockhost.trestle.logging.LogEntry
-import net.blockhost.trestle.platform.currentPlatform
-import net.blockhost.trestle.app.BuildInfo
-import net.blockhost.trestle.app.ThemePreference
-import net.blockhost.trestle.app.InstanceSortMode
-import net.blockhost.trestle.app.LauncherProxyType
-import net.blockhost.trestle.resources.ResourceProject
-import net.blockhost.trestle.resources.ResourceSearchSort
-import net.blockhost.trestle.resources.ReleaseChannel
-import net.blockhost.trestle.resources.InstalledContent
-import net.blockhost.trestle.resources.ResourceProvider
-import net.blockhost.trestle.resources.ResourceType
-import net.blockhost.trestle.resources.ResourceVersion
-import net.blockhost.trestle.resources.DependencyKind
-import net.blockhost.trestle.instance.MinecraftClientSettings
-import net.blockhost.trestle.instance.MinecraftNarratorMode
-import net.blockhost.trestle.instance.MinecraftParticleSetting
-import net.blockhost.trestle.instance.ServerStatus
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.path
 import io.github.vinceglb.filekit.readBytes
 import io.github.vinceglb.filekit.size
-import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
+import net.blockhost.trestle.app.BuildInfo
+import net.blockhost.trestle.app.InstanceSortMode
+import net.blockhost.trestle.app.LauncherProxyType
+import net.blockhost.trestle.app.ThemePreference
+import net.blockhost.trestle.auth.AccountAuthenticationMethod
+import net.blockhost.trestle.auth.ManagedAccount
+import net.blockhost.trestle.auth.MinecraftEdition
+import net.blockhost.trestle.auth.SavedSkin
+import net.blockhost.trestle.auth.SkinVariant
+import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.instance.MinecraftClientSettings
+import net.blockhost.trestle.instance.MinecraftNarratorMode
+import net.blockhost.trestle.instance.MinecraftParticleSetting
+import net.blockhost.trestle.instance.ServerStatus
+import net.blockhost.trestle.logging.LogEntry
+import net.blockhost.trestle.platform.currentPlatform
+import net.blockhost.trestle.resources.DependencyKind
+import net.blockhost.trestle.resources.InstalledContent
+import net.blockhost.trestle.resources.ReleaseChannel
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ResourceProject
+import net.blockhost.trestle.resources.ResourceProvider
+import net.blockhost.trestle.resources.ResourceSearchSort
+import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ResourceVersion
+import net.blockhost.trestle.resources.ic_account
+import net.blockhost.trestle.resources.ic_add
+import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ic_extension
+import net.blockhost.trestle.resources.ic_library
+import net.blockhost.trestle.resources.ic_settings
+import net.blockhost.trestle.resources.ic_visibility
+import net.blockhost.trestle.resources.ic_visibility_off
+import net.blockhost.trestle.resources.trestle_mark
+import net.blockhost.trestle.resources.ui_accounts
+import net.blockhost.trestle.resources.ui_active
+import net.blockhost.trestle.resources.ui_add_account
+import net.blockhost.trestle.resources.ui_add_file
+import net.blockhost.trestle.resources.ui_add_server
+import net.blockhost.trestle.resources.ui_additional_game_arguments
+import net.blockhost.trestle.resources.ui_additional_jvm_arguments
+import net.blockhost.trestle.resources.ui_address
+import net.blockhost.trestle.resources.ui_android_runtime
+import net.blockhost.trestle.resources.ui_any_category
+import net.blockhost.trestle.resources.ui_any_version
+import net.blockhost.trestle.resources.ui_appearance
+import net.blockhost.trestle.resources.ui_apply
+import net.blockhost.trestle.resources.ui_apply_filters
+import net.blockhost.trestle.resources.ui_apply_these_defaults
+import net.blockhost.trestle.resources.ui_atlauncher
+import net.blockhost.trestle.resources.ui_audio
+import net.blockhost.trestle.resources.ui_availability_is_controlled_by_the_trestle_build_api_key
+import net.blockhost.trestle.resources.ui_available_versions_and_installation_details_will_appear_here
+import net.blockhost.trestle.resources.ui_available_without_an_api_key
+import net.blockhost.trestle.resources.ui_back_to_library
+import net.blockhost.trestle.resources.ui_back_to_results
+import net.blockhost.trestle.resources.ui_browse
+import net.blockhost.trestle.resources.ui_browse_content
+import net.blockhost.trestle.resources.ui_browse_modpacks
+import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_category
+import net.blockhost.trestle.resources.ui_change
+import net.blockhost.trestle.resources.ui_change_the_search_or_content_type
+import net.blockhost.trestle.resources.ui_choose_a_skin_file
+import net.blockhost.trestle.resources.ui_choose_how_trestle_should_use_this_zip_file
+import net.blockhost.trestle.resources.ui_choose_one_from_the_library
+import net.blockhost.trestle.resources.ui_clear
+import net.blockhost.trestle.resources.ui_client_defaults
+import net.blockhost.trestle.resources.ui_client_id
+import net.blockhost.trestle.resources.ui_close
+import net.blockhost.trestle.resources.ui_color_warnings_and_errors
+import net.blockhost.trestle.resources.ui_console
+import net.blockhost.trestle.resources.ui_content
+import net.blockhost.trestle.resources.ui_controls_and_accessibility
+import net.blockhost.trestle.resources.ui_copy_seed
+import net.blockhost.trestle.resources.ui_crash_report_value
+import net.blockhost.trestle.resources.ui_create_an_isolated_minecraft_instance
+import net.blockhost.trestle.resources.ui_create_instance
+import net.blockhost.trestle.resources.ui_creating
+import net.blockhost.trestle.resources.ui_current
+import net.blockhost.trestle.resources.ui_curseforge
+import net.blockhost.trestle.resources.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_
+import net.blockhost.trestle.resources.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil
+import net.blockhost.trestle.resources.ui_custom
+import net.blockhost.trestle.resources.ui_custom_commands
+import net.blockhost.trestle.resources.ui_custom_java_executable
+import net.blockhost.trestle.resources.ui_delete
+import net.blockhost.trestle.resources.ui_delete_named_world
+import net.blockhost.trestle.resources.ui_delete_world
+import net.blockhost.trestle.resources.ui_direct_download_or_curseforge_url
+import net.blockhost.trestle.resources.ui_discover
+import net.blockhost.trestle.resources.ui_drag_to_rotate
+import net.blockhost.trestle.resources.ui_edit
+import net.blockhost.trestle.resources.ui_edit_instance_settings
+import net.blockhost.trestle.resources.ui_enter_an_instance_name
+import net.blockhost.trestle.resources.ui_enter_one_name_value_pair_per_line_lines_starting_with_are_ignored
+import net.blockhost.trestle.resources.ui_enter_this_code
+import net.blockhost.trestle.resources.ui_environment_variables
+import net.blockhost.trestle.resources.ui_events_from_this_session_right_click_an_entry_to_copy_diagnostics
+import net.blockhost.trestle.resources.ui_existing_ftb_app_library
+import net.blockhost.trestle.resources.ui_file_name
+import net.blockhost.trestle.resources.ui_filter_named_field
+import net.blockhost.trestle.resources.ui_find_in_log
+import net.blockhost.trestle.resources.ui_folder_changes_apply_after_trestle_restarts
+import net.blockhost.trestle.resources.ui_folders
+import net.blockhost.trestle.resources.ui_follow_launch
+import net.blockhost.trestle.resources.ui_for_example_1_21_100
+import net.blockhost.trestle.resources.ui_for_example_play_example_net_25565
+import net.blockhost.trestle.resources.ui_forget
+import net.blockhost.trestle.resources.ui_forget_account
+import net.blockhost.trestle.resources.ui_forget_account_2
+import net.blockhost.trestle.resources.ui_ftb_app_instances_folder
+import net.blockhost.trestle.resources.ui_game_components
+import net.blockhost.trestle.resources.ui_game_console
+import net.blockhost.trestle.resources.ui_game_data
+import net.blockhost.trestle.resources.ui_general
+import net.blockhost.trestle.resources.ui_group
+import net.blockhost.trestle.resources.ui_homepage
+import net.blockhost.trestle.resources.ui_http_timeout_and_proxy_changes_apply_to_new_connections_after_restart
+import net.blockhost.trestle.resources.ui_https_or_curseforge
+import net.blockhost.trestle.resources.ui_icon_path_or_url
+import net.blockhost.trestle.resources.ui_identity
+import net.blockhost.trestle.resources.ui_import
+import net.blockhost.trestle.resources.ui_import_a_64x64_or_legacy_64x32_png_to_start_your_local_library
+import net.blockhost.trestle.resources.ui_import_ftb_app_instances
+import net.blockhost.trestle.resources.ui_import_local_file
+import net.blockhost.trestle.resources.ui_import_world
+import net.blockhost.trestle.resources.ui_inspect_launch_plan
+import net.blockhost.trestle.resources.ui_install
+import net.blockhost.trestle.resources.ui_installed_bedrock_version
+import net.blockhost.trestle.resources.ui_installed_content
+import net.blockhost.trestle.resources.ui_instance
+import net.blockhost.trestle.resources.ui_instance_logs
+import net.blockhost.trestle.resources.ui_instance_settings
+import net.blockhost.trestle.resources.ui_instance_sorting
+import net.blockhost.trestle.resources.ui_instance_version_loader
+import net.blockhost.trestle.resources.ui_instances
+import net.blockhost.trestle.resources.ui_join
+import net.blockhost.trestle.resources.ui_keep_files
+import net.blockhost.trestle.resources.ui_keyboard_shortcuts
+import net.blockhost.trestle.resources.ui_language
+import net.blockhost.trestle.resources.ui_launch
+import net.blockhost.trestle.resources.ui_launch_plan
+import net.blockhost.trestle.resources.ui_launcher_log
+import net.blockhost.trestle.resources.ui_leave_blank_to_group_this_instance_by_loader
+import net.blockhost.trestle.resources.ui_leave_blank_to_use_trestles_managed_mojang_runtime
+import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_loader
+import net.blockhost.trestle.resources.ui_loading_client_settings
+import net.blockhost.trestle.resources.ui_logs
+import net.blockhost.trestle.resources.ui_manage
+import net.blockhost.trestle.resources.ui_manage_content
+import net.blockhost.trestle.resources.ui_manage_skins
+import net.blockhost.trestle.resources.ui_memory_classpath_native_path_and_architecture_options_are_managed_by_tre
+import net.blockhost.trestle.resources.ui_microsoft_account_email
+import net.blockhost.trestle.resources.ui_microsoft_account_password
+import net.blockhost.trestle.resources.ui_minecraft_client
+import net.blockhost.trestle.resources.ui_minecraft_version
+import net.blockhost.trestle.resources.ui_modrinth
+import net.blockhost.trestle.resources.ui_mods_and_modpacks
+import net.blockhost.trestle.resources.ui_more
+import net.blockhost.trestle.resources.ui_must_exit_successfully_before_minecraft_starts
+import net.blockhost.trestle.resources.ui_name
+import net.blockhost.trestle.resources.ui_network
+import net.blockhost.trestle.resources.ui_new
+import net.blockhost.trestle.resources.ui_new_instance
+import net.blockhost.trestle.resources.ui_new_skin
+import net.blockhost.trestle.resources.ui_no_accounts
+import net.blockhost.trestle.resources.ui_no_instance_selected
+import net.blockhost.trestle.resources.ui_no_instances_yet
+import net.blockhost.trestle.resources.ui_no_launcher_events_in_this_session
+import net.blockhost.trestle.resources.ui_no_matching_instances
+import net.blockhost.trestle.resources.ui_no_results
+import net.blockhost.trestle.resources.ui_no_saved_skins
+import net.blockhost.trestle.resources.ui_notes
+import net.blockhost.trestle.resources.ui_offline_username
+import net.blockhost.trestle.resources.ui_only_vanilla_is_supported_on_android
+import net.blockhost.trestle.resources.ui_open
+import net.blockhost.trestle.resources.ui_open_manual_download
+import net.blockhost.trestle.resources.ui_open_operation_details
+import net.blockhost.trestle.resources.ui_open_microsoft_sign_in
+import net.blockhost.trestle.resources.ui_open_version_release
+import net.blockhost.trestle.resources.ui_optional
+import net.blockhost.trestle.resources.ui_optional_dependencies
+import net.blockhost.trestle.resources.ui_optional_some_private_or_rate_limited_technic_packs_require_it_applies_a
+import net.blockhost.trestle.resources.ui_overview
+import net.blockhost.trestle.resources.ui_password
+import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_play
+import net.blockhost.trestle.resources.ui_player_model
+import net.blockhost.trestle.resources.ui_port
+import net.blockhost.trestle.resources.ui_post_exit_command
+import net.blockhost.trestle.resources.ui_pre_launch_command
+import net.blockhost.trestle.resources.ui_proxy
+import net.blockhost.trestle.resources.ui_proxy_credentials_are_stored_in_the_launcher_preferences_file
+import net.blockhost.trestle.resources.ui_proxy_settings_apply_to_trestle_minecraft_does_not_use_them
+import net.blockhost.trestle.resources.ui_quoted_values_and_escaped_characters_are_preserved
+import net.blockhost.trestle.resources.ui_reading_installed_content
+import net.blockhost.trestle.resources.ui_reading_the_game_directory
+import net.blockhost.trestle.resources.ui_refresh
+import net.blockhost.trestle.resources.ui_reload
+import net.blockhost.trestle.resources.ui_remove
+import net.blockhost.trestle.resources.ui_remove_named_skin
+import net.blockhost.trestle.resources.ui_remove_skin
+import net.blockhost.trestle.resources.ui_rename
+import net.blockhost.trestle.resources.ui_rename_screenshot
+import net.blockhost.trestle.resources.ui_rename_world
+import net.blockhost.trestle.resources.ui_reset_to_default
+import net.blockhost.trestle.resources.ui_restore_copy
+import net.blockhost.trestle.resources.ui_resume_install
+import net.blockhost.trestle.resources.ui_retry
+import net.blockhost.trestle.resources.ui_retry_install
+import net.blockhost.trestle.resources.ui_retry_launch
+import net.blockhost.trestle.resources.ui_return_to_library
+import net.blockhost.trestle.resources.ui_runs_after_minecraft_exits
+import net.blockhost.trestle.resources.ui_runs_before_the_java_executable_for_example_gamescope
+import net.blockhost.trestle.resources.ui_runtime
+import net.blockhost.trestle.resources.ui_save
+import net.blockhost.trestle.resources.ui_save_changes
+import net.blockhost.trestle.resources.ui_save_notes
+import net.blockhost.trestle.resources.ui_save_to_library
+import net.blockhost.trestle.resources.ui_search_instances
+import net.blockhost.trestle.resources.ui_search_mods_packs_and_shaders
+import net.blockhost.trestle.resources.ui_seed_value
+import net.blockhost.trestle.resources.ui_select_a_result
+import net.blockhost.trestle.resources.ui_select_an_instance
+import net.blockhost.trestle.resources.ui_server_status
+import net.blockhost.trestle.resources.ui_services
+import net.blockhost.trestle.resources.ui_settings
+import net.blockhost.trestle.resources.ui_sign_out
+import net.blockhost.trestle.resources.ui_skin_file
+import net.blockhost.trestle.resources.ui_skins
+import net.blockhost.trestle.resources.ui_stop
+import net.blockhost.trestle.resources.ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives
+import net.blockhost.trestle.resources.ui_tasks_and_downloads
+import net.blockhost.trestle.resources.ui_technic
+import net.blockhost.trestle.resources.ui_the_author_blocks_downloads_from_third_party_launchers
+import net.blockhost.trestle.resources.ui_this_content_type_cannot_be_installed_into_an_instance_yet
+import net.blockhost.trestle.resources.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk
+import net.blockhost.trestle.resources.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain
+import net.blockhost.trestle.resources.ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_
+import net.blockhost.trestle.resources.ui_tools
+import net.blockhost.trestle.resources.ui_trestle
+import net.blockhost.trestle.resources.ui_try_another_name_version_or_loader
+import net.blockhost.trestle.resources.ui_unavailable
+import net.blockhost.trestle.resources.ui_undo
+import net.blockhost.trestle.resources.ui_update
+import net.blockhost.trestle.resources.ui_use
+import net.blockhost.trestle.resources.ui_use_a_64x64_png_or_a_legacy_64x32_skin
+import net.blockhost.trestle.resources.ui_use_recommended
+import net.blockhost.trestle.resources.ui_use_skin
+import net.blockhost.trestle.resources.ui_used_when_importing_existing_ftb_app_instances
+import net.blockhost.trestle.resources.ui_username
+import net.blockhost.trestle.resources.ui_version_components
+import net.blockhost.trestle.resources.ui_versions
+import net.blockhost.trestle.resources.ui_video
+import net.blockhost.trestle.resources.ui_view_on_provider
+import net.blockhost.trestle.resources.ui_world_name
+import net.blockhost.trestle.resources.ui_wrap_lines
+import net.blockhost.trestle.resources.ui_wrapper_command
+import net.blockhost.trestle.resources.ui_write_notes_for_instance
+import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 
-enum class LauncherDestination(val label: String) {
-    LIBRARY("Library"),
-    INSTANCE("Instance"),
-    DISCOVER("Discover"),
-    ACCOUNTS("Accounts"),
-    SETTINGS("Settings"),
+enum class LauncherDestination(val label: StringResource) {
+    LIBRARY(Res.string.ui_library),
+    INSTANCE(Res.string.ui_instance),
+    DISCOVER(Res.string.ui_discover),
+    ACCOUNTS(Res.string.ui_accounts),
+    SETTINGS(Res.string.ui_settings),
 }
 
 private val globalDestinations = listOf(
@@ -260,6 +493,7 @@ fun TrestleApp(
     actions: LauncherUiActions,
     initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
     accentColor: Color? = null,
+    colorScheme: ColorScheme? = null,
     darkTheme: Boolean? = null,
     highContrast: Boolean = false,
     reducedMotion: Boolean = false,
@@ -267,6 +501,7 @@ fun TrestleApp(
     onExternalCommandHandled: (Long) -> Unit = {},
     onDestinationChanged: (LauncherDestination) -> Unit = {},
     topBar: @Composable () -> Unit = {},
+    windowAdaptiveInfo: WindowAdaptiveInfo = currentWindowAdaptiveInfoV2(),
 ) {
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
@@ -329,10 +564,12 @@ fun TrestleApp(
 
     TrestleTheme(
         accentColor = accentColor,
+        colorSchemeOverride = colorScheme,
         preference = state.themePreference,
         systemDarkTheme = darkTheme,
         highContrast = highContrast,
         reducedMotion = reducedMotion,
+        windowAdaptiveInfo = windowAdaptiveInfo,
     ) {
         val modalVisible = state.create.visible ||
             state.instanceSettings.visible ||
@@ -347,12 +584,19 @@ fun TrestleApp(
                 state.resourceBrowser.visible &&
                     state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
             )
-        LaunchedEffect(state.error, state.notice) {
+        val retryActionLabel = stringResource(Res.string.ui_retry)
+        val undoActionLabel = stringResource(Res.string.ui_undo)
+        LaunchedEffect(state.error, state.notice, retryActionLabel, undoActionLabel) {
             val message = state.error ?: state.notice ?: return@LaunchedEffect
-            val actionLabel = when {
-                state.error != null && state.errorRecovery != null -> "Retry"
-                state.removedInstanceUndo != null -> "Undo"
+            val action = when {
+                state.error != null && state.errorRecovery != null -> LauncherSnackbarAction.RETRY
+                state.removedInstanceUndo != null -> LauncherSnackbarAction.UNDO
                 else -> null
+            }
+            val actionLabel = when (action) {
+                LauncherSnackbarAction.RETRY -> retryActionLabel
+                LauncherSnackbarAction.UNDO -> undoActionLabel
+                null -> null
             }
             val result = snackbarHostState.showSnackbar(
                 message = message,
@@ -365,9 +609,10 @@ fun TrestleApp(
                 },
             )
             if (result == SnackbarResult.ActionPerformed) {
-                when (actionLabel) {
-                    "Retry" -> actions.retryError()
-                    "Undo" -> actions.undoInstanceRemoval()
+                when (action) {
+                    LauncherSnackbarAction.RETRY -> actions.retryError()
+                    LauncherSnackbarAction.UNDO -> actions.undoInstanceRemoval()
+                    null -> Unit
                 }
             } else actions.clearMessage()
         }
@@ -412,44 +657,44 @@ fun TrestleApp(
                 }
             },
         ) { contentPadding ->
-            BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
-                val compact = maxWidth < 840.dp
-                val destinationContent: @Composable (Modifier, Boolean) -> Unit = { modifier, isCompact ->
-                    destinationStateHolder.SaveableStateProvider(destination.name) {
-                        when (destination) {
-                            LauncherDestination.LIBRARY -> LibraryPage(
-                                state,
-                                modifier,
-                                actions,
-                                compact = isCompact,
-                                onManage = { changeDestination(LauncherDestination.INSTANCE) },
-                                searchFocusRequest = librarySearchFocusRequest,
-                                importRequest = libraryImportRequest,
-                            )
-                            LauncherDestination.INSTANCE -> InstanceWorkspace(
-                                state,
-                                modifier,
-                                actions,
-                                onBack = { changeDestination(LauncherDestination.LIBRARY) },
-                                compact = isCompact,
-                            )
-                            LauncherDestination.DISCOVER -> ResourceCatalogPage(
-                                state,
-                                modifier,
-                                actions,
-                                searchFocusRequest = resourceSearchFocusRequest,
-                            )
-                            LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions)
-                            LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
-                        }
+            val destinationContent: @Composable (Modifier, Boolean) -> Unit = { modifier, isCompact ->
+                destinationStateHolder.SaveableStateProvider(destination.name) {
+                    when (destination) {
+                        LauncherDestination.LIBRARY -> LibraryPage(
+                            state,
+                            modifier,
+                            actions,
+                            compact = isCompact,
+                            onManage = { changeDestination(LauncherDestination.INSTANCE) },
+                            searchFocusRequest = librarySearchFocusRequest,
+                            importRequest = libraryImportRequest,
+                        )
+                        LauncherDestination.INSTANCE -> InstanceWorkspace(
+                            state,
+                            modifier,
+                            actions,
+                            onBack = { changeDestination(LauncherDestination.LIBRARY) },
+                            compact = isCompact,
+                        )
+                        LauncherDestination.DISCOVER -> ResourceCatalogPage(
+                            state,
+                            modifier,
+                            actions,
+                            searchFocusRequest = resourceSearchFocusRequest,
+                        )
+                        LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions)
+                        LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
                     }
                 }
-                if (compact) {
-                    CompactLayout(state, destination, changeDestination, destinationContent)
-                } else {
-                    WideLayout(state, destination, changeDestination, destinationContent)
-                }
             }
+            LauncherNavigationLayout(
+                state = state,
+                destination = destination,
+                onDestinationChange = changeDestination,
+                adaptiveInfo = windowAdaptiveInfo,
+                modifier = Modifier.fillMaxSize().padding(contentPadding),
+                destinationContent = destinationContent,
+            )
             if (state.create.visible) CreateInstanceDialog(state, actions)
             if (
                 state.resourceBrowser.visible &&
@@ -489,19 +734,26 @@ fun TrestleApp(
                     },
                     dismissButton = {
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = actions::cancelInstanceRemoval) { Text("Cancel") }
+                            TextButton(onClick = actions::cancelInstanceRemoval) { Text(stringResource(Res.string.ui_cancel)) }
                             if (!moveToTrash) {
-                                TextButton(onClick = actions::confirmInstanceRemoval) { Text("Keep files") }
+                                TextButton(onClick = actions::confirmInstanceRemoval) { Text(stringResource(Res.string.ui_keep_files)) }
                             }
                         }
                     },
                     confirmButton = {
-                        Button(
+                        TextButton(
                             onClick = if (moveToTrash) {
                                 actions::confirmInstanceRemoval
                             } else {
                                 actions::confirmInstanceDeletion
                             },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = if (moveToTrash) {
+                                    MaterialTheme.colorScheme.primary
+                                } else {
+                                    MaterialTheme.colorScheme.error
+                                },
+                            ),
                         ) {
                             Text(if (moveToTrash) "Move to Trash" else "Delete files")
                         }
@@ -511,15 +763,18 @@ fun TrestleApp(
             state.pendingWorldDeletionKey?.let { worldKey ->
                 AlertDialog(
                     onDismissRequest = actions::cancelWorldDeletion,
-                    title = { Text("Delete $worldKey?") },
+                    title = { Text(stringResource(Res.string.ui_delete_named_world, worldKey)) },
                     text = {
-                        Text("This permanently deletes the world directory. Existing ZIP backups remain available.")
+                        Text(stringResource(Res.string.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain))
                     },
                     dismissButton = {
-                        TextButton(onClick = actions::cancelWorldDeletion) { Text("Cancel") }
+                        TextButton(onClick = actions::cancelWorldDeletion) { Text(stringResource(Res.string.ui_cancel)) }
                     },
                     confirmButton = {
-                        Button(onClick = actions::confirmWorldDeletion) { Text("Delete world") }
+                        TextButton(
+                            onClick = actions::confirmWorldDeletion,
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        ) { Text(stringResource(Res.string.ui_delete_world)) }
                     },
                 )
             }
@@ -527,27 +782,82 @@ fun TrestleApp(
     }
 }
 
+private enum class LauncherSnackbarAction {
+    RETRY,
+    UNDO,
+}
+
 @Composable
-private fun WideLayout(
+private fun LauncherNavigationLayout(
     state: LauncherUiState,
     destination: LauncherDestination,
     onDestinationChange: (LauncherDestination) -> Unit,
+    adaptiveInfo: WindowAdaptiveInfo,
+    modifier: Modifier,
     destinationContent: @Composable (Modifier, Boolean) -> Unit,
 ) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        WideNavigationRail(state, destination, onDestinationChange)
-        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        destinationContent(Modifier.weight(1f), false)
+    val windowSizeClass = adaptiveInfo.windowSizeClass
+    val navigationSuiteType = when {
+        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND) &&
+            windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) ->
+            NavigationSuiteType.WideNavigationRailExpanded
+        else -> NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
+    }
+    val horizontalNavigation = navigationSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+        navigationSuiteType == NavigationSuiteType.ShortNavigationBarMedium
+    val compactContent = !windowSizeClass.isWidthAtLeastBreakpoint(
+        WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
+    )
+    NavigationSuiteScaffold(
+        navigationItems = {
+            globalDestinations.forEach { destinationItem ->
+                NavigationSuiteItem(
+                    selected = destination == destinationItem ||
+                        destinationItem == LauncherDestination.LIBRARY &&
+                        destination == LauncherDestination.INSTANCE,
+                    onClick = { onDestinationChange(destinationItem) },
+                    icon = {
+                        Icon(painterResource(destinationIcon(destinationItem)), contentDescription = null)
+                    },
+                    label = { Text(stringResource(destinationItem.label)) },
+                    modifier = Modifier.testTag(LauncherTestTags.navigation(destinationItem)),
+                    navigationSuiteType = navigationSuiteType,
+                )
+            }
+        },
+        modifier = modifier.then(
+            if (horizontalNavigation) Modifier else Modifier.testTag(LauncherTestTags.TOP_NAVIGATION),
+        ),
+        navigationSuiteType = navigationSuiteType,
+        navigationSuiteColors = NavigationSuiteDefaults.colors(
+            shortNavigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        ),
+        containerColor = MaterialTheme.colorScheme.background,
+        primaryActionContent = {
+            if (!horizontalNavigation) {
+                Box(
+                    modifier = Modifier.padding(vertical = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    BridgeMark(Modifier.size(width = 36.dp, height = 28.dp))
+                }
+            }
+        },
+    ) {
+        if (horizontalNavigation) {
+            CompactContentScaffold(state, destinationContent, compactContent, onDestinationChange)
+        } else {
+            destinationContent(Modifier.fillMaxSize(), compactContent)
+        }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CompactLayout(
+private fun CompactContentScaffold(
     state: LauncherUiState,
-    destination: LauncherDestination,
-    onDestinationChange: (LauncherDestination) -> Unit,
     destinationContent: @Composable (Modifier, Boolean) -> Unit,
+    compactContent: Boolean,
+    onDestinationChange: (LauncherDestination) -> Unit,
 ) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -560,7 +870,7 @@ private fun CompactLayout(
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         BridgeMark()
-                        Text("Trestle")
+                        Text(stringResource(Res.string.ui_trestle))
                     }
                 },
                 actions = {
@@ -576,56 +886,8 @@ private fun CompactLayout(
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
         },
-        bottomBar = {
-            NavigationBar(windowInsets = WindowInsets(0, 0, 0, 0)) {
-                globalDestinations.forEach { item ->
-                    NavigationBarItem(
-                        selected = destination == item || item == LauncherDestination.LIBRARY && destination == LauncherDestination.INSTANCE,
-                        onClick = { onDestinationChange(item) },
-                        icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
-                        label = { Text(item.label) },
-                    )
-                }
-            }
-        },
     ) { padding ->
-        destinationContent(Modifier.padding(padding), true)
-    }
-}
-
-@Composable
-private fun WideNavigationRail(
-    state: LauncherUiState,
-    destination: LauncherDestination,
-    onDestinationChange: (LauncherDestination) -> Unit,
-) {
-    NavigationRail(
-        modifier = Modifier.fillMaxHeight().testTag(LauncherTestTags.TOP_NAVIGATION),
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-        windowInsets = WindowInsets(0, 0, 0, 0),
-        header = {
-            BridgeMark(Modifier.padding(vertical = 16.dp).size(width = 36.dp, height = 28.dp))
-        },
-    ) {
-        globalDestinations.forEach { item ->
-            NavigationRailItem(
-                selected = destination == item || item == LauncherDestination.LIBRARY && destination == LauncherDestination.INSTANCE,
-                onClick = { onDestinationChange(item) },
-                icon = { Icon(painterResource(destinationIcon(item)), contentDescription = null) },
-                label = { Text(item.label) },
-                modifier = Modifier.testTag(LauncherTestTags.navigation(item)),
-            )
-        }
-        Spacer(Modifier.weight(1f))
-        state.accounts.firstOrNull { it.isActive }?.let { account ->
-            AccountIdentity(
-                account = account,
-                texture = state.accountSkinTextures[account.profile.profileId],
-                compact = true,
-                modifier = Modifier.padding(bottom = 12.dp),
-                onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) },
-            )
-        }
+        destinationContent(Modifier.padding(padding), compactContent)
     }
 }
 
@@ -810,8 +1072,8 @@ private fun InstanceCollection(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("No matching instances", style = MaterialTheme.typography.titleLarge)
-            Text("Try another name, version, or loader.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.ui_no_matching_instances), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.ui_try_another_name_version_or_loader), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     } else if (compact) {
         LazyColumn(
@@ -845,22 +1107,22 @@ private fun InstanceShelfToolbar(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Instances", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.ui_instances), style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onImport) { Text("Import") }
+                    TextButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
                     Button(
                         onClick = onNew,
                         modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
                     ) {
                         Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("New")
+                        Text(stringResource(Res.string.ui_new))
                     }
                 }
                 TrestleSearchField(
                     value = query,
                     onValueChange = onQueryChange,
-                    placeholder = { Text("Search instances…") },
+                    placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
                     modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
                         .testTag(LauncherTestTags.INSTANCE_SEARCH),
                 )
@@ -871,61 +1133,27 @@ private fun InstanceShelfToolbar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Text("Instances", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.ui_instances), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.weight(1f))
                 TrestleSearchField(
                     value = query,
                     onValueChange = onQueryChange,
-                    placeholder = { Text("Search instances…") },
+                    placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
                     modifier = Modifier.width(320.dp).focusRequester(searchFocusRequester)
                         .testTag(LauncherTestTags.INSTANCE_SEARCH),
                 )
-                OutlinedButton(onClick = onImport) { Text("Import") }
+                OutlinedButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
                 Button(
                     onClick = onNew,
                     modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
                 ) {
                     Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
                     Spacer(Modifier.width(8.dp))
-                    Text("New instance")
+                    Text(stringResource(Res.string.ui_new_instance))
                 }
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun TrestleSearchField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    searching: Boolean = false,
-    onSearch: (String) -> Unit = {},
-    placeholder: @Composable () -> Unit,
-) {
-    SearchBarDefaults.InputField(
-        query = value,
-        onQueryChange = onValueChange,
-        onSearch = onSearch,
-        expanded = false,
-        onExpandedChange = {},
-        enabled = enabled,
-        placeholder = placeholder,
-        leadingIcon = {
-            Icon(painterResource(Res.drawable.ic_search), contentDescription = null)
-        },
-        trailingIcon = {
-            when {
-                searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                value.isNotEmpty() -> IconButton(onClick = { onValueChange("") }) {
-                    Icon(painterResource(Res.drawable.ic_close), contentDescription = "Clear search")
-                }
-            }
-        },
-        modifier = modifier,
-    )
 }
 
 @Composable
@@ -941,7 +1169,7 @@ private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(message, modifier = Modifier.weight(1f))
-            onRetry?.let { TextButton(onClick = it) { Text("Retry") } }
+            onRetry?.let { TextButton(onClick = it) { Text(stringResource(Res.string.ui_retry)) } }
         }
     }
 }
@@ -956,7 +1184,17 @@ private fun OperationBar(
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = modifier.fillMaxWidth()
-            .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
+            .then(
+                if (onClick == null) {
+                    Modifier
+                } else {
+                    Modifier.clickable(
+                        onClickLabel = stringResource(Res.string.ui_open_operation_details),
+                        role = Role.Button,
+                        onClick = onClick,
+                    )
+                },
+            )
             .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         Column {
@@ -1056,11 +1294,11 @@ private fun CompactLaunchStrip(
                     onClick = { actions.openResourceBrowser() },
                     enabled = installationState is InstallationState.Installed,
                     modifier = Modifier.weight(1f),
-                ) { Text("Content") }
+                ) { Text(stringResource(Res.string.ui_content)) }
                 OutlinedButton(
                     onClick = onManage,
                     modifier = Modifier.weight(1f),
-                ) { Text("Manage") }
+                ) { Text(stringResource(Res.string.ui_manage)) }
             }
             PrimaryInstanceButton(instance, launcherState, actions, Modifier.fillMaxWidth())
         }
@@ -1082,8 +1320,8 @@ private fun SelectedInstancePanel(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Select an instance", style = MaterialTheme.typography.titleLarge)
-                Text("Choose one from the library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.ui_select_an_instance), style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.ui_choose_one_from_the_library), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         return
@@ -1124,11 +1362,11 @@ private fun SelectedInstancePanel(
                 onClick = { actions.openResourceBrowser() },
                 enabled = installationState is InstallationState.Installed,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Manage content") }
+            ) { Text(stringResource(Res.string.ui_manage_content)) }
             OutlinedButton(
                 onClick = onManage,
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Instance settings") }
+            ) { Text(stringResource(Res.string.ui_instance_settings)) }
         }
     }
 }
@@ -1180,19 +1418,19 @@ private fun PrimaryInstanceButton(
         is InstallationState.Installing -> OutlinedButton(
             onClick = actions::cancelInstall,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-        ) { Text("Pause") }
+        ) { Text(stringResource(Res.string.ui_pause)) }
         is InstallationState.Interrupted -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-        ) { Text("Resume install") }
+        ) { Text(stringResource(Res.string.ui_resume_install)) }
         is InstallationState.Failed -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-        ) { Text("Retry install") }
+        ) { Text(stringResource(Res.string.ui_retry_install)) }
         InstallationState.NotInstalled -> Button(
             onClick = actions::installSelected,
             modifier = modifier.testTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION),
-        ) { Text("Install") }
+        ) { Text(stringResource(Res.string.ui_install)) }
         is InstallationState.Installed -> LaunchButton(
             state,
             instance,
@@ -1497,7 +1735,7 @@ private fun LaunchButton(
         is LaunchStatus.Running -> OutlinedButton(
             onClick = actions::stopLaunch,
             modifier = modifier,
-        ) { Text("Stop") }
+        ) { Text(stringResource(Res.string.ui_stop)) }
         LaunchStatus.Checking,
         LaunchStatus.Starting,
         -> Button(
@@ -1509,22 +1747,22 @@ private fun LaunchButton(
             onClick = {},
             enabled = false,
             modifier = modifier,
-        ) { Text("Launch") }
+        ) { Text(stringResource(Res.string.ui_launch)) }
         is LaunchStatus.Unavailable -> Button(
             onClick = {},
             enabled = false,
             modifier = modifier,
-        ) { Text("Unavailable") }
+        ) { Text(stringResource(Res.string.ui_unavailable)) }
         is LaunchStatus.Failed -> Button(
             onClick = actions::launchSelected,
             modifier = modifier,
-        ) { Text("Retry launch") }
+        ) { Text(stringResource(Res.string.ui_retry_launch)) }
         LaunchStatus.NotChecked,
         LaunchStatus.Ready,
         -> Button(
             onClick = actions::launchSelected,
             modifier = modifier,
-        ) { Text("Launch") }
+        ) { Text(stringResource(Res.string.ui_launch)) }
     }
 }
 
@@ -1566,12 +1804,16 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
     }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp)
+        TrestleDialogSurface(
+            maxWidth = 620.dp,
+            maxHeight = 820.dp,
+            modifier = Modifier
                 .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
                 .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
         ) {
@@ -1580,22 +1822,22 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("Instance settings", style = MaterialTheme.typography.headlineMedium)
-                    Text("Identity", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_instance_settings), style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(Res.string.ui_identity), style = MaterialTheme.typography.titleMedium)
                     TextField(
                         value = form.name,
                         onValueChange = actions::setInstanceName,
-                        label = { Text("Name") },
+                        label = { Text(stringResource(Res.string.ui_name)) },
                         isError = form.name.isBlank(),
-                        supportingText = if (form.name.isBlank()) ({ Text("Enter an instance name.") }) else null,
+                        supportingText = if (form.name.isBlank()) ({ Text(stringResource(Res.string.ui_enter_an_instance_name)) }) else null,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     TextField(
                         value = form.group,
                         onValueChange = actions::setInstanceGroup,
-                        label = { Text("Group") },
-                        supportingText = { Text("Leave blank to group this instance by loader.") },
+                        label = { Text(stringResource(Res.string.ui_group)) },
+                        supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_group_this_instance_by_loader)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -1608,7 +1850,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     }
 
                     HorizontalDivider()
-                    Text("Game components", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_game_components), style = MaterialTheme.typography.titleMedium)
                     Selector(
                         label = "Minecraft version",
                         value = form.minecraftVersionId,
@@ -1632,7 +1874,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     }
 
                     HorizontalDivider()
-                    Text("Launch", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_launch), style = MaterialTheme.typography.titleMedium)
                     Selector(
                         label = "Account",
                         value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
@@ -1681,23 +1923,23 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     }
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text(form.recommendation.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                        TextButton(onClick = actions::applyRecommendedMemory) { Text("Use recommended") }
+                        TextButton(onClick = actions::applyRecommendedMemory) { Text(stringResource(Res.string.ui_use_recommended)) }
                     }
                     form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
                     TextField(
                         value = form.jvmArguments,
                         onValueChange = actions::setJvmArguments,
-                        label = { Text("Additional JVM arguments") },
+                        label = { Text(stringResource(Res.string.ui_additional_jvm_arguments)) },
                         supportingText = {
-                            Text("Memory, classpath, native path, and architecture options are managed by Trestle.")
+                            Text(stringResource(Res.string.ui_memory_classpath_native_path_and_architecture_options_are_managed_by_tre))
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     TextField(
                         value = form.gameArguments,
                         onValueChange = actions::setGameArguments,
-                        label = { Text("Additional game arguments") },
-                        supportingText = { Text("Quoted values and escaped characters are preserved.") },
+                        label = { Text(stringResource(Res.string.ui_additional_game_arguments)) },
+                        supportingText = { Text(stringResource(Res.string.ui_quoted_values_and_escaped_characters_are_preserved)) },
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (state.supportsCustomJava) {
@@ -1706,8 +1948,8 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                                 TextField(
                                     value = form.javaExecutable,
                                     onValueChange = actions::setJavaExecutable,
-                                    label = { Text("Custom Java executable") },
-                                    supportingText = { Text("Leave blank to use Trestle's managed Mojang runtime.") },
+                                    label = { Text(stringResource(Res.string.ui_custom_java_executable)) },
+                                    supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_use_trestles_managed_mojang_runtime)) },
                                     singleLine = true,
                                     modifier = fieldModifier,
                                 )
@@ -1715,12 +1957,12 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                             if (maxWidth < 440.dp) {
                                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                     javaField(Modifier.fillMaxWidth())
-                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text("Browse") }
+                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
                                 }
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                                     javaField(Modifier.weight(1f))
-                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text("Browse") }
+                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
                                 }
                             }
                         }
@@ -1728,14 +1970,14 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     TextField(
                         value = form.environmentVariables,
                         onValueChange = actions::setEnvironmentVariables,
-                        label = { Text("Environment variables") },
-                        supportingText = { Text("Enter one NAME=value pair per line. Lines starting with # are ignored.") },
+                        label = { Text(stringResource(Res.string.ui_environment_variables)) },
+                        supportingText = { Text(stringResource(Res.string.ui_enter_one_name_value_pair_per_line_lines_starting_with_are_ignored)) },
                         minLines = 2,
                         modifier = Modifier.fillMaxWidth(),
                     )
                     if (state.supportsLaunchCommands) {
                         HorizontalDivider()
-                        Text("Custom commands", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(Res.string.ui_custom_commands), style = MaterialTheme.typography.titleMedium)
                         Text(
                             "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1743,28 +1985,28 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         TextField(
                             value = form.preLaunchCommand,
                             onValueChange = actions::setPreLaunchCommand,
-                            label = { Text("Pre-launch command") },
-                            supportingText = { Text("Must exit successfully before Minecraft starts.") },
+                            label = { Text(stringResource(Res.string.ui_pre_launch_command)) },
+                            supportingText = { Text(stringResource(Res.string.ui_must_exit_successfully_before_minecraft_starts)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         TextField(
                             value = form.wrapperCommand,
                             onValueChange = actions::setWrapperCommand,
-                            label = { Text("Wrapper command") },
-                            supportingText = { Text("Runs before the Java executable, for example gamescope --.") },
+                            label = { Text(stringResource(Res.string.ui_wrapper_command)) },
+                            supportingText = { Text(stringResource(Res.string.ui_runs_before_the_java_executable_for_example_gamescope)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         TextField(
                             value = form.postExitCommand,
                             onValueChange = actions::setPostExitCommand,
-                            label = { Text("Post-exit command") },
-                            supportingText = { Text("Runs after Minecraft exits.") },
+                            label = { Text(stringResource(Res.string.ui_post_exit_command)) },
+                            supportingText = { Text(stringResource(Res.string.ui_runs_after_minecraft_exits)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     }
 
                     HorizontalDivider()
-                    Text("Minecraft client", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_minecraft_client), style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1776,7 +2018,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text("Loading client settings…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(stringResource(Res.string.ui_loading_client_settings), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
                         form.clientSettings != null -> ClientSettingsFields(
@@ -1790,13 +2032,13 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
                     Button(
                         onClick = actions::saveInstanceSettings,
                         enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
                     ) {
                         if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text("Save changes")
+                        else Text(stringResource(Res.string.ui_save_changes))
                     }
                 }
             }
@@ -1827,10 +2069,11 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
         onDismissRequest = actions::closeResourceBrowser,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp)
+        TrestleDialogSurface(
+            maxWidth = 1040.dp,
+            widthFraction = 0.94f,
+            heightFraction = 0.9f,
+            modifier = Modifier
                 .dismissOnEscape(enabled = !browser.isInstalling, onDismiss = actions::closeResourceBrowser)
                 .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
         ) {
@@ -1841,7 +2084,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Browse content", style = MaterialTheme.typography.headlineMedium)
+                        Text(stringResource(Res.string.ui_browse_content), style = MaterialTheme.typography.headlineMedium)
                         val instance = state.selectedInstance
                         Text(
                             if (browser.type == ResourceType.MODPACK) {
@@ -1854,7 +2097,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
+                    TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text(stringResource(Res.string.ui_close)) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 ResourceBrowserContent(state, actions, Modifier.fillMaxSize(), searchFocusRequest = 0)
@@ -1931,7 +2174,7 @@ private fun ResourceBrowserContent(
                                 modifier = Modifier.padding(horizontal = 8.dp),
                             ) {
                                 Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
-                                Text("Back to results")
+                                Text(stringResource(Res.string.ui_back_to_results))
                             }
                         }
                         ResourceSelection(
@@ -1964,7 +2207,7 @@ private fun ResourceBrowserToolbar(
             onValueChange = actions::setResourceQuery,
             searching = browser.isSearching,
             onSearch = { actions.searchResources() },
-            placeholder = { Text("Search mods, packs, and shaders") },
+            placeholder = { Text(stringResource(Res.string.ui_search_mods_packs_and_shaders)) },
             modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp)
                 .focusRequester(searchFocusRequester)
                 .testTag(LauncherTestTags.RESOURCE_SEARCH),
@@ -2003,8 +2246,8 @@ private fun ResourceBrowserToolbar(
                     TextField(
                         value = browser.gameVersionFilter,
                         onValueChange = actions::setResourceGameVersionFilter,
-                        label = { Text("Minecraft version") },
-                        placeholder = { Text("Any version") },
+                        label = { Text(stringResource(Res.string.ui_minecraft_version)) },
+                        placeholder = { Text(stringResource(Res.string.ui_any_version)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -2019,8 +2262,8 @@ private fun ResourceBrowserToolbar(
                     TextField(
                         value = browser.categoryFilter,
                         onValueChange = actions::setResourceCategoryFilter,
-                        label = { Text("Category") },
-                        placeholder = { Text("Any category") },
+                        label = { Text(stringResource(Res.string.ui_category)) },
+                        placeholder = { Text(stringResource(Res.string.ui_any_category)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -2032,7 +2275,7 @@ private fun ResourceBrowserToolbar(
                             ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
                         },
                     )
-                    Button(onClick = { actions.searchResources() }, modifier = Modifier.fillMaxWidth()) { Text("Apply filters") }
+                    Button(onClick = { actions.searchResources() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.ui_apply_filters)) }
                 }
                 if (maxWidth < 720.dp) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = filterFields)
@@ -2041,8 +2284,8 @@ private fun ResourceBrowserToolbar(
                         TextField(
                             value = browser.gameVersionFilter,
                             onValueChange = actions::setResourceGameVersionFilter,
-                            label = { Text("Minecraft version") },
-                            placeholder = { Text("Any version") },
+                            label = { Text(stringResource(Res.string.ui_minecraft_version)) },
+                            placeholder = { Text(stringResource(Res.string.ui_any_version)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -2058,8 +2301,8 @@ private fun ResourceBrowserToolbar(
                         TextField(
                             value = browser.categoryFilter,
                             onValueChange = actions::setResourceCategoryFilter,
-                            label = { Text("Category") },
-                            placeholder = { Text("Any category") },
+                            label = { Text(stringResource(Res.string.ui_category)) },
+                            placeholder = { Text(stringResource(Res.string.ui_any_category)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -2072,7 +2315,7 @@ private fun ResourceBrowserToolbar(
                                 ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
                             },
                         )
-                        Button(onClick = actions::searchResources) { Text("Apply") }
+                        Button(onClick = actions::searchResources) { Text(stringResource(Res.string.ui_apply)) }
                     }
                 }
             }
@@ -2081,7 +2324,7 @@ private fun ResourceBrowserToolbar(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Versions", style = MaterialTheme.typography.labelLarge)
+                Text(stringResource(Res.string.ui_versions), style = MaterialTheme.typography.labelLarge)
                 ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
                     CompactCheck(channel.label, channel in browser.releaseChannels) {
                         actions.toggleResourceReleaseChannel(channel)
@@ -2090,7 +2333,7 @@ private fun ResourceBrowserToolbar(
             }
         }
         if (!browser.curseForgeAvailable) {
-            Text("CurseForge requires a Trestle API key configured by the application build.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -2126,8 +2369,8 @@ private fun ResourceResultList(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text("No results", style = MaterialTheme.typography.titleLarge)
-            Text("Change the search or content type.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.ui_no_results), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.ui_change_the_search_or_content_type), color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         else -> LazyColumn(
             state = listState,
@@ -2269,8 +2512,8 @@ private fun ResourceSelection(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         if (project == null) {
-            Text("Select a result", style = MaterialTheme.typography.titleLarge)
-            Text("Available versions and installation details will appear here.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.ui_select_a_result), style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.ui_available_versions_and_installation_details_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant)
             return@Column
         }
         Row(
@@ -2298,7 +2541,9 @@ private fun ResourceSelection(
         }
         ResourceProjectDetails(project)
         project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
-            TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("View on ${project.provider.label}") }
+            TextButton(onClick = { uriHandler.openUri(websiteUrl) }) {
+                Text(stringResource(Res.string.ui_view_on_provider, project.provider.label))
+            }
         }
         val platformLinks = listOfNotNull(
             project.sourceUrl?.let { "Source" to it },
@@ -2322,7 +2567,7 @@ private fun ResourceSelection(
             ResourceVersionDetails(it)
             val optionalDependencies = it.dependencies.filter { dependency -> dependency.kind == DependencyKind.OPTIONAL }
             if (optionalDependencies.isNotEmpty()) {
-                Text("Optional dependencies", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.ui_optional_dependencies), style = MaterialTheme.typography.titleMedium)
                 optionalDependencies.forEach { dependency ->
                     ListItem(
                         headlineContent = {
@@ -2351,11 +2596,11 @@ private fun ResourceSelection(
         val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
         val selectedFile = version?.primaryFile
         val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
-        if (!supportedType) Text("This content type cannot be installed into an instance yet.", color = MaterialTheme.colorScheme.error)
+        if (!supportedType) Text(stringResource(Res.string.ui_this_content_type_cannot_be_installed_into_an_instance_yet), color = MaterialTheme.colorScheme.error)
         if (selectedFile?.url == null && selectedFile?.sha1 != null) {
-            Text("CurseForge blocks this file. Trestle will look for the identical file on Modrinth.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(Res.string.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else if (version != null && version.externalPack == null && !downloadable) {
-            Text("The author blocks downloads from third-party launchers.", color = MaterialTheme.colorScheme.error)
+            Text(stringResource(Res.string.ui_the_author_blocks_downloads_from_third_party_launchers), color = MaterialTheme.colorScheme.error)
         }
         if (
             project.provider == ResourceProvider.CURSEFORGE &&
@@ -2367,7 +2612,7 @@ private fun ResourceSelection(
             OutlinedButton(
                 onClick = { uriHandler.openUri(manualUrl) },
                 modifier = Modifier.fillMaxWidth(),
-            ) { Text("Open manual download") }
+            ) { Text(stringResource(Res.string.ui_open_manual_download)) }
         }
         Button(
             onClick = actions::installSelectedResource,
@@ -2458,11 +2703,13 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
     val pending = state.localFileImport
     val selectedType = pending.selectedType
     val target = pending.targetInstanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
-    BasicAlertDialog(onDismissRequest = actions::cancelLocalFileImport) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().onPreviewKeyEvent { event ->
+    BasicAlertDialog(
+        onDismissRequest = actions::cancelLocalFileImport,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        TrestleDialogSurface(
+            maxWidth = 480.dp,
+            modifier = Modifier.onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 when (event.key) {
                     Key.Escape -> {
@@ -2478,7 +2725,7 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
             },
         ) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text("Import local file", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(Res.string.ui_import_local_file), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     pending.fileName,
                     maxLines = 2,
@@ -2493,7 +2740,7 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
                     )
                 }
                 if (pending.allowedTypes.size > 1) {
-                    Text("Choose how Trestle should use this ZIP file.")
+                    Text(stringResource(Res.string.ui_choose_how_trestle_should_use_this_zip_file))
                     Column {
                         pending.allowedTypes.forEach { type ->
                             Row(
@@ -2528,7 +2775,7 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = actions::cancelLocalFileImport) { Text("Cancel") }
+                    TextButton(onClick = actions::cancelLocalFileImport) { Text(stringResource(Res.string.ui_cancel)) }
                     Button(
                         onClick = actions::confirmLocalFileImport,
                         enabled = selectedType != null &&
@@ -2542,11 +2789,13 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
 
 @Composable
 private fun ShortcutsDialog(onDismiss: () -> Unit) {
-    BasicAlertDialog(onDismissRequest = onDismiss) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().onPreviewKeyEvent { event ->
+    BasicAlertDialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        TrestleDialogSurface(
+            maxWidth = 480.dp,
+            modifier = Modifier.onPreviewKeyEvent { event ->
                 if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
                     onDismiss()
                     true
@@ -2557,9 +2806,9 @@ private fun ShortcutsDialog(onDismiss: () -> Unit) {
         ) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Keyboard shortcuts", style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(Res.string.ui_keyboard_shortcuts), style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text("Close") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_close)) }
                 }
                 ShortcutRow("Ctrl/Cmd + N", "New instance")
                 ShortcutRow("Ctrl/Cmd + F", "Search")
@@ -2602,12 +2851,16 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
     var remoteUrl by rememberSaveable { mutableStateOf("") }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().heightIn(max = 820.dp)
+        TrestleDialogSurface(
+            maxWidth = 760.dp,
+            maxHeight = 820.dp,
+            modifier = Modifier
                 .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeCreate)
                 .testTag(LauncherTestTags.CREATE_DIALOG),
         ) {
@@ -2616,20 +2869,20 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("New instance", style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(Res.string.ui_new_instance), style = MaterialTheme.typography.headlineMedium)
                     if (!restrictedRuntime) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = source == "custom",
                             onClick = { source = "custom" },
                             shape = SegmentedButtonDefaults.itemShape(0, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text("Custom") }
+                        ) { Text(stringResource(Res.string.ui_custom)) }
                         SegmentedButton(
                             selected = source == "import",
                             onClick = { source = "import" },
                             shape = SegmentedButtonDefaults.itemShape(1, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text("Import") }
+                        ) { Text(stringResource(Res.string.ui_import)) }
                         SegmentedButton(
                             selected = false,
                             onClick = {
@@ -2638,12 +2891,12 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             },
                             shape = SegmentedButtonDefaults.itemShape(2, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text("Browse modpacks") }
+                        ) { Text(stringResource(Res.string.ui_browse_modpacks)) }
                     }
                     TextField(
                         value = form.name,
                         onValueChange = actions::setCreateName,
-                        label = { Text("Name") },
+                        label = { Text(stringResource(Res.string.ui_name)) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         keyboardActions = KeyboardActions(
@@ -2655,16 +2908,16 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         TextField(
                             value = form.group,
                             onValueChange = actions::setCreateGroup,
-                            label = { Text("Group") },
-                            supportingText = { Text("Optional") },
+                            label = { Text(stringResource(Res.string.ui_group)) },
+                            supportingText = { Text(stringResource(Res.string.ui_optional)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
                         TextField(
                             value = form.iconReference,
                             onValueChange = actions::setCreateIconReference,
-                            label = { Text("Icon path or URL") },
-                            supportingText = { Text("Optional") },
+                            label = { Text(stringResource(Res.string.ui_icon_path_or_url)) },
+                            supportingText = { Text(stringResource(Res.string.ui_optional)) },
                             singleLine = true,
                             modifier = Modifier.weight(1f),
                         )
@@ -2673,16 +2926,16 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         TextField(
                             value = remoteUrl,
                             onValueChange = { remoteUrl = it },
-                            label = { Text("Direct download or CurseForge URL") },
-                            placeholder = { Text("https://… or curseforge://…") },
+                            label = { Text(stringResource(Res.string.ui_direct_download_or_curseforge_url)) },
+                            placeholder = { Text(stringResource(Res.string.ui_https_or_curseforge)) },
                             supportingText = {
-                                Text("Supports Modrinth, CurseForge, Prism, and MultiMC pack archives.")
+                                Text(stringResource(Res.string.ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives))
                             },
                             singleLine = true,
                             modifier = Modifier.fillMaxWidth(),
                         )
                         HorizontalDivider()
-                        Text("Existing FTB App library", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(Res.string.ui_existing_ftb_app_library), style = MaterialTheme.typography.titleMedium)
                         Text(
                             state.launcherPreferences.ftbAppInstancesPath.ifBlank {
                                 "Set the FTB App instances folder in Settings > Services."
@@ -2694,7 +2947,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         OutlinedButton(
                             onClick = actions::importFtbAppInstances,
                             enabled = state.launcherPreferences.ftbAppInstancesPath.isNotBlank() && !form.isSaving,
-                        ) { Text("Import FTB App instances") }
+                        ) { Text(stringResource(Res.string.ui_import_ftb_app_instances)) }
                     } else {
                     val visibleVersions = state.versions.filter { version ->
                         when (version.type) {
@@ -2723,8 +2976,8 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             value = versionChoices.single(),
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Minecraft version") },
-                            supportingText = { Text("Android runtime") },
+                            label = { Text(stringResource(Res.string.ui_minecraft_version)) },
+                            supportingText = { Text(stringResource(Res.string.ui_android_runtime)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -2754,8 +3007,8 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             value = loaderChoices.single().label,
                             onValueChange = {},
                             readOnly = true,
-                            label = { Text("Loader") },
-                            supportingText = { Text("Only vanilla is supported on Android") },
+                            label = { Text(stringResource(Res.string.ui_loader)) },
+                            supportingText = { Text(stringResource(Res.string.ui_only_vanilla_is_supported_on_android)) },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -2780,7 +3033,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text("Client defaults", style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(Res.string.ui_client_defaults), style = MaterialTheme.typography.titleMedium)
                             Text(
                                 if (showAdvanced) "Configure first-launch accessibility, audio, and distance settings."
                                 else "Trestle will use balanced defaults for the first launch.",
@@ -2800,7 +3053,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
                     Button(
                         onClick = {
                             if (source == "import") actions.importRemoteModpack(remoteUrl) else actions.createInstance()
@@ -2815,7 +3068,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         if (form.isSaving) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text("Creating…")
+                            Text(stringResource(Res.string.ui_creating))
                         } else {
                             Text(if (source == "import") "Import modpack" else "Create instance")
                         }
@@ -2838,7 +3091,7 @@ private fun ClientDefaultsFields(
         if (showHeading) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Client defaults", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_client_defaults), style = MaterialTheme.typography.titleMedium)
                     Text(
                         "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -2852,7 +3105,7 @@ private fun ClientDefaultsFields(
             }
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text("Apply these defaults", modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.ui_apply_these_defaults), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Switch(
                     checked = form.preconfigureClientSettings,
                     onCheckedChange = actions::setCreateClientPreconfiguration,
@@ -2872,7 +3125,7 @@ private fun ClientSettingsFields(
     onSettingsChange: (MinecraftClientSettings) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Audio", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(Res.string.ui_audio), style = MaterialTheme.typography.titleSmall)
         PercentageSlider(
             label = "Master volume",
             value = settings.masterVolumePercent,
@@ -2885,7 +3138,7 @@ private fun ClientSettingsFields(
         )
 
         HorizontalDivider()
-        Text("Video", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(Res.string.ui_video), style = MaterialTheme.typography.titleSmall)
         IntegerSlider(
             label = "Field of view",
             valueLabel = "${settings.fieldOfViewDegrees}°",
@@ -2957,7 +3210,7 @@ private fun ClientSettingsFields(
         )
 
         HorizontalDivider()
-        Text("Controls and accessibility", style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(Res.string.ui_controls_and_accessibility), style = MaterialTheme.typography.titleSmall)
         PercentageSlider(
             label = "Mouse sensitivity",
             value = settings.mouseSensitivityPercent,
@@ -3045,15 +3298,11 @@ private fun SliderSetting(label: String, value: String, slider: @Composable () -
 
 @Composable
 private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    ListItem(
-        headlineContent = { Text(label) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = null) },
-        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().toggleable(
-            value = checked,
-            role = Role.Switch,
-            onValueChange = onCheckedChange,
-        ),
+    TrestleSwitchItem(
+        label = label,
+        checked = checked,
+        modifier = Modifier.fillMaxWidth(),
+        onCheckedChange = onCheckedChange,
     )
 }
 
@@ -3118,7 +3367,7 @@ private fun Selector(
                 TextField(
                     value = filter,
                     onValueChange = { filter = it },
-                    label = { Text("Filter $label") },
+                    label = { Text(stringResource(Res.string.ui_filter_named_field, label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 )
@@ -3151,10 +3400,10 @@ private fun EmptyLibrary(onNew: () -> Unit, modifier: Modifier) {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("No instances yet", style = MaterialTheme.typography.titleLarge)
-        Text("Create an isolated Minecraft instance.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(Res.string.ui_no_instances_yet), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(Res.string.ui_create_an_isolated_minecraft_instance), color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
-        Button(onClick = onNew) { Text("Create instance") }
+        Button(onClick = onNew) { Text(stringResource(Res.string.ui_create_instance)) }
     }
 }
 
@@ -3177,13 +3426,13 @@ private fun LoadingRows(modifier: Modifier) {
     }
 }
 
-private enum class InstanceSection(val label: String) {
-    OVERVIEW("Overview"),
-    CONTENT("Content"),
-    GAME_DATA("Game data"),
-    NOTES("Notes"),
-    LOGS("Logs"),
-    SETTINGS("Settings"),
+private enum class InstanceSection(val label: StringResource) {
+    OVERVIEW(Res.string.ui_overview),
+    CONTENT(Res.string.ui_content),
+    GAME_DATA(Res.string.ui_game_data),
+    NOTES(Res.string.ui_notes),
+    LOGS(Res.string.ui_logs),
+    SETTINGS(Res.string.ui_settings),
 }
 
 @Composable
@@ -3203,8 +3452,8 @@ private fun InstanceWorkspace(
     val configurationScrollState = rememberScrollState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
         if (compact || instance == null) {
-            PageHeader(instance?.displayName ?: "Instance") {
-                TextButton(onClick = onBack) { Text("Back to library") }
+            PageHeader(instance?.displayName ?: stringResource(Res.string.ui_instance)) {
+                TextButton(onClick = onBack) { Text(stringResource(Res.string.ui_back_to_library)) }
             }
         } else {
             InstanceWorkspaceHeader(state, instance, actions, onBack)
@@ -3216,8 +3465,8 @@ private fun InstanceWorkspace(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No instance selected", style = MaterialTheme.typography.titleLarge)
-                TextButton(onClick = onBack) { Text("Return to library") }
+                Text(stringResource(Res.string.ui_no_instance_selected), style = MaterialTheme.typography.titleLarge)
+                TextButton(onClick = onBack) { Text(stringResource(Res.string.ui_return_to_library)) }
             }
             return@Column
         }
@@ -3232,7 +3481,7 @@ private fun InstanceWorkspace(
                         selected = section == item,
                         onClick = { sectionName = item.name },
                         modifier = Modifier.testTag(LauncherTestTags.instanceSection(item.name)),
-                        text = { Text(item.label) },
+                        text = { Text(stringResource(item.label)) },
                     )
                 }
             }
@@ -3299,14 +3548,14 @@ private fun InstanceGameData(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Game data", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.ui_game_data), style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Manage worlds, data packs, server bookmarks, screenshots, and backups for ${instance.displayName}.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 TextButton(onClick = actions::refreshGameData, enabled = !state.isLoadingGameData) {
-                    Text("Refresh")
+                    Text(stringResource(Res.string.ui_refresh))
                 }
             }
         }
@@ -3314,7 +3563,7 @@ private fun InstanceGameData(
             item("game-data-loading") {
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    Text("Reading the game directory…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(Res.string.ui_reading_the_game_directory), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -3346,7 +3595,7 @@ private fun InstanceGameData(
                         },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { actions.launchWorld(world.key) }) { Text("Play") }
+                                TextButton(onClick = { actions.launchWorld(world.key) }) { Text(stringResource(Res.string.ui_play)) }
                                 InstanceItemActions(
                                     buildList {
                                         add(
@@ -3370,8 +3619,12 @@ private fun InstanceGameData(
                             Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("Seed $seed", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                            TextButton(onClick = { copyText(seed.toString()) }) { Text("Copy seed") }
+                            Text(
+                                stringResource(Res.string.ui_seed_value, seed),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = { copyText(seed.toString()) }) { Text(stringResource(Res.string.ui_copy_seed)) }
                         }
                     }
                     world.dataPacks.forEach { pack ->
@@ -3397,7 +3650,7 @@ private fun InstanceGameData(
         item("servers") {
             GameDataSection("Servers", if (state.gameData.servers.isEmpty()) "No saved multiplayer servers." else null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { actions.openServerEditor() }) { Text("Add server") }
+                    TextButton(onClick = { actions.openServerEditor() }) { Text(stringResource(Res.string.ui_add_server)) }
                 }
                 state.gameData.servers.forEach { server ->
                     ListItem(
@@ -3423,11 +3676,11 @@ private fun InstanceGameData(
                                 ServerStatus.OFFLINE -> "Offline"
                                 ServerStatus.UNKNOWN -> "Not checked"
                             }
-                            Text("${server.address} · $status")
+                            Text(stringResource(Res.string.ui_server_status, server.address, status))
                         },
                         trailingContent = {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                TextButton(onClick = { actions.joinServer(server.key) }) { Text("Join") }
+                                TextButton(onClick = { actions.joinServer(server.key) }) { Text(stringResource(Res.string.ui_join)) }
                                 InstanceItemActions(
                                     listOf(
                                         "Move up" to { actions.moveServer(server.key, -1) },
@@ -3450,7 +3703,7 @@ private fun InstanceGameData(
                         headlineContent = { Text(backup.fileName) },
                         supportingContent = { Text(formatFileSize(backup.sizeBytes)) },
                         trailingContent = {
-                            TextButton(onClick = { actions.restoreWorldBackup(backup.key) }) { Text("Restore copy") }
+                            TextButton(onClick = { actions.restoreWorldBackup(backup.key) }) { Text(stringResource(Res.string.ui_restore_copy)) }
                         },
                         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
                     )
@@ -3476,7 +3729,7 @@ private fun InstanceGameData(
                                 TextButton(
                                     onClick = { openPath(screenshot.path) },
                                     enabled = currentPlatform == "Desktop",
-                                ) { Text("Open") }
+                                ) { Text(stringResource(Res.string.ui_open)) }
                                 InstanceItemActions(
                                     listOf(
                                         "Copy file path" to { copyText(screenshot.path) },
@@ -3498,17 +3751,17 @@ private fun InstanceGameData(
     worldToRename?.let { worldKey ->
         AlertDialog(
             onDismissRequest = { worldToRename = null },
-            title = { Text("Rename world") },
+            title = { Text(stringResource(Res.string.ui_rename_world)) },
             text = {
                 OutlinedTextField(
                     value = worldName,
                     onValueChange = { worldName = it },
-                    label = { Text("World name") },
+                    label = { Text(stringResource(Res.string.ui_world_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
-            dismissButton = { TextButton(onClick = { worldToRename = null }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { worldToRename = null }) { Text(stringResource(Res.string.ui_cancel)) } },
             confirmButton = {
                 Button(
                     onClick = {
@@ -3516,25 +3769,25 @@ private fun InstanceGameData(
                         worldToRename = null
                     },
                     enabled = worldName.isNotBlank(),
-                ) { Text("Rename") }
+                ) { Text(stringResource(Res.string.ui_rename)) }
             },
         )
     }
     screenshotToRename?.let { screenshotKey ->
         AlertDialog(
             onDismissRequest = { screenshotToRename = null },
-            title = { Text("Rename screenshot") },
+            title = { Text(stringResource(Res.string.ui_rename_screenshot)) },
             text = {
                 OutlinedTextField(
                     value = screenshotName,
                     onValueChange = { screenshotName = it },
-                    label = { Text("File name") },
+                    label = { Text(stringResource(Res.string.ui_file_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
             },
             dismissButton = {
-                TextButton(onClick = { screenshotToRename = null }) { Text("Cancel") }
+                TextButton(onClick = { screenshotToRename = null }) { Text(stringResource(Res.string.ui_cancel)) }
             },
             confirmButton = {
                 Button(
@@ -3543,7 +3796,7 @@ private fun InstanceGameData(
                         screenshotToRename = null
                     },
                     enabled = screenshotName.isNotBlank(),
-                ) { Text("Rename") }
+                ) { Text(stringResource(Res.string.ui_rename)) }
             },
         )
     }
@@ -3565,7 +3818,7 @@ private fun WorldImportButton(actions: LauncherUiActions) {
             }
         }
     }
-    TextButton(onClick = { picker.launch() }) { Text("Import world") }
+    TextButton(onClick = { picker.launch() }) { Text(stringResource(Res.string.ui_import_world)) }
 }
 
 @Composable
@@ -3582,7 +3835,7 @@ private fun InstanceNotes(
         Column(Modifier.widthIn(max = 820.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Notes", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.ui_notes), style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Keep setup details, server information, or reminders with this instance.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3591,12 +3844,14 @@ private fun InstanceNotes(
                 Button(
                     onClick = { actions.saveInstanceNotes(draft) },
                     enabled = draft.trimEnd() != instance.notes,
-                ) { Text("Save notes") }
+                ) { Text(stringResource(Res.string.ui_save_notes)) }
             }
             OutlinedTextField(
                 value = draft,
                 onValueChange = { draft = it },
-                placeholder = { Text("Write notes for ${instance.displayName}") },
+                placeholder = {
+                    Text(stringResource(Res.string.ui_write_notes_for_instance, instance.displayName))
+                },
                 minLines = 16,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -3653,7 +3908,7 @@ private fun InstanceLogs(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Instance logs", style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.ui_instance_logs), style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Review Minecraft output, archived logs, and crash reports.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -3662,7 +3917,7 @@ private fun InstanceLogs(
                 TextButton(
                     onClick = { selectedKey?.let(actions::selectInstanceLog) },
                     enabled = selectedKey != null && !state.isLoadingInstanceLog,
-                ) { Text("Reload") }
+                ) { Text(stringResource(Res.string.ui_reload)) }
                 InstanceItemActions(
                     buildList {
                         if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
@@ -3691,7 +3946,7 @@ private fun InstanceLogs(
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
-                    label = { Text("Find in log") },
+                    label = { Text(stringResource(Res.string.ui_find_in_log)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -3701,14 +3956,14 @@ private fun InstanceLogs(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(followLaunch, onCheckedChange = null)
-                        Text("Follow launch")
+                        Text(stringResource(Res.string.ui_follow_launch))
                     }
                     Row(
                         Modifier.toggleable(wrapLines, role = Role.Checkbox) { wrapLines = it },
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Checkbox(wrapLines, onCheckedChange = null)
-                        Text("Wrap lines")
+                        Text(stringResource(Res.string.ui_wrap_lines))
                     }
                 }
                 Row(
@@ -3716,7 +3971,7 @@ private fun InstanceLogs(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Checkbox(colorLines, onCheckedChange = null)
-                    Text("Color warnings and errors")
+                    Text(stringResource(Res.string.ui_color_warnings_and_errors))
                 }
             }
             Surface(
@@ -3763,7 +4018,7 @@ private fun InstanceItemActions(actions: List<Pair<String, () -> Unit>>) {
     if (actions.isEmpty()) return
     var expanded by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { expanded = true }) { Text("More") }
+        TextButton(onClick = { expanded = true }) { Text(stringResource(Res.string.ui_more)) }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             actions.forEach { (label, action) ->
                 DropdownMenuItem(
@@ -3790,15 +4045,15 @@ private fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiAction
                 TextField(
                     value = editor.name,
                     onValueChange = actions::setServerName,
-                    label = { Text("Name") },
+                    label = { Text(stringResource(Res.string.ui_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 TextField(
                     value = editor.address,
                     onValueChange = actions::setServerAddress,
-                    label = { Text("Address") },
-                    supportingText = { Text("For example, play.example.net:25565") },
+                    label = { Text(stringResource(Res.string.ui_address)) },
+                    supportingText = { Text(stringResource(Res.string.ui_for_example_play_example_net_25565)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -3815,7 +4070,7 @@ private fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiAction
             }
         },
         dismissButton = {
-            TextButton(onClick = actions::closeServerEditor, enabled = !editor.isSaving) { Text("Cancel") }
+            TextButton(onClick = actions::closeServerEditor, enabled = !editor.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
         },
         confirmButton = {
             Button(onClick = actions::saveServer, enabled = valid && !editor.isSaving) {
@@ -3841,7 +4096,7 @@ private fun InstanceWorkspaceHeader(
             TextButton(onClick = onBack) {
                 Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
                 Spacer(Modifier.width(6.dp))
-                Text("Library")
+                Text(stringResource(Res.string.ui_library))
             }
             InstanceArtwork(instance, 52.dp)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -3880,7 +4135,14 @@ private fun InstanceOverview(
                         InstanceArtwork(instance, 64.dp)
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                             Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-                            Text("${instance.minecraftVersionId} · ${instance.modLoader.label}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(
+                                stringResource(
+                                    Res.string.ui_instance_version_loader,
+                                    instance.minecraftVersionId,
+                                    instance.modLoader.label,
+                                ),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                             Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
                         }
                     }
@@ -3891,7 +4153,7 @@ private fun InstanceOverview(
         }
         item("properties") {
             Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                Text("Instance", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.ui_instance), style = MaterialTheme.typography.titleLarge)
                 Spacer(Modifier.height(8.dp))
                 PropertyRow("Java", instance.requiredJavaMajor.toString())
                 PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
@@ -3911,8 +4173,8 @@ private fun InstanceOverview(
                 )
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Version components", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = actions::openInstanceSettings) { Text("Change") }
+                    Text(stringResource(Res.string.ui_version_components), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                    TextButton(onClick = actions::openInstanceSettings) { Text(stringResource(Res.string.ui_change)) }
                 }
                 PropertyRow("Minecraft", instance.minecraftVersionId)
                 if (instance.modLoader == ModLoader.VANILLA) {
@@ -3928,8 +4190,8 @@ private fun InstanceOverview(
                 Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
                     Spacer(Modifier.height(24.dp))
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Launch plan", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
-                        TextButton(onClick = actions::inspectLaunchPlan) { Text("Refresh") }
+                        Text(stringResource(Res.string.ui_launch_plan), modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
+                        TextButton(onClick = actions::inspectLaunchPlan) { Text(stringResource(Res.string.ui_refresh)) }
                     }
                     PropertyRow("Main class", plan.mainClass)
                     PropertyRow("Classpath", "${plan.classpathEntries} entries")
@@ -3943,16 +4205,16 @@ private fun InstanceOverview(
                 OutlinedButton(
                     onClick = actions::inspectLaunchPlan,
                     enabled = instance.installationState is InstallationState.Installed,
-                ) { Text("Inspect launch plan") }
+                ) { Text(stringResource(Res.string.ui_inspect_launch_plan)) }
             }
         }
         if (state.gameLogLines.isNotEmpty() || state.lastCrashReport != null) {
             item("game-console") {
                 Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 24.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text("Game console", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        Text(stringResource(Res.string.ui_game_console), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                         TextButton(onClick = actions::clearGameLog, enabled = state.gameLogLines.isNotEmpty()) {
-                            Text("Clear")
+                            Text(stringResource(Res.string.ui_clear))
                         }
                     }
                     Surface(
@@ -3975,11 +4237,15 @@ private fun InstanceOverview(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            Text("Crash report: $report", color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                            Text(
+                                stringResource(Res.string.ui_crash_report_value, report),
+                                color = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.weight(1f),
+                            )
                             TextButton(
                                 onClick = { openPath(report) },
                                 enabled = currentPlatform == "Desktop",
-                            ) { Text("Open") }
+                            ) { Text(stringResource(Res.string.ui_open)) }
                         }
                     }
                 }
@@ -4063,7 +4329,7 @@ private fun InstalledContentPanel(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text("Installed content", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.ui_installed_content), style = MaterialTheme.typography.titleLarge)
                 Text(
                     "Manage Trestle installs and compatible files already in ${instance.displayName}.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -4072,7 +4338,7 @@ private fun InstalledContentPanel(
             TextButton(
                 onClick = actions::refreshInstalledContent,
                 enabled = !state.isLoadingInstalledContent,
-            ) { Text("Refresh") }
+            ) { Text(stringResource(Res.string.ui_refresh)) }
             OutlinedButton(
                 onClick = actions::checkInstalledContentUpdates,
                 enabled = state.installedContent.any { it.direct && it.isTracked } &&
@@ -4104,7 +4370,7 @@ private fun InstalledContentPanel(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                Text("Reading installed content…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.ui_reading_installed_content), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             state.installedContent.isEmpty() -> Surface(
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -4205,14 +4471,14 @@ private fun InstalledContentRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
                 content.websiteUrl?.let { websiteUrl ->
-                    TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("Homepage") }
+                    TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text(stringResource(Res.string.ui_homepage)) }
                 }
                 if (update != null) {
                     FilledTonalButton(onClick = { actions.updateInstalledContent(content.key) }) {
-                        Text("Update")
+                        Text(stringResource(Res.string.ui_update))
                     }
                 }
-                TextButton(onClick = { actions.removeInstalledContent(content.key) }) { Text("Remove") }
+                TextButton(onClick = { actions.removeInstalledContent(content.key) }) { Text(stringResource(Res.string.ui_remove)) }
             }
         }
     }
@@ -4230,7 +4496,7 @@ private fun InstanceConfiguration(
             Modifier.widthIn(max = 820.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Instance settings", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.ui_instance_settings), style = MaterialTheme.typography.titleLarge)
             Text(
                 "Launch and Minecraft client settings apply only to ${instance.displayName}.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -4255,7 +4521,7 @@ private fun InstanceConfiguration(
             OutlinedButton(
                 onClick = actions::openInstanceSettings,
                 modifier = Modifier.padding(top = 12.dp),
-            ) { Text("Edit instance settings") }
+            ) { Text(stringResource(Res.string.ui_edit_instance_settings)) }
         }
     }
 }
@@ -4276,7 +4542,7 @@ private fun ResourceCatalogPage(
         }
     }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
-        PageHeader("Discover") {}
+        PageHeader(stringResource(Res.string.ui_discover)) {}
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (
             state.resourceBrowser.visible &&
@@ -4336,7 +4602,7 @@ private fun ContentTypeRow(
         trailingContent = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 localFileAction()
-                OutlinedButton(onClick = onClick, enabled = enabled) { Text("Browse") }
+                OutlinedButton(onClick = onClick, enabled = enabled) { Text(stringResource(Res.string.ui_browse)) }
             }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
@@ -4373,7 +4639,7 @@ private fun LocalFileButton(
             }
         }
     }
-    TextButton(onClick = { picker.launch() }, enabled = enabled) { Text("Add file") }
+    TextButton(onClick = { picker.launch() }, enabled = enabled) { Text(stringResource(Res.string.ui_add_file)) }
 }
 
 private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
@@ -4382,8 +4648,8 @@ private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS)) {
-        PageHeader("Accounts") {
-            Button(onClick = actions::openAccountLogin) { Text("Add account") }
+        PageHeader(stringResource(Res.string.ui_accounts)) {
+            Button(onClick = actions::openAccountLogin) { Text(stringResource(Res.string.ui_add_account)) }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (state.accounts.isEmpty()) {
@@ -4392,7 +4658,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No accounts", style = MaterialTheme.typography.titleLarge)
+                Text(stringResource(Res.string.ui_no_accounts), style = MaterialTheme.typography.titleLarge)
                 Text(
                     "Add a verified Java or Bedrock account, import an existing session, or create an offline profile. " +
                         "Trestle encrypts saved online authentication state in the platform credential vault.",
@@ -4425,12 +4691,12 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
     pendingRemoval?.let { profileId ->
         AlertDialog(
             onDismissRequest = { pendingRemoval = null },
-            title = { Text("Forget account?") },
+            title = { Text(stringResource(Res.string.ui_forget_account)) },
             text = {
-                Text("This removes the local profile and saved credentials. It does not change the source account.")
+                Text(stringResource(Res.string.ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_))
             },
             dismissButton = {
-                TextButton(onClick = { pendingRemoval = null }) { Text("Cancel") }
+                TextButton(onClick = { pendingRemoval = null }) { Text(stringResource(Res.string.ui_cancel)) }
             },
             confirmButton = {
                 Button(
@@ -4438,7 +4704,7 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
                         actions.removeAccount(profileId)
                         pendingRemoval = null
                     },
-                ) { Text("Forget account") }
+                ) { Text(stringResource(Res.string.ui_forget_account_2)) }
             },
         )
     }
@@ -4515,7 +4781,7 @@ private fun AccountRow(
                                 Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
                                 Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                             }
-                            if (account.isActive) Text("Active", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                            if (account.isActive) Text(stringResource(Res.string.ui_active), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                         }
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(
@@ -4526,15 +4792,15 @@ private fun AccountRow(
                             if (!account.isActive) {
                                 OutlinedButton(
                                     onClick = { actions.selectAccount(profileId) },
-                                ) { Text("Use") }
+                                ) { Text(stringResource(Res.string.ui_use)) }
                             }
                             if (canManageOfficialProfile) {
-                                TextButton(onClick = actions::openSkinStudio) { Text("Skins") }
+                                TextButton(onClick = actions::openSkinStudio) { Text(stringResource(Res.string.ui_skins)) }
                             }
                             if (account.isAuthenticated) {
-                                TextButton(onClick = { actions.signOutAccount(profileId) }) { Text("Sign out") }
+                                TextButton(onClick = { actions.signOutAccount(profileId) }) { Text(stringResource(Res.string.ui_sign_out)) }
                             }
-                            TextButton(onClick = onForget) { Text("Forget") }
+                            TextButton(onClick = onForget) { Text(stringResource(Res.string.ui_forget)) }
                         }
                     }
                 } else {
@@ -4547,7 +4813,7 @@ private fun AccountRow(
                         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                 Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                if (account.isActive) Text("Active", color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
+                                if (account.isActive) Text(stringResource(Res.string.ui_active), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
                             }
                             Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                         }
@@ -4566,17 +4832,17 @@ private fun AccountRow(
                         }
                         if (!account.isActive) {
                             OutlinedButton(onClick = { actions.selectAccount(profileId) }) {
-                                Text("Use")
+                                Text(stringResource(Res.string.ui_use))
                             }
                         } else if (canManageOfficialProfile) {
                             OutlinedButton(onClick = actions::openSkinStudio) {
-                                Text("Manage skins")
+                                Text(stringResource(Res.string.ui_manage_skins))
                             }
                         }
                         if (account.isAuthenticated) {
-                            TextButton(onClick = { actions.signOutAccount(profileId) }) { Text("Sign out") }
+                            TextButton(onClick = { actions.signOutAccount(profileId) }) { Text(stringResource(Res.string.ui_sign_out)) }
                         }
-                        TextButton(onClick = onForget) { Text("Forget") }
+                        TextButton(onClick = onForget) { Text(stringResource(Res.string.ui_forget)) }
                     }
                 }
             }
@@ -4593,10 +4859,12 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
         onDismissRequest = actions::closeSkinStudio,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp)
+        TrestleDialogSurface(
+            maxWidth = 1040.dp,
+            widthFraction = 0.92f,
+            heightFraction = 0.9f,
+            minHeight = 540.dp,
+            modifier = Modifier
                 .dismissOnEscape(onDismiss = actions::closeSkinStudio)
                 .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
         ) {
@@ -4605,9 +4873,9 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
                     Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Skins", style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(Res.string.ui_skins), style = MaterialTheme.typography.headlineMedium)
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = actions::closeSkinStudio) { Text("Close") }
+                    TextButton(onClick = actions::closeSkinStudio) { Text(stringResource(Res.string.ui_close)) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -4661,30 +4929,27 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
         }
     }
     if (confirmDelete && selected != null) {
-        BasicAlertDialog(onDismissRequest = { confirmDelete = false }) {
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = MaterialTheme.shapes.large,
-                modifier = Modifier.widthIn(max = 420.dp),
-            ) {
-                Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Remove ${selected.profile.name}?", style = MaterialTheme.typography.headlineMedium)
-                    Text("This deletes the local skin profile and its PNG. Your active Minecraft skin does not change.")
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    ) {
-                        TextButton(onClick = { confirmDelete = false }) { Text("Cancel") }
-                        Button(
-                            onClick = {
-                                actions.deleteSelectedSkin()
-                                confirmDelete = false
-                            },
-                        ) { Text("Remove skin") }
-                    }
-                }
-            }
-        }
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = {
+                Text(stringResource(Res.string.ui_remove_named_skin, selected.profile.name))
+            },
+            text = {
+                Text(stringResource(Res.string.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk))
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) { Text(stringResource(Res.string.ui_cancel)) }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        actions.deleteSelectedSkin()
+                        confirmDelete = false
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                ) { Text(stringResource(Res.string.ui_remove_skin)) }
+            },
+        )
     }
 }
 
@@ -4698,7 +4963,7 @@ private fun CurrentSkinPanel(
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("Current", style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
+        Text(stringResource(Res.string.ui_current), style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
         MinecraftSkinPreview(
             texture = texture,
             variant = variant,
@@ -4712,8 +4977,8 @@ private fun CurrentSkinPanel(
             style = MaterialTheme.typography.labelMedium,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onSave, enabled = texture != null) { Text("Save to library") }
-            TextButton(onClick = onReset) { Text("Reset to default") }
+            TextButton(onClick = onSave, enabled = texture != null) { Text(stringResource(Res.string.ui_save_to_library)) }
+            TextButton(onClick = onReset) { Text(stringResource(Res.string.ui_reset_to_default)) }
         }
     }
 }
@@ -4758,9 +5023,9 @@ private fun SkinLibraryPanel(
 ) {
     Column(modifier.padding(24.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("Library", style = MaterialTheme.typography.titleLarge)
+            Text(stringResource(Res.string.ui_library), style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.weight(1f))
-            Button(onClick = onNew) { Text("New skin") }
+            Button(onClick = onNew) { Text(stringResource(Res.string.ui_new_skin)) }
         }
         Spacer(Modifier.height(16.dp))
         if (skins.isEmpty()) {
@@ -4769,10 +5034,10 @@ private fun SkinLibraryPanel(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No saved skins", style = MaterialTheme.typography.titleMedium)
-                Text("Import a 64×64 or legacy 64×32 PNG to start your local library.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(Res.string.ui_no_saved_skins), style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.ui_import_a_64x64_or_legacy_64x32_png_to_start_your_local_library), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
-                OutlinedButton(onClick = onNew) { Text("Choose a skin file") }
+                OutlinedButton(onClick = onNew) { Text(stringResource(Res.string.ui_choose_a_skin_file)) }
             }
         } else {
             LazyVerticalGrid(
@@ -4800,12 +5065,12 @@ private fun SkinLibraryPanel(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TextButton(onClick = onDelete, enabled = selected != null) { Text("Delete") }
-                TextButton(onClick = onEdit, enabled = selected != null) { Text("Edit") }
+                TextButton(onClick = onDelete, enabled = selected != null) { Text(stringResource(Res.string.ui_delete)) }
+                TextButton(onClick = onEdit, enabled = selected != null) { Text(stringResource(Res.string.ui_edit)) }
                 Button(
                     onClick = onUse,
                     enabled = selected != null,
-                ) { Text("Use skin") }
+                ) { Text(stringResource(Res.string.ui_use_skin)) }
             }
         }
     }
@@ -4883,10 +5148,12 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
         onDismissRequest = actions::closeSkinEditor,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp)
+        TrestleDialogSurface(
+            maxWidth = 820.dp,
+            widthFraction = 0.88f,
+            minHeight = 500.dp,
+            maxHeight = 650.dp,
+            modifier = Modifier
                 .dismissOnEscape(enabled = !editor.isSaving, onDismiss = actions::closeSkinEditor)
                 .localFileDropTarget(
                     enabled = !editor.isSaving && currentPlatform == "Desktop",
@@ -4910,7 +5177,7 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     Spacer(Modifier.weight(1f))
-                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text("Close") }
+                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text(stringResource(Res.string.ui_close)) }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
@@ -4939,11 +5206,11 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                     Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
                 ) {
-                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text("Cancel") }
+                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
                     OutlinedButton(
                         onClick = { actions.saveSkin(useAfterSave = false) },
                         enabled = editor.canSave,
-                    ) { Text("Save") }
+                    ) { Text(stringResource(Res.string.ui_save)) }
                     Button(
                         onClick = { actions.saveSkin(useAfterSave = true) },
                         enabled = editor.canSave,
@@ -4965,7 +5232,7 @@ private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modi
             modifier = Modifier.fillMaxWidth().weight(1f),
             emptyLabel = "Choose a skin PNG",
         )
-        Text("Drag to rotate", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+        Text(stringResource(Res.string.ui_drag_to_rotate), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -4980,7 +5247,7 @@ private fun SkinEditorFields(
         TextField(
             value = editor.name,
             onValueChange = actions::setSkinName,
-            label = { Text("Name") },
+            label = { Text(stringResource(Res.string.ui_name)) },
             singleLine = true,
             enabled = !editor.isSaving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -4990,7 +5257,7 @@ private fun SkinEditorFields(
             modifier = Modifier.fillMaxWidth(),
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Player model", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(Res.string.ui_player_model), style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 SkinVariant.entries.forEach { variant ->
                     Row(
@@ -5013,14 +5280,14 @@ private fun SkinEditorFields(
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Skin file", style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(Res.string.ui_skin_file), style = MaterialTheme.typography.labelLarge)
             OutlinedButton(onClick = onBrowse, enabled = !editor.isSaving) {
                 Text(if (editor.texture == null) "Choose PNG" else "Replace PNG")
             }
             editor.sourceFileName?.let {
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            Text("Use a 64×64 PNG, or a legacy 64×32 skin.", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+            Text(stringResource(Res.string.ui_use_a_64x64_png_or_a_legacy_64x32_skin), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
         }
         editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     }
@@ -5044,12 +5311,16 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isWaiting) actions.closeAccountLogin() },
-        properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
     ) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp)
+        TrestleDialogSurface(
+            maxWidth = 520.dp,
+            maxHeight = 720.dp,
+            modifier = Modifier
                 .dismissOnEscape(enabled = !form.isWaiting, onDismiss = actions::closeAccountLogin)
                 .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
         ) {
@@ -5057,7 +5328,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                 Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text("Add account", style = MaterialTheme.typography.headlineMedium)
+                Text(stringResource(Res.string.ui_add_account), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Choose how Trestle should create or verify this account.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5075,8 +5346,8 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     TextField(
                         value = form.bedrockGameVersion,
                         onValueChange = actions::setBedrockGameVersion,
-                        label = { Text("Installed Bedrock version") },
-                        placeholder = { Text("For example: 1.21.100") },
+                        label = { Text(stringResource(Res.string.ui_installed_bedrock_version)) },
+                        placeholder = { Text(stringResource(Res.string.ui_for_example_1_21_100)) },
                         enabled = !form.isWaiting,
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
@@ -5093,7 +5364,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     TextField(
                         value = form.email,
                         onValueChange = actions::setAccountEmail,
-                        label = { Text("Microsoft account email") },
+                        label = { Text(stringResource(Res.string.ui_microsoft_account_email)) },
                         enabled = !form.isWaiting,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(
@@ -5108,7 +5379,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     TextField(
                         value = form.password.reveal(),
                         onValueChange = actions::setAccountPassword,
-                        label = { Text("Microsoft account password") },
+                        label = { Text(stringResource(Res.string.ui_microsoft_account_password)) },
                         enabled = !form.isWaiting,
                         singleLine = true,
                         visualTransformation = if (passwordVisible) {
@@ -5173,7 +5444,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                     TextField(
                         value = form.offlineUsername,
                         onValueChange = actions::setOfflineUsername,
-                        label = { Text("Offline username") },
+                        label = { Text(stringResource(Res.string.ui_offline_username)) },
                         isError = form.offlineUsername.isNotEmpty() &&
                             !form.offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$")),
                         supportingText = {
@@ -5208,7 +5479,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Enter this code", color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            Text(stringResource(Res.string.ui_enter_this_code), color = MaterialTheme.colorScheme.onSecondaryContainer)
                             Text(
                                 authorization.userCode,
                                 style = MaterialTheme.typography.headlineMedium,
@@ -5217,12 +5488,12 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                             Text(authorization.verificationUri, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             Button(
                                 onClick = { uriHandler.openUri(authorization.directVerificationUri) },
-                            ) { Text("Open Microsoft sign-in") }
+                            ) { Text(stringResource(Res.string.ui_open_microsoft_sign_in)) }
                         }
                     }
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = actions::closeAccountLogin) { Text("Cancel") }
+                    TextButton(onClick = actions::closeAccountLogin) { Text(stringResource(Res.string.ui_cancel)) }
                     if (form.authorization == null) {
                         Button(
                             onClick = actions::signInAccount,
@@ -5302,17 +5573,17 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
     val runtimeScrollState = rememberScrollState()
     val logListState = rememberLazyListState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
-        PageHeader("Settings") {}
+        PageHeader(stringResource(Res.string.ui_settings)) {}
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth < 640.dp) {
                 Column(Modifier.fillMaxSize()) {
-                    SecondaryScrollableTabRow(selectedTabIndex = section.ordinal, edgePadding = 0.dp) {
+                    PrimaryScrollableTabRow(selectedTabIndex = section.ordinal, edgePadding = 0.dp) {
                         SettingsSection.entries.forEach { item ->
                             Tab(
                                 selected = section == item,
                                 onClick = { sectionName = item.name },
-                                text = { Text(item.label) },
+                                text = { Text(stringResource(item.label)) },
                             )
                         }
                     }
@@ -5361,18 +5632,18 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
     }
 }
 
-private enum class SettingsSection(val label: String) {
-    GENERAL("General"),
-    LANGUAGE("Language"),
-    APPEARANCE("Appearance"),
-    FOLDERS("Folders"),
-    CONTENT("Content"),
-    NETWORK("Network"),
-    PROXY("Proxy"),
-    RUNTIME("Runtime"),
-    LOGS("Launcher log"),
-    SERVICES("Services"),
-    TOOLS("Tools"),
+private enum class SettingsSection(val label: StringResource) {
+    GENERAL(Res.string.ui_general),
+    LANGUAGE(Res.string.ui_language),
+    APPEARANCE(Res.string.ui_appearance),
+    FOLDERS(Res.string.ui_folders),
+    CONTENT(Res.string.ui_content),
+    NETWORK(Res.string.ui_network),
+    PROXY(Res.string.ui_proxy),
+    RUNTIME(Res.string.ui_runtime),
+    LOGS(Res.string.ui_launcher_log),
+    SERVICES(Res.string.ui_services),
+    TOOLS(Res.string.ui_tools),
 }
 
 @Composable
@@ -5383,7 +5654,7 @@ private fun SettingsSectionButton(
     onClick: () -> Unit,
 ) {
     NavigationDrawerItem(
-        label = { Text(section.label) },
+        label = { Text(stringResource(section.label)) },
         selected = selected,
         onClick = onClick,
         modifier = modifier,
@@ -5416,7 +5687,7 @@ private fun SettingsSectionContent(
 
 @Composable
 private fun SettingsColumn(
-    title: String,
+    title: StringResource,
     scrollState: ScrollState,
     modifier: Modifier,
     content: @Composable ColumnScope.() -> Unit,
@@ -5425,7 +5696,7 @@ private fun SettingsColumn(
         modifier.verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
         content()
     }
 }
@@ -5436,9 +5707,9 @@ private fun GeneralSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("General", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_general, scrollState, modifier) {
     val preferences = state.launcherPreferences
-    Text("Instance sorting", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_instance_sorting), style = MaterialTheme.typography.titleMedium)
     SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
         InstanceSortMode.entries.forEachIndexed { index, mode ->
             SegmentedButton(
@@ -5460,7 +5731,7 @@ private fun LanguageSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Language", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_language, scrollState, modifier) {
     val preferences = state.launcherPreferences
     Selector(
         label = "Interface language",
@@ -5481,7 +5752,7 @@ private fun FolderSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Folders", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_folders, scrollState, modifier) {
     val preferences = state.launcherPreferences
     val folders = preferences.folders
     FolderPreferenceField("Instances", folders.instances, state.defaultFolders.instances) {
@@ -5496,7 +5767,7 @@ private fun FolderSettings(
     FolderPreferenceField("Downloads and exports", folders.downloads, state.defaultFolders.downloads) {
         actions.setLauncherPreferences(preferences.copy(folders = folders.copy(downloads = it)))
     }
-    Text("Folder changes apply after Trestle restarts.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_folder_changes_apply_after_trestle_restarts), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -5518,7 +5789,7 @@ private fun ContentSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Mods and modpacks", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_mods_and_modpacks, scrollState, modifier) {
     val preferences = state.launcherPreferences
     val content = preferences.content
     SettingsSwitch("Scan subfolders for blocked mods", content.scanSubfolders) {
@@ -5543,17 +5814,12 @@ private fun ContentSettings(
 
 @Composable
 private fun SettingsSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().widthIn(max = 760.dp).toggleable(
-            value = checked,
-            role = Role.Switch,
-            onValueChange = onCheckedChange,
-        ).padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = null)
-    }
+    TrestleSwitchItem(
+        label = label,
+        checked = checked,
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+        onCheckedChange = onCheckedChange,
+    )
 }
 
 @Composable
@@ -5562,7 +5828,7 @@ private fun NetworkSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Tasks and downloads", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_tasks_and_downloads, scrollState, modifier) {
     val preferences = state.launcherPreferences
     val network = preferences.network
     IntegerSlider("Concurrent task limit", network.concurrentTasks.toString(), network.concurrentTasks, 1..64) {
@@ -5578,7 +5844,7 @@ private fun NetworkSettings(
         actions.setLauncherPreferences(preferences.copy(network = network.copy(httpTimeoutSeconds = it)))
     }
     HorizontalDivider()
-    Text("Console", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_console), style = MaterialTheme.typography.titleMedium)
     IntegerSlider(
         "Log history limit",
         "${preferences.console.historyLimit} lines",
@@ -5591,7 +5857,7 @@ private fun NetworkSettings(
     SettingsSwitch("Stop logging when the history limit is reached", preferences.console.stopLoggingOnOverflow) {
         actions.setLauncherPreferences(preferences.copy(console = preferences.console.copy(stopLoggingOnOverflow = it)))
     }
-    Text("HTTP timeout and proxy changes apply to new connections after restart.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_http_timeout_and_proxy_changes_apply_to_new_connections_after_restart), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -5600,10 +5866,10 @@ private fun ProxySettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Proxy", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_proxy, scrollState, modifier) {
     val preferences = state.launcherPreferences
     val proxy = preferences.proxy
-    Text("Proxy settings apply to Trestle. Minecraft does not use them.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_proxy_settings_apply_to_trestle_minecraft_does_not_use_them), color = MaterialTheme.colorScheme.onSurfaceVariant)
     Selector(
         label = "Type",
         value = proxy.type.label,
@@ -5620,7 +5886,7 @@ private fun ProxySettings(
         TextField(
             value = proxy.host,
             onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(host = it))) },
-            label = { Text("Address") },
+            label = { Text(stringResource(Res.string.ui_address)) },
             enabled = editable,
             singleLine = true,
             modifier = Modifier.weight(1f),
@@ -5632,7 +5898,7 @@ private fun ProxySettings(
                     actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(port = it)))
                 }
             },
-            label = { Text("Port") },
+            label = { Text(stringResource(Res.string.ui_port)) },
             enabled = editable,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -5642,7 +5908,7 @@ private fun ProxySettings(
     TextField(
         value = proxy.username,
         onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(username = it))) },
-        label = { Text("Username") },
+        label = { Text(stringResource(Res.string.ui_username)) },
         enabled = editable,
         singleLine = true,
         modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
@@ -5650,13 +5916,13 @@ private fun ProxySettings(
     TextField(
         value = proxy.password,
         onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(password = it))) },
-        label = { Text("Password") },
+        label = { Text(stringResource(Res.string.ui_password)) },
         enabled = editable,
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
     )
-    Text("Proxy credentials are stored in the launcher preferences file.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_proxy_credentials_are_stored_in_the_launcher_preferences_file), color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 @Composable
@@ -5665,34 +5931,34 @@ private fun ServiceSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Services", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_services, scrollState, modifier) {
     val preferences = state.launcherPreferences
-    Text("Modrinth", style = MaterialTheme.typography.titleMedium)
-    Text("Available without an API key.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_modrinth), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_available_without_an_api_key), color = MaterialTheme.colorScheme.onSurfaceVariant)
     HorizontalDivider()
-    Text("CurseForge", style = MaterialTheme.typography.titleMedium)
-    Text("Availability is controlled by the Trestle build API key.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Text(stringResource(Res.string.ui_curseforge), style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_availability_is_controlled_by_the_trestle_build_api_key), color = MaterialTheme.colorScheme.onSurfaceVariant)
     HorizontalDivider()
-    Text("ATLauncher", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_atlauncher), style = MaterialTheme.typography.titleMedium)
     Text(
         "The public catalog is available without an API key.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     HorizontalDivider()
-    Text("Technic", style = MaterialTheme.typography.titleMedium)
+    Text(stringResource(Res.string.ui_technic), style = MaterialTheme.typography.titleMedium)
     TextField(
         value = preferences.technicClientId,
         onValueChange = { actions.setLauncherPreferences(preferences.copy(technicClientId = it)) },
-        label = { Text("Client ID") },
-        supportingText = { Text("Optional. Some private or rate-limited Technic packs require it. Applies after restart.") },
+        label = { Text(stringResource(Res.string.ui_client_id)) },
+        supportingText = { Text(stringResource(Res.string.ui_optional_some_private_or_rate_limited_technic_packs_require_it_applies_a)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
     )
     TextField(
         value = preferences.ftbAppInstancesPath,
         onValueChange = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
-        label = { Text("FTB App instances folder") },
-        supportingText = { Text("Used when importing existing FTB App instances.") },
+        label = { Text(stringResource(Res.string.ui_ftb_app_instances_folder)) },
+        supportingText = { Text(stringResource(Res.string.ui_used_when_importing_existing_ftb_app_instances)) },
         singleLine = true,
         modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
     )
@@ -5704,7 +5970,7 @@ private fun ToolSettings(
     actions: LauncherUiActions,
     scrollState: ScrollState,
     modifier: Modifier,
-) = SettingsColumn("Tools", scrollState, modifier) {
+) = SettingsColumn(Res.string.ui_tools, scrollState, modifier) {
     OutlinedButton(onClick = actions::refreshVersions) {
         Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh Minecraft metadata")
     }
@@ -5728,7 +5994,7 @@ private fun AppearanceSettings(
         modifier.verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Appearance", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(Res.string.ui_appearance), style = MaterialTheme.typography.titleLarge)
         Text(
             "Choose how Trestle follows your device appearance. The preference applies on the next screen immediately.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5763,7 +6029,7 @@ private fun RuntimeSettings(
         modifier.verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text("Runtime", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(Res.string.ui_runtime), style = MaterialTheme.typography.titleLarge)
         Text(
             "Trestle resolves the platform runtime and compatible Minecraft metadata automatically.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5800,7 +6066,7 @@ private fun RuntimeSettings(
             ) { Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates") }
             state.availableUpdate?.let { update ->
                 TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) {
-                    Text("Open ${update.version} release")
+                    Text(stringResource(Res.string.ui_open_version_release, update.version))
                 }
             }
         }
@@ -5823,15 +6089,15 @@ private fun LauncherLog(
         item("logs-heading") {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("Launcher log", style = MaterialTheme.typography.titleLarge)
-                    Text("Events from this session. Right-click an entry to copy diagnostics.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(Res.string.ui_launcher_log), style = MaterialTheme.typography.titleLarge)
+                    Text(stringResource(Res.string.ui_events_from_this_session_right_click_an_entry_to_copy_diagnostics), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                TextButton(onClick = actions::clearLogs, enabled = state.logs.isNotEmpty()) { Text("Clear") }
+                TextButton(onClick = actions::clearLogs, enabled = state.logs.isNotEmpty()) { Text(stringResource(Res.string.ui_clear)) }
             }
             Spacer(Modifier.height(16.dp))
         }
         if (state.logs.isEmpty()) {
-            item("logs-empty") { Text("No launcher events in this session.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            item("logs-empty") { Text(stringResource(Res.string.ui_no_launcher_events_in_this_session), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
                 LogRow(entry, onDoubleClick = { selectedEntryId = entry.id })
@@ -5907,7 +6173,7 @@ private fun LogDetailsDialog(entry: LogEntry, onDismiss: () -> Unit) {
                 if (entry.details.isNotEmpty()) PropertyRow("Details", formatLogDetails(entry))
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_close)) } },
     )
 }
 

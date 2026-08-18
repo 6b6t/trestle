@@ -2,6 +2,8 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.adaptive.Posture
+import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -9,14 +11,15 @@ import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.doubleClick
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import net.blockhost.trestle.auth.SavedSkin
@@ -30,7 +33,11 @@ class TrestleAppUiTest {
     fun wideLibraryKeepsPrimaryControlsVisible() = runComposeUiTest {
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.loaded, NoopLauncherUiActions)
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
             }
         }
 
@@ -44,8 +51,12 @@ class TrestleAppUiTest {
     @Test
     fun compactLibraryKeepsLaunchAndManagementActionsVisible() = runComposeUiTest {
         setContent {
-            Box(Modifier.size(600.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.loaded, NoopLauncherUiActions)
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
             }
         }
 
@@ -58,10 +69,14 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun compactBreakpointUsesCompactChromeAt839Dp() = runComposeUiTest {
+    fun compactBreakpointUsesCompactChromeAt599Dp() = runComposeUiTest {
         setContent {
-            Box(Modifier.size(839.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.installing, NoopLauncherUiActions)
+            Box(Modifier.size(599.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.installing,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(599, 720),
+                )
             }
         }
 
@@ -71,10 +86,31 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun mediumBreakpointUsesRailAt600Dp() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(600.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.installing,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(600, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.TOP_NAVIGATION).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
+        onNodeWithText("Content").assertIsDisplayed()
+    }
+
+    @Test
     fun wideBreakpointUsesWideChromeAt840Dp() = runComposeUiTest {
         setContent {
             Box(Modifier.size(840.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.installing, NoopLauncherUiActions)
+                TrestleApp(
+                    LauncherPreviewFixtures.installing,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(840, 720),
+                )
             }
         }
 
@@ -318,8 +354,12 @@ class TrestleAppUiTest {
             launch = InstanceLaunchState(InstanceId("long-name"), LaunchStatus.NotChecked),
         )
         setContent {
-            Box(Modifier.size(600.dp, 720.dp)) {
-                TrestleApp(state, NoopLauncherUiActions)
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
             }
         }
 
@@ -409,4 +449,24 @@ class TrestleAppUiTest {
         onNodeWithTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG).assertIsDisplayed()
         onNodeWithText("Get sign-in code").assertIsDisplayed().assertHasClickAction()
     }
+}
+
+private fun testWindowAdaptiveInfo(widthDp: Int, heightDp: Int): WindowAdaptiveInfo {
+    val minimumWidth = when {
+        widthDp >= WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND ->
+            WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND
+        widthDp >= WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND -> WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND
+        widthDp >= WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND ->
+            WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND
+        widthDp >= WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND -> WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
+        else -> 0
+    }
+    val minimumHeight = when {
+        heightDp >= WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND ->
+            WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND
+        heightDp >= WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND ->
+            WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND
+        else -> 0
+    }
+    return WindowAdaptiveInfo(WindowSizeClass(minimumWidth, minimumHeight), Posture())
 }

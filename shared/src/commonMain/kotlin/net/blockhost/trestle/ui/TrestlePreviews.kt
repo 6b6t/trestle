@@ -203,13 +203,17 @@ private fun LauncherPreview(
 @Composable
 private fun WideLibraryPreview() = LauncherPreview(LauncherPreviewFixtures.loaded)
 
-@Preview(name = "Compact library", group = "Library", widthDp = 600, heightDp = 800, showBackground = true)
+@Preview(name = "Compact library", group = "Library", widthDp = 480, heightDp = 800, showBackground = true)
 @Composable
 private fun CompactLibraryPreview() = LauncherPreview(LauncherPreviewFixtures.loaded)
 
-@Preview(name = "Compact edge", group = "Breakpoints", widthDp = 839, heightDp = 720, showBackground = true)
+@Preview(name = "Compact edge", group = "Breakpoints", widthDp = 599, heightDp = 720, showBackground = true)
 @Composable
 private fun CompactBreakpointPreview() = LauncherPreview(LauncherPreviewFixtures.installing)
+
+@Preview(name = "Medium edge", group = "Breakpoints", widthDp = 600, heightDp = 720, showBackground = true)
+@Composable
+private fun MediumBreakpointPreview() = LauncherPreview(LauncherPreviewFixtures.installing)
 
 @Preview(name = "Wide edge", group = "Breakpoints", widthDp = 840, heightDp = 720, showBackground = true)
 @Composable

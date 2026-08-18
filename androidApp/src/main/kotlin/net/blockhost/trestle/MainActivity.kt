@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.app.createAndroidLauncherServices
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.ui.LauncherCommand
@@ -72,11 +73,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val state by viewModel.launcher.state.collectAsStateWithLifecycle()
-            val darkTheme = isSystemInDarkTheme()
+            val systemDarkTheme = isSystemInDarkTheme()
             val context = LocalContext.current
-            val accentColor = if (android.os.Build.VERSION.SDK_INT >= 31) {
-                val dynamicScheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-                dynamicScheme.primary
+            val darkTheme = when (state.themePreference) {
+                ThemePreference.SYSTEM -> systemDarkTheme
+                ThemePreference.DARK -> true
+                ThemePreference.LIGHT -> false
+            }
+            val colorScheme = if (android.os.Build.VERSION.SDK_INT >= 31) {
+                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
             } else {
                 null
             }
@@ -97,7 +102,7 @@ class MainActivity : ComponentActivity() {
             TrestleApp(
                 state = state,
                 actions = viewModel.launcher,
-                accentColor = accentColor,
+                colorScheme = colorScheme,
                 darkTheme = darkTheme,
                 highContrast = highContrast,
                 reducedMotion = reducedMotion,
