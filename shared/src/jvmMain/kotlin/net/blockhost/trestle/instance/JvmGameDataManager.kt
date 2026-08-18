@@ -7,6 +7,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
+import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -409,10 +410,16 @@ class JvmGameDataManager(
     private fun readServers(path: Path): List<SavedServer> {
         if (!Files.isRegularFile(path)) return emptyList()
         return runCatching {
-            DataInputStream(GZIPInputStream(Files.newInputStream(path))).use { input ->
-                if (input.readUnsignedByte() != TAG_COMPOUND) return emptyList()
-                input.readUTF()
-                readRootCompound(input)
+            BufferedInputStream(Files.newInputStream(path)).use { source ->
+                source.mark(GZIP_HEADER_SIZE)
+                val isGzip = source.read() == GZIP_MAGIC_FIRST && source.read() == GZIP_MAGIC_SECOND
+                source.reset()
+                val decoded = if (isGzip) GZIPInputStream(source) else source
+                DataInputStream(decoded).use { input ->
+                    if (input.readUnsignedByte() != TAG_COMPOUND) return emptyList()
+                    input.readUTF()
+                    readRootCompound(input)
+                }
             }
         }.getOrElse { throw LauncherException.FileSystem("servers.dat could not be read.", it) }
     }
@@ -455,7 +462,7 @@ class JvmGameDataManager(
     private fun writeServers(path: Path, servers: List<SavedServer>) {
         Files.createDirectories(path.parent)
         val temporary = path.resolveSibling(".${path.fileName}.tmp")
-        DataOutputStream(GZIPOutputStream(Files.newOutputStream(temporary, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING))).use { output ->
+        DataOutputStream(Files.newOutputStream(temporary, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)).use { output ->
             output.writeByte(TAG_COMPOUND)
             output.writeUTF("")
             output.writeByte(TAG_LIST)
@@ -722,6 +729,9 @@ class JvmGameDataManager(
     private fun serverKey(name: String, address: String): String = "$name\u0000$address"
 
     private companion object {
+        const val GZIP_HEADER_SIZE = 2
+        const val GZIP_MAGIC_FIRST = 0x1f
+        const val GZIP_MAGIC_SECOND = 0x8b
         val LOG_DIRECTORIES = listOf("logs", "crash-reports", ".trestle/logs")
         val LOG_EXTENSIONS = setOf("log", "txt", "gz")
         val WORLD_NAME_PATH = listOf("Data", "LevelName")

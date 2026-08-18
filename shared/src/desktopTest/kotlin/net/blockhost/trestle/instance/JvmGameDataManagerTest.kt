@@ -4,6 +4,7 @@ import kotlinx.coroutines.test.runTest
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstanceId
 import java.io.DataOutputStream
+import java.io.OutputStream
 import java.nio.file.Files
 import java.util.zip.GZIPOutputStream
 import kotlin.io.path.createDirectories
@@ -15,6 +16,48 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class JvmGameDataManagerTest {
+    @Test
+    fun readsMinecraftServerListAndWritesUncompressedNbt() = runTest {
+        val root = createTempDirectory("trestle-server-list")
+        try {
+            val game = root.resolve("game").createDirectories()
+            val serversFile = game.resolve("servers.dat")
+            writeServersDat(serversFile, compressed = false)
+            val instance = testInstance(root)
+            val manager = JvmGameDataManager(serverStatusProvider = { it })
+
+            assertEquals("play.example.net", manager.inventory(instance).servers.single().address)
+
+            manager.upsertServer(instance, SavedServer("", "Backup", "backup.example.net"))
+
+            Files.newInputStream(serversFile).use { input ->
+                assertEquals(10, input.read())
+            }
+            assertEquals(
+                listOf("play.example.net", "backup.example.net"),
+                manager.inventory(instance).servers.map(SavedServer::address),
+            )
+        } finally {
+            deleteTree(root)
+        }
+    }
+
+    @Test
+    fun readsGzipServerListWrittenByOlderTrestleVersions() = runTest {
+        val root = createTempDirectory("trestle-legacy-server-list")
+        try {
+            val game = root.resolve("game").createDirectories()
+            writeServersDat(game.resolve("servers.dat"), compressed = true)
+            val manager = JvmGameDataManager(serverStatusProvider = { it })
+
+            val servers = manager.inventory(testInstance(root)).servers
+
+            assertEquals("play.example.net", servers.single().address)
+        } finally {
+            deleteTree(root)
+        }
+    }
+
     @Test
     fun managesWorldBackupsDataPacksScreenshotsAndServers() = runTest {
         val root = createTempDirectory("trestle-game-data")
@@ -97,6 +140,40 @@ class JvmGameDataManagerTest {
             output.writeByte(0)
             output.writeByte(0)
             output.writeByte(0)
+        }
+    }
+
+    private fun writeServersDat(path: java.nio.file.Path, compressed: Boolean) {
+        val fileOutput = Files.newOutputStream(path)
+        val output: OutputStream = if (compressed) GZIPOutputStream(fileOutput) else fileOutput
+        DataOutputStream(output).use { data ->
+            data.writeByte(10)
+            data.writeUTF("")
+            data.writeByte(9)
+            data.writeUTF("servers")
+            data.writeByte(10)
+            data.writeInt(1)
+            data.writeByte(8)
+            data.writeUTF("name")
+            data.writeUTF("Example")
+            data.writeByte(8)
+            data.writeUTF("ip")
+            data.writeUTF("play.example.net")
+            data.writeByte(0)
+            data.writeByte(0)
+        }
+    }
+
+    private fun testInstance(root: java.nio.file.Path) = GameInstance(
+        id = InstanceId("test"),
+        displayName = "Test",
+        minecraftVersionId = "1.21.1",
+        instanceDirectory = root.toString(),
+    )
+
+    private fun deleteTree(root: java.nio.file.Path) {
+        Files.walk(root).sorted(Comparator.reverseOrder()).use { paths ->
+            paths.forEach { Files.deleteIfExists(it) }
         }
     }
 }
