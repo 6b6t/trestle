@@ -19,10 +19,10 @@ internal object WindowsIntegration {
         }
     }
 
-    fun prepareWindow(window: Window) {
+    fun prepareWindow(window: Window, darkTheme: Boolean) {
         if (!isWindows) return
         runCatching {
-            val enabled = Memory(Int.SIZE_BYTES.toLong()).apply { setInt(0, 1) }
+            val enabled = Memory(Int.SIZE_BYTES.toLong()).apply { setInt(0, if (darkTheme) 1 else 0) }
             val windowHandle = Native.getWindowPointer(window)
             val result = DwmApi.INSTANCE.DwmSetWindowAttribute(
                 windowHandle,
@@ -38,6 +38,13 @@ internal object WindowsIntegration {
                     Int.SIZE_BYTES,
                 )
             }
+            val backdrop = Memory(Int.SIZE_BYTES.toLong()).apply { setInt(0, DWMSBT_MAINWINDOW) }
+            DwmApi.INSTANCE.DwmSetWindowAttribute(
+                windowHandle,
+                DWMWA_SYSTEMBACKDROP_TYPE,
+                backdrop,
+                Int.SIZE_BYTES,
+            )
         }
     }
 
@@ -57,4 +64,6 @@ internal object WindowsIntegration {
     private const val APP_USER_MODEL_ID = "net.blockhost.trestle"
     private const val DWMWA_USE_IMMERSIVE_DARK_MODE_BEFORE_20H1 = 19
     private const val DWMWA_USE_IMMERSIVE_DARK_MODE = 20
+    private const val DWMWA_SYSTEMBACKDROP_TYPE = 38
+    private const val DWMSBT_MAINWINDOW = 2
 }

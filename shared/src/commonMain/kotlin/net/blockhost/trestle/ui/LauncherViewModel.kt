@@ -1,6 +1,7 @@
 package net.blockhost.trestle.ui
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -131,6 +132,7 @@ data class LocalFileImportState(
     val bytes: ByteArray = byteArrayOf(),
     val selectedType: ResourceType? = null,
     val targetInstanceId: InstanceId? = null,
+    val sourceOrigin: String? = null,
 ) {
     val extension: String get() = fileName.substringAfterLast('.', "").lowercase()
     val allowedTypes: List<ResourceType>
@@ -147,7 +149,8 @@ data class LocalFileImportState(
             fileName == other.fileName &&
             bytes.contentEquals(other.bytes) &&
             selectedType == other.selectedType &&
-            targetInstanceId == other.targetInstanceId
+            targetInstanceId == other.targetInstanceId &&
+            sourceOrigin == other.sourceOrigin
 
     override fun hashCode(): Int {
         var result = visible.hashCode()
@@ -155,6 +158,7 @@ data class LocalFileImportState(
         result = 31 * result + bytes.contentHashCode()
         result = 31 * result + (selectedType?.hashCode() ?: 0)
         result = 31 * result + (targetInstanceId?.hashCode() ?: 0)
+        result = 31 * result + (sourceOrigin?.hashCode() ?: 0)
         return result
     }
 }
@@ -163,6 +167,11 @@ enum class ErrorRecoveryAction {
     INITIALIZE,
     REFRESH_VERSIONS,
     RETRY_INSTALLATION,
+}
+
+enum class InstanceRemovalMode {
+    LIBRARY_ONLY,
+    MOVE_TO_TRASH,
 }
 
 data class InstanceSettingsState(
@@ -232,6 +241,7 @@ data class LauncherUiState(
     val launchPlan: LaunchPlanSummary? = null,
     val resourceBrowser: ResourceBrowserState = ResourceBrowserState(),
     val launch: InstanceLaunchState = InstanceLaunchState(),
+    val activeLaunch: InstanceLaunchState? = null,
     val operation: OperationStatus? = null,
     val instanceSettings: InstanceSettingsState = InstanceSettingsState(),
     val accounts: List<ManagedAccount> = emptyList(),
@@ -242,6 +252,7 @@ data class LauncherUiState(
     val logs: List<LogEntry> = emptyList(),
     val credentialProtection: CredentialProtection? = null,
     val pendingInstanceRemovalId: InstanceId? = null,
+    val instanceRemovalMode: InstanceRemovalMode = InstanceRemovalMode.LIBRARY_ONLY,
     val supportedMinecraftVersions: Set<String>? = null,
     val supportedModLoaders: Set<ModLoader>? = null,
     val removedInstanceUndo: GameInstance? = null,
@@ -249,6 +260,9 @@ data class LauncherUiState(
 ) {
     val selectedInstance: GameInstance?
         get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
+
+    val activeInstance: GameInstance?
+        get() = activeLaunch?.instanceId?.let { id -> instances.firstOrNull { it.id == id } }
 }
 
 class LauncherViewModel(
@@ -268,6 +282,7 @@ class LauncherViewModel(
     private var accountLoginJob: Job? = null
     private var launchCheckJob: Job? = null
     private var launchJob: Job? = null
+    private val initialInitialization = CompletableDeferred<Unit>()
     private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
     private val loadedSkinUrls = mutableMapOf<String, String>()
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
@@ -331,6 +346,7 @@ class LauncherViewModel(
                 state.copy(instances = instances, selectedId = selected)
             }
             mutableState.update { it.copy(isInitializing = false, operation = null) }
+            initialInitialization.complete(Unit)
             if (initialized.isSuccess) {
                 checkLaunchReadiness(mutableState.value.selectedInstance)
             }
@@ -643,7 +659,7 @@ class LauncherViewModel(
             mutableState.update {
                 it.copy(error = null, errorRecovery = null, notice = null)
             }
-            updateLaunch(instance.id, LaunchStatus.Starting)
+            updateLaunch(instance.id, LaunchStatus.Starting, activeEvent = true)
             try {
                 val prepared = cachedLaunch
                     ?.takeIf { (cachedInstance) -> cachedInstance == instance }
@@ -651,7 +667,7 @@ class LauncherViewModel(
                     ?: services.runtime.prepare(instance, onProgress = ::updateRuntimePreparation)
                 if (prepared.missingRequirements.isNotEmpty()) {
                     cachedLaunch = null
-                    updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements))
+                    updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements), activeEvent = true)
                     return@launch
                 }
                 cachedLaunch = instance to prepared
@@ -674,41 +690,63 @@ class LauncherViewModel(
                                     mapOf("instanceId" to instance.id.value),
                                 )
                             }
-                            updateLaunch(instance.id, LaunchStatus.Running(event.processId))
+                            updateLaunch(instance.id, LaunchStatus.Running(event.processId), activeEvent = true)
                         }
                         is LaunchEvent.Log -> Unit
                         is LaunchEvent.Exited -> {
                             if (event.exitCode == 0) {
-                                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft closed.")
+                                updateLaunch(
+                                    instance.id,
+                                    LaunchStatus.Ready,
+                                    "Minecraft closed.",
+                                    activeEvent = true,
+                                )
                             } else {
                                 updateLaunch(
                                     instance.id,
                                     LaunchStatus.Failed("Minecraft exited with code ${event.exitCode}."),
+                                    activeEvent = true,
                                 )
                             }
                         }
                         is LaunchEvent.Failed -> updateLaunch(
                             instance.id,
                             LaunchStatus.Failed(event.message),
+                            activeEvent = true,
                         )
                         LaunchEvent.Cancelled -> updateLaunch(
                             instance.id,
                             LaunchStatus.Ready,
                             "Minecraft stopped.",
+                            activeEvent = true,
                         )
                     }
                 }
             } catch (_: CancellationException) {
-                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft stopped.")
+                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft stopped.", activeEvent = true)
             } catch (error: Exception) {
                 updateLaunch(
                     instance.id,
                     LaunchStatus.Failed(error.message ?: "Minecraft could not start."),
+                    activeEvent = true,
                 )
             } finally {
                 mutableState.update { it.copy(operation = null) }
                 launchJob = null
             }
+        }
+    }
+
+    override fun launchInstance(id: InstanceId) {
+        scope.launch {
+            initialInitialization.await()
+            val instance = mutableState.value.instances.firstOrNull { it.id == id }
+            if (instance == null) {
+                mutableState.update { it.copy(error = "That instance is no longer in the library.") }
+                return@launch
+            }
+            selectInstance(id)
+            launchSelected()
         }
     }
 
@@ -955,7 +993,31 @@ class LauncherViewModel(
 
     override fun deleteSelected() {
         val id = mutableState.value.selectedInstance?.id ?: return
-        mutableState.update { it.copy(pendingInstanceRemovalId = id) }
+        if (mutableState.value.activeLaunch?.instanceId == id) {
+            mutableState.update { it.copy(error = "Stop Minecraft before removing this instance.") }
+            return
+        }
+        mutableState.update {
+            it.copy(
+                pendingInstanceRemovalId = id,
+                instanceRemovalMode = InstanceRemovalMode.LIBRARY_ONLY,
+            )
+        }
+    }
+
+    override fun moveSelectedToTrash() {
+        if (!supportsPathTrash) return
+        val id = mutableState.value.selectedInstance?.id ?: return
+        if (mutableState.value.activeLaunch?.instanceId == id) {
+            mutableState.update { it.copy(error = "Stop Minecraft before moving this instance to Trash.") }
+            return
+        }
+        mutableState.update {
+            it.copy(
+                pendingInstanceRemovalId = id,
+                instanceRemovalMode = InstanceRemovalMode.MOVE_TO_TRASH,
+            )
+        }
     }
 
     override fun cancelInstanceRemoval() {
@@ -965,16 +1027,28 @@ class LauncherViewModel(
     override fun confirmInstanceRemoval() {
         val id = mutableState.value.pendingInstanceRemovalId ?: return
         val removed = mutableState.value.instances.firstOrNull { it.id == id } ?: return
+        val removalMode = mutableState.value.instanceRemovalMode
         scope.launch {
             try {
+                if (removalMode == InstanceRemovalMode.MOVE_TO_TRASH) {
+                    check(movePathToTrash(removed.instanceDirectory)) {
+                        "The instance could not be moved to Trash. Its files were not changed."
+                    }
+                }
                 services.repository.delete(id)
                 mutableState.update {
                     it.copy(
                         selectedId = null,
                         pendingInstanceRemovalId = null,
-                        notice = "Instance removed from the library. Its game directory was kept.",
+                        notice = if (removalMode == InstanceRemovalMode.MOVE_TO_TRASH) {
+                            "${removed.displayName} was moved to Trash."
+                        } else {
+                            "Instance removed from the library. Its game directory was kept."
+                        },
                         launchPlan = null,
-                        removedInstanceUndo = removed,
+                        removedInstanceUndo = removed.takeIf {
+                            removalMode == InstanceRemovalMode.LIBRARY_ONLY
+                        },
                     )
                 }
             } catch (error: Exception) {
@@ -1004,7 +1078,12 @@ class LauncherViewModel(
         }
     }
 
-    override fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType?) {
+    override fun queueLocalFileImport(
+        fileName: String,
+        bytes: ByteArray,
+        type: ResourceType?,
+        sourceOrigin: String?,
+    ) {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         val allowedTypes = when (extension) {
             "jar" -> listOf(ResourceType.MOD)
@@ -1027,9 +1106,10 @@ class LauncherViewModel(
                 localFileImport = LocalFileImportState(
                     visible = true,
                     fileName = fileName,
-                    bytes = bytes.copyOf(),
+                    bytes = bytes,
                     selectedType = selectedType,
                     targetInstanceId = it.selectedInstance?.id,
+                    sourceOrigin = sourceOrigin,
                 ),
                 error = null,
             )
@@ -1038,6 +1118,10 @@ class LauncherViewModel(
 
     override fun reportLocalFileReadFailure(fileName: String) {
         mutableState.update { it.copy(error = "$fileName could not be read.") }
+    }
+
+    override fun reportLocalFileTooLarge(fileName: String) {
+        mutableState.update { it.copy(error = "$fileName is larger than the 512 MiB import limit.") }
     }
 
     override fun setLocalFileImportType(type: ResourceType) {
@@ -1864,11 +1948,31 @@ class LauncherViewModel(
         }
     }
 
-    private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: String? = null) {
+    private fun updateLaunch(
+        id: InstanceId,
+        status: LaunchStatus,
+        notice: String? = null,
+        activeEvent: Boolean = false,
+    ) {
         mutableState.update { state ->
-            if (state.selectedInstance?.id != id) state
-            else state.copy(
-                launch = InstanceLaunchState(id, status),
+            val activeLaunch = if (activeEvent) {
+                when (status) {
+                    LaunchStatus.Starting,
+                    is LaunchStatus.Running,
+                    -> InstanceLaunchState(id, status)
+                    else -> state.activeLaunch?.takeUnless { it.instanceId == id }
+                }
+            } else {
+                state.activeLaunch
+            }
+            state.copy(
+                launch = if (state.selectedInstance?.id == id) {
+                    InstanceLaunchState(id, status)
+                } else {
+                    state.launch
+                },
+                activeLaunch = activeLaunch,
+                error = if (activeEvent && status is LaunchStatus.Failed) status.message else state.error,
                 notice = notice ?: state.notice,
             )
         }

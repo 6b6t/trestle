@@ -12,6 +12,7 @@ import org.freedesktop.dbus.annotations.DBusInterfaceName
 import org.freedesktop.dbus.connections.impl.DBusConnection
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.interfaces.DBusInterface
+import org.freedesktop.dbus.messages.DBusSignal
 import org.freedesktop.dbus.types.Variant
 
 /*
@@ -21,6 +22,8 @@ import org.freedesktop.dbus.types.Variant
  */
 internal fun interface SystemAccentSource : AutoCloseable {
     fun read(): Int?
+
+    fun subscribe(onChange: () -> Unit): AutoCloseable? = null
 
     override fun close() = Unit
 }
@@ -73,6 +76,9 @@ private class LinuxSystemAccentSource : SystemAccentSource {
     @Volatile
     private var settings: PortalSettings? = null
 
+    @Volatile
+    private var signalSubscription: AutoCloseable? = null
+
     override fun read(): Int? {
         val portal = runCatching { settings ?: connect() }.getOrNull() ?: return null
         return runCatching {
@@ -90,6 +96,15 @@ private class LinuxSystemAccentSource : SystemAccentSource {
             closeConnection()
         }.getOrNull()
     }
+
+    override fun subscribe(onChange: () -> Unit): AutoCloseable? = runCatching {
+        connect()
+        connection?.addSigHandler(SettingChanged::class.java) { signal ->
+            if (signal.namespace == APPEARANCE_NAMESPACE && signal.key == ACCENT_COLOR_KEY) {
+                onChange()
+            }
+        }?.also { signalSubscription = it }
+    }.getOrNull()
 
     @Synchronized
     private fun connect(): PortalSettings {
@@ -111,6 +126,8 @@ private class LinuxSystemAccentSource : SystemAccentSource {
     }
 
     override fun close() {
+        runCatching { signalSubscription?.close() }
+        signalSubscription = null
         closeConnection()
     }
 
@@ -122,6 +139,14 @@ private class LinuxSystemAccentSource : SystemAccentSource {
         if (activeConnection != null) runCatching(activeConnection::close)
     }
 }
+
+@DBusInterfaceName("org.freedesktop.portal.Settings")
+internal class SettingChanged(
+    path: String,
+    val namespace: String,
+    val key: String,
+    val value: Variant<*>,
+) : DBusSignal(path, namespace, key, value)
 
 internal fun colorFromComponents(red: Double, green: Double, blue: Double): Int? {
     if (!red.isColorComponent() || !green.isColorComponent() || !blue.isColorComponent()) return null

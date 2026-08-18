@@ -16,13 +16,15 @@ internal class SystemAccent(
 ) : AutoCloseable {
     private val mutableColor = mutableStateOf<Int?>(null)
     val color: State<Int?> = mutableColor
+    private val subscription: AutoCloseable?
 
     init {
         require(refreshIntervalMillis > 0) { "The system accent refresh interval must be positive." }
+        subscription = runCatching { source.subscribe(::refresh) }.getOrNull()
         executor.scheduleWithFixedDelay(
             ::refresh,
             0,
-            refreshIntervalMillis,
+            if (subscription == null) refreshIntervalMillis else SUBSCRIPTION_FALLBACK_INTERVAL_MILLIS,
             TimeUnit.MILLISECONDS,
         )
     }
@@ -35,10 +37,12 @@ internal class SystemAccent(
 
     override fun close() {
         executor.shutdownNow()
+        runCatching { subscription?.close() }
         runCatching(source::close)
     }
 
     private companion object {
         const val DEFAULT_REFRESH_INTERVAL_MILLIS = 1_000L
+        const val SUBSCRIPTION_FALLBACK_INTERVAL_MILLIS = 30_000L
     }
 }

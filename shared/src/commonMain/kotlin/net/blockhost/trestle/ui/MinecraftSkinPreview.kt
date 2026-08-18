@@ -100,14 +100,15 @@ fun MinecraftSkinPreview(
     animate: Boolean = true,
     emptyLabel: String = "Skin preview unavailable",
 ) {
+    val shouldAnimate = animate && !LocalReduceMotion.current
     val pixels = remember(texture) {
         texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap().toPixelMap() }.getOrNull() }
     }
     var yaw by remember(texture) { mutableFloatStateOf(DefaultYaw) }
     var animationTime by remember { mutableFloatStateOf(0f) }
 
-    LaunchedEffect(pixels, animate) {
-        if (pixels == null || !animate) return@LaunchedEffect
+    LaunchedEffect(pixels, shouldAnimate) {
+        if (pixels == null || !shouldAnimate) return@LaunchedEffect
         val startedAt = withFrameNanos { it }
         while (isActive) {
             animationTime = withFrameNanos { now -> (now - startedAt) / 1_000_000_000f }
@@ -175,7 +176,7 @@ fun MinecraftSkinPreview(
     ) {
         if (pixels != null) {
             Canvas(Modifier.fillMaxSize()) {
-                val pose = sin(animationTime * 1.8f) * if (animate) 0.13f else 0f
+                val pose = sin(animationTime * 1.8f) * if (shouldAnimate) 0.13f else 0f
                 val polygons = buildSkinPolygons(
                     pixels = pixels,
                     slim = variant == SkinVariant.SLIM,

@@ -21,11 +21,15 @@ internal class DesktopIntegration {
     private val errorBadge = createBadge(Color(0xF0, 0xAA, 0x94), "!")
     private var lastErrorIdentity: String? = null
 
-    fun prepare(window: Window) {
+    fun prepare(window: Window, darkTheme: Boolean) {
         window.minimumSize = Dimension(MINIMUM_WINDOW_WIDTH, MINIMUM_WINDOW_HEIGHT)
         window.iconImages = listOf(appIcon)
-        WindowsIntegration.prepareWindow(window)
+        WindowsIntegration.prepareWindow(window, darkTheme)
         taskbar?.runIfSupported(Taskbar.Feature.ICON_IMAGE) { setIconImage(appIcon) }
+    }
+
+    fun updateAppearance(window: Window, darkTheme: Boolean) {
+        WindowsIntegration.prepareWindow(window, darkTheme)
     }
 
     fun update(window: Window, indicator: DesktopIndicator) {

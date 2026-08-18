@@ -24,4 +24,12 @@ class TrestleThemeTest {
 
         assertTrue(contrastRatio(scheme.onPrimary, scheme.primary) >= 4.5f)
     }
+
+    @Test
+    fun `system accent remains visible in light appearance`() {
+        val scheme = trestleColorScheme(Color(0xFFE8D62F), darkTheme = false)
+
+        assertTrue(contrastRatio(scheme.primary, scheme.surface) >= 3f)
+        assertTrue(contrastRatio(scheme.onPrimary, scheme.primary) >= 4.5f)
+    }
 }

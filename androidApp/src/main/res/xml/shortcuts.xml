@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new-instance"
+        android:enabled="true"
+        android:icon="@mipmap/ic_trestle"
+        android:shortcutLongLabel="@string/shortcut_new_instance_long"
+        android:shortcutShortLabel="@string/shortcut_new_instance_short">
+        <intent
+            android:action="net.blockhost.trestle.action.NEW_INSTANCE"
+            android:targetClass="net.blockhost.trestle.MainActivity"
+            android:targetPackage="net.blockhost.trestle" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="settings"
+        android:enabled="true"
+        android:icon="@mipmap/ic_trestle"
+        android:shortcutLongLabel="@string/shortcut_settings_long"
+        android:shortcutShortLabel="@string/shortcut_settings_short">
+        <intent
+            android:action="net.blockhost.trestle.action.OPEN_SETTINGS"
+            android:targetClass="net.blockhost.trestle.MainActivity"
+            android:targetPackage="net.blockhost.trestle" />
+    </shortcut>
+</shortcuts>

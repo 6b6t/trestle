@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">New instance</string>
+    <string name="shortcut_new_instance_long">Create a Minecraft instance</string>
+    <string name="shortcut_settings_short">Settings</string>
+    <string name="shortcut_settings_long">Open Trestle settings</string>
+</resources>

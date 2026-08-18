@@ -32,6 +32,7 @@ interface LauncherUiActions {
     fun cancelActiveOperation() {}
     fun inspectLaunchPlan() {}
     fun launchSelected() {}
+    fun launchInstance(id: InstanceId) {}
     fun stopLaunch() {}
     fun openResourceBrowser(
         type: ResourceType = ResourceType.MOD,
@@ -49,11 +50,18 @@ interface LauncherUiActions {
     fun toggleOptionalDependency(key: String) {}
     fun installSelectedResource() {}
     fun deleteSelected() {}
+    fun moveSelectedToTrash() {}
     fun cancelInstanceRemoval() {}
     fun confirmInstanceRemoval() {}
     fun undoInstanceRemoval() {}
-    fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType? = null) {}
+    fun queueLocalFileImport(
+        fileName: String,
+        bytes: ByteArray,
+        type: ResourceType? = null,
+        sourceOrigin: String? = null,
+    ) {}
     fun reportLocalFileReadFailure(fileName: String) {}
+    fun reportLocalFileTooLarge(fileName: String) {}
     fun setLocalFileImportType(type: ResourceType) {}
     fun confirmLocalFileImport() {}
     fun cancelLocalFileImport() {}

@@ -9,7 +9,9 @@ import java.io.File
 internal actual fun rememberOpenPath(): (String) -> Unit = remember {
     { path ->
         runCatching {
-            if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(File(path))
+            val directory = File(path)
+            if (!directory.exists()) directory.mkdirs()
+            if (Desktop.isDesktopSupported()) Desktop.getDesktop().open(directory)
         }
     }
 }

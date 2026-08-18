@@ -54,6 +54,10 @@ internal actual fun Modifier.localFileDropTarget(
                 if (files.isEmpty()) return false
                 scope.launch {
                     val dropped = files.mapNotNull { file ->
+                        if (file.length() > MAX_LOCAL_FILE_BYTES) {
+                            currentOnFailure.value(file.name)
+                            return@mapNotNull null
+                        }
                         runCatching {
                             withContext(Dispatchers.IO) { LocalDroppedFile(file.name, file.readBytes()) }
                         }.onFailure {
@@ -73,3 +77,5 @@ internal actual fun Modifier.localFileDropTarget(
         target = target,
     )
 }
+
+private const val MAX_LOCAL_FILE_BYTES = 512L * 1024L * 1024L

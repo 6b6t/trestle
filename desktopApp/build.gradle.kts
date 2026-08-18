@@ -19,6 +19,7 @@ dependencies {
     implementation(libs.filekit.dialogs.compose)
     implementation(libs.jna.platform)
     implementation(libs.java.objc.bridge)
+    implementation(libs.kotlinx.coroutines.core)
     runtimeOnly(libs.slf4j.simple)
     testImplementation(kotlin("test"))
 }
@@ -67,6 +68,9 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/main/resources/trestle.png"))
+                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
                 packageName = "trestle"
                 shortcut = true
                 menuGroup = "Game"
@@ -78,6 +82,9 @@ compose.desktop {
 
             macOS {
                 iconFile.set(project.file("src/main/resources/trestle.icns"))
+                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
                 bundleID = "net.blockhost.trestle"
                 dockName = "Trestle"
                 appCategory = "public.app-category.games"
@@ -91,12 +98,26 @@ compose.desktop {
                         <true/>
                         <key>NSSupportsAutomaticGraphicsSwitching</key>
                         <true/>
+                        <key>CFBundleURLTypes</key>
+                        <array>
+                            <dict>
+                                <key>CFBundleURLName</key>
+                                <string>net.blockhost.trestle</string>
+                                <key>CFBundleURLSchemes</key>
+                                <array>
+                                    <string>trestle</string>
+                                </array>
+                            </dict>
+                        </array>
                     """.trimIndent()
                 }
             }
 
             windows {
                 iconFile.set(project.file("src/main/resources/trestle.ico"))
+                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
                 dirChooser = true
                 perUserInstall = true
                 shortcut = true

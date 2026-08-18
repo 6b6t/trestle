@@ -180,6 +180,7 @@ import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
 import io.github.vinceglb.filekit.name
 import io.github.vinceglb.filekit.readBytes
+import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
@@ -240,8 +241,12 @@ fun TrestleApp(
     actions: LauncherUiActions,
     initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
     accentColor: Color? = null,
+    darkTheme: Boolean = true,
+    highContrast: Boolean = false,
+    reducedMotion: Boolean = false,
     externalCommand: LauncherCommandRequest? = null,
     onExternalCommandHandled: (Long) -> Unit = {},
+    onDestinationChanged: (LauncherDestination) -> Unit = {},
 ) {
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
@@ -261,6 +266,7 @@ fun TrestleApp(
             actions.closeResourceBrowser()
         }
         destinationName = target.name
+        onDestinationChanged(target)
         if (
             target == LauncherDestination.DISCOVER &&
             (!state.resourceBrowser.visible || state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE)
@@ -301,7 +307,7 @@ fun TrestleApp(
         onExternalCommandHandled(request.sequence)
     }
 
-    TrestleTheme(accentColor) {
+    TrestleTheme(accentColor, darkTheme, highContrast, reducedMotion) {
         val modalVisible = state.create.visible ||
             state.instanceSettings.visible ||
             state.accountLogin.visible ||
@@ -345,6 +351,7 @@ fun TrestleApp(
                     val primary = event.isCtrlPressed || event.isMetaPressed
                     val command = when {
                         primary && event.key == Key.N -> LauncherCommand.NEW_INSTANCE
+                        primary && event.key == Key.O -> LauncherCommand.IMPORT_LOCAL_FILE
                         primary && event.key == Key.F -> LauncherCommand.FOCUS_SEARCH
                         primary && event.key == Key.Comma -> LauncherCommand.SHOW_SETTINGS
                         primary && event.key == Key.One -> LauncherCommand.SHOW_LIBRARY
@@ -429,15 +436,34 @@ fun TrestleApp(
             if (showShortcuts) ShortcutsDialog { showShortcuts = false }
             state.pendingInstanceRemovalId?.let { pendingId ->
                 val instance = state.instances.firstOrNull { it.id == pendingId }
+                val moveToTrash = state.instanceRemovalMode == InstanceRemovalMode.MOVE_TO_TRASH
                 AlertDialog(
                     onDismissRequest = actions::cancelInstanceRemoval,
-                    title = { Text("Remove ${instance?.displayName ?: "instance"}?") },
-                    text = { Text("This removes the instance from the library. Its game directory and files stay on disk.") },
+                    title = {
+                        Text(
+                            if (moveToTrash) {
+                                "Move ${instance?.displayName ?: "instance"} to Trash?"
+                            } else {
+                                "Remove ${instance?.displayName ?: "instance"}?"
+                            },
+                        )
+                    },
+                    text = {
+                        Text(
+                            if (moveToTrash) {
+                                "This removes the instance from Trestle and moves its complete directory to the system Trash."
+                            } else {
+                                "This removes the instance from the library. Its game directory and files stay on disk."
+                            },
+                        )
+                    },
                     dismissButton = {
                         TextButton(onClick = actions::cancelInstanceRemoval) { Text("Cancel") }
                     },
                     confirmButton = {
-                        Button(onClick = actions::confirmInstanceRemoval) { Text("Remove from library") }
+                        Button(onClick = actions::confirmInstanceRemoval) {
+                            Text(if (moveToTrash) "Move to Trash" else "Remove from library")
+                        }
                     },
                 )
             }
@@ -598,9 +624,13 @@ private fun LibraryPage(
     ) { file ->
         if (file != null) {
             scope.launch {
-                runCatching { file.readBytes() }
-                    .onSuccess { actions.queueLocalFileImport(file.name, it) }
-                    .onFailure { actions.reportLocalFileReadFailure(file.name) }
+                if (runCatching { file.size() }.getOrDefault(-1L) > MAX_LOCAL_IMPORT_BYTES) {
+                    actions.reportLocalFileTooLarge(file.name)
+                } else {
+                    runCatching { file.readBytes() }
+                        .onSuccess { actions.queueLocalFileImport(file.name, it) }
+                        .onFailure { actions.reportLocalFileReadFailure(file.name) }
+                }
             }
         }
     }
@@ -1224,7 +1254,8 @@ private fun InstanceTile(
 ) {
     val focusManager = LocalFocusManager.current
     val installationState = instance.installationState
-    val running = launcherState.launch.instanceId == instance.id && launcherState.launch.status is LaunchStatus.Running
+    val running = launcherState.activeLaunch?.instanceId == instance.id &&
+        launcherState.activeLaunch.status is LaunchStatus.Running
     val progress = installationState.installationProgress()
     val versionLabel = "${instance.minecraftVersionId} · ${instance.modLoader.label}" +
         if (instance.pinned) " · Pinned" else ""
@@ -1385,11 +1416,21 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
             selectedAction(actions::toggleSelectedInstancePinned)
         })
         if (currentPlatform == "Desktop") {
-            add(ContextAction("Open folder", separatorBefore = true) { openPath(instance.instanceDirectory) })
+            add(ContextAction("Open instance folder", separatorBefore = true) { openPath(instance.instanceDirectory) })
+            if (state is InstallationState.Installed) {
+                add(ContextAction("Open game folder") { openPath("${instance.instanceDirectory}/game") })
+                add(ContextAction("Open screenshots") { openPath("${instance.instanceDirectory}/game/screenshots") })
+                if (instance.modLoader != ModLoader.VANILLA) {
+                    add(ContextAction("Open mods") { openPath("${instance.instanceDirectory}/game/mods") })
+                }
+            }
         }
         add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
         add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
         add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(actions::deleteSelected) })
+        if (supportsPathTrash) {
+            add(ContextAction("Move to Trash") { selectedAction(actions::moveSelectedToTrash) })
+        }
     }
 }
 
@@ -2104,6 +2145,13 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
                     overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.titleMedium,
                 )
+                pending.sourceOrigin?.let { origin ->
+                    Text(
+                        origin,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
                 if (pending.allowedTypes.size > 1) {
                     Text("Choose how Trestle should use this ZIP file.")
                     Column {
@@ -3055,14 +3103,20 @@ private fun LocalFileButton(
     ) { file ->
         if (file != null) {
             scope.launch {
-                runCatching { file.readBytes() }
-                    .onSuccess { actions.queueLocalFileImport(file.name, it, type) }
-                    .onFailure { actions.reportLocalFileReadFailure(file.name) }
+                if (runCatching { file.size() }.getOrDefault(-1L) > MAX_LOCAL_IMPORT_BYTES) {
+                    actions.reportLocalFileTooLarge(file.name)
+                } else {
+                    runCatching { file.readBytes() }
+                        .onSuccess { actions.queueLocalFileImport(file.name, it, type) }
+                        .onFailure { actions.reportLocalFileReadFailure(file.name) }
+                }
             }
         }
     }
     TextButton(onClick = { picker.launch() }, enabled = enabled) { Text("Add file") }
 }
+
+private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 
 @Composable
 private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
