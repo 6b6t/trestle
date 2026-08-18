@@ -10,6 +10,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -191,6 +192,30 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun discoverSearchUpdatesTheResourceQuery() = runComposeUiTest {
+        var query = ""
+        val actions = object : LauncherUiActions {
+            override fun setResourceQuery(value: String) {
+                query = value
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.discover,
+                    actions = actions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.RESOURCE_SEARCH).performTextInput("sodium")
+        waitForIdle()
+
+        assertEquals("sodium", query)
+    }
+
+    @Test
     fun initialDestinationCanRenderWithoutNavigationSideEffects() = runComposeUiTest {
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {
@@ -364,7 +389,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun doubleClickingInactiveAccountMakesItActive() = runComposeUiTest {
+    fun clickingInactiveAccountMakesItActive() = runComposeUiTest {
         var selectedProfileId: String? = null
         val state = LauncherPreviewFixtures.loaded.copy(
             accounts = listOf(LauncherPreviewFixtures.activeAccount.copy(isActive = false)),
@@ -380,7 +405,9 @@ class TrestleAppUiTest {
             }
         }
 
-        onNodeWithText("Pistonmaster").performMouseInput { doubleClick() }
+        onNodeWithTag(LauncherTestTags.account("preview-account"))
+            .assertHasClickAction()
+        onNodeWithText("Pistonmaster").performMouseInput { click() }
 
         assertEquals("preview-account", selectedProfileId)
     }

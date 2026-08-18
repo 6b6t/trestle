@@ -4,9 +4,12 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
+import android.database.ContentObserver
 import android.graphics.drawable.Icon
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.OpenableColumns
 import android.provider.Settings
 import androidx.activity.ComponentActivity
@@ -17,6 +20,8 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -69,6 +75,7 @@ class MainActivity : ComponentActivity() {
     ) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
@@ -85,27 +92,14 @@ class MainActivity : ComponentActivity() {
             } else {
                 null
             }
-            val highContrast = remember(context) {
-                Settings.Secure.getInt(
-                    context.contentResolver,
-                    "high_text_contrast_enabled",
-                    0,
-                ) == 1
-            }
-            val reducedMotion = remember(context) {
-                Settings.Global.getFloat(
-                    context.contentResolver,
-                    Settings.Global.ANIMATOR_DURATION_SCALE,
-                    1f,
-                ) == 0f
-            }
+            val accessibilityPreferences = rememberSystemAccessibilityPreferences(context)
             TrestleApp(
                 state = state,
                 actions = viewModel.launcher,
                 colorScheme = colorScheme,
                 darkTheme = darkTheme,
-                highContrast = highContrast,
-                reducedMotion = reducedMotion,
+                highContrast = accessibilityPreferences.highContrast,
+                reducedMotion = accessibilityPreferences.reducedMotion,
                 externalCommand = pendingCommand,
                 onExternalCommandHandled = { sequence ->
                     if (pendingCommand?.sequence == sequence) pendingCommand = null
@@ -251,6 +245,48 @@ class MainActivity : ComponentActivity() {
         pendingCommand = LauncherCommandRequest(commandSequence, command)
     }
 }
+
+@Composable
+private fun rememberSystemAccessibilityPreferences(
+    context: android.content.Context,
+): SystemAccessibilityPreferences {
+    val resolver = context.contentResolver
+
+    fun readPreferences() = SystemAccessibilityPreferences(
+        highContrast = Settings.Secure.getInt(resolver, "high_text_contrast_enabled", 0) == 1,
+        reducedMotion = Settings.Global.getFloat(
+            resolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f,
+    )
+
+    var preferences by remember(context) { mutableStateOf(readPreferences()) }
+    DisposableEffect(resolver) {
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                preferences = readPreferences()
+            }
+        }
+        resolver.registerContentObserver(
+            Settings.Secure.getUriFor("high_text_contrast_enabled"),
+            false,
+            observer,
+        )
+        resolver.registerContentObserver(
+            Settings.Global.getUriFor(Settings.Global.ANIMATOR_DURATION_SCALE),
+            false,
+            observer,
+        )
+        onDispose { resolver.unregisterContentObserver(observer) }
+    }
+    return preferences
+}
+
+private data class SystemAccessibilityPreferences(
+    val highContrast: Boolean,
+    val reducedMotion: Boolean,
+)
 
 private fun Intent.readSharedUri(): Uri? =
     if (android.os.Build.VERSION.SDK_INT >= 33) {

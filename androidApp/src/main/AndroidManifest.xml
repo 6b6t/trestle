@@ -18,7 +18,7 @@
         android:label="Trestle"
         android:roundIcon="@mipmap/ic_trestle_round"
         android:supportsRtl="true"
-        android:theme="@style/TrestleTheme"
+        android:theme="@style/TrestleStartingTheme"
         android:usesCleartextTraffic="false">
         <meta-data
             android:name="net.blockhost.trestle.CURSEFORGE_API_KEY"

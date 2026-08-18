@@ -26,9 +26,14 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -354,6 +359,7 @@ private fun MenuAction(
 }
 
 @Composable
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 private fun WindowControlButton(control: WindowControl, onClick: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
@@ -380,18 +386,26 @@ private fun WindowControlButton(control: WindowControl, onClick: () -> Unit) {
         WindowControl.CLOSE -> DesktopTitleBarTestTags.CLOSE
     }
 
-    Box(
-        modifier = Modifier
-            .width(46.dp)
-            .fillMaxHeight()
-            .background(background)
-            .hoverable(interactionSource)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics { contentDescription = description }
-            .testTag(testTag),
-        contentAlignment = Alignment.Center,
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            TooltipAnchorPosition.Above,
+        ),
+        tooltip = { PlainTooltip { Text(description) } },
+        state = rememberTooltipState(),
     ) {
-        WindowControlIcon(control, contentColor)
+        Box(
+            modifier = Modifier
+                .width(46.dp)
+                .fillMaxHeight()
+                .background(background)
+                .hoverable(interactionSource)
+                .clickable(role = Role.Button, onClick = onClick)
+                .semantics { contentDescription = description }
+                .testTag(testTag),
+            contentAlignment = Alignment.Center,
+        ) {
+            WindowControlIcon(control, contentColor)
+        }
     }
 }
 

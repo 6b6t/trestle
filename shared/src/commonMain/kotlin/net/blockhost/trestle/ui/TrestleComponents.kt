@@ -1,5 +1,6 @@
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -16,8 +17,11 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DockedSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -26,25 +30,36 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PlainTooltip
+import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipAnchorPosition
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import androidx.window.core.layout.WindowSizeClass
+import kotlinx.coroutines.flow.distinctUntilChanged
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_close
 import net.blockhost.trestle.resources.ic_search
@@ -54,6 +69,18 @@ import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 internal val LocalTrestleWindowAdaptiveInfo = staticCompositionLocalOf<WindowAdaptiveInfo?> { null }
+
+internal fun Modifier.trestleSelectable(
+    selected: Boolean,
+    onClickLabel: String,
+    onClick: () -> Unit,
+    onDoubleClick: (() -> Unit)? = null,
+): Modifier = combinedClickable(
+    onClickLabel = onClickLabel,
+    role = Role.RadioButton,
+    onClick = onClick,
+    onDoubleClick = onDoubleClick,
+).semantics { this.selected = selected }
 
 @Composable
 internal fun TrestleSearchField(
@@ -77,7 +104,10 @@ internal fun TrestleSearchField(
         trailingIcon = {
             when {
                 searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                value.isNotEmpty() -> IconButton(onClick = { onValueChange("") }) {
+                value.isNotEmpty() -> TrestleTooltipIconButton(
+                    label = stringResource(Res.string.ui_clear_search),
+                    onClick = { onValueChange("") },
+                ) {
                     Icon(
                         painterResource(Res.drawable.ic_close),
                         contentDescription = stringResource(Res.string.ui_clear_search),
@@ -89,6 +119,98 @@ internal fun TrestleSearchField(
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
         keyboardActions = KeyboardActions(onSearch = { onSearch(value) }),
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TrestleSearchBar(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onSearch: (String) -> Unit,
+    placeholder: @Composable () -> Unit,
+    modifier: Modifier = Modifier,
+    inputModifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    searching: Boolean = false,
+) {
+    val textFieldState = rememberTextFieldState(value)
+
+    LaunchedEffect(value) {
+        if (textFieldState.text.toString() != value) {
+            textFieldState.setTextAndPlaceCursorAtEnd(value)
+        }
+    }
+    LaunchedEffect(textFieldState) {
+        snapshotFlow { textFieldState.text.toString() }
+            .distinctUntilChanged()
+            .collect(onValueChange)
+    }
+
+    DockedSearchBar(
+        inputField = {
+            SearchBarDefaults.InputField(
+                state = textFieldState,
+                onSearch = onSearch,
+                expanded = false,
+                onExpandedChange = {},
+                enabled = enabled,
+                placeholder = placeholder,
+                leadingIcon = {
+                    Icon(painterResource(Res.drawable.ic_search), contentDescription = null)
+                },
+                trailingIcon = {
+                    when {
+                        searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                        textFieldState.text.isNotEmpty() -> TrestleTooltipIconButton(
+                            label = stringResource(Res.string.ui_clear_search),
+                            onClick = { textFieldState.setTextAndPlaceCursorAtEnd("") },
+                        ) {
+                            Icon(
+                                painterResource(Res.drawable.ic_close),
+                                contentDescription = stringResource(Res.string.ui_clear_search),
+                            )
+                        }
+                    }
+                },
+                modifier = inputModifier.fillMaxWidth(),
+            )
+        },
+        expanded = false,
+        onExpandedChange = {},
+        modifier = modifier,
+        content = {},
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TrestleTooltip(
+    label: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
+            TooltipAnchorPosition.Above,
+        ),
+        tooltip = { PlainTooltip { Text(label) } },
+        state = rememberTooltipState(),
+        modifier = modifier,
+        content = content,
+    )
+}
+
+@Composable
+internal fun TrestleTooltipIconButton(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    content: @Composable () -> Unit,
+) {
+    TrestleTooltip(label, modifier) {
+        IconButton(onClick = onClick, enabled = enabled, content = content)
+    }
 }
 
 @Composable
@@ -165,7 +287,11 @@ internal fun TrestleDialogHeader(
     TopAppBar(
         title = { Text(title) },
         actions = {
-            IconButton(onClick = onClose, enabled = closeEnabled) {
+            TrestleTooltipIconButton(
+                label = stringResource(Res.string.ui_close),
+                onClick = onClose,
+                enabled = closeEnabled,
+            ) {
                 Icon(
                     painterResource(Res.drawable.ic_close),
                     contentDescription = stringResource(Res.string.ui_close),

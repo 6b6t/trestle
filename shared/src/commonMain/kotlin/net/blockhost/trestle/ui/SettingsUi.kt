@@ -17,7 +17,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
@@ -112,7 +111,10 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
             },
             navigationIcon = {
                 if (listPaneHidden && section != null) {
-                    IconButton(onClick = showCategories) {
+                    TrestleTooltipIconButton(
+                        label = stringResource(Res.string.ui_back),
+                        onClick = showCategories,
+                    ) {
                         Icon(
                             painterResource(Res.drawable.ic_arrow_back),
                             contentDescription = stringResource(Res.string.ui_back),
@@ -220,7 +222,7 @@ private fun SettingsSectionButton(
         ),
         modifier = modifier.selectable(
             selected = selected,
-            role = Role.Tab,
+            role = Role.RadioButton,
             onClick = onClick,
         ),
     )

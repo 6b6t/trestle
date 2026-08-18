@@ -1,15 +1,21 @@
 package net.blockhost.trestle.game
 
-import android.content.Context
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.RectF
+import android.os.Bundle
 import android.view.MotionEvent
 import android.view.View
-import org.lwjgl.glfw.CallbackBridge
+import android.view.accessibility.AccessibilityEvent
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.customview.widget.ExploreByTouchHelper
 import kotlin.math.hypot
+import org.lwjgl.glfw.CallbackBridge
 
 internal object GlfwKey {
     const val SPACE = 32
@@ -48,10 +54,54 @@ internal class MinecraftControlOverlayView(
     private var joystickX = 0f
     private var joystickY = 0f
     private var inputGrabbed = false
+    private val accessibilityHelper = object : ExploreByTouchHelper(this) {
+        override fun getVirtualViewAt(x: Float, y: Float): Int =
+            accessibilityControls().indexOfFirst { it.bounds.contains(x, y) }
+                .takeIf { it >= 0 }
+                ?: INVALID_ID
+
+        override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
+            accessibilityControls().indices.forEach(virtualViewIds::add)
+        }
+
+        override fun onPopulateEventForVirtualView(
+            virtualViewId: Int,
+            event: AccessibilityEvent,
+        ) {
+            event.contentDescription = accessibilityControls().getOrNull(virtualViewId)?.label
+        }
+
+        @Suppress("DEPRECATION")
+        override fun onPopulateNodeForVirtualView(
+            virtualViewId: Int,
+            node: AccessibilityNodeInfoCompat,
+        ) {
+            val control = accessibilityControls().getOrNull(virtualViewId) ?: return
+            node.contentDescription = control.label
+            node.className = android.widget.Button::class.java.name
+            node.isClickable = true
+            node.isFocusable = true
+            node.addAction(AccessibilityNodeInfoCompat.ACTION_CLICK)
+            node.setBoundsInParent(control.bounds.toRect())
+        }
+
+        override fun onPerformActionForVirtualView(
+            virtualViewId: Int,
+            action: Int,
+            arguments: Bundle?,
+        ): Boolean {
+            if (action != AccessibilityNodeInfoCompat.ACTION_CLICK) return false
+            val control = accessibilityControls().getOrNull(virtualViewId) ?: return false
+            performAccessibilityAction(control.action, control.holdMillis)
+            sendEventForVirtualView(virtualViewId, AccessibilityEvent.TYPE_VIEW_CLICKED)
+            return true
+        }
+    }
 
     init {
         isFocusable = true
-        contentDescription = "Minecraft touch controls"
+        importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_YES
+        ViewCompat.setAccessibilityDelegate(this, accessibilityHelper)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -200,6 +250,25 @@ internal class MinecraftControlOverlayView(
         listOf(GlfwKey.W, GlfwKey.A, GlfwKey.S, GlfwKey.D).forEach { key -> setKeyHeld(key, false) }
     }
 
+    private fun performAccessibilityAction(action: ControlAction, holdMillis: Long) {
+        when (action) {
+            is ControlAction.Key -> {
+                CallbackBridge.sendKey(action.key, true)
+                postDelayed({ CallbackBridge.sendKey(action.key, false) }, holdMillis)
+            }
+            is ControlAction.Mouse -> {
+                CallbackBridge.sendMouseButton(action.button, true)
+                CallbackBridge.sendMouseButton(action.button, false)
+            }
+            is ControlAction.Scroll -> CallbackBridge.sendScroll(0.0, action.amount)
+            ControlAction.Chat -> {
+                CallbackBridge.sendKey(GlfwKey.T, true)
+                CallbackBridge.sendKey(GlfwKey.T, false)
+                postDelayed(onChatRequested, CHAT_KEYBOARD_DELAY_MILLIS)
+            }
+        }
+    }
+
     private fun setKeyHeld(key: Int, held: Boolean) {
         if (held && heldKeys.add(key)) CallbackBridge.sendKey(key, true)
         if (!held && heldKeys.remove(key)) CallbackBridge.sendKey(key, false)
@@ -292,6 +361,84 @@ internal class MinecraftControlOverlayView(
         return ControlLayout(joystick, buttons)
     }
 
+    private fun accessibilityControls(): List<AccessibilityControl> {
+        val layout = layout()
+        val buttonControls = layout.buttons.map { button ->
+            AccessibilityControl(
+                label = button.action.accessibilityLabel(),
+                action = button.action,
+                bounds = button.bounds,
+            )
+        }
+        val joystick = layout.joystick.touchBounds
+        val horizontalInset = joystick.width() / 3f
+        val verticalInset = joystick.height() / 3f
+        val movementControls = listOf(
+            AccessibilityControl(
+                label = "Move forward",
+                action = ControlAction.Key(GlfwKey.W),
+                bounds = RectF(
+                    joystick.left + horizontalInset,
+                    joystick.top,
+                    joystick.right - horizontalInset,
+                    joystick.centerY(),
+                ),
+                holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
+            ),
+            AccessibilityControl(
+                label = "Move backward",
+                action = ControlAction.Key(GlfwKey.S),
+                bounds = RectF(
+                    joystick.left + horizontalInset,
+                    joystick.centerY(),
+                    joystick.right - horizontalInset,
+                    joystick.bottom,
+                ),
+                holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
+            ),
+            AccessibilityControl(
+                label = "Move left",
+                action = ControlAction.Key(GlfwKey.A),
+                bounds = RectF(
+                    joystick.left,
+                    joystick.top + verticalInset,
+                    joystick.centerX(),
+                    joystick.bottom - verticalInset,
+                ),
+                holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
+            ),
+            AccessibilityControl(
+                label = "Move right",
+                action = ControlAction.Key(GlfwKey.D),
+                bounds = RectF(
+                    joystick.centerX(),
+                    joystick.top + verticalInset,
+                    joystick.right,
+                    joystick.bottom - verticalInset,
+                ),
+                holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
+            ),
+        )
+        return buttonControls + movementControls
+    }
+
+    private fun ControlAction.accessibilityLabel(): String = when (this) {
+        ControlAction.Chat -> "Chat"
+        is ControlAction.Key -> when (key) {
+            GlfwKey.ESCAPE -> "Pause menu"
+            GlfwKey.E -> "Inventory"
+            GlfwKey.Q -> "Drop item"
+            GlfwKey.SPACE -> "Jump"
+            GlfwKey.LEFT_SHIFT -> "Sneak"
+            GlfwKey.LEFT_CONTROL -> "Sprint"
+            else -> "Keyboard control"
+        }
+        is ControlAction.Mouse -> if (button == 0) "Attack" else "Use"
+        is ControlAction.Scroll -> if (amount > 0) "Previous hotbar slot" else "Next hotbar slot"
+    }
+
+    private fun RectF.toRect(): Rect = Rect().also(::roundOut)
+
     private sealed interface PointerTarget {
         data object Joystick : PointerTarget
         data class Look(
@@ -334,7 +481,16 @@ internal class MinecraftControlOverlayView(
         val buttons: List<ControlButton>,
     )
 
+    private data class AccessibilityControl(
+        val label: String,
+        val action: ControlAction,
+        val bounds: RectF,
+        val holdMillis: Long = ACCESSIBILITY_TAP_MILLIS,
+    )
+
     private companion object {
+        const val ACCESSIBILITY_MOVEMENT_MILLIS = 350L
+        const val ACCESSIBILITY_TAP_MILLIS = 50L
         const val CHAT_KEYBOARD_DELAY_MILLIS = 120L
         const val LOOK_SENSITIVITY = 1.15f
         val CHALK = Color.rgb(231, 227, 217)

@@ -1,10 +1,15 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -38,19 +43,20 @@ internal actual fun ContextActionArea(
             },
     ) {
         content()
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            actions.forEach { action ->
-                if (action.separatorBefore) HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text(action.label) },
-                    onClick = {
-                        expanded = false
-                        action.onClick()
-                    },
-                )
+        if (expanded) {
+            ModalBottomSheet(onDismissRequest = { expanded = false }) {
+                Column(Modifier.fillMaxWidth()) {
+                    actions.forEach { action ->
+                        if (action.separatorBefore) HorizontalDivider()
+                        ListItem(
+                            headlineContent = { Text(action.label) },
+                            modifier = Modifier.fillMaxWidth().clickable {
+                                expanded = false
+                                action.onClick()
+                            },
+                        )
+                    }
+                }
             }
         }
     }

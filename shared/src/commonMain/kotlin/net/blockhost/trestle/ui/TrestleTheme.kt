@@ -1,9 +1,13 @@
 package net.blockhost.trestle.ui
 
+import androidx.compose.animation.core.FiniteAnimationSpec
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
@@ -233,6 +237,20 @@ private val TrestleShapes = Shapes(
     extraLarge = RoundedCornerShape(20.dp),
 )
 
+private object ReducedMotionScheme : MotionScheme {
+    override fun <T> defaultSpatialSpec(): FiniteAnimationSpec<T> = snap()
+
+    override fun <T> fastSpatialSpec(): FiniteAnimationSpec<T> = snap()
+
+    override fun <T> slowSpatialSpec(): FiniteAnimationSpec<T> = snap()
+
+    override fun <T> defaultEffectsSpec(): FiniteAnimationSpec<T> = snap()
+
+    override fun <T> fastEffectsSpec(): FiniteAnimationSpec<T> = snap()
+
+    override fun <T> slowEffectsSpec(): FiniteAnimationSpec<T> = snap()
+}
+
 @Composable
 private fun trestleTypography(): Typography {
     val roboto = FontFamily(
@@ -245,6 +263,7 @@ private fun trestleTypography(): Typography {
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 internal fun TrestleTheme(
     accentColor: Color? = null,
     colorSchemeOverride: ColorScheme? = null,
@@ -270,6 +289,7 @@ internal fun TrestleTheme(
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
+            motionScheme = if (reducedMotion) ReducedMotionScheme else MotionScheme.standard(),
             typography = trestleTypography(),
             shapes = TrestleShapes,
             content = content,

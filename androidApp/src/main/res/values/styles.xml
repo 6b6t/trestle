@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <style name="TrestleStartingTheme" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#F8F5ED</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_trestle_foreground</item>
+        <item name="postSplashScreenTheme">@style/TrestleTheme</item>
+    </style>
     <style name="TrestleTheme" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:navigationBarColor">#F8F5ED</item>
         <item name="android:statusBarColor">#F8F5ED</item>

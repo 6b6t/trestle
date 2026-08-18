@@ -1,4 +1,7 @@
-@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@file:OptIn(
+    androidx.compose.material3.ExperimentalMaterial3Api::class,
+    androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi::class,
+)
 
 package net.blockhost.trestle.ui
 
@@ -8,8 +11,6 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -67,7 +68,6 @@ import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -103,8 +103,10 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
+import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
@@ -135,14 +137,11 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -488,6 +487,7 @@ internal object LauncherTestTags {
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 
     fun instance(id: InstanceId): String = "instance-${id.value}"
+    fun account(profileId: String): String = "account-$profileId"
     fun instanceIconOption(id: String): String = "instance-icon-option-$id"
     fun instanceSection(section: String): String = "instance-section-${section.lowercase()}"
     fun navigation(destination: LauncherDestination): String = "navigation-${destination.name.lowercase()}"
@@ -914,13 +914,15 @@ private fun AccountIdentity(
     onClick: () -> Unit,
 ) {
     if (compact) {
-        FilledTonalIconButton(onClick = onClick, modifier = modifier) {
-            MinecraftSkinHead(
-                texture = texture.takeIf { account.profile.edition == MinecraftEdition.JAVA },
-                contentDescription = account.profile.playerName,
-                modifier = Modifier.size(32.dp),
-            ) {
-                Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
+        TrestleTooltip(account.profile.playerName, modifier) {
+            FilledTonalIconButton(onClick = onClick) {
+                MinecraftSkinHead(
+                    texture = texture.takeIf { account.profile.edition == MinecraftEdition.JAVA },
+                    contentDescription = account.profile.playerName,
+                    modifier = Modifier.size(32.dp),
+                ) {
+                    Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     } else {
@@ -961,6 +963,10 @@ private fun LibraryPage(
     val searchFocusRequester = remember { FocusRequester() }
     val compactListState = rememberLazyListState()
     val gridState = rememberLazyGridState()
+    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
+    val supportingPaneNavigator = rememberSupportingPaneScaffoldNavigator<InstanceId?>(
+        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
+    )
     val filteredInstances = state.instances.filter {
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
@@ -1012,35 +1018,45 @@ private fun LibraryPage(
                     modifier = Modifier.weight(1f),
                 )
             }
-            else -> Row(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
-                Column(Modifier.weight(1f).fillMaxHeight()) {
-                    InstanceShelfToolbar(
-                        query,
-                        { query = it },
-                        compact = false,
-                        onNew = actions::openCreate,
-                        onImport = { importPicker.launch() },
-                        searchFocusRequester = searchFocusRequester,
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    InstanceCollection(
-                        instances = filteredInstances,
-                        state = state,
-                        actions = actions,
-                        compact = false,
-                        compactListState = compactListState,
-                        gridState = gridState,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                SelectedInstancePanel(
-                    state = state,
-                    actions = actions,
-                    onManage = onManage,
-                    modifier = Modifier.width(300.dp).fillMaxHeight(),
-                )
-            }
+            else -> SupportingPaneScaffold(
+                directive = supportingPaneNavigator.scaffoldDirective,
+                scaffoldState = supportingPaneNavigator.scaffoldState,
+                modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
+                mainPane = {
+                    AnimatedPane {
+                        Column(Modifier.fillMaxSize()) {
+                            InstanceShelfToolbar(
+                                query,
+                                { query = it },
+                                compact = false,
+                                onNew = actions::openCreate,
+                                onImport = { importPicker.launch() },
+                                searchFocusRequester = searchFocusRequester,
+                            )
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            InstanceCollection(
+                                instances = filteredInstances,
+                                state = state,
+                                actions = actions,
+                                compact = false,
+                                compactListState = compactListState,
+                                gridState = gridState,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
+                },
+                supportingPane = {
+                    AnimatedPane(Modifier.preferredWidth(300.dp)) {
+                        SelectedInstancePanel(
+                            state = state,
+                            actions = actions,
+                            onManage = onManage,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                },
+            )
         }
         if (dropActive) {
             DropOverlay("Drop to import local content")
@@ -1480,20 +1496,6 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
     )
 }
 
-private fun Modifier.primarySelectable(
-    selected: Boolean,
-    onClickLabel: String,
-    onClick: () -> Unit,
-    onDoubleClick: () -> Unit,
-): Modifier = combinedClickable(
-    onClickLabel = onClickLabel,
-    role = Role.RadioButton,
-    onClick = onClick,
-    onDoubleClick = onDoubleClick,
-).semantics {
-    this.selected = selected
-}
-
 private fun Modifier.dismissOnEscape(enabled: Boolean = true, onDismiss: () -> Unit): Modifier =
     onPreviewKeyEvent { event ->
         if (enabled && event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
@@ -1576,7 +1578,7 @@ private fun InstanceTile(
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .primarySelectable(
+                .trestleSelectable(
                     selected = selected,
                     onClickLabel = "Select instance",
                     onClick = { actions.selectInstance(instance.id) },
@@ -2098,7 +2100,8 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                     }
                 },
                 actions = {
-                    IconButton(
+                    TrestleTooltipIconButton(
+                        label = stringResource(Res.string.ui_close),
                         onClick = actions::closeResourceBrowser,
                         enabled = !browser.isInstalling,
                     ) {
@@ -2216,14 +2219,14 @@ private fun ResourceBrowserToolbar(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TrestleSearchField(
+        TrestleSearchBar(
             value = browser.query,
             onValueChange = actions::setResourceQuery,
             searching = browser.isSearching,
             onSearch = { actions.searchResources() },
             placeholder = { Text(stringResource(Res.string.ui_search_mods_packs_and_shaders)) },
-            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp)
-                .focusRequester(searchFocusRequester)
+            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp),
+            inputModifier = Modifier.focusRequester(searchFocusRequester)
                 .testTag(LauncherTestTags.RESOURCE_SEARCH),
         )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -3150,28 +3153,18 @@ private fun ClientDefaultsFields(
     val settings = form.clientSettings
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         if (showHeading) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(stringResource(Res.string.ui_client_defaults), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                }
-                Switch(
-                    checked = form.preconfigureClientSettings,
-                    onCheckedChange = actions::setCreateClientPreconfiguration,
-                )
-            }
+            TrestleSwitchItem(
+                label = stringResource(Res.string.ui_client_defaults),
+                checked = form.preconfigureClientSettings,
+                supportingText = "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
+                onCheckedChange = actions::setCreateClientPreconfiguration,
+            )
         } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(Res.string.ui_apply_these_defaults), modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Switch(
-                    checked = form.preconfigureClientSettings,
-                    onCheckedChange = actions::setCreateClientPreconfiguration,
-                )
-            }
+            TrestleSwitchItem(
+                label = stringResource(Res.string.ui_apply_these_defaults),
+                checked = form.preconfigureClientSettings,
+                onCheckedChange = actions::setCreateClientPreconfiguration,
+            )
         }
         if (!form.preconfigureClientSettings) return@Column
 
@@ -3501,7 +3494,10 @@ private fun InstanceWorkspace(
             PageHeader(
                 title = instance?.displayName ?: stringResource(Res.string.ui_instance),
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
+                    TrestleTooltipIconButton(
+                        label = stringResource(Res.string.ui_back_to_library),
+                        onClick = onBack,
+                    ) {
                         Icon(
                             painterResource(Res.drawable.ic_arrow_back),
                             contentDescription = stringResource(Res.string.ui_back_to_library),
@@ -3682,20 +3678,22 @@ private fun InstanceGameData(
                         }
                     }
                     world.dataPacks.forEach { pack ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(pack.fileName, style = MaterialTheme.typography.bodyMedium)
-                                Text(formatFileSize(pack.sizeBytes), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Switch(
-                                checked = pack.enabled,
-                                onCheckedChange = { actions.toggleDataPack(world.key, pack.key) },
-                            )
-                        }
+                        ListItem(
+                            headlineContent = { Text(pack.fileName) },
+                            supportingContent = { Text(formatFileSize(pack.sizeBytes)) },
+                            trailingContent = {
+                                Switch(
+                                    checked = pack.enabled,
+                                    onCheckedChange = null,
+                                )
+                            },
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            modifier = Modifier.fillMaxWidth().padding(start = 16.dp).toggleable(
+                                value = pack.enabled,
+                                role = Role.Switch,
+                                onValueChange = { actions.toggleDataPack(world.key, pack.key) },
+                            ),
+                        )
                     }
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -4513,11 +4511,17 @@ private fun InstalledContentRow(
             trailingContent = {
                 Switch(
                     checked = content.enabled,
-                    onCheckedChange = { actions.toggleInstalledContent(content.key) },
+                    onCheckedChange = null,
                     enabled = content.canManage,
                 )
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.fillMaxWidth().toggleable(
+                value = content.enabled,
+                enabled = content.canManage,
+                role = Role.Switch,
+                onValueChange = { actions.toggleInstalledContent(content.key) },
+            ),
         )
         if (content.canManage) {
             Row(
@@ -4705,7 +4709,10 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
         PageHeader(
             title = stringResource(Res.string.ui_accounts),
             actions = {
-                IconButton(onClick = actions::openAccountLogin) {
+                TrestleTooltipIconButton(
+                    label = stringResource(Res.string.ui_add_account),
+                    onClick = actions::openAccountLogin,
+                ) {
                     Icon(
                         painterResource(Res.drawable.ic_add),
                         contentDescription = stringResource(Res.string.ui_add_account),
@@ -4820,15 +4827,11 @@ private fun AccountRow(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 700.dp
             Card(
-                modifier = Modifier.fillMaxWidth().then(
-                    if (account.isActive) {
-                        Modifier
-                    } else {
-                        Modifier.pointerInput(profileId) {
-                            detectTapGestures(onDoubleTap = { actions.selectAccount(profileId) })
-                        }
-                    },
-                ),
+                modifier = Modifier.fillMaxWidth().trestleSelectable(
+                    selected = account.isActive,
+                    onClickLabel = "Use ${account.profile.playerName}",
+                    onClick = { actions.selectAccount(profileId) },
+                ).testTag(LauncherTestTags.account(profileId)),
                 colors = CardDefaults.cardColors(
                     containerColor = if (account.isActive) {
                         MaterialTheme.colorScheme.secondaryContainer
@@ -4932,7 +4935,10 @@ private fun AccountOverflowMenu(
 ) {
     val profileId = account.profile.profileId
     Box {
-        IconButton(onClick = { onExpandedChange(true) }) {
+        TrestleTooltipIconButton(
+            label = stringResource(Res.string.ui_more),
+            onClick = { onExpandedChange(true) },
+        ) {
             Icon(
                 painterResource(Res.drawable.ic_more_vert),
                 contentDescription = stringResource(Res.string.ui_more),
@@ -5212,7 +5218,7 @@ private fun SkinLibraryItem(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .primarySelectable(
+            .trestleSelectable(
                 selected = selected,
                 onClickLabel = "Select skin",
                 onClick = onClick,
@@ -5503,7 +5509,10 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                             PasswordVisualTransformation()
                         },
                         trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            TrestleTooltipIconButton(
+                                label = if (passwordVisible) "Hide password" else "Show password",
+                                onClick = { passwordVisible = !passwordVisible },
+                            ) {
                                 Icon(
                                     painterResource(
                                         if (passwordVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
@@ -5542,7 +5551,10 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                             PasswordVisualTransformation()
                         },
                         trailingIcon = {
-                            IconButton(onClick = { importedSecretVisible = !importedSecretVisible }) {
+                            TrestleTooltipIconButton(
+                                label = if (importedSecretVisible) "Hide secret" else "Show secret",
+                                onClick = { importedSecretVisible = !importedSecretVisible },
+                            ) {
                                 Icon(
                                     painterResource(
                                         if (importedSecretVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
@@ -6096,7 +6108,7 @@ internal fun LauncherLog(
             item("logs-empty") { Text(stringResource(Res.string.ui_no_launcher_events_in_this_session), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
-                LogRow(entry, onDoubleClick = { selectedEntryId = entry.id })
+                LogRow(entry, onOpen = { selectedEntryId = entry.id })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
         }
@@ -6109,7 +6121,7 @@ internal fun LauncherLog(
 }
 
 @Composable
-private fun LogRow(entry: LogEntry, onDoubleClick: () -> Unit) {
+private fun LogRow(entry: LogEntry, onOpen: () -> Unit) {
     val copyText = rememberCopyText()
     val actions = buildList {
         add(ContextAction("Copy message") { copyText(entry.message) })
@@ -6121,25 +6133,26 @@ private fun LogRow(entry: LogEntry, onDoubleClick: () -> Unit) {
         })
     }
     ContextActionArea(actions) {
-        Row(
-            Modifier.fillMaxWidth().pointerInput(entry.id) {
-                detectTapGestures(onDoubleTap = { onDoubleClick() })
-            }.padding(vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Column(Modifier.width(68.dp)) {
-                Text(formatUtcTime(entry.timestampEpochMillis), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-                Text(
-                    entry.level.name,
-                    color = if (entry.level.name == "ERROR") {
-                        MaterialTheme.colorScheme.error
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
-            Column(Modifier.weight(1f)) {
-                Text(entry.message, style = MaterialTheme.typography.bodyMedium)
+        ListItem(
+            leadingContent = {
+                Column(Modifier.width(68.dp)) {
+                    Text(
+                        formatUtcTime(entry.timestampEpochMillis),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                    Text(
+                        entry.level.name,
+                        color = if (entry.level.name == "ERROR") {
+                            MaterialTheme.colorScheme.error
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+            },
+            headlineContent = { Text(entry.message, style = MaterialTheme.typography.bodyMedium) },
+            supportingContent = {
                 Text(
                     buildString {
                         append(entry.category)
@@ -6151,8 +6164,14 @@ private fun LogRow(entry: LogEntry, onDoubleClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                 )
-            }
-        }
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+            modifier = Modifier.fillMaxWidth().clickable(
+                onClickLabel = "Open log details",
+                role = Role.Button,
+                onClick = onOpen,
+            ),
+        )
     }
 }
 
