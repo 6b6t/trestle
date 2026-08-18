@@ -15,16 +15,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.app.ThemePreference
-import net.blockhost.trestle.resources.barlow_condensed_semibold
-import net.blockhost.trestle.resources.barlow_medium
-import net.blockhost.trestle.resources.barlow_regular
+import net.blockhost.trestle.resources.roboto_variable
 import org.jetbrains.compose.resources.Font
 
 private val Soot = Color(0xFF171715)
@@ -180,88 +176,13 @@ private val TrestleShapes = Shapes(
 
 @Composable
 private fun trestleTypography(): Typography {
-    val display = FontFamily(
-        Font(Res.font.barlow_condensed_semibold, FontWeight.SemiBold),
-    )
-    val body = FontFamily(
-        Font(Res.font.barlow_regular, FontWeight.Normal),
-        Font(Res.font.barlow_medium, FontWeight.Medium),
+    val roboto = FontFamily(
+        Font(Res.font.roboto_variable, FontWeight.Normal),
+        Font(Res.font.roboto_variable, FontWeight.Medium),
+        Font(Res.font.roboto_variable, FontWeight.Bold),
     )
 
-    return Typography(
-        displaySmall = TextStyle(
-            fontFamily = display,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 36.sp,
-            lineHeight = 40.sp,
-        ),
-        headlineMedium = TextStyle(
-            fontFamily = display,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 28.sp,
-            lineHeight = 32.sp,
-        ),
-        headlineSmall = TextStyle(
-            fontFamily = display,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 24.sp,
-            lineHeight = 28.sp,
-        ),
-        titleLarge = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 20.sp,
-            lineHeight = 26.sp,
-        ),
-        titleMedium = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp,
-            lineHeight = 22.sp,
-        ),
-        titleSmall = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-        ),
-        bodyLarge = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Normal,
-            fontSize = 16.sp,
-            lineHeight = 24.sp,
-        ),
-        bodyMedium = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Normal,
-            fontSize = 14.sp,
-            lineHeight = 20.sp,
-        ),
-        bodySmall = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Normal,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-        ),
-        labelLarge = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 14.sp,
-            lineHeight = 18.sp,
-        ),
-        labelMedium = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 12.sp,
-            lineHeight = 16.sp,
-        ),
-        labelSmall = TextStyle(
-            fontFamily = body,
-            fontWeight = FontWeight.Medium,
-            fontSize = 11.sp,
-            lineHeight = 14.sp,
-        ),
-    )
+    return Typography(fontFamily = roboto)
 }
 
 @Composable
