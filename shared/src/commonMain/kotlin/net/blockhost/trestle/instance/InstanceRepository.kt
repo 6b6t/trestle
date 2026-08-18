@@ -29,6 +29,7 @@ data class CreateInstanceRequest(
     val memory: MemorySettings = MemorySettings(),
     val gameArguments: List<String> = emptyList(),
     val iconReference: String? = null,
+    val group: String? = null,
     val clientSettings: MinecraftClientSettings? = MinecraftClientSettings(),
 )
 
@@ -43,6 +44,7 @@ interface InstanceRepository {
     suspend fun get(id: InstanceId): GameInstance?
     suspend fun create(request: CreateInstanceRequest): GameInstance
     suspend fun update(instance: GameInstance): GameInstance
+    suspend fun updateWithIcon(instance: GameInstance, fileName: String, bytes: ByteArray): GameInstance
     suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings?
     suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings)
     suspend fun delete(id: InstanceId): Boolean

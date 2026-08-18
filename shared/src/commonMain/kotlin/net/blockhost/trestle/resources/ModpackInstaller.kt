@@ -332,6 +332,7 @@ class ModpackInstaller(
                 requiredJavaMajor = minecraftMetadata.javaVersion?.majorVersion ?: 8,
                 memory = LaunchTuningAdvisor.recommendMemory(plan.loader, systemProfile),
                 iconReference = iconReference,
+                group = "Modpacks",
             ),
         )
         try {

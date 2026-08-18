@@ -6,6 +6,7 @@ import net.blockhost.trestle.domain.InstallationState
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -180,6 +181,35 @@ class FileInstanceRepositoryTest {
     }
 
     @Test
+    fun storesAndReplacesInstanceIconsInsideTheInstanceDirectory() = runTest {
+        val fileSystem = FakeFileSystem()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { InstanceId("test01") },
+        )
+        repository.initialize()
+        val instance = repository.create(CreateInstanceRequest("Main", "1.21.8"))
+
+        val firstBytes = byteArrayOf(1, 2, 3)
+        val first = repository.updateWithIcon(instance, "first.png", firstBytes)
+        val firstName = requireNotNull(first.iconReference).removePrefix("instance:")
+        val firstPath = "/data/instances/test01/$firstName".toPath()
+        assertContentEquals(firstBytes, fileSystem.read(firstPath) { readByteArray() })
+
+        val secondBytes = byteArrayOf(4, 5, 6)
+        val second = repository.updateWithIcon(first, "second.webp", secondBytes)
+        val secondName = requireNotNull(second.iconReference).removePrefix("instance:")
+        val secondPath = "/data/instances/test01/$secondName".toPath()
+        assertFalse(fileSystem.exists(firstPath))
+        assertContentEquals(secondBytes, fileSystem.read(secondPath) { readByteArray() })
+
+        repository.update(second.copy(iconReference = "builtin:terrain"))
+        assertFalse(fileSystem.exists(secondPath))
+    }
+
+    @Test
     fun recoversPersistedInstallingStateAsInterrupted() = runTest {
         val fileSystem = FakeFileSystem()
         val registry = "/data/instances.json".toPath()
@@ -274,7 +304,8 @@ class FileInstanceRepositoryTest {
         val source = repository.create(CreateInstanceRequest("Source", "1.21.8"))
         fileSystem.createDirectories("/data/instances/source01/game/mods".toPath())
         fileSystem.write("/data/instances/source01/game/mods/example.jar".toPath()) { writeUtf8("mod") }
-        repository.update(source.copy(launchCount = 4, playTimeMillis = 12_000, pinned = true))
+        val sourceWithIcon = repository.updateWithIcon(source, "instance.png", byteArrayOf(7, 8, 9))
+        repository.update(sourceWithIcon.copy(launchCount = 4, playTimeMillis = 12_000, pinned = true))
 
         val clone = repository.clone(source.id, "Source Copy")
 
@@ -282,6 +313,12 @@ class FileInstanceRepositoryTest {
         assertEquals(0, clone.launchCount)
         assertEquals(0, clone.playTimeMillis)
         assertFalse(clone.pinned)
+        assertEquals(sourceWithIcon.iconReference, clone.iconReference)
+        val cloneIconName = requireNotNull(clone.iconReference).removePrefix("instance:")
+        assertContentEquals(
+            byteArrayOf(7, 8, 9),
+            fileSystem.read("/data/instances/clone001/$cloneIconName".toPath()) { readByteArray() },
+        )
         assertEquals(
             "mod",
             fileSystem.read("/data/instances/clone001/game/mods/example.jar".toPath()) { readUtf8() },

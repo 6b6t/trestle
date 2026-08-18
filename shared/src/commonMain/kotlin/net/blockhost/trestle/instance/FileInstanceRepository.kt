@@ -9,8 +9,11 @@ import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.domain.MANAGED_INSTANCE_ICON_PREFIX
+import net.blockhost.trestle.domain.MAX_INSTANCE_ICON_BYTES
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import okio.ByteString.Companion.toByteString
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -94,6 +97,7 @@ class FileInstanceRepository(
             memory = request.memory,
             gameArguments = request.gameArguments,
             iconReference = request.iconReference,
+            group = request.group?.trim()?.ifBlank { null },
         )
         val gameDirectory = (instancesDirectory / id.value) / "game"
         fileSystem.createDirectories(gameDirectory)
@@ -124,9 +128,53 @@ class FileInstanceRepository(
 
     override suspend fun update(instance: GameInstance): GameInstance = mutex.withLock {
         val current = mutableInstances.value
-        check(current.any { it.id == instance.id }) { "Instance ${instance.id.value} does not exist." }
+        val previous = current.firstOrNull { it.id == instance.id }
+            ?: error("Instance ${instance.id.value} does not exist.")
         persist(current.map { if (it.id == instance.id) instance else it })
+        deleteReplacedManagedIcon(previous, instance)
         instance
+    }
+
+    override suspend fun updateWithIcon(
+        instance: GameInstance,
+        fileName: String,
+        bytes: ByteArray,
+    ): GameInstance = mutex.withLock {
+        val current = mutableInstances.value
+        val previous = current.firstOrNull { it.id == instance.id }
+            ?: error("Instance ${instance.id.value} does not exist.")
+        require(bytes.isNotEmpty()) { "The instance image is empty." }
+        require(bytes.size <= MAX_INSTANCE_ICON_BYTES) { "The instance image is larger than 5 MB." }
+        val extension = fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
+        require(extension in SUPPORTED_INSTANCE_ICON_EXTENSIONS) {
+            "The instance image must be a PNG, JPEG, or WebP file."
+        }
+        val directory = instance.instanceDirectory.toPath()
+        require(directory.parent == instancesDirectory) {
+            "The instance directory is outside Trestle's instance storage."
+        }
+        val digest = bytes.toByteString().sha256().hex().take(16)
+        val iconName = "instance-icon-$digest.$extension"
+        val iconPath = directory / iconName
+        val temporaryPath = directory / ".$iconName.tmp"
+        val createdIcon = !fileSystem.exists(iconPath)
+        try {
+            if (createdIcon) {
+                fileSystem.write(temporaryPath) {
+                    write(bytes)
+                    flush()
+                }
+                fileSystem.atomicMove(temporaryPath, iconPath)
+            }
+            val updated = instance.copy(iconReference = "$MANAGED_INSTANCE_ICON_PREFIX$iconName")
+            persist(current.map { if (it.id == instance.id) updated else it })
+            deleteReplacedManagedIcon(previous, updated)
+            updated
+        } catch (error: Exception) {
+            runCatching { fileSystem.delete(temporaryPath, mustExist = false) }
+            if (createdIcon) runCatching { fileSystem.delete(iconPath, mustExist = false) }
+            throw error
+        }
     }
 
     override suspend fun delete(id: InstanceId): Boolean = mutex.withLock {
@@ -252,6 +300,27 @@ class FileInstanceRepository(
 
     private fun GameInstance.optionsPath(): Path = instanceDirectory.toPath() / "game" / "options.txt"
 
+    private fun deleteReplacedManagedIcon(previous: GameInstance, updated: GameInstance) {
+        if (previous.iconReference == updated.iconReference) return
+        val path = previous.managedIconPath() ?: return
+        runCatching { fileSystem.delete(path, mustExist = false) }
+            .onFailure { error ->
+                logger.warn(
+                    "instances",
+                    "Could not remove replaced instance image",
+                    cause = error,
+                    details = mapOf("id" to previous.id.value, "path" to path.toString()),
+                )
+            }
+    }
+
+    private fun GameInstance.managedIconPath(): Path? {
+        val reference = iconReference?.takeIf { it.startsWith(MANAGED_INSTANCE_ICON_PREFIX) } ?: return null
+        val fileName = reference.removePrefix(MANAGED_INSTANCE_ICON_PREFIX)
+        if (!fileName.matches(SAFE_INSTANCE_ICON_NAME)) return null
+        return instanceDirectory.toPath() / fileName
+    }
+
     private fun copyTree(source: Path, destination: Path) {
         val metadata = fileSystem.metadataOrNull(source) ?: return
         when {
@@ -276,3 +345,6 @@ class FileInstanceRepository(
 
 private fun List<GameInstance>.sortedForLibrary(): List<GameInstance> =
     sortedWith(compareByDescending<GameInstance> { it.pinned }.thenBy { it.displayName.lowercase() })
+
+private val SUPPORTED_INSTANCE_ICON_EXTENSIONS = setOf("png", "jpg", "jpeg", "webp")
+private val SAFE_INSTANCE_ICON_NAME = Regex("[a-zA-Z0-9._-]+")

@@ -240,12 +240,16 @@ internal object LauncherTestTags {
     const val SETTINGS = "settings"
     const val CREATE_DIALOG = "create-dialog"
     const val INSTANCE_SETTINGS_DIALOG = "instance-settings-dialog"
+    const val INSTANCE_ICON_EDIT = "instance-icon-edit"
+    const val INSTANCE_ICON_DIALOG = "instance-icon-dialog"
+    const val INSTANCE_ICON_UPLOAD = "instance-icon-upload"
     const val RESOURCE_BROWSER_DIALOG = "resource-browser-dialog"
     const val ACCOUNT_LOGIN_DIALOG = "account-login-dialog"
     const val SKIN_STUDIO_DIALOG = "skin-studio-dialog"
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 
     fun instance(id: InstanceId): String = "instance-${id.value}"
+    fun instanceIconOption(id: String): String = "instance-icon-option-$id"
     fun instanceSection(section: String): String = "instance-section-${section.lowercase()}"
     fun navigation(destination: LauncherDestination): String = "navigation-${destination.name.lowercase()}"
 }
@@ -1304,7 +1308,7 @@ private fun sortInstances(instances: List<GameInstance>, state: LauncherUiState)
 private fun instanceGroupLabel(instance: GameInstance): String = when {
     instance.pinned -> "Pinned"
     !instance.group.isNullOrBlank() -> instance.group
-    instance.iconReference != null -> "Modpacks"
+    instance.iconReference?.let { it.startsWith("https://") || it.startsWith("http://") } == true -> "Modpacks"
     instance.modLoader == ModLoader.VANILLA -> "Vanilla"
     else -> "${instance.modLoader.label} instances"
 }
@@ -1419,27 +1423,7 @@ private fun InstanceTile(
 
 @Composable
 private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.unit.Dp) {
-    Box(
-        Modifier.size(size)
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.shapes.small)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, MaterialTheme.shapes.small),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (instance.iconReference != null) {
-            AsyncImage(
-                model = instance.iconReference,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(MaterialTheme.shapes.small),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Text(
-                instance.modLoader.label.take(2).uppercase(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = if (size >= 56.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.labelLarge,
-            )
-        }
-    }
+    InstanceIconArtwork(instance = instance, size = size)
 }
 
 @Composable
@@ -1548,6 +1532,7 @@ private fun LaunchButton(
 private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.instanceSettings
     val instance = form.instanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
+    var showIconEditor by rememberSaveable(form.instanceId?.value) { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val javaPicker = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
         file?.let { actions.setJavaExecutable(it.path) }
@@ -1614,14 +1599,13 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    TextField(
-                        value = form.iconReference,
-                        onValueChange = actions::setInstanceIconReference,
-                        label = { Text("Icon path or URL") },
-                        supportingText = { Text("Use a local image path or an HTTPS image URL.") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
+                    instance?.let {
+                        InstanceIconSetting(
+                            instance = it,
+                            form = form,
+                            onEdit = { showIconEditor = true },
+                        )
+                    }
 
                     HorizontalDivider()
                     Text("Game components", style = MaterialTheme.typography.titleMedium)
@@ -1817,6 +1801,22 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                 }
             }
         }
+    }
+    if (showIconEditor && instance != null) {
+        InstanceIconEditorDialog(
+            instance = instance,
+            reference = form.iconReference,
+            pendingIcon = form.pendingIcon,
+            onDismiss = { showIconEditor = false },
+            onSave = { reference, pendingIcon ->
+                if (pendingIcon == null) {
+                    actions.setInstanceIconReference(reference)
+                } else {
+                    actions.setCustomInstanceIcon(pendingIcon.fileName, pendingIcon.bytes)
+                }
+                showIconEditor = false
+            },
+        )
     }
 }
 

@@ -7,6 +7,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -382,6 +383,20 @@ class TrestleAppUiTest {
         }
         onNodeWithTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG).assertIsDisplayed()
         onNodeWithText("Save changes").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun instanceImageEditorSelectsBuiltInLogos() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(LauncherPreviewFixtures.settingsDialog, NoopLauncherUiActions)
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.INSTANCE_ICON_EDIT).performClick()
+        onNodeWithTag(LauncherTestTags.INSTANCE_ICON_DIALOG).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.INSTANCE_ICON_UPLOAD).assertIsDisplayed().assertHasClickAction()
+        onNodeWithTag(LauncherTestTags.instanceIconOption("terrain")).performClick().assertIsSelected()
     }
 
     @Test

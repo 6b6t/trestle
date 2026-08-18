@@ -205,6 +205,7 @@ data class InstanceSettingsState(
     val name: String = "",
     val group: String = "",
     val iconReference: String = "",
+    val pendingIcon: PendingInstanceIcon? = null,
     val minecraftVersionId: String = "",
     val modLoader: ModLoader = ModLoader.VANILLA,
     val minimumMemoryMiB: String = "",
@@ -224,6 +225,16 @@ data class InstanceSettingsState(
     val warnings: List<String> = emptyList(),
     val isSaving: Boolean = false,
 )
+
+class PendingInstanceIcon(fileName: String, bytes: ByteArray) {
+    val fileName: String = fileName
+    val bytes: ByteArray = bytes.copyOf()
+
+    override fun equals(other: Any?): Boolean =
+        other is PendingInstanceIcon && fileName == other.fileName && bytes.contentEquals(other.bytes)
+
+    override fun hashCode(): Int = 31 * fileName.hashCode() + bytes.contentHashCode()
+}
 
 data class ServerEditorState(
     val visible: Boolean = false,
@@ -2123,7 +2134,19 @@ class LauncherViewModel(
     }
 
     override fun setInstanceIconReference(value: String) {
-        mutableState.update { it.copy(instanceSettings = it.instanceSettings.copy(iconReference = value)) }
+        mutableState.update {
+            it.copy(instanceSettings = it.instanceSettings.copy(iconReference = value, pendingIcon = null))
+        }
+    }
+
+    override fun setCustomInstanceIcon(fileName: String, bytes: ByteArray) {
+        mutableState.update {
+            it.copy(
+                instanceSettings = it.instanceSettings.copy(
+                    pendingIcon = PendingInstanceIcon(fileName, bytes),
+                ),
+            )
+        }
     }
 
     override fun setInstanceVersion(value: String) {
@@ -2196,31 +2219,39 @@ class LauncherViewModel(
                 } else {
                     instance.requiredJavaMajor
                 }
-                val updated = services.repository.update(
-                    instance.copy(
-                        displayName = form.name.trim(),
-                        group = form.group.trim().ifBlank { null },
-                        iconReference = form.iconReference.trim().ifBlank { null },
-                        minecraftVersionId = form.minecraftVersionId,
-                        modLoader = form.modLoader,
-                        loaderVersion = if (componentsChanged) null else instance.loaderVersion,
-                        requiredJavaMajor = requiredJavaMajor,
-                        memory = MemorySettings(minimum, maximum),
-                        jvmArguments = review.accepted,
-                        gameArguments = gameArguments,
-                        javaExecutable = form.javaExecutable.trim().ifBlank { null },
-                        environmentVariables = environmentVariables,
-                        preLaunchCommand = preLaunchCommand,
-                        wrapperCommand = wrapperCommand,
-                        postExitCommand = postExitCommand,
-                        accountProfileId = form.accountProfileId,
-                        installationState = if (componentsChanged) {
-                            InstallationState.NotInstalled
-                        } else {
-                            instance.installationState
-                        },
-                    ),
+                val pendingIcon = form.pendingIcon
+                val updatedInstance = instance.copy(
+                    displayName = form.name.trim(),
+                    group = form.group.trim().ifBlank { null },
+                    iconReference = form.iconReference.trim().ifBlank { null },
+                    minecraftVersionId = form.minecraftVersionId,
+                    modLoader = form.modLoader,
+                    loaderVersion = if (componentsChanged) null else instance.loaderVersion,
+                    requiredJavaMajor = requiredJavaMajor,
+                    memory = MemorySettings(minimum, maximum),
+                    jvmArguments = review.accepted,
+                    gameArguments = gameArguments,
+                    javaExecutable = form.javaExecutable.trim().ifBlank { null },
+                    environmentVariables = environmentVariables,
+                    preLaunchCommand = preLaunchCommand,
+                    wrapperCommand = wrapperCommand,
+                    postExitCommand = postExitCommand,
+                    accountProfileId = form.accountProfileId,
+                    installationState = if (componentsChanged) {
+                        InstallationState.NotInstalled
+                    } else {
+                        instance.installationState
+                    },
                 )
+                val updated = if (pendingIcon == null) {
+                    services.repository.update(updatedInstance)
+                } else {
+                    services.repository.updateWithIcon(
+                        instance = updatedInstance,
+                        fileName = pendingIcon.fileName,
+                        bytes = pendingIcon.bytes,
+                    )
+                }
                 form.clientSettings?.let { services.repository.updateClientSettings(instance.id, it) }
                 cachedLaunch = null
                 mutableState.update {

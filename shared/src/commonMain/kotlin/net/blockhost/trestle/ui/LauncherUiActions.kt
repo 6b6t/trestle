@@ -130,6 +130,7 @@ interface LauncherUiActions {
     fun setInstanceName(value: String) {}
     fun setInstanceGroup(value: String) {}
     fun setInstanceIconReference(value: String) {}
+    fun setCustomInstanceIcon(fileName: String, bytes: ByteArray) {}
     fun setInstanceVersion(value: String) {}
     fun setInstanceLoader(value: ModLoader) {}
     fun setInstanceClientSettings(value: MinecraftClientSettings) {}
