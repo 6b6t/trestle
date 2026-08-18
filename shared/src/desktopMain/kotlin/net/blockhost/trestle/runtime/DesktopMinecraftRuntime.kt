@@ -42,7 +42,11 @@ class DesktopMinecraftRuntime(
         supportsNativeExtraction = true,
     )
 
-    override suspend fun prepare(instance: GameInstance, options: LaunchOptions): PreparedLaunch =
+    override suspend fun prepare(
+        instance: GameInstance,
+        options: LaunchOptions,
+        onProgress: suspend (RuntimePreparationProgress) -> Unit,
+    ): PreparedLaunch =
         withContext(Dispatchers.IO) {
             val session = sessionProvider.currentSession()
             val installed = installedVersionReader(instance)

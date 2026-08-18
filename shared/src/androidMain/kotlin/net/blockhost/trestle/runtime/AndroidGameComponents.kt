@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadRequest
+import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import okio.FileSystem
@@ -24,7 +25,9 @@ internal class AndroidGameComponentManager(
     private val fileSystem: FileSystem,
     private val logger: LauncherLogger,
 ) {
-    suspend fun resolve(): AndroidGameComponents {
+    private val remoteComponentInstaller = AndroidRemoteComponentInstaller()
+
+    suspend fun resolve(onProgress: suspend (DownloadProgress) -> Unit = {}): AndroidGameComponents {
         val root = directories.runtimes / COMPONENT_SET_ID
         val downloads = root / "downloads"
         val jars = root / "jars"
@@ -51,6 +54,7 @@ internal class AndroidGameComponentManager(
                 )
             },
             stagingDirectory = directories.staging / "android-game-components",
+            onProgress = onProgress,
         )
 
         withContext(Dispatchers.IO) {
@@ -67,6 +71,12 @@ internal class AndroidGameComponentManager(
                 COMPONENT_ARCHIVES.forEach { artifact ->
                     extractArm64Libraries(downloads / artifact.name, natives)
                 }
+                remoteComponentInstaller.install(
+                    sourceUrl = AMETHYST_APK_URL,
+                    components = REMOTE_NATIVE_COMPONENTS,
+                    destination = natives,
+                    onProgress = onProgress,
+                )
                 val missing = REQUIRED_NATIVE_FILES.filterNot { fileSystem.exists(natives / it) }
                 if (missing.isNotEmpty()) {
                     throw LauncherException.RuntimeUnavailable(
@@ -149,15 +159,14 @@ internal class AndroidGameComponentManager(
         val relativePath: String,
         val size: Long,
         val sha256: String,
-        val urlOverride: String? = null,
     ) {
         val url: String
-            get() = urlOverride ?: "$RAW_AMETHYST_ROOT/$relativePath"
+            get() = "$RAW_AMETHYST_ROOT/$relativePath"
     }
 
     private companion object {
         const val AMETHYST_REVISION = "d8a195640a7e0929f2ee532d7784de2b980c6c48"
-        const val COMPONENT_SET_ID = "minecraft-26.2-android-arm64-1"
+        const val COMPONENT_SET_ID = "minecraft-26.2-android-arm64-2"
         const val RAW_AMETHYST_ROOT =
             "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/$AMETHYST_REVISION"
         const val JAR_ROOT = "app_pojavlauncher/src/main/assets/components/lwjgl3/3.4.1"
@@ -181,12 +190,37 @@ internal class AndroidGameComponentManager(
             ComponentArtifact("lwjgl-3.4.1-natives-release.aar", "$AAR_ROOT/lwjgl-3.4.1-natives-release.aar", 16_567_622, "ccb9c7abe942cd40a0490637ca70756a259a40ec1257a515d3343c2f536503c0"),
             ComponentArtifact("openal-soft-release.aar", "$AAR_ROOT/openal-soft-release.aar", 2_895_870, "45e630695b6b4c6506704330bf4da80a605b445ea5d187d7b71a370aab5494ea"),
             ComponentArtifact("kopper-zink-release.aar", "$AAR_ROOT/kopper-zink-release.aar", 16_002_238, "bf816fc9dc2047edff0284369b6433260ec462b7b26a3e3b544550c721ca26fe"),
-            ComponentArtifact(
-                name = "amethyst-1.1.6.apk",
-                relativePath = "",
-                size = 156_516_190,
-                sha256 = "ac8d3aa0b1955c003a3f26f359b13bc6abf6c19ce29e82d4a0d542fbd4b4edc0",
-                urlOverride = "https://github.com/AngelAuraMC/Amethyst-Android/releases/download/1.1.6/Amethyst.apk",
+        )
+        const val AMETHYST_APK_URL =
+            "https://github.com/AngelAuraMC/Amethyst-Android/releases/download/1.1.6/Amethyst.apk"
+        val REMOTE_NATIVE_COMPONENTS = listOf(
+            RemoteDeflatedComponent(
+                "libc++_shared.so",
+                rangeStart = 7_178_448,
+                compressedSize = 406_559,
+                uncompressedSize = 1_292_904,
+                sha256 = "f4e1e97c1943e60311e47e8b024d78f5b3b7229b3ccc65feb33af83d6025a670",
+            ),
+            RemoteDeflatedComponent(
+                "libcutils.so",
+                rangeStart = 7_585_063,
+                compressedSize = 7_178,
+                uncompressedSize = 21_320,
+                sha256 = "04258bb1ccef8f5097ddc32ae1fb2d57142ffc5999e96fa36bfab85e02e9e347",
+            ),
+            RemoteDeflatedComponent(
+                "libpojavexec.so",
+                rangeStart = 14_612_714,
+                compressedSize = 26_875,
+                uncompressedSize = 67_128,
+                sha256 = "46025ba51fa0720ddf9449f2686aa36f19837d30179c8052e12311769fa11bd3",
+            ),
+            RemoteDeflatedComponent(
+                "libspirv-cross-c-shared.so",
+                rangeStart = 14_644_574,
+                compressedSize = 1_188_950,
+                uncompressedSize = 3_463_112,
+                sha256 = "9f7a21ae51739d8cfe8b3a0ebb8d6e55cfea1cf95effbf991a13ca50436e185a",
             ),
         )
         val REQUIRED_NATIVE_FILES = listOf(

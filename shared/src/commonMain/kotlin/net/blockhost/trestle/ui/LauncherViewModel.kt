@@ -34,6 +34,7 @@ import net.blockhost.trestle.runtime.JvmArgumentPolicy
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.PreparedLaunch
+import net.blockhost.trestle.runtime.RuntimePreparationProgress
 import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.metadata.VersionReference
@@ -206,6 +207,8 @@ data class LauncherUiState(
     val logs: List<LogEntry> = emptyList(),
     val credentialProtection: CredentialProtection? = null,
     val pendingInstanceRemovalId: InstanceId? = null,
+    val supportedMinecraftVersions: Set<String>? = null,
+    val supportedModLoaders: Set<ModLoader>? = null,
 ) {
     val selectedInstance: GameInstance?
         get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
@@ -216,7 +219,11 @@ class LauncherViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : LauncherUiActions {
     private val mutableState = MutableStateFlow(
-        LauncherUiState(credentialProtection = services.credentialStore.protection),
+        LauncherUiState(
+            credentialProtection = services.credentialStore.protection,
+            supportedMinecraftVersions = services.runtime.capabilities.supportedMinecraftVersions,
+            supportedModLoaders = services.runtime.capabilities.supportedModLoaders,
+        ),
     )
     private var installJob: Job? = null
     private var resourceJob: Job? = null
@@ -305,7 +312,10 @@ class LauncherViewModel(
             }
             try {
                 val manifest = services.metadataClient.fetchVersionManifest()
-                val versions = manifest.versions.filter { it.type == "release" || it.type == "snapshot" }
+                val supported = services.runtime.capabilities.supportedMinecraftVersions
+                val versions = manifest.versions.filter {
+                    (it.type == "release" || it.type == "snapshot") && (supported == null || it.id in supported)
+                }
                 val defaultVersion = versions.firstOrNull { it.id == manifest.latest.release }?.id
                     ?: versions.firstOrNull()?.id.orEmpty()
                 mutableState.update { state ->
@@ -347,7 +357,11 @@ class LauncherViewModel(
         }
         mutableState.update {
             it.copy(
-                create = CreateInstanceState(visible = true, versionId = defaultVersion),
+                create = CreateInstanceState(
+                    visible = true,
+                    versionId = defaultVersion,
+                    modLoader = supportedLoaders().firstOrNull() ?: ModLoader.VANILLA,
+                ),
                 error = null,
             )
         }
@@ -362,11 +376,14 @@ class LauncherViewModel(
     }
 
     override fun setCreateVersion(value: String) {
+        val supported = services.runtime.capabilities.supportedMinecraftVersions
+        if (supported != null && value !in supported) return
         mutableState.update { it.copy(create = it.create.copy(versionId = value, loaderVersion = null)) }
         loadCreateLoaderVersions(mutableState.value.create.modLoader)
     }
 
     override fun setCreateLoader(value: ModLoader) {
+        if (value !in supportedLoaders()) return
         mutableState.update {
             it.copy(
                 create = it.create.copy(
@@ -395,6 +412,9 @@ class LauncherViewModel(
     override fun createInstance() {
         val form = mutableState.value.create
         if (form.name.isBlank() || form.versionId.isBlank()) return
+        val supportedVersions = services.runtime.capabilities.supportedMinecraftVersions
+        if (supportedVersions != null && form.versionId !in supportedVersions) return
+        if (form.modLoader !in supportedLoaders()) return
         scope.launch {
             mutableState.update { it.copy(create = form.copy(isSaving = true), error = null) }
             try {
@@ -569,7 +589,7 @@ class LauncherViewModel(
                 val prepared = cachedLaunch
                     ?.takeIf { (cachedInstance) -> cachedInstance == instance }
                     ?.second
-                    ?: services.runtime.prepare(instance)
+                    ?: services.runtime.prepare(instance, onProgress = ::updateRuntimePreparation)
                 if (prepared.missingRequirements.isNotEmpty()) {
                     cachedLaunch = null
                     updateLaunch(instance.id, LaunchStatus.Blocked(prepared.missingRequirements))
@@ -627,6 +647,7 @@ class LauncherViewModel(
                     LaunchStatus.Failed(error.message ?: "Minecraft could not start."),
                 )
             } finally {
+                mutableState.update { it.copy(operation = null) }
                 launchJob = null
             }
         }
@@ -1619,7 +1640,7 @@ class LauncherViewModel(
         launchCheckJob = scope.launch {
             updateLaunch(instance.id, LaunchStatus.Checking)
             try {
-                val prepared = services.runtime.prepare(instance)
+                val prepared = services.runtime.prepare(instance, onProgress = ::updateRuntimePreparation)
                 if (mutableState.value.selectedInstance?.id != instance.id) return@launch
                 if (prepared.missingRequirements.isEmpty()) {
                     cachedLaunch = instance to prepared
@@ -1637,8 +1658,27 @@ class LauncherViewModel(
                     LaunchStatus.Failed(error.message ?: "The launch check failed."),
                 )
             } finally {
+                mutableState.update { it.copy(operation = null) }
                 launchCheckJob = null
             }
+        }
+    }
+
+    private fun supportedLoaders(): Set<ModLoader> =
+        services.runtime.capabilities.supportedModLoaders ?: ModLoader.entries.toSet()
+
+    private fun updateRuntimePreparation(progress: RuntimePreparationProgress) {
+        mutableState.update {
+            it.copy(
+                operation = OperationStatus(
+                    title = "Preparing Android runtime",
+                    detail = progress.stage,
+                    completed = progress.completedBytes,
+                    total = progress.totalBytes,
+                    completedItems = progress.completedItems,
+                    totalItems = progress.totalItems,
+                ),
+            )
         }
     }
 

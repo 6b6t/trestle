@@ -1,6 +1,7 @@
 package net.blockhost.trestle.game
 
 import android.content.Context
+import android.annotation.SuppressLint
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -24,7 +25,11 @@ internal object GlfwKey {
     const val LEFT_CONTROL = 341
 }
 
-internal class MinecraftControlOverlayView(context: Context) : View(context) {
+@SuppressLint("ViewConstructor")
+internal class MinecraftControlOverlayView(
+    context: Context,
+    private val onChatRequested: () -> Unit,
+) : View(context) {
     private val density = resources.displayMetrics.density
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -197,6 +202,7 @@ internal class MinecraftControlOverlayView(context: Context) : View(context) {
             is ControlAction.Key -> setKeyHeld(action.key, true)
             is ControlAction.Mouse -> CallbackBridge.sendMouseButton(action.button, true)
             is ControlAction.Scroll -> CallbackBridge.sendScroll(0.0, action.amount)
+            ControlAction.Chat -> CallbackBridge.sendKey(GlfwKey.T, true)
         }
     }
 
@@ -206,6 +212,10 @@ internal class MinecraftControlOverlayView(context: Context) : View(context) {
             is ControlAction.Key -> setKeyHeld(action.key, false)
             is ControlAction.Mouse -> CallbackBridge.sendMouseButton(action.button, false)
             is ControlAction.Scroll -> Unit
+            ControlAction.Chat -> {
+                CallbackBridge.sendKey(GlfwKey.T, false)
+                postDelayed(onChatRequested, CHAT_KEYBOARD_DELAY_MILLIS)
+            }
         }
     }
 
@@ -256,7 +266,7 @@ internal class MinecraftControlOverlayView(context: Context) : View(context) {
             }
 
             addButton("II", ControlAction.Key(GlfwKey.ESCAPE), edge, top)
-            addButton("CHAT", ControlAction.Key(GlfwKey.T), edge + unit + gap, top, unit * 1.2f)
+            addButton("CHAT", ControlAction.Chat, edge + unit + gap, top, unit * 1.2f)
             addButton("INV", ControlAction.Key(GlfwKey.E), width - edge - unit * 2 - gap, top)
             addButton("DROP", ControlAction.Key(GlfwKey.Q), width - edge - unit, top)
 
@@ -280,6 +290,7 @@ internal class MinecraftControlOverlayView(context: Context) : View(context) {
     }
 
     private sealed interface ControlAction {
+        data object Chat : ControlAction
         data class Key(val key: Int) : ControlAction
         data class Mouse(val button: Int) : ControlAction
         data class Scroll(val amount: Double) : ControlAction
@@ -311,6 +322,7 @@ internal class MinecraftControlOverlayView(context: Context) : View(context) {
     )
 
     private companion object {
+        const val CHAT_KEYBOARD_DELAY_MILLIS = 120L
         const val LOOK_SENSITIVITY = 1.15f
         val CHALK = Color.rgb(231, 227, 217)
         val MUTED = Color.rgb(169, 164, 154)

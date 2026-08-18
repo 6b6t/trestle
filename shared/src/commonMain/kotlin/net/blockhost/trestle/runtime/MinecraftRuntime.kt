@@ -3,6 +3,7 @@ package net.blockhost.trestle.runtime
 import kotlinx.coroutines.flow.Flow
 import net.blockhost.trestle.auth.SecretValue
 import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.domain.ModLoader
 
 data class RuntimeCapabilities(
     val canPrepareLaunch: Boolean,
@@ -10,6 +11,16 @@ data class RuntimeCapabilities(
     val supportsManagedJava: Boolean,
     val supportsNativeExtraction: Boolean,
     val unavailableReason: String? = null,
+    val supportedMinecraftVersions: Set<String>? = null,
+    val supportedModLoaders: Set<ModLoader>? = null,
+)
+
+data class RuntimePreparationProgress(
+    val stage: String,
+    val completedBytes: Long? = null,
+    val totalBytes: Long? = null,
+    val completedItems: Int? = null,
+    val totalItems: Int? = null,
 )
 
 data class LaunchOptions(
@@ -65,6 +76,10 @@ sealed interface LaunchEvent {
 interface MinecraftRuntime {
     val capabilities: RuntimeCapabilities
 
-    suspend fun prepare(instance: GameInstance, options: LaunchOptions = LaunchOptions()): PreparedLaunch
+    suspend fun prepare(
+        instance: GameInstance,
+        options: LaunchOptions = LaunchOptions(),
+        onProgress: suspend (RuntimePreparationProgress) -> Unit = {},
+    ): PreparedLaunch
     fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent>
 }

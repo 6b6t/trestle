@@ -5,6 +5,7 @@ import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadRequest
+import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.Architecture
@@ -26,7 +27,11 @@ internal class AndroidJavaRuntimeManager(
     private val fileSystem: FileSystem,
     private val logger: LauncherLogger,
 ) {
-    suspend fun resolve(requiredMajor: Int, architecture: Architecture): AndroidJavaRuntime {
+    suspend fun resolve(
+        requiredMajor: Int,
+        architecture: Architecture,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ): AndroidJavaRuntime {
         val artifact = AndroidRuntimeArtifact.forPlatform(requiredMajor, architecture)
         val runtimeRoot = directories.runtimes / artifact.id
         val marker = runtimeRoot / COMPLETE_MARKER
@@ -47,6 +52,7 @@ internal class AndroidJavaRuntimeManager(
                 ),
             ),
             stagingDirectory = directories.staging / "runtime-download-${artifact.id}",
+            onProgress = onProgress,
         )
 
         withContext(Dispatchers.IO) {

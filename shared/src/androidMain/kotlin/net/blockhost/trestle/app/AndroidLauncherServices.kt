@@ -22,6 +22,7 @@ import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.resources.JvmArchiveExtractor
 import net.blockhost.trestle.runtime.AndroidMinecraftRuntime
+import net.blockhost.trestle.runtime.AndroidGraphicsCompatibilityProbe
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.FileSystem
 import okio.Path.Companion.toPath
@@ -38,6 +39,7 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
     val memoryInfo = ActivityManager.MemoryInfo().also { info ->
         context.getSystemService(ActivityManager::class.java).getMemoryInfo(info)
     }
+    val graphicsCompatibility = AndroidGraphicsCompatibilityProbe.inspect(context)
     val credentialStore = KSafeAccountCredentialStore(
         KSafe(
             context = context,
@@ -79,6 +81,7 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
         AndroidMinecraftRuntime(
             context = context,
             architecture = architecture,
+            graphicsCompatibility = graphicsCompatibility,
             directories = directories,
             sessionProvider = sessionProvider,
             installedVersionReader = installer::readInstalledVersion,

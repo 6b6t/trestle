@@ -22,6 +22,7 @@ public final class CallbackBridge {
     private static boolean grabbing;
     private static float mouseX;
     private static float mouseY;
+    private static volatile boolean inputReady;
 
     private CallbackBridge() {}
 
@@ -31,6 +32,11 @@ public final class CallbackBridge {
 
     public static void clear(Listener currentListener) {
         if (listener.get() == currentListener) listener.clear();
+        inputReady = false;
+    }
+
+    public static void setInputReady(boolean ready) {
+        inputReady = ready;
     }
 
     public static boolean isGrabbing() {
@@ -38,35 +44,54 @@ public final class CallbackBridge {
     }
 
     public static void moveCursor(float deltaX, float deltaY) {
+        if (!inputReady) return;
         mouseX += deltaX;
         mouseY += deltaY;
         nativeSendCursorPos(mouseX, mouseY);
     }
 
     public static void setCursor(float x, float y) {
+        if (!inputReady) return;
         mouseX = x;
         mouseY = y;
         nativeSendCursorPos(x, y);
     }
 
     public static void sendKey(int key, boolean pressed) {
-        nativeSendKey(key, 0, pressed ? 1 : 0, 0);
+        sendKey(key, 0, pressed ? 1 : 0, 0);
+    }
+
+    public static void sendKey(int key, int scancode, int action, int mods) {
+        if (!inputReady) return;
+        nativeSendKey(key, scancode, action, mods);
     }
 
     public static void sendCharacter(char character) {
-        nativeSendCharMods(character, 0);
+        sendCharacter(character, 0);
+    }
+
+    public static void sendCharacter(char character, int mods) {
+        if (!inputReady) return;
+        nativeSendCharMods(character, mods);
         nativeSendChar(character);
     }
 
     public static void sendMouseButton(int button, boolean pressed) {
-        nativeSendMouseButton(button, pressed ? 1 : 0, 0);
+        sendMouseButton(button, pressed ? 1 : 0, 0);
+    }
+
+    public static void sendMouseButton(int button, int action, int mods) {
+        if (!inputReady) return;
+        nativeSendMouseButton(button, action, mods);
     }
 
     public static void sendScroll(double horizontal, double vertical) {
+        if (!inputReady) return;
         nativeSendScroll(horizontal, vertical);
     }
 
     public static void sendScreenSize(int width, int height) {
+        if (!inputReady) return;
         nativeSendScreenSize(width, height);
     }
 

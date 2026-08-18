@@ -696,7 +696,16 @@ private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier
             ) {
                 Column(Modifier.weight(1f)) {
                     Text(status.title, style = MaterialTheme.typography.labelLarge)
-                    status.detail?.let {
+                    val progressDetail = buildList {
+                        status.detail?.let(::add)
+                        if (status.completed != null && status.total != null) {
+                            add("${formatFileSize(status.completed)} of ${formatFileSize(status.total)}")
+                        }
+                        if (status.completedItems != null && status.totalItems != null) {
+                            add("${status.completedItems} of ${status.totalItems} files")
+                        }
+                    }.joinToString(" · ")
+                    progressDetail.takeIf(String::isNotBlank)?.let {
                         Text(
                             it,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1794,6 +1803,9 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 @Composable
 private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.create
+    val restrictedRuntime = state.supportedMinecraftVersions != null || state.supportedModLoaders != null
+    val loaderChoices = listOf(ModLoader.VANILLA, ModLoader.FABRIC, ModLoader.NEOFORGE)
+        .filter { state.supportedModLoaders == null || it in state.supportedModLoaders }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
@@ -1811,7 +1823,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text("New instance", style = MaterialTheme.typography.headlineMedium)
-                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    if (!restrictedRuntime) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         SegmentedButton(
                             selected = true,
                             onClick = {},
@@ -1836,21 +1848,46 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Selector(
-                        label = "Minecraft version",
-                        value = form.versionId.ifBlank {
-                            if (state.isLoadingVersions) "Loading versions" else "No versions available"
-                        },
-                        values = state.versions.take(200).map { it.id },
-                        enabled = !state.isLoadingVersions,
-                        onSelect = actions::setCreateVersion,
-                    )
-                    Selector(
-                        label = "Loader",
-                        value = form.modLoader.label,
-                        values = listOf(ModLoader.VANILLA, ModLoader.FABRIC, ModLoader.NEOFORGE).map { it.label },
-                        onSelect = { label -> actions.setCreateLoader(ModLoader.entries.first { it.label == label }) },
-                    )
+                    val versionChoices = state.versions.take(200).map { it.id }
+                    if (versionChoices.size == 1) {
+                        OutlinedTextField(
+                            value = versionChoices.single(),
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Minecraft version") },
+                            supportingText = { Text("Android MVP") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        Selector(
+                            label = "Minecraft version",
+                            value = form.versionId.ifBlank {
+                                if (state.isLoadingVersions) "Loading versions" else "No versions available"
+                            },
+                            values = versionChoices,
+                            enabled = !state.isLoadingVersions,
+                            onSelect = actions::setCreateVersion,
+                        )
+                    }
+                    if (loaderChoices.size == 1) {
+                        OutlinedTextField(
+                            value = loaderChoices.single().label,
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Loader") },
+                            supportingText = { Text("Only vanilla is supported on Android") },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    } else {
+                        Selector(
+                            label = "Loader",
+                            value = form.modLoader.label,
+                            values = loaderChoices.map { it.label },
+                            onSelect = { label ->
+                                loaderChoices.firstOrNull { it.label == label }?.let(actions::setCreateLoader)
+                            },
+                        )
+                    }
                     if (form.modLoader in setOf(ModLoader.FABRIC, ModLoader.NEOFORGE)) {
                         Selector(
                             label = "${form.modLoader.label} version",

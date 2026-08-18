@@ -2,6 +2,9 @@ package net.blockhost.trestle.runtime
 
 import android.content.Context
 import android.content.Intent
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,10 +34,12 @@ import java.io.File
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
-class AndroidMinecraftRuntime(
+class AndroidMinecraftRuntime internal constructor(
     context: Context,
     private val architecture: Architecture,
+    private val graphicsCompatibility: AndroidGraphicsCompatibility,
     private val directories: LauncherDirectories,
     private val sessionProvider: SessionProvider,
     private val installedVersionReader: (GameInstance) -> InstalledVersion,
@@ -56,15 +61,39 @@ class AndroidMinecraftRuntime(
         logger,
     )
 
+    private val unavailableReason = when {
+        architecture != Architecture.ARM64 -> ARM64_MESSAGE
+        !graphicsCompatibility.isSupported -> graphicsCompatibility.unavailableReason
+        else -> null
+    }
+
     override val capabilities = RuntimeCapabilities(
-        canPrepareLaunch = architecture == Architecture.ARM64,
-        canLaunch = architecture == Architecture.ARM64,
+        canPrepareLaunch = unavailableReason == null,
+        canLaunch = unavailableReason == null,
         supportsManagedJava = architecture == Architecture.ARM64,
         supportsNativeExtraction = architecture == Architecture.ARM64,
-        unavailableReason = if (architecture == Architecture.ARM64) null else ARM64_MESSAGE,
+        unavailableReason = unavailableReason,
+        supportedMinecraftVersions = setOf(MVP_VERSION),
+        supportedModLoaders = setOf(ModLoader.VANILLA),
     )
 
-    override suspend fun prepare(instance: GameInstance, options: LaunchOptions): PreparedLaunch =
+    init {
+        logger.info(
+            "runtime",
+            "Inspected Android graphics compatibility",
+            mapOf(
+                "graphics" to graphicsCompatibility.summary(),
+                "gpuFamily" to graphicsCompatibility.gpuFamily.label,
+                "supported" to graphicsCompatibility.isSupported,
+            ),
+        )
+    }
+
+    override suspend fun prepare(
+        instance: GameInstance,
+        options: LaunchOptions,
+        onProgress: suspend (RuntimePreparationProgress) -> Unit,
+    ): PreparedLaunch =
         withContext(Dispatchers.IO) {
             requireSupportedInstance(instance)
             val installed = installedVersionReader(instance)
@@ -85,8 +114,12 @@ class AndroidMinecraftRuntime(
                     nativeDirectory = "",
                     missingRequirements = listOf("Java account"),
                 )
-            val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture)
-            val components = componentManager.resolve()
+            val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
+                onProgress(progress.toRuntimeProgress("Downloading Java 25 runtime"))
+            }
+            val components = componentManager.resolve { progress ->
+                onProgress(progress.toRuntimeProgress("Downloading Android game components"))
+            }
             val gameDirectory = instance.instanceDirectory.toPath() / "game"
             FileSystem.SYSTEM.createDirectories(gameDirectory)
 
@@ -185,6 +218,34 @@ class AndroidMinecraftRuntime(
             return@callbackFlow
         }
         val launchId = UUID.randomUUID().toString()
+        val launchStartedAt = System.currentTimeMillis()
+        val terminalReceived = AtomicBoolean(false)
+        val monitorStarted = AtomicBoolean(false)
+        val processAnnounced = AtomicBoolean(false)
+        fun monitorProcess(processId: Long) {
+            processAnnounced.set(true)
+            if (processId <= 0 || !monitorStarted.compareAndSet(false, true)) return
+            this@callbackFlow.launch(Dispatchers.IO) {
+                val processDirectory = File("/proc/$processId")
+                while (isActive && processDirectory.exists()) delay(PROCESS_POLL_MILLIS)
+                if (isActive && terminalReceived.compareAndSet(false, true)) {
+                    delay(EXIT_DIAGNOSTICS_DELAY_MILLIS)
+                    val message = unexpectedProcessDeath(
+                        preparedLaunch,
+                        launchId,
+                        processId.toInt(),
+                        launchStartedAt,
+                    )
+                    logger.error(
+                        "runtime",
+                        message,
+                        details = mapOf("instanceId" to preparedLaunch.instanceId),
+                    )
+                    trySend(LaunchEvent.Failed(message))
+                    close()
+                }
+            }
+        }
         val receiver = object : ResultReceiver(Handler(Looper.getMainLooper())) {
             override fun onReceiveResult(resultCode: Int, resultData: Bundle?) {
                 when (resultCode) {
@@ -193,16 +254,13 @@ class AndroidMinecraftRuntime(
                             ?.takeIf { it.containsKey(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID) }
                             ?.getLong(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID)
                         trySend(LaunchEvent.Started(processId))
-                        if (processId != null && processId > 0) {
-                            this@callbackFlow.launch(Dispatchers.IO) {
-                                val processDirectory = File("/proc/$processId")
-                                while (isActive && processDirectory.exists()) delay(PROCESS_POLL_MILLIS)
-                                if (isActive) {
-                                    trySend(LaunchEvent.Exited(1))
-                                    close()
-                                }
-                            }
-                        }
+                        processId?.let(::monitorProcess)
+                    }
+                    AndroidGameLaunchProtocol.RESULT_PROCESS_CREATED -> {
+                        resultData
+                            ?.takeIf { it.containsKey(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID) }
+                            ?.getLong(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID)
+                            ?.let(::monitorProcess)
                     }
                     AndroidGameLaunchProtocol.RESULT_LOG -> {
                         resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.let { line ->
@@ -211,11 +269,13 @@ class AndroidMinecraftRuntime(
                         }
                     }
                     AndroidGameLaunchProtocol.RESULT_EXITED -> {
+                        if (!terminalReceived.compareAndSet(false, true)) return
                         val exitCode = resultData?.getInt(AndroidGameLaunchProtocol.EXTRA_EXIT_CODE, 1) ?: 1
                         trySend(LaunchEvent.Exited(exitCode))
                         close()
                     }
                     AndroidGameLaunchProtocol.RESULT_FAILED -> {
+                        if (!terminalReceived.compareAndSet(false, true)) return
                         val message = resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)
                             ?: "Minecraft could not start."
                         trySend(LaunchEvent.Failed(message))
@@ -248,6 +308,15 @@ class AndroidMinecraftRuntime(
         }
         try {
             applicationContext.startActivity(intent)
+            launch {
+                delay(PROCESS_START_TIMEOUT_MILLIS)
+                if (!processAnnounced.get() && terminalReceived.compareAndSet(false, true)) {
+                    val message = "The Android game process did not start within 20 seconds."
+                    logger.error("runtime", message, details = mapOf("instanceId" to preparedLaunch.instanceId))
+                    trySend(LaunchEvent.Failed(message))
+                    close()
+                }
+            }
         } catch (error: Exception) {
             logger.error("runtime", "Android game activity could not start", error)
             trySend(LaunchEvent.Failed(error.message ?: "The Android game activity could not start."))
@@ -264,11 +333,77 @@ class AndroidMinecraftRuntime(
     }
 
     private fun requireSupportedInstance(instance: GameInstance) {
-        if (architecture != Architecture.ARM64) throw LauncherException.RuntimeUnavailable(ARM64_MESSAGE)
+        unavailableReason?.let { throw LauncherException.RuntimeUnavailable(it) }
         if (instance.minecraftVersionId != MVP_VERSION || instance.modLoader != ModLoader.VANILLA) {
             throw LauncherException.RuntimeUnavailable(
                 "The Android MVP supports vanilla Minecraft $MVP_VERSION only.",
             )
+        }
+    }
+
+    private fun net.blockhost.trestle.download.DownloadProgress.toRuntimeProgress(
+        stage: String,
+    ): RuntimePreparationProgress = RuntimePreparationProgress(
+        stage = activeLabel ?: stage,
+        completedBytes = completedBytes,
+        totalBytes = totalBytes,
+        completedItems = completedFiles,
+        totalItems = totalFiles,
+    )
+
+    private fun unexpectedProcessDeath(
+        preparedLaunch: PreparedLaunch,
+        launchId: String,
+        processId: Int,
+        launchStartedAt: Long,
+    ): String {
+        val gameDirectory = File(preparedLaunch.workingDirectory)
+        val launchDiagnostics = File(gameDirectory, ".trestle/crashes/$launchId")
+            .listFiles()
+            .orEmpty()
+            .asSequence()
+        val gameCrashReports = File(gameDirectory, "crash-reports")
+            .listFiles()
+            .orEmpty()
+            .asSequence()
+            .filter { it.lastModified() >= launchStartedAt }
+        val diagnostics = (launchDiagnostics + gameCrashReports)
+            .filter(File::isFile)
+            .maxByOrNull(File::lastModified)
+        val systemExit = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                applicationContext.getSystemService(ActivityManager::class.java)
+                    .getHistoricalProcessExitReasons(applicationContext.packageName, processId, 4)
+                    .firstOrNull { it.pid == processId }
+            } else {
+                null
+            }
+        }.getOrNull()
+        runCatching {
+            systemExit?.traceInputStream?.bufferedReader()?.useLines { lines ->
+                lines.take(MAX_SYSTEM_TRACE_LINES).forEach { line ->
+                    logger.error(
+                        "minecraft-native",
+                        line,
+                        details = mapOf("instanceId" to preparedLaunch.instanceId),
+                    )
+                }
+            }
+        }
+        return if (diagnostics != null) {
+            "Minecraft stopped unexpectedly. Crash details were saved to ${diagnostics.absolutePath}."
+        } else if (systemExit != null) {
+            val reason = when (systemExit.reason) {
+                ApplicationExitInfo.REASON_CRASH_NATIVE -> "a native crash"
+                ApplicationExitInfo.REASON_CRASH -> "a JVM crash"
+                ApplicationExitInfo.REASON_ANR -> "an application-not-responding event"
+                ApplicationExitInfo.REASON_LOW_MEMORY -> "Android low-memory termination"
+                else -> "Android exit reason ${systemExit.reason}"
+            }
+            "Minecraft stopped because of $reason${systemExit.description?.let { ": $it" }.orEmpty()}. " +
+                "Review the launcher log for captured exit details."
+        } else {
+            "Minecraft stopped unexpectedly. Review the streamed launcher log for the last JVM or native message."
         }
     }
 
@@ -369,6 +504,9 @@ class AndroidMinecraftRuntime(
         const val REQUIRED_JAVA_MAJOR = 25
         const val ANDROID_CLASSPATH_SEPARATOR = ":"
         const val PROCESS_POLL_MILLIS = 500L
+        const val EXIT_DIAGNOSTICS_DELAY_MILLIS = 300L
+        const val PROCESS_START_TIMEOUT_MILLIS = 20_000L
+        const val MAX_SYSTEM_TRACE_LINES = 80
         const val ARM64_MESSAGE = "The Android Minecraft MVP requires a 64-bit ARM device."
         val PLACEHOLDER = Regex("\\$\\{([^}]+)}")
         val AUTH_PLACEHOLDERS = listOf(
@@ -403,4 +541,5 @@ object AndroidGameLaunchProtocol {
     const val RESULT_LOG = 2
     const val RESULT_EXITED = 3
     const val RESULT_FAILED = 4
+    const val RESULT_PROCESS_CREATED = 5
 }
