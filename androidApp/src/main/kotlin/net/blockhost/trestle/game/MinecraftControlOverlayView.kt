@@ -275,7 +275,7 @@ internal class MinecraftControlOverlayView(
             }
 
             addButton("II", ControlAction.Key(GlfwKey.ESCAPE), edge, top)
-            addButton("CHAT", ControlAction.Chat, edge + unit + gap, top, unit * 1.2f)
+            addButton("CHAT", ControlAction.Chat, edge + unit + gap, top)
             addButton("INV", ControlAction.Key(GlfwKey.E), width - edge - unit * 2 - gap, top)
             addButton("DROP", ControlAction.Key(GlfwKey.Q), width - edge - unit, top)
 
