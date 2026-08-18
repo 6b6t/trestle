@@ -6,10 +6,12 @@ import androidx.compose.material3.adaptive.Posture
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -188,6 +190,25 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.RESOURCE_SEARCH).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.RESOURCE_RESULTS).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.RESOURCE_DETAIL).assertIsDisplayed()
+    }
+
+    @Test
+    fun resourceDialogUsesOnePaneEvenWhenTheWindowIsWide() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.resourceDialog,
+                    actions = NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.RESOURCE_RESULTS).assertIsDisplayed()
+        onAllNodesWithTag(LauncherTestTags.RESOURCE_DETAIL).assertCountEquals(0)
     }
 
     @Test
@@ -352,6 +373,26 @@ class TrestleAppUiTest {
         onNodeWithTag(LauncherTestTags.instance(instanceId)).performMouseInput { doubleClick() }
 
         assertEquals(listOf("select:vanilla", "launch"), events)
+    }
+
+    @Test
+    fun rightClickingInstanceOpensMaterialContextActions() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).performMouseInput {
+            click(button = MouseButton.Secondary)
+        }
+
+        onNodeWithText("Inspect launch plan").assertIsDisplayed().assertHasClickAction()
+        onNodeWithText("Remove from library").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test

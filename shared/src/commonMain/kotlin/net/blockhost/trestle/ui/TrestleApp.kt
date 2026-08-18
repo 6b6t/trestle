@@ -6,7 +6,6 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -17,6 +16,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -189,7 +190,6 @@ import net.blockhost.trestle.resources.ic_more_vert
 import net.blockhost.trestle.resources.ic_settings
 import net.blockhost.trestle.resources.ic_visibility
 import net.blockhost.trestle.resources.ic_visibility_off
-import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_active
 import net.blockhost.trestle.resources.ui_add_account
@@ -461,6 +461,8 @@ internal object LauncherTestTags {
     const val SETTINGS_CATEGORIES = "settings-categories"
     const val SETTINGS_DETAIL = "settings-detail"
     const val RESOURCE_FILTERS = "resource-filters"
+    const val RESOURCE_RESULTS = "resource-results"
+    const val RESOURCE_DETAIL = "resource-detail"
     const val CREATE_DIALOG = "create-dialog"
     const val INSTANCE_SETTINGS_DIALOG = "instance-settings-dialog"
     const val INSTANCE_ICON_EDIT = "instance-icon-edit"
@@ -1943,7 +1945,13 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                 windowInsets = WindowInsets(0, 0, 0, 0),
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            ResourceBrowserContent(state, actions, Modifier.fillMaxSize(), searchFocusRequest = 0)
+            ResourceBrowserContent(
+                state = state,
+                actions = actions,
+                modifier = Modifier.fillMaxSize(),
+                searchFocusRequest = 0,
+                adaptiveInfoOverride = compactTrestleWindowAdaptiveInfo,
+            )
         }
     }
 }
@@ -1955,9 +1963,10 @@ private fun ResourceBrowserContent(
     actions: LauncherUiActions,
     modifier: Modifier,
     searchFocusRequest: Int,
+    adaptiveInfoOverride: WindowAdaptiveInfo? = null,
 ) {
     val browser = state.resourceBrowser
-    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
+    val adaptiveInfo = adaptiveInfoOverride ?: LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
     val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
         scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
     )
@@ -2000,7 +2009,9 @@ private fun ResourceBrowserContent(
             scaffoldState = navigator.scaffoldState,
             modifier = Modifier.fillMaxSize(),
             listPane = {
-                AnimatedPane {
+                AnimatedPane(
+                    Modifier.preferredWidth(440.dp).testTag(LauncherTestTags.RESOURCE_RESULTS),
+                ) {
                     ResourceResultList(
                         browser = browser,
                         actions = actions,
@@ -2011,7 +2022,7 @@ private fun ResourceBrowserContent(
                 }
             },
             detailPane = {
-                AnimatedPane {
+                AnimatedPane(Modifier.testTag(LauncherTestTags.RESOURCE_DETAIL)) {
                     Column(Modifier.fillMaxSize()) {
                         if (listPaneHidden) {
                             TextButton(
@@ -2055,7 +2066,7 @@ private fun ResourceBrowserToolbar(
             searching = browser.isSearching,
             onSearch = { actions.searchResources() },
             placeholder = { Text(stringResource(Res.string.ui_search_mods_packs_and_shaders)) },
-            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp),
+            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
             inputModifier = Modifier.focusRequester(searchFocusRequester)
                 .testTag(LauncherTestTags.RESOURCE_SEARCH),
         )
@@ -2068,37 +2079,64 @@ private fun ResourceBrowserToolbar(
         }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val toolbarWidth = maxWidth
-            val compactFilterSheet = toolbarWidth < 720.dp
+            val compactFilterSheet = toolbarWidth < 840.dp
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (toolbarWidth < 600.dp) {
+                if (toolbarWidth < 840.dp) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ResourceProviderButtons(browser, actions)
-                        OutlinedButton(
-                            onClick = { showFilters = !showFilters },
-                            modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
-                        ) {
-                            Text(stringResource(Res.string.ui_filters))
+                        ResourceProviderButtons(browser, actions, Modifier.fillMaxWidth())
+                        if (toolbarWidth < 520.dp) {
+                            OutlinedButton(
+                                onClick = { showFilters = !showFilters },
+                                modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.RESOURCE_FILTERS),
+                            ) {
+                                Text(stringResource(Res.string.ui_filters))
+                            }
+                            Selector(
+                                label = "Content type",
+                                value = browser.type.label,
+                                values = browsableResourceTypes.map { it.label },
+                                modifier = Modifier.fillMaxWidth(),
+                                onSelect = { label ->
+                                    actions.setResourceType(browsableResourceTypes.first { it.label == label })
+                                },
+                            )
+                        } else {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                OutlinedButton(
+                                    onClick = { showFilters = !showFilters },
+                                    modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
+                                ) {
+                                    Text(stringResource(Res.string.ui_filters))
+                                }
+                                Selector(
+                                    label = "Content type",
+                                    value = browser.type.label,
+                                    values = browsableResourceTypes.map { it.label },
+                                    modifier = Modifier.weight(1f),
+                                    onSelect = { label ->
+                                        actions.setResourceType(browsableResourceTypes.first { it.label == label })
+                                    },
+                                )
+                            }
                         }
-                        Selector(
-                            label = "Content type",
-                            value = browser.type.label,
-                            values = browsableResourceTypes.map { it.label },
-                            modifier = Modifier.fillMaxWidth(),
-                            onSelect = { label ->
-                                actions.setResourceType(browsableResourceTypes.first { it.label == label })
-                            },
-                        )
                     }
                 } else {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ResourceProviderButtons(browser, actions)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ResourceProviderButtons(browser, actions, Modifier.weight(1f))
                         OutlinedButton(
                             onClick = { showFilters = !showFilters },
                             modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
                         ) {
                             Text(stringResource(Res.string.ui_filters))
                         }
-                        Spacer(Modifier.weight(1f))
                         Selector(
                             label = "Content type",
                             value = browser.type.label,
@@ -2233,18 +2271,30 @@ private fun ResourceFilterFields(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: LauncherUiActions) {
-    SingleChoiceSegmentedButtonRow {
-        ResourceProvider.entries.forEachIndexed { index, provider ->
-            val available = (provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable) &&
-                (browser.type == ResourceType.MODPACK || provider in setOf(ResourceProvider.MODRINTH, ResourceProvider.CURSEFORGE))
-            SegmentedButton(
+private fun ResourceProviderButtons(
+    browser: ResourceBrowserState,
+    actions: LauncherUiActions,
+    modifier: Modifier = Modifier,
+) {
+    val providers = if (browser.type == ResourceType.MODPACK) {
+        ResourceProvider.entries
+    } else {
+        listOf(ResourceProvider.MODRINTH, ResourceProvider.CURSEFORGE)
+    }
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        providers.forEach { provider ->
+            FilterChip(
                 selected = browser.provider == provider,
                 onClick = { actions.setResourceProvider(provider) },
-                enabled = available,
-                shape = SegmentedButtonDefaults.itemShape(index, ResourceProvider.entries.size),
-            ) { Text(provider.label) }
+                enabled = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable,
+                label = { Text(provider.label, maxLines = 1) },
+            )
         }
     }
 }
@@ -2270,8 +2320,8 @@ private fun ResourceResultList(
         else -> LazyColumn(
             state = listState,
             modifier = modifier,
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(browser.projects, key = { "${it.provider.name}:${it.id}" }) { project ->
                 ResourceProjectRow(
@@ -2319,26 +2369,23 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
-                if (project.categories.isNotEmpty()) {
-                    Text(
-                        project.categories.take(3).joinToString(" · "),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                Text(
+                    buildString {
+                        append(formatDownloads(project.downloads))
+                        if (project.categories.isNotEmpty()) {
+                            append(" · ")
+                            append(project.categories.take(3).joinToString(" · "))
+                        }
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         },
         leadingContent = {
-            ResourceProjectLogo(project = project, modifier = Modifier.size(64.dp))
-        },
-        trailingContent = {
-            Text(
-                formatDownloads(project.downloads),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
-            )
+            ResourceProjectLogo(project = project, modifier = Modifier.size(52.dp))
         },
         colors = ListItemDefaults.colors(
             containerColor = if (selected) {
@@ -2415,7 +2462,13 @@ private fun ResourceSelection(
     val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
     Column(modifier.fillMaxHeight()) {
         Column(
-            Modifier.weight(1f).verticalScroll(scrollState).padding(20.dp),
+            Modifier
+                .weight(1f)
+                .widthIn(max = 960.dp)
+                .fillMaxWidth()
+                .align(Alignment.CenterHorizontally)
+                .verticalScroll(scrollState)
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
         Row(
@@ -2436,10 +2489,7 @@ private fun ResourceSelection(
         Text(project.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
         project.description?.takeIf(String::isNotBlank)?.let { description ->
             HorizontalDivider()
-            Text(
-                readableProjectDescription(description),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            ResourceDescription(description)
         }
         ResourceProjectDetails(project)
         project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
@@ -2530,29 +2580,22 @@ private fun ResourceSelection(
             color = MaterialTheme.colorScheme.surfaceContainer,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Button(
-                onClick = actions::installSelectedResource,
-                enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-            ) {
-                if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Button(
+                    onClick = actions::installSelectedResource,
+                    enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
+                    modifier = Modifier
+                        .widthIn(max = 960.dp)
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 12.dp),
+                ) {
+                    if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+                }
             }
         }
     }
 }
-
-private fun readableProjectDescription(value: String): String = value
-    .replace(Regex("(?i)<br\\s*/?>"), "\n")
-    .replace(Regex("(?i)</p>|</div>|</h[1-6]>|</li>"), "\n")
-    .replace(Regex("<[^>]+>"), "")
-    .replace(Regex("!\\[[^]]*]\\([^)]*\\)"), "")
-    .replace(Regex("\\[([^]]+)]\\(([^)]+)\\)"), "$1 ($2)")
-    .replace("&amp;", "&")
-    .replace("&lt;", "<")
-    .replace("&gt;", ">")
-    .replace(Regex("\n{3,}"), "\n\n")
-    .trim()
 
 @Composable
 private fun ResourceProjectDetails(project: ResourceProject) {
@@ -6401,14 +6444,6 @@ private fun PropertyRow(
 }
 
 @Composable
-internal fun BridgeMark(modifier: Modifier = Modifier.size(width = 32.dp, height = 24.dp)) {
-    Image(
-        painter = painterResource(Res.drawable.trestle_mark),
-        contentDescription = null,
-        modifier = modifier,
-    )
-}
-
 private fun stateLabel(state: InstallationState): String = when (state) {
     InstallationState.NotInstalled -> "Not installed"
     is InstallationState.Installing -> "Installing"

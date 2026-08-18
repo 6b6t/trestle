@@ -2,12 +2,9 @@
 
 package net.blockhost.trestle.ui
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -18,10 +15,8 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.resources.Res
@@ -82,16 +77,6 @@ internal fun LauncherNavigationLayout(
             shortNavigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer,
         ),
         containerColor = MaterialTheme.colorScheme.background,
-        primaryActionContent = {
-            if (layoutMode != TrestleLayoutMode.COMPACT) {
-                Box(
-                    modifier = Modifier.padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    BridgeMark(Modifier.size(width = 36.dp, height = 28.dp))
-                }
-            }
-        },
     ) {
         Column(Modifier.fillMaxSize()) {
             destinationContent(Modifier.weight(1f).fillMaxWidth(), layoutMode)
