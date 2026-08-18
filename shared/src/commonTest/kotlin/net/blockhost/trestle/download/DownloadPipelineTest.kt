@@ -68,6 +68,35 @@ class DownloadPipelineTest {
     }
 
     @Test
+    fun replacesCachedFileWhenSha256DoesNotMatch() = runTest {
+        val fileSystem = FakeFileSystem()
+        val destination = "/runtime.tar.xz".toPath()
+        fileSystem.write(destination) { writeUtf8("stale") }
+        var requestCount = 0
+        val pipeline = DownloadPipeline(
+            HttpClient(MockEngine {
+                requestCount++
+                respond("fresh")
+            }),
+            fileSystem,
+        )
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest(
+                    url = "https://example.test/runtime",
+                    destination = destination,
+                    sha256 = "fresh".encodeUtf8().sha256().hex(),
+                ),
+            ),
+            stagingDirectory = "/staging".toPath(),
+        )
+
+        assertEquals(1, requestCount)
+        assertEquals("fresh", fileSystem.read(destination) { readUtf8() })
+    }
+
+    @Test
     fun reportsHttpFailureAndPreservesStaging() = runTest {
         val fileSystem = FakeFileSystem()
         val client = HttpClient(MockEngine { respond("unavailable", HttpStatusCode.ServiceUnavailable) })

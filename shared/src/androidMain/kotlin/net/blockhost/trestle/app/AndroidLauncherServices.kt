@@ -23,6 +23,7 @@ import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.resources.JvmArchiveExtractor
 import net.blockhost.trestle.runtime.AndroidMinecraftRuntime
 import net.blockhost.trestle.runtime.SystemProfile
+import okio.FileSystem
 import okio.Path.Companion.toPath
 import java.util.UUID
 
@@ -50,7 +51,7 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
         root = context.filesDir.resolve("trestle").absolutePath.toPath(),
         httpClient = HttpClient(OkHttp) {
             install(HttpTimeout) {
-                requestTimeoutMillis = 60_000
+                requestTimeoutMillis = 15 * 60_000
                 connectTimeoutMillis = 15_000
             }
         },
@@ -74,5 +75,16 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
             ?.getString("net.blockhost.trestle.CURSEFORGE_API_KEY")
             .orEmpty(),
         archiveExtractor = JvmArchiveExtractor(),
-    ) { _, _, _, _, _ -> AndroidMinecraftRuntime() }
+    ) { directories, installer, sessionProvider, logger, downloadPipeline ->
+        AndroidMinecraftRuntime(
+            context = context,
+            architecture = architecture,
+            directories = directories,
+            sessionProvider = sessionProvider,
+            installedVersionReader = installer::readInstalledVersion,
+            downloadPipeline = downloadPipeline,
+            fileSystem = FileSystem.SYSTEM,
+            logger = logger,
+        )
+    }
 }

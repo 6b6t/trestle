@@ -18,6 +18,7 @@ minecraft-auth = "5.0.2"
 okio = "3.18.1"
 ksafe = "3.0.0"
 slf4j = "2.0.18"
+xz = "1.12"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
@@ -53,6 +54,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 okio-fake-file-system = { module = "com.squareup.okio:okio-fakefilesystem", version.ref = "okio" }
 slf4j-simple = { module = "org.slf4j:slf4j-simple", version.ref = "slf4j" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
+xz = { module = "org.tukaani:xz", version.ref = "xz" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

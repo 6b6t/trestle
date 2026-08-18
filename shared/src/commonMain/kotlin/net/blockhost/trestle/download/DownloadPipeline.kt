@@ -31,6 +31,7 @@ data class DownloadRequest(
     val sha1: String? = null,
     val size: Long? = null,
     val progressLabel: String? = null,
+    val sha256: String? = null,
     val sha512: String? = null,
 )
 
@@ -292,7 +293,12 @@ class DownloadPipeline(
         allowUnverified: Boolean,
     ): Boolean {
         if (!fileSystem.exists(path)) return false
-        if (request.sha1 == null && request.sha512 == null && request.size == null) return allowUnverified
+        if (
+            request.sha1 == null &&
+            request.sha256 == null &&
+            request.sha512 == null &&
+            request.size == null
+        ) return allowUnverified
         return try {
             validateCompleted(path, request)
             true
@@ -311,7 +317,20 @@ class DownloadPipeline(
             }
         }
         validate(path, request.sha1, request.destination.name)
+        validateSha256(path, request.sha256, request.destination.name)
         validateSha512(path, request.sha512, request.destination.name)
+    }
+
+    private fun validateSha256(path: Path, expectedSha256: String?, artifactName: String) {
+        if (expectedSha256 == null) return
+        val actual = try {
+            fileSystem.read(path) { readByteString().sha256().hex() }
+        } catch (error: Exception) {
+            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+        }
+        if (!actual.equals(expectedSha256, ignoreCase = true)) {
+            throw LauncherException.ChecksumMismatch(artifactName, expectedSha256, actual)
+        }
     }
 
     private fun validateSha512(path: Path, expectedSha512: String?, artifactName: String) {

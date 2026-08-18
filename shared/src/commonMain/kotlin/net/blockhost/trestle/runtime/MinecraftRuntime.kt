@@ -34,6 +34,8 @@ data class PreparedLaunch(
     val classpathEntries: List<String>,
     val nativeDirectory: String,
     val missingRequirements: List<String> = emptyList(),
+    val jvmArguments: List<CommandArgument> = emptyList(),
+    val gameArguments: List<CommandArgument> = emptyList(),
 ) {
     fun safeCommand(): List<String> = listOf(executable) + arguments.map {
         when (it) {
