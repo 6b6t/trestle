@@ -13,8 +13,11 @@ import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.configureSwingGlobalsForCompose
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyShortcut
-import androidx.compose.ui.window.MenuBar
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
@@ -75,9 +78,6 @@ fun main(arguments: Array<String>) {
         val highContrast by systemDarkMode.highContrast
         val reducedMotion by systemDarkMode.reducedMotion
         val isMac = remember { System.getProperty("os.name").contains("mac", ignoreCase = true) }
-        val primaryShortcut: (Key) -> KeyShortcut = remember(isMac) {
-            { key -> KeyShortcut(key, ctrl = !isMac, meta = isMac) }
-        }
         val sendCommand: (LauncherCommand) -> Unit = { command ->
             commandSequence += 1
             pendingCommand = LauncherCommandRequest(commandSequence, command)
@@ -240,57 +240,16 @@ fun main(arguments: Array<String>) {
             visible = windowVisible,
             title = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle",
             icon = icon,
+            onPreviewKeyEvent = { event ->
+                val primaryPressed = if (isMac) event.isMetaPressed else event.isCtrlPressed
+                if (event.type == KeyEventType.KeyDown && primaryPressed && event.key == Key.Q) {
+                    quit()
+                    true
+                } else {
+                    false
+                }
+            },
         ) {
-            MenuBar {
-                Menu("File") {
-                    Item(
-                        "New instance",
-                        shortcut = primaryShortcut(Key.N),
-                        onClick = { sendCommand(LauncherCommand.NEW_INSTANCE) },
-                    )
-                    Item(
-                        "Import local file…",
-                        shortcut = primaryShortcut(Key.O),
-                        onClick = { sendCommand(LauncherCommand.IMPORT_LOCAL_FILE) },
-                    )
-                    Separator()
-                    Item("Quit Trestle", shortcut = primaryShortcut(Key.Q), onClick = ::quit)
-                }
-                Menu("View") {
-                    Item("Library", shortcut = primaryShortcut(Key.One), onClick = { sendCommand(LauncherCommand.SHOW_LIBRARY) })
-                    Item("Discover", shortcut = primaryShortcut(Key.Two), onClick = { sendCommand(LauncherCommand.SHOW_DISCOVER) })
-                    Item("Accounts", shortcut = primaryShortcut(Key.Three), onClick = { sendCommand(LauncherCommand.SHOW_ACCOUNTS) })
-                    Item("Settings", shortcut = primaryShortcut(Key.Comma), onClick = { sendCommand(LauncherCommand.SHOW_SETTINGS) })
-                }
-                Menu("Instance") {
-                    Item(
-                        "Launch selected",
-                        enabled = state.selectedInstance != null && state.activeLaunch == null,
-                        onClick = { sendCommand(LauncherCommand.LAUNCH_SELECTED) },
-                    )
-                    state.activeInstance?.let { instance ->
-                        Item("Stop ${instance.displayName}", onClick = viewModel::stopLaunch)
-                    }
-                    Item(
-                        if (state.selectedInstance?.pinned == true) "Unpin selected" else "Pin selected",
-                        enabled = state.selectedInstance != null,
-                        onClick = { sendCommand(LauncherCommand.TOGGLE_SELECTED_PIN) },
-                    )
-                    Separator()
-                    Item(
-                        "Remove selected",
-                        enabled = state.selectedInstance != null,
-                        onClick = { sendCommand(LauncherCommand.REMOVE_SELECTED) },
-                    )
-                }
-                Menu("Help") {
-                    Item(
-                        "Keyboard shortcuts",
-                        shortcut = KeyShortcut(Key.F1),
-                        onClick = { sendCommand(LauncherCommand.SHOW_SHORTCUTS) },
-                    )
-                }
-            }
             DisposableEffect(systemAccent) {
                 onDispose {
                     systemAccent.close()
