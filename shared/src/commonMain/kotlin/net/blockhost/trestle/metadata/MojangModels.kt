@@ -148,7 +148,7 @@ enum class OperatingSystem(val ruleName: String) {
 enum class Architecture(val aliases: Set<String>, val bits: Int) {
     X86_64(setOf("x86_64", "amd64", "x64"), 64),
     X86(setOf("x86", "i386", "i486", "i586", "i686"), 32),
-    ARM64(setOf("aarch64", "arm64"), 64),
+    ARM64(setOf("aarch64", "arm64", "arm64-v8a"), 64),
     ARM32(setOf("arm", "arm32", "armeabi", "armeabi-v7a"), 32),
     UNKNOWN(emptySet(), 0),
 }

@@ -508,7 +508,7 @@ class AndroidMinecraftRuntime internal constructor(
         const val PROCESS_START_TIMEOUT_MILLIS = 20_000L
         const val MAX_SYSTEM_TRACE_LINES = 80
         const val ARM64_MESSAGE = "The Android Minecraft MVP requires a 64-bit ARM device."
-        val PLACEHOLDER = Regex("\\$\\{([^}]+)}")
+        val PLACEHOLDER = Regex("\\$\\{([^}]+)\\}")
         val AUTH_PLACEHOLDERS = listOf(
             "\${auth_player_name}",
             "\${auth_uuid}",

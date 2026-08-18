@@ -70,6 +70,7 @@ class MetadataResolverTest {
     fun recognizesArchitectureAliases() {
         assertTrue("amd64" in Architecture.X86_64.aliases)
         assertTrue("aarch64" in Architecture.ARM64.aliases)
+        assertTrue("arm64-v8a" in Architecture.ARM64.aliases)
         assertEquals("osx", OperatingSystem.MACOS.ruleName)
     }
 
