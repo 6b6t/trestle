@@ -7,6 +7,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -113,6 +114,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -933,6 +936,20 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
     )
 }
 
+private fun Modifier.primarySelectable(
+    selected: Boolean,
+    onClickLabel: String,
+    onClick: () -> Unit,
+    onDoubleClick: () -> Unit,
+): Modifier = combinedClickable(
+    onClickLabel = onClickLabel,
+    role = Role.RadioButton,
+    onClick = onClick,
+    onDoubleClick = onDoubleClick,
+).semantics {
+    this.selected = selected
+}
+
 @Composable
 private fun InstanceGrid(
     instances: List<GameInstance>,
@@ -985,8 +1002,18 @@ private fun InstanceTile(
     val progress = installationState.installationProgress()
     ContextActionArea(instanceContextActions(instance, actions)) {
         Card(
-            onClick = { actions.selectInstance(instance.id) },
-            modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.instance(instance.id)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .primarySelectable(
+                    selected = selected,
+                    onClickLabel = "Select instance",
+                    onClick = { actions.selectInstance(instance.id) },
+                    onDoubleClick = {
+                        actions.selectInstance(instance.id)
+                        actions.launchSelected()
+                    },
+                )
+                .testTag(LauncherTestTags.instance(instance.id)),
             colors = CardDefaults.cardColors(
                 containerColor = if (selected) {
                     MaterialTheme.colorScheme.secondaryContainer
@@ -2918,6 +2945,10 @@ private fun SkinLibraryPanel(
                         skin = skin,
                         selected = skin.profile.id == selected?.profile?.id,
                         onClick = { onSelect(skin.profile.id) },
+                        onDoubleClick = {
+                            onSelect(skin.profile.id)
+                            onUse()
+                        },
                     )
                 }
             }
@@ -2939,9 +2970,21 @@ private fun SkinLibraryPanel(
 }
 
 @Composable
-private fun SkinLibraryItem(skin: SavedSkin, selected: Boolean, onClick: () -> Unit) {
+private fun SkinLibraryItem(
+    skin: SavedSkin,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onDoubleClick: () -> Unit,
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+        modifier = Modifier
+            .fillMaxWidth()
+            .primarySelectable(
+                selected = selected,
+                onClickLabel = "Select skin",
+                onClick = onClick,
+                onDoubleClick = onDoubleClick,
+            ),
         colors = CardDefaults.cardColors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.secondaryContainer

@@ -7,15 +7,20 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import net.blockhost.trestle.auth.SavedSkin
+import net.blockhost.trestle.auth.SkinProfile
+import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.domain.InstanceId
 
 @OptIn(ExperimentalTestApi::class)
@@ -155,6 +160,67 @@ class TrestleAppUiTest {
         onNodeWithTag(LauncherTestTags.NEW_INSTANCE).performClick()
 
         assertEquals(1, createRequests)
+    }
+
+    @Test
+    fun doubleClickingInstanceSelectsItBeforeLaunching() = runComposeUiTest {
+        val events = mutableListOf<String>()
+        val instanceId = InstanceId("vanilla")
+        val actions = object : LauncherUiActions {
+            override fun selectInstance(id: InstanceId) {
+                events += "select:${id.value}"
+            }
+
+            override fun launchSelected() {
+                events += "launch"
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(LauncherPreviewFixtures.loaded, actions)
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.instance(instanceId)).performMouseInput { doubleClick() }
+
+        assertEquals(listOf("select:vanilla", "launch"), events)
+    }
+
+    @Test
+    fun doubleClickingSavedSkinSelectsItBeforeUse() = runComposeUiTest {
+        val events = mutableListOf<String>()
+        val skin = SavedSkin(
+            profile = SkinProfile(
+                id = "copper",
+                name = "Copper adventurer",
+                variant = SkinVariant.CLASSIC,
+                textureFile = "copper.png",
+                createdAtEpochMillis = 1L,
+            ),
+            texture = byteArrayOf(),
+        )
+        val state = LauncherPreviewFixtures.loaded.copy(
+            savedSkins = listOf(skin),
+            skinStudio = SkinStudioState(visible = true),
+        )
+        val actions = object : LauncherUiActions {
+            override fun selectSavedSkin(profileId: String) {
+                events += "select:$profileId"
+            }
+
+            override fun useSelectedSkin() {
+                events += "use"
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(state, actions)
+            }
+        }
+
+        onNodeWithText("Copper adventurer").performMouseInput { doubleClick() }
+
+        assertEquals(listOf("select:copper", "use"), events)
     }
 
     @Test
