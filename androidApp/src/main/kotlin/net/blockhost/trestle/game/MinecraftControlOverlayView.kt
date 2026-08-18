@@ -107,6 +107,9 @@ internal class MinecraftControlOverlayView(
     }
 
     fun releaseAllInputs() {
+        if (pointerTargets.values.any { it is PointerTarget.Look && it.sendsPrimaryClick }) {
+            CallbackBridge.sendMouseButton(0, false)
+        }
         pointerTargets.clear()
         activeButtons.toList().forEach(::releaseAction)
         activeButtons.clear()
@@ -132,8 +135,14 @@ internal class MinecraftControlOverlayView(
             updateJoystick(x, y, layout.joystick)
             return
         }
-        pointerTargets[pointerId] = PointerTarget.Look(x, y)
-        if (!inputGrabbed) CallbackBridge.setCursor(x, y)
+        val sendsPrimaryClick = !inputGrabbed && pointerTargets.values.none {
+            it is PointerTarget.Look && it.sendsPrimaryClick
+        }
+        pointerTargets[pointerId] = PointerTarget.Look(x, y, sendsPrimaryClick)
+        if (!inputGrabbed) {
+            CallbackBridge.setCursor(x, y)
+            if (sendsPrimaryClick) CallbackBridge.sendMouseButton(0, true)
+        }
     }
 
     private fun movePointer(pointerId: Int, x: Float, y: Float) {
@@ -166,7 +175,7 @@ internal class MinecraftControlOverlayView(
                 joystickY = 0f
             }
             is PointerTarget.Button -> releaseAction(target.action)
-            is PointerTarget.Look,
+            is PointerTarget.Look -> if (target.sendsPrimaryClick) CallbackBridge.sendMouseButton(0, false)
             null,
             -> Unit
         }
@@ -285,7 +294,11 @@ internal class MinecraftControlOverlayView(
 
     private sealed interface PointerTarget {
         data object Joystick : PointerTarget
-        data class Look(var lastX: Float, var lastY: Float) : PointerTarget
+        data class Look(
+            var lastX: Float,
+            var lastY: Float,
+            val sendsPrimaryClick: Boolean,
+        ) : PointerTarget
         data class Button(val action: ControlAction) : PointerTarget
     }
 

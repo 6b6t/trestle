@@ -202,13 +202,6 @@ internal class AndroidGameComponentManager(
                 sha256 = "f4e1e97c1943e60311e47e8b024d78f5b3b7229b3ccc65feb33af83d6025a670",
             ),
             RemoteDeflatedComponent(
-                "libcutils.so",
-                rangeStart = 7_585_063,
-                compressedSize = 7_178,
-                uncompressedSize = 21_320,
-                sha256 = "04258bb1ccef8f5097ddc32ae1fb2d57142ffc5999e96fa36bfab85e02e9e347",
-            ),
-            RemoteDeflatedComponent(
                 "libpojavexec.so",
                 rangeStart = 14_612_714,
                 compressedSize = 26_875,
@@ -225,7 +218,6 @@ internal class AndroidGameComponentManager(
         )
         val REQUIRED_NATIVE_FILES = listOf(
             "libc++_shared.so",
-            "libcutils.so",
             "liblwjgl.so",
             "liblwjgl_opengl.so",
             "liblwjgl_stb.so",

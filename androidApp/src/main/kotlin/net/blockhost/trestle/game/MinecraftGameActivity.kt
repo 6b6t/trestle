@@ -371,6 +371,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
                     redirectProcessOutput(request)
                     request.environment.forEach { (key, value) -> Os.setenv(key, value, true) }
                     System.load(File(request.nativeDirectory, "libpojavexec.so").absolutePath)
+                    JREUtils.setLdLibraryPath(requireNotNull(request.environment["LD_LIBRARY_PATH"]))
                     nativeBridgeReady.set(true)
                     CallbackBridge.setInputReady(true)
                     preloadNativeLibraries(request)
@@ -497,7 +498,6 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
         val nativeRoot = File(request.nativeDirectory)
         listOf(
             "libc++_shared.so",
-            "libcutils.so",
             "libglapi.so",
             "libEGL_mesa.so",
             "libglxshim.so",
@@ -516,6 +516,8 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
             "lib/libnet.so",
             "lib/libnio.so",
             "lib/libawt.so",
+            "lib/libawt_headless.so",
+            "lib/libfreetype.so",
             "lib/libfontmanager.so",
         )
         priority.map(runtimeRoot::resolve)

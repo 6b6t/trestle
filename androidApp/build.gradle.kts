@@ -9,6 +9,7 @@ val trestleVersionCode = providers.gradleProperty("trestle.versionCode").map(Str
 android {
     namespace = "net.blockhost.trestle"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
+    ndkVersion = "29.0.14206865"
 
     defaultConfig {
         applicationId = "net.blockhost.trestle"
@@ -19,6 +20,16 @@ android {
         manifestPlaceholders["curseForgeApiKey"] = providers.environmentVariable("TRESTLE_CURSEFORGE_API_KEY")
             .orElse(providers.gradleProperty("trestle.curseforge.apiKey"))
             .get()
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 }
 

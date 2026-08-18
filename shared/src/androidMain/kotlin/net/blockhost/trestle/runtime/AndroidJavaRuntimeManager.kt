@@ -155,9 +155,15 @@ internal object AndroidTarXzExtractor {
             var extractedBytes = 0L
             while (readBlock(input, header)) {
                 if (header.all { it == 0.toByte() }) break
-                val name = entryName(header).removePrefix("./")
+                val archiveName = entryName(header)
+                val name = archiveName.removePrefix("./")
                 val size = header.octal(124, 12)
                 val type = header[156].toInt().toChar()
+                if (name.isBlank() && type == '5' && (archiveName == "." || archiveName == "./")) {
+                    skipFully(input, size)
+                    skipFully(input, padding(size))
+                    continue
+                }
                 if (name.isBlank()) throw LauncherException.InvalidMetadata("The runtime archive has an unnamed entry.")
                 files++
                 extractedBytes += size
