@@ -33,6 +33,7 @@ data class DownloadRequest(
     val progressLabel: String? = null,
     val sha256: String? = null,
     val sha512: String? = null,
+    val md5: String? = null,
 )
 
 data class DownloadProgress(
@@ -188,6 +189,18 @@ class DownloadPipeline(
         }
     }
 
+    private suspend fun validateMd5(path: Path, expectedMd5: String?, artifactName: String = path.name) {
+        if (expectedMd5 == null) return
+        val actual = try {
+            fileSystem.read(path) { readByteString().md5().hex() }
+        } catch (error: Exception) {
+            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+        }
+        if (!actual.equals(expectedMd5, ignoreCase = true)) {
+            throw LauncherException.ChecksumMismatch(artifactName, expectedMd5, actual)
+        }
+    }
+
     private suspend fun downloadWithRetry(
         request: DownloadRequest,
         stagedPath: Path,
@@ -307,6 +320,7 @@ class DownloadPipeline(
     ): Boolean {
         if (!fileSystem.exists(path)) return false
         if (
+            request.md5 == null &&
             request.sha1 == null &&
             request.sha256 == null &&
             request.sha512 == null &&
@@ -329,6 +343,7 @@ class DownloadPipeline(
                 throw IncompleteDownloadException(expectedSize, actualSize)
             }
         }
+        validateMd5(path, request.md5, request.destination.name)
         validate(path, request.sha1, request.destination.name)
         validateSha256(path, request.sha256, request.destination.name)
         validateSha512(path, request.sha512, request.destination.name)

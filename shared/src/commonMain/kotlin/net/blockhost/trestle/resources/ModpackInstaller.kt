@@ -101,20 +101,6 @@ class ModpackInstaller(
         val resolvedFiles = staging / "resolved-files"
         fileSystem.createDirectories(resolvedFiles)
 
-        val requests = external.files.map { file ->
-            DownloadRequest(
-                url = file.url,
-                destination = safePackDestination(resolvedFiles, file.path),
-                sha1 = file.sha1,
-                size = file.size,
-                progressLabel = file.path.substringAfterLast('/'),
-                sha512 = file.sha512,
-            )
-        }
-        if (requests.isNotEmpty()) {
-            downloadPipeline.download(requests, staging / "file-downloads", onProgress)
-        }
-
         external.archiveUrl?.let { url ->
             val archive = staging / "pack.zip"
             downloadPipeline.download(
@@ -135,15 +121,42 @@ class ModpackInstaller(
                 DownloadRequest(
                     url = archive.url,
                     destination = downloads / "$index.zip",
+                    md5 = archive.md5,
+                    sha1 = archive.sha1,
                     size = archive.size,
                     progressLabel = archive.name,
                 )
             }
             downloadPipeline.download(componentRequests, staging / "component-downloads", onProgress)
             componentRequests.forEachIndexed { index, request ->
-                archiveExtractor.extract(request.destination, staging / "component-$index")
-                copyDirectory(staging / "component-$index", resolvedFiles)
+                val archive = external.componentArchives[index]
+                val extracted = staging / "component-$index"
+                archiveExtractor.extract(request.destination, extracted)
+                val source = archive.sourceDirectory
+                    .takeIf(String::isNotBlank)
+                    ?.let { safePackDestination(extracted, it) }
+                    ?: extracted
+                val destination = archive.destination
+                    .takeIf(String::isNotBlank)
+                    ?.let { safePackDestination(resolvedFiles, it) }
+                    ?: resolvedFiles
+                copyDirectory(source, destination)
             }
+        }
+
+        val requests = external.files.map { file ->
+            DownloadRequest(
+                url = file.url,
+                destination = safePackDestination(resolvedFiles, file.path),
+                md5 = file.md5,
+                sha1 = file.sha1,
+                size = file.size,
+                progressLabel = file.path.substringAfterLast('/'),
+                sha512 = file.sha512,
+            )
+        }
+        if (requests.isNotEmpty()) {
+            downloadPipeline.download(requests, staging / "file-downloads", onProgress)
         }
 
         val detectedLoader = detectExternalLoader(resolvedFiles, external.minecraftVersion)

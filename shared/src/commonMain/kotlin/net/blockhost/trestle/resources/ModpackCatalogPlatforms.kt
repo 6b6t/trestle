@@ -2,8 +2,10 @@ package net.blockhost.trestle.resources
 
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -13,6 +15,299 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+
+class AtLauncherResourcePlatform(
+    private val httpClient: HttpClient,
+    private val userAgent: String,
+    private val apiBaseUrl: String = "https://api.atlauncher.com/v1",
+    private val downloadBaseUrl: String = "https://download.nodecdn.net/containers/atl",
+) : ResourcePlatform {
+    override val provider = ResourceProvider.ATLAUNCHER
+    override val isAvailable = true
+    private var cachedCatalog: List<AtLauncherPack>? = null
+
+    override fun supports(type: ResourceType) = type == ResourceType.MODPACK
+
+    override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
+        require(supports(request.type)) { "ATLauncher only provides modpacks." }
+        val packs = catalog()
+            .filter { pack ->
+                request.query.isBlank() || listOf(pack.name, pack.description)
+                    .any { value -> value.contains(request.query, ignoreCase = true) }
+            }
+            .filter { pack ->
+                request.gameVersion == null || pack.versions.any { it.minecraft == request.gameVersion }
+            }
+            .let { values ->
+                when (request.sort) {
+                    ResourceSearchSort.UPDATED,
+                    ResourceSearchSort.NEWEST,
+                    -> values.sortedByDescending(AtLauncherPack::latestPublished)
+                    ResourceSearchSort.RELEVANCE,
+                    ResourceSearchSort.FEATURED,
+                    ResourceSearchSort.DOWNLOADS,
+                    -> values
+                }
+            }
+        return ResourceSearchResult(
+            projects = packs.drop(request.offset).take(request.limit).map { it.toProject() },
+            offset = request.offset,
+            total = packs.size,
+        )
+    }
+
+    override suspend fun details(project: ResourceProject): ResourceProject =
+        catalog().firstOrNull { it.safeName == project.id }?.toProject() ?: project
+
+    override suspend fun versions(
+        project: ResourceProject,
+        gameVersion: String?,
+        loader: ModLoader?,
+    ): List<ResourceVersion> = pack(project.id).versions
+        .filter { gameVersion == null || it.minecraft == gameVersion }
+        .sortedByDescending(AtLauncherVersion::published)
+        .map { it.toSummaryVersion(project.id) }
+
+    override suspend fun version(projectId: String, versionId: String): ResourceVersion {
+        val manifestUrl = packVersionUrl(projectId, versionId, "Configs.json")
+        val response = httpClient.get(manifestUrl) { header(HttpHeaders.UserAgent, userAgent) }
+        if (!response.status.isSuccess()) {
+            throw LauncherException.Network("ATLauncher returned HTTP ${response.status.value} for the selected version.")
+        }
+        val manifest = decode<AtLauncherManifest>(response.bodyAsText(), "ATLauncher pack manifest")
+        val blocked = manifest.mods.filter { mod ->
+            mod.client && (!mod.optional || mod.selected || mod.recommended) && mod.download == "browser"
+        }
+        if (blocked.isNotEmpty()) {
+            val names = blocked.take(3).joinToString { it.name }
+            throw LauncherException.InvalidMetadata(
+                "This pack needs manual downloads for $names. Trestle cannot install it automatically yet.",
+            )
+        }
+        if (manifest.libraries.isNotEmpty()) {
+            throw LauncherException.InvalidMetadata(
+                "This ATLauncher pack uses custom launch libraries that Trestle does not support yet.",
+            )
+        }
+
+        val selectedMods = manifest.mods.filter { it.client && (!it.optional || it.selected || it.recommended) }
+        val unsupported = selectedMods.filterNot { it.isInstallable() }
+        if (unsupported.isNotEmpty()) {
+            val names = unsupported.take(3).joinToString { it.name.ifBlank { it.file } }
+            throw LauncherException.InvalidMetadata(
+                "This ATLauncher pack uses unsupported install rules for $names.",
+            )
+        }
+        val forgeMod = selectedMods.firstOrNull {
+            it.type == "forge" || (it.type == "jar" && it.name.equals("Minecraft Forge", ignoreCase = true))
+        }
+        val loader = manifest.loader?.type.toModLoader().takeUnless { it == ModLoader.VANILLA }
+            ?: forgeMod?.let { ModLoader.FORGE }
+            ?: ModLoader.VANILLA
+        val loaderVersion = manifest.loader?.resolvedVersion() ?: forgeMod?.version?.ifBlank { null }
+        val files = selectedMods
+            .filterNot { it.download == "browser" || it.type in extractedModTypes || it == forgeMod }
+            .mapNotNull { mod ->
+                val directory = mod.installDirectory(manifest.minecraft) ?: return@mapNotNull null
+                ExternalPackFile(
+                    path = listOf(directory, mod.file).filter(String::isNotBlank).joinToString("/"),
+                    url = mod.downloadUrl(),
+                    md5 = mod.md5?.takeIf(String::isNotBlank),
+                    size = mod.filesize,
+                )
+            }
+        val archives = buildList {
+            if (!manifest.noConfigs && manifest.configs != null) {
+                add(
+                    ExternalPackArchive(
+                        name = "Pack configuration",
+                        url = packVersionUrl(projectId, versionId, "Configs.zip"),
+                        size = manifest.configs.filesize,
+                        sha1 = manifest.configs.sha1?.takeIf(String::isNotBlank),
+                    ),
+                )
+            }
+            selectedMods
+                .filter { it.type in extractedModTypes && it.download != "browser" }
+                .mapTo(this) { mod ->
+                    ExternalPackArchive(
+                        name = mod.name,
+                        url = mod.downloadUrl(),
+                        size = mod.filesize,
+                        md5 = mod.md5?.takeIf(String::isNotBlank),
+                        destination = mod.extractionDirectory(),
+                        sourceDirectory = mod.extractFolder.orEmpty().replace("%s%", "/").trim('/'),
+                    )
+                }
+        }
+        return ResourceVersion(
+            provider = provider,
+            id = manifest.version,
+            projectId = projectId,
+            name = manifest.version,
+            versionNumber = manifest.version,
+            gameVersions = listOf(manifest.minecraft),
+            loaders = listOf(loader.apiName()),
+            channel = ReleaseChannel.RELEASE,
+            publishedAt = "",
+            files = emptyList(),
+            dependencies = emptyList(),
+            externalPack = ExternalModpackPlan(
+                minecraftVersion = manifest.minecraft,
+                loader = loader,
+                loaderVersion = loaderVersion,
+                files = files,
+                componentArchives = archives,
+            ),
+        )
+    }
+
+    private suspend fun catalog(): List<AtLauncherPack> {
+        cachedCatalog?.let { return it }
+        return getApi<List<AtLauncherPack>>("$apiBaseUrl/packs/full/public")
+            .also { cachedCatalog = it }
+    }
+
+    private suspend fun pack(id: String): AtLauncherPack =
+        cachedCatalog?.firstOrNull { it.safeName == id }
+            ?: getApi("$apiBaseUrl/pack/$id")
+
+    private suspend inline fun <reified T> getApi(url: String): T {
+        val response = httpClient.get(url) { header(HttpHeaders.UserAgent, userAgent) }
+        if (!response.status.isSuccess()) {
+            throw LauncherException.Network("ATLauncher returned HTTP ${response.status.value}.")
+        }
+        val envelope = decode<AtLauncherResponse<T>>(response.bodyAsText(), "ATLauncher API")
+        if (envelope.error || envelope.data == null) {
+            throw LauncherException.Network(envelope.message ?: "ATLauncher did not return catalog data.")
+        }
+        return envelope.data
+    }
+
+    private inline fun <reified T> decode(value: String, label: String): T = try {
+        catalogJson.decodeFromString(value)
+    } catch (error: Exception) {
+        throw LauncherException.InvalidMetadata("$label returned invalid data.", error)
+    }
+
+    private fun packVersionUrl(projectId: String, versionId: String, file: String) =
+        "${downloadBaseUrl.trimEnd('/')}/packs/$projectId/versions/$versionId/$file"
+
+    private fun AtLauncherPack.toProject() = ResourceProject(
+        provider = provider,
+        id = safeName,
+        slug = safeName.lowercase(),
+        name = name,
+        summary = description.substringBefore('\n').take(240),
+        author = "ATLauncher",
+        type = ResourceType.MODPACK,
+        downloads = 0,
+        iconUrl = "${downloadBaseUrl.trimEnd('/')}/launcher/images/${name.filter(Char::isLetterOrDigit).lowercase()}.png",
+        websiteUrl = websiteURL?.takeIf(String::isNotBlank),
+        categories = versions.map(AtLauncherVersion::minecraft).filter(String::isNotBlank).distinct(),
+        issuesUrl = supportURL?.takeIf(String::isNotBlank),
+        description = description,
+    )
+
+    private fun AtLauncherVersion.toSummaryVersion(projectId: String) = ResourceVersion(
+        provider = provider,
+        id = version,
+        projectId = projectId,
+        name = version,
+        versionNumber = version,
+        gameVersions = listOf(minecraft).filter(String::isNotBlank),
+        loaders = emptyList(),
+        channel = ReleaseChannel.RELEASE,
+        publishedAt = published.toString(),
+        files = emptyList(),
+        dependencies = emptyList(),
+        externalPack = ExternalModpackPlan(minecraft, ModLoader.VANILLA),
+    )
+
+    private fun AtLauncherMod.downloadUrl(): String = when (download) {
+        "server" -> "${downloadBaseUrl.trimEnd('/')}/${url.trimStart('/')}"
+        "direct" -> url
+        else -> throw LauncherException.InvalidMetadata("${name.ifBlank { file }} has an unsupported download type.")
+    }
+
+    private fun AtLauncherMod.installDirectory(minecraft: String): String? = when (type) {
+        "root" -> ""
+        "mods" -> "mods"
+        "flan" -> "Flan"
+        "dependency", "depandency" -> "mods/$minecraft"
+        "ic2lib" -> "mods/ic2"
+        "denlib" -> "mods/denlib"
+        "coremods" -> "coremods"
+        "plugins" -> "plugins"
+        "texturepack" -> "texturepacks"
+        "resourcepack" -> "resourcepacks"
+        "shaderpack" -> "shaderpacks"
+        else -> null
+    }
+
+    private fun AtLauncherMod.isInstallable(): Boolean = when {
+        url.isBlank() || file.isBlank() -> false
+        download !in setOf("server", "direct", "browser") -> false
+        type in supportedDirectModTypes || type in extractedModTypes || type == "forge" -> true
+        type == "jar" && name.equals("Minecraft Forge", ignoreCase = true) -> true
+        else -> false
+    }
+
+    private fun AtLauncherMod.extractionDirectory(): String = when (type) {
+        "texturepackextract" -> "texturepacks/extracted"
+        "resourcepackextract" -> "resourcepacks/extracted"
+        else -> extractTo.installDirectoryPath()
+    }
+
+    private fun String?.installDirectoryPath(): String = when (this) {
+        null, "", "root" -> ""
+        "mods" -> "mods"
+        "flan" -> "Flan"
+        "dependency", "depandency" -> "mods"
+        "ic2lib" -> "mods/ic2"
+        "denlib" -> "mods/denlib"
+        "coremods" -> "coremods"
+        "plugins" -> "plugins"
+        "texturepack" -> "texturepacks"
+        "resourcepack" -> "resourcepacks"
+        "shaderpack" -> "shaderpacks"
+        else -> ""
+    }
+
+    private fun String?.toModLoader(): ModLoader = when (this?.lowercase()) {
+        "fabric" -> ModLoader.FABRIC
+        "neoforge" -> ModLoader.NEOFORGE
+        "forge" -> ModLoader.FORGE
+        "quilt" -> ModLoader.QUILT
+        else -> ModLoader.VANILLA
+    }
+
+    private fun ModLoader.apiName(): String = when (this) {
+        ModLoader.VANILLA -> "vanilla"
+        ModLoader.FABRIC -> "fabric"
+        ModLoader.NEOFORGE -> "neoforge"
+        ModLoader.FORGE -> "forge"
+        ModLoader.QUILT -> "quilt"
+    }
+
+    private companion object {
+        val extractedModTypes = setOf("extract", "texturepackextract", "resourcepackextract")
+        val supportedDirectModTypes = setOf(
+            "root",
+            "mods",
+            "flan",
+            "dependency",
+            "depandency",
+            "ic2lib",
+            "denlib",
+            "coremods",
+            "plugins",
+            "texturepack",
+            "resourcepack",
+            "shaderpack",
+        )
+    }
+}
 
 class FtbResourcePlatform(
     private val httpClient: HttpClient,
@@ -308,6 +603,88 @@ class LegacyFtbResourcePlatform(
         ),
     )
 }
+
+@Serializable
+private data class AtLauncherResponse<T>(
+    val error: Boolean = false,
+    val message: String? = null,
+    val data: T? = null,
+)
+
+@Serializable
+private data class AtLauncherPack(
+    val name: String,
+    val safeName: String,
+    val description: String = "",
+    val supportURL: String? = null,
+    val websiteURL: String? = null,
+    val versions: List<AtLauncherVersion> = emptyList(),
+) {
+    fun latestPublished(): Long = versions.maxOfOrNull(AtLauncherVersion::published) ?: 0
+}
+
+@Serializable
+private data class AtLauncherVersion(
+    val version: String,
+    val minecraft: String = "",
+    val published: Long = 0,
+)
+
+@Serializable
+private data class AtLauncherManifest(
+    val version: String,
+    val minecraft: String,
+    val loader: AtLauncherLoader? = null,
+    val libraries: List<AtLauncherLibrary> = emptyList(),
+    val mods: List<AtLauncherMod> = emptyList(),
+    val noConfigs: Boolean = false,
+    val configs: AtLauncherConfigs? = null,
+)
+
+@Serializable
+private data class AtLauncherLoader(
+    val type: String = "",
+    val metadata: AtLauncherLoaderMetadata = AtLauncherLoaderMetadata(),
+) {
+    fun resolvedVersion(): String? = when (type.lowercase()) {
+        "fabric", "quilt" -> metadata.loader.ifBlank { metadata.version }.ifBlank { null }
+        "forge", "neoforge" -> metadata.version.ifBlank { null }
+        else -> null
+    }
+}
+
+@Serializable
+private data class AtLauncherLoaderMetadata(
+    val version: String = "",
+    val loader: String = "",
+)
+
+@Serializable
+private data class AtLauncherLibrary(val file: String = "")
+
+@Serializable
+private data class AtLauncherConfigs(
+    val filesize: Long? = null,
+    val sha1: String? = null,
+)
+
+@Serializable
+private data class AtLauncherMod(
+    val name: String = "",
+    val version: String = "",
+    val url: String,
+    val file: String,
+    val download: String,
+    val type: String,
+    val md5: String? = null,
+    val filesize: Long? = null,
+    val extractTo: String? = null,
+    val extractFolder: String? = null,
+    val optional: Boolean = false,
+    val recommended: Boolean = false,
+    val selected: Boolean = false,
+    val client: Boolean = true,
+)
 
 @Serializable
 private data class FtbCatalog(val packs: List<Int> = emptyList())

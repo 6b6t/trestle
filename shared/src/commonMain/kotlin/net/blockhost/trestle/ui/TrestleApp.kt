@@ -2092,12 +2092,6 @@ private fun ResourceBrowserToolbar(
         if (!browser.curseForgeAvailable) {
             Text("CurseForge requires a Trestle API key configured by the application build.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (browser.type == ResourceType.MODPACK) {
-            Text(
-                "ATLauncher does not permit third-party launcher access to its CDN. Direct pack archives can still be imported.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }
 
@@ -2105,8 +2099,7 @@ private fun ResourceBrowserToolbar(
 private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: LauncherUiActions) {
     SingleChoiceSegmentedButtonRow {
         ResourceProvider.entries.forEachIndexed { index, provider ->
-            val available = provider != ResourceProvider.ATLAUNCHER &&
-                (provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable) &&
+            val available = (provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable) &&
                 (browser.type == ResourceType.MODPACK || provider in setOf(ResourceProvider.MODRINTH, ResourceProvider.CURSEFORGE))
             SegmentedButton(
                 selected = browser.provider == provider,
@@ -5682,7 +5675,7 @@ private fun ServiceSettings(
     HorizontalDivider()
     Text("ATLauncher", style = MaterialTheme.typography.titleMedium)
     Text(
-        "Direct archive import is available. Catalog access is disabled because ATLauncher does not permit third-party CDN use.",
+        "The public catalog is available without an API key.",
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     HorizontalDivider()

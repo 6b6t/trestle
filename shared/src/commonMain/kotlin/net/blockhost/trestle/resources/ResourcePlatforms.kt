@@ -148,11 +148,16 @@ data class ExternalPackArchive(
     val name: String,
     val url: String,
     val size: Long? = null,
+    val md5: String? = null,
+    val sha1: String? = null,
+    val destination: String = "",
+    val sourceDirectory: String = "",
 )
 
 data class ExternalPackFile(
     val path: String,
     val url: String,
+    val md5: String? = null,
     val sha1: String? = null,
     val sha512: String? = null,
     val size: Long? = null,
@@ -211,26 +216,6 @@ class ResourcePlatformRegistry(platforms: List<ResourcePlatform>) {
         requireNotNull(byProvider[provider]) { "${provider.label} is not registered." }
 }
 
-class AtLauncherResourcePlatform : ResourcePlatform {
-    override val provider = ResourceProvider.ATLAUNCHER
-    override val isAvailable = false
-
-    override fun supports(type: ResourceType) = type == ResourceType.MODPACK
-
-    override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult = unavailable()
-
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> = unavailable()
-
-    override suspend fun version(projectId: String, versionId: String): ResourceVersion = unavailable()
-
-    private fun unavailable(): Nothing = throw LauncherException.InvalidMetadata(
-        "ATLauncher does not permit third-party launchers to use its download CDN. Import a pack archive directly instead.",
-    )
-}
 
 @Serializable
 private data class ModrinthSearchResponse(

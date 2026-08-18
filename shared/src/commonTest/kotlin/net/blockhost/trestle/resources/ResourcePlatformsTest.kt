@@ -196,6 +196,42 @@ class ResourcePlatformsTest {
     }
 
     @Test
+    fun resolvesAtLauncherCatalogAndPackManifest() = runTest {
+        val engine = MockEngine { request ->
+            assertEquals("Trestle test", request.headers[HttpHeaders.UserAgent])
+            val body = when (request.url.encodedPath) {
+                "/v1/packs/full/public" ->
+                    """{"error":false,"data":[{"name":"Example Pack","safeName":"ExamplePack","description":"A public pack","supportURL":"https://support.test","websiteURL":"https://example.test","versions":[{"version":"1.0.0","minecraft":"1.21.1","published":42}]}]}"""
+                "/packs/ExamplePack/versions/1.0.0/Configs.json" ->
+                    """{"version":"1.0.0","minecraft":"1.21.1","loader":{"type":"fabric","metadata":{"loader":"0.16.14"}},"noConfigs":false,"configs":{"filesize":12,"sha1":"config-sha1"},"mods":[{"name":"Example Mod","version":"2.0","url":"packs/ExamplePack/files/example.jar","file":"example.jar","download":"server","type":"mods","md5":"mod-md5","filesize":7,"client":true}]}"""
+                else -> error("Unexpected request: ${request.url}")
+            }
+            respond(body, headers = jsonHeaders)
+        }
+        val platform = AtLauncherResourcePlatform(
+            httpClient = HttpClient(engine),
+            userAgent = "Trestle test",
+            apiBaseUrl = "https://api.test/v1",
+            downloadBaseUrl = "https://cdn.test",
+        )
+
+        val project = platform.search(ResourceSearchRequest(type = ResourceType.MODPACK)).projects.single()
+        val summaryVersion = platform.versions(project, null, null).single()
+        val resolvedVersion = platform.version(project.id, summaryVersion.id)
+        val plan = requireNotNull(resolvedVersion.externalPack)
+
+        assertEquals("ExamplePack", project.id)
+        assertEquals("https://cdn.test/launcher/images/examplepack.png", project.iconUrl)
+        assertEquals(ModLoader.FABRIC, plan.loader)
+        assertEquals("0.16.14", plan.loaderVersion)
+        assertEquals("mods/example.jar", plan.files.single().path)
+        assertEquals("https://cdn.test/packs/ExamplePack/files/example.jar", plan.files.single().url)
+        assertEquals("mod-md5", plan.files.single().md5)
+        assertEquals("https://cdn.test/packs/ExamplePack/versions/1.0.0/Configs.zip", plan.componentArchives.single().url)
+        assertEquals("config-sha1", plan.componentArchives.single().sha1)
+    }
+
+    @Test
     fun resolvesTechnicSolderBuildIntoComponentArchives() = runTest {
         val engine = MockEngine { request ->
             val body = when (request.url.encodedPath) {

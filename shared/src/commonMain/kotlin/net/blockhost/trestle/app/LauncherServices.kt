@@ -79,7 +79,7 @@ class LauncherServices private constructor(
         userAgent = BuildInfo.USER_AGENT,
     )
     private val curseForgeResources = CurseForgeResourcePlatform(httpClient, curseForgeApiKey)
-    private val atLauncherResources = AtLauncherResourcePlatform()
+    private val atLauncherResources = AtLauncherResourcePlatform(httpClient, BuildInfo.USER_AGENT)
     private val ftbResources = FtbResourcePlatform(httpClient)
     private val legacyFtbResources = LegacyFtbResourcePlatform(httpClient)
     private val technicResources = TechnicResourcePlatform(httpClient, technicClientId)

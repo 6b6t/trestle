@@ -97,6 +97,30 @@ class DownloadPipelineTest {
     }
 
     @Test
+    fun validatesMd5ChecksumsDuringDownload() = runTest {
+        val fileSystem = FakeFileSystem()
+        val destination = "/atl-mod.jar".toPath()
+        val pipeline = DownloadPipeline(
+            HttpClient(MockEngine { respond("hello") }),
+            fileSystem,
+            maxAttempts = 1,
+        )
+
+        pipeline.download(
+            requests = listOf(
+                DownloadRequest(
+                    url = "https://example.test/atl-mod",
+                    destination = destination,
+                    md5 = "5d41402abc4b2a76b9719d911017c592",
+                ),
+            ),
+            stagingDirectory = "/staging".toPath(),
+        )
+
+        assertEquals("hello", fileSystem.read(destination) { readUtf8() })
+    }
+
+    @Test
     fun reportsHttpFailureAndPreservesStaging() = runTest {
         val fileSystem = FakeFileSystem()
         val client = HttpClient(MockEngine { respond("unavailable", HttpStatusCode.ServiceUnavailable) })
