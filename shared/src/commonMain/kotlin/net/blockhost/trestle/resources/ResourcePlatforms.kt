@@ -24,6 +24,10 @@ import net.blockhost.trestle.domain.ModLoader
 enum class ResourceProvider(val label: String) {
     MODRINTH("Modrinth"),
     CURSEFORGE("CurseForge"),
+    ATLAUNCHER("ATLauncher"),
+    FTB("FTB"),
+    FTB_LEGACY("FTB Legacy"),
+    TECHNIC("Technic"),
 }
 
 enum class ResourceType(
@@ -42,6 +46,14 @@ enum class ReleaseChannel(val label: String) {
     BETA("Beta"),
     ALPHA("Alpha"),
     UNKNOWN("Unknown"),
+}
+
+enum class ResourceSearchSort(val label: String) {
+    RELEVANCE("Relevance"),
+    FEATURED("Featured"),
+    DOWNLOADS("Downloads"),
+    UPDATED("Recently updated"),
+    NEWEST("Newest"),
 }
 
 enum class DependencyKind {
@@ -63,6 +75,8 @@ data class ResourceSearchRequest(
     val type: ResourceType,
     val gameVersion: String? = null,
     val loader: ModLoader? = null,
+    val category: String? = null,
+    val sort: ResourceSearchSort = ResourceSearchSort.RELEVANCE,
     val offset: Int = 0,
     val limit: Int = 30,
 ) {
@@ -99,6 +113,8 @@ data class ResourceProject(
     val sourceUrl: String? = null,
     val issuesUrl: String? = null,
     val wikiUrl: String? = null,
+    val description: String? = null,
+    val galleryUrls: List<String> = emptyList(),
 )
 
 data class ResourceVersion(
@@ -113,10 +129,34 @@ data class ResourceVersion(
     val publishedAt: String,
     val files: List<ResourceFile>,
     val dependencies: List<ResourceDependency>,
+    val externalPack: ExternalModpackPlan? = null,
 ) {
     val primaryFile: ResourceFile?
         get() = files.firstOrNull { it.primary } ?: files.firstOrNull()
 }
+
+data class ExternalModpackPlan(
+    val minecraftVersion: String,
+    val loader: ModLoader,
+    val loaderVersion: String? = null,
+    val files: List<ExternalPackFile> = emptyList(),
+    val archiveUrl: String? = null,
+    val componentArchives: List<ExternalPackArchive> = emptyList(),
+)
+
+data class ExternalPackArchive(
+    val name: String,
+    val url: String,
+    val size: Long? = null,
+)
+
+data class ExternalPackFile(
+    val path: String,
+    val url: String,
+    val sha1: String? = null,
+    val sha512: String? = null,
+    val size: Long? = null,
+)
 
 data class ResourceFile(
     val id: String?,
@@ -154,6 +194,8 @@ interface ResourcePlatform {
 
     suspend fun version(projectId: String, versionId: String): ResourceVersion
 
+    suspend fun details(project: ResourceProject): ResourceProject = project
+
     suspend fun versionsByIds(references: List<Pair<String, String>>): List<ResourceVersion> =
         references.map { (projectId, versionId) -> version(projectId, versionId) }
 
@@ -167,6 +209,27 @@ class ResourcePlatformRegistry(platforms: List<ResourcePlatform>) {
 
     fun platform(provider: ResourceProvider): ResourcePlatform =
         requireNotNull(byProvider[provider]) { "${provider.label} is not registered." }
+}
+
+class AtLauncherResourcePlatform : ResourcePlatform {
+    override val provider = ResourceProvider.ATLAUNCHER
+    override val isAvailable = false
+
+    override fun supports(type: ResourceType) = type == ResourceType.MODPACK
+
+    override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult = unavailable()
+
+    override suspend fun versions(
+        project: ResourceProject,
+        gameVersion: String?,
+        loader: ModLoader?,
+    ): List<ResourceVersion> = unavailable()
+
+    override suspend fun version(projectId: String, versionId: String): ResourceVersion = unavailable()
+
+    private fun unavailable(): Nothing = throw LauncherException.InvalidMetadata(
+        "ATLauncher does not permit third-party launchers to use its download CDN. Import a pack archive directly instead.",
+    )
 }
 
 @Serializable
@@ -227,6 +290,18 @@ private data class ModrinthDependency(
     @SerialName("dependency_type") val dependencyType: String,
 )
 
+@Serializable
+private data class ModrinthProjectDetails(
+    val body: String = "",
+    val gallery: List<ModrinthGalleryImage> = emptyList(),
+    @SerialName("issues_url") val issuesUrl: String? = null,
+    @SerialName("source_url") val sourceUrl: String? = null,
+    @SerialName("wiki_url") val wikiUrl: String? = null,
+)
+
+@Serializable
+private data class ModrinthGalleryImage(val url: String, val featured: Boolean = false)
+
 class ModrinthResourcePlatform(
     private val httpClient: HttpClient,
     private val userAgent: String,
@@ -246,11 +321,21 @@ class ModrinthResourcePlatform(
             if (request.type in loaderFilteredTypes) {
                 request.loader?.modrinthName()?.let { add(listOf("categories:$it")) }
             }
+            request.category?.takeIf(String::isNotBlank)?.let { add(listOf("categories:$it")) }
         }
         val response: ModrinthSearchResponse = request("$baseUrl/search") {
             parameter("query", request.query.trim())
             parameter("facets", resourceJson.encodeToString(facets))
-            parameter("index", if (request.query.isBlank()) "downloads" else "relevance")
+            parameter(
+                "index",
+                when (request.sort) {
+                    ResourceSearchSort.RELEVANCE -> if (request.query.isBlank()) "downloads" else "relevance"
+                    ResourceSearchSort.FEATURED -> "follows"
+                    ResourceSearchSort.DOWNLOADS -> "downloads"
+                    ResourceSearchSort.UPDATED -> "updated"
+                    ResourceSearchSort.NEWEST -> "newest"
+                },
+            )
             parameter("offset", request.offset)
             parameter("limit", request.limit)
         }
@@ -298,6 +383,20 @@ class ModrinthResourcePlatform(
             parameter("include_changelog", false)
         }
         return versions.map(ModrinthVersion::toResourceVersion)
+    }
+
+    override suspend fun details(project: ResourceProject): ResourceProject {
+        val details: ModrinthProjectDetails = request("$baseUrl/project/${project.id}") {}
+        return project.copy(
+            description = details.body,
+            featuredImageUrl = project.featuredImageUrl
+                ?: details.gallery.firstOrNull { it.featured }?.url
+                ?: details.gallery.firstOrNull()?.url,
+            galleryUrls = details.gallery.map { it.url },
+            issuesUrl = details.issuesUrl ?: project.issuesUrl,
+            sourceUrl = details.sourceUrl ?: project.sourceUrl,
+            wikiUrl = details.wikiUrl ?: project.wikiUrl,
+        )
     }
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion =
@@ -373,6 +472,9 @@ private data class CurseForgeSearchResponse(
 
 @Serializable
 private data class CurseForgeProjectsResponse(val data: List<CurseForgeProject>)
+
+@Serializable
+private data class CurseForgeDescriptionResponse(val data: String)
 
 @Serializable
 private data class CurseForgePagination(
@@ -472,7 +574,16 @@ class CurseForgeResourcePlatform(
             if (request.type in loaderFilteredTypes) {
                 request.loader?.curseForgeType()?.let { parameter("modLoaderType", it) }
             }
-            parameter("sortField", 2)
+            parameter(
+                "sortField",
+                when (request.sort) {
+                    ResourceSearchSort.RELEVANCE -> 1
+                    ResourceSearchSort.FEATURED -> 2
+                    ResourceSearchSort.DOWNLOADS -> 6
+                    ResourceSearchSort.UPDATED -> 3
+                    ResourceSearchSort.NEWEST -> 11
+                },
+            )
             parameter("sortOrder", "desc")
             parameter("index", request.offset)
             parameter("pageSize", request.limit)
@@ -498,6 +609,12 @@ class CurseForgeResourcePlatform(
             parameter("pageSize", 50)
         }
         return response.data.map(CurseForgeFile::toResourceVersion).sortedByDescending { it.publishedAt }
+    }
+
+    override suspend fun details(project: ResourceProject): ResourceProject {
+        ensureAvailable()
+        val description = request<CurseForgeDescriptionResponse>("$baseUrl/mods/${project.id}/description") {}.data
+        return project.copy(description = description)
     }
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion {

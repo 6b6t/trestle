@@ -42,6 +42,30 @@ class ResourceInstaller(
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
 ) {
+    @Volatile
+    private var scanSubfolders = false
+
+    @Volatile
+    private var installDependencies = true
+
+    @Volatile
+    private var detectIncompatibilities = true
+
+    @Volatile
+    private var trackMetadata = true
+
+    fun configure(
+        scanSubfolders: Boolean,
+        installDependencies: Boolean,
+        detectIncompatibilities: Boolean,
+        trackMetadata: Boolean,
+    ) {
+        this.scanSubfolders = scanSubfolders
+        this.installDependencies = installDependencies
+        this.detectIncompatibilities = detectIncompatibilities
+        this.trackMetadata = trackMetadata
+    }
+
     fun installedContent(instance: GameInstance): List<InstalledContent> {
         val root = instance.instanceDirectory.toPath()
         val manifest = readManifest(root / ".trestle" / "resources.json")
@@ -71,9 +95,8 @@ class ResourceInstaller(
             val folder = root / "game" / type.installFolder()
             val metadata = fileSystem.metadataOrNull(folder)
             if (metadata?.isDirectory != true) return@flatMap emptyList()
-            fileSystem.list(folder).mapNotNull { file ->
-                if (fileSystem.metadataOrNull(file)?.isRegularFile != true) return@mapNotNull null
-                val relativePath = "${type.installFolder()}/${file.name}"
+            localFiles(folder).mapNotNull { (file, localPath) ->
+                val relativePath = "${type.installFolder()}/$localPath"
                 if (relativePath in trackedFiles) return@mapNotNull null
                 val enabled = !file.name.endsWith(DISABLED_SUFFIX)
                 val visibleName = file.name.removeSuffix(DISABLED_SUFFIX)
@@ -218,6 +241,7 @@ class ResourceInstaller(
         val rootKey = resourceKey(project.provider, project.id)
         val manifestPath = root / ".trestle" / "resources.json"
         val currentManifest = readManifest(manifestPath)
+        if (detectIncompatibilities) rejectDeclaredIncompatibilities(currentManifest, resolved)
         rejectInstalledVersionConflicts(currentManifest, resolved, rootKey)
         val requests = plannedFiles.map {
             DownloadRequest(
@@ -250,9 +274,11 @@ class ResourceInstaller(
                 requiredBy = if (resolvedVersion.isRoot) emptyList() else listOf(rootKey),
             )
         }
-        val nextManifest = mergeManifest(currentManifest, installedEntries, rootKey)
-        removeReplacedFiles(currentManifest, nextManifest, root)
-        writeManifest(manifestPath, nextManifest)
+        if (trackMetadata) {
+            val nextManifest = mergeManifest(currentManifest, installedEntries, rootKey)
+            removeReplacedFiles(currentManifest, nextManifest, root)
+            writeManifest(manifestPath, nextManifest)
+        }
         return ResourceInstallSummary(
             installedFiles = plannedFiles.size,
             dependencyCount = resolved.count { !it.isRoot },
@@ -429,7 +455,7 @@ class ResourceInstaller(
             }
             current.version.dependencies
                 .filter {
-                    it.kind == DependencyKind.REQUIRED ||
+                    (installDependencies && it.kind == DependencyKind.REQUIRED) ||
                         (it.kind == DependencyKind.OPTIONAL && it.selectionKey in optionalDependencies)
                 }
                 .forEach { dependency ->
@@ -471,6 +497,37 @@ class ResourceInstaller(
                 }
         }
         return resolved.values.toList()
+    }
+
+    private fun rejectDeclaredIncompatibilities(
+        manifest: ResourceManifest,
+        resolved: List<ResolvedResourceVersion>,
+    ) {
+        val selected = resolved.mapTo(mutableSetOf()) { resourceKey(it.version.provider, it.version.projectId) }
+        selected += manifest.resources.map { resourceKey(it.provider, it.projectId) }
+        resolved.forEach { resource ->
+            val incompatible = resource.version.dependencies.firstOrNull { dependency ->
+                dependency.kind == DependencyKind.INCOMPATIBLE && dependency.projectId != null &&
+                    resourceKey(resource.version.provider, dependency.projectId) in selected
+            } ?: return@forEach
+            throw LauncherException.InvalidMetadata(
+                "${resource.version.name} is incompatible with installed project ${incompatible.projectId}.",
+            )
+        }
+    }
+
+    private fun localFiles(folder: Path): List<Pair<Path, String>> {
+        fun visit(directory: Path, prefix: String, output: MutableList<Pair<Path, String>>) {
+            fileSystem.list(directory).forEach { child ->
+                val relative = if (prefix.isBlank()) child.name else "$prefix/${child.name}"
+                val metadata = fileSystem.metadataOrNull(child)
+                when {
+                    metadata?.isRegularFile == true -> output += child to relative
+                    scanSubfolders && metadata?.isDirectory == true -> visit(child, relative, output)
+                }
+            }
+        }
+        return buildList { visit(folder, "", this) }
     }
 
     private fun rejectPathCollisions(files: List<PlannedResourceFile>) {

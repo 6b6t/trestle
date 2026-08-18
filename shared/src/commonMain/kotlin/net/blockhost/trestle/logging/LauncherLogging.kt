@@ -32,13 +32,19 @@ interface LauncherLogger {
     fun warn(category: String, message: String, cause: Throwable? = null, details: Map<String, Any?> = emptyMap())
     fun error(category: String, message: String, cause: Throwable? = null, details: Map<String, Any?> = emptyMap())
     fun clear()
+    fun configure(capacity: Int, stopOnOverflow: Boolean) {}
 }
 
 class BufferedLauncherLogger(
     private val nowMillis: () -> Long,
     private val sink: LogSink,
-    private val capacity: Int = 300,
+    capacity: Int = 300,
 ) : LauncherLogger {
+    @Volatile
+    private var capacity: Int = capacity
+
+    @Volatile
+    private var stopOnOverflow: Boolean = false
     init {
         require(capacity > 0)
     }
@@ -63,6 +69,15 @@ class BufferedLauncherLogger(
         mutableEntries.value = emptyList()
     }
 
+    override fun configure(capacity: Int, stopOnOverflow: Boolean) {
+        require(capacity > 0)
+        this.capacity = capacity
+        this.stopOnOverflow = stopOnOverflow
+        if (mutableEntries.value.size > capacity) {
+            mutableEntries.value = mutableEntries.value.takeLast(capacity)
+        }
+    }
+
     private fun append(
         level: LogLevel,
         category: String,
@@ -80,6 +95,7 @@ class BufferedLauncherLogger(
                 if (LogRedactor.isSensitiveKey(key)) "[REDACTED]" else LogRedactor.redact(value?.toString().orEmpty())
             },
         )
+        if (stopOnOverflow && mutableEntries.value.size >= capacity) return
         mutableEntries.value = (mutableEntries.value + entry).takeLast(capacity)
         sink.write(entry, cause)
     }

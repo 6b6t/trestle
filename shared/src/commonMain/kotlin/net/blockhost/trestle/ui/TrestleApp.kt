@@ -176,7 +176,11 @@ import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.app.ThemePreference
+import net.blockhost.trestle.app.InstanceSortMode
+import net.blockhost.trestle.app.LauncherProxyType
 import net.blockhost.trestle.resources.ResourceProject
+import net.blockhost.trestle.resources.ResourceSearchSort
+import net.blockhost.trestle.resources.ReleaseChannel
 import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
@@ -812,7 +816,7 @@ private fun InstanceCollection(
             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            items(instances, key = { it.id.value }) { instance ->
+            items(sortInstances(instances, state), key = { it.id.value }) { instance ->
                 InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions, compact = true)
             }
         }
@@ -1278,12 +1282,24 @@ private fun InstanceGrid(
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
-            gridItems(groupInstances, key = { it.id.value }) { instance ->
+            gridItems(sortInstances(groupInstances, state), key = { it.id.value }) { instance ->
                 InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions)
             }
         }
     }
 }
+
+private fun sortInstances(instances: List<GameInstance>, state: LauncherUiState): List<GameInstance> =
+    when (state.launcherPreferences.instanceSort) {
+        net.blockhost.trestle.app.InstanceSortMode.NAME -> instances.sortedWith(
+            compareByDescending<GameInstance> { it.pinned }.thenBy { it.displayName.lowercase() },
+        )
+        net.blockhost.trestle.app.InstanceSortMode.LAST_LAUNCHED -> instances.sortedWith(
+            compareByDescending<GameInstance> { it.pinned }
+                .thenByDescending { it.lastLaunchAtEpochMillis ?: Long.MIN_VALUE }
+                .thenBy { it.displayName.lowercase() },
+        )
+    }
 
 private fun instanceGroupLabel(instance: GameInstance): String = when {
     instance.pinned -> "Pinned"
@@ -1938,6 +1954,7 @@ private fun ResourceBrowserToolbar(
     actions: LauncherUiActions,
     searchFocusRequester: FocusRequester,
 ) {
+    var showFilters by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1956,6 +1973,7 @@ private fun ResourceBrowserToolbar(
             if (maxWidth < 600.dp) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     ResourceProviderButtons(browser, actions)
+                    TextButton(onClick = { showFilters = !showFilters }) { Text(if (showFilters) "Hide filters" else "Filter options") }
                     Selector(
                         label = "Content type",
                         value = browser.type.label,
@@ -1967,6 +1985,7 @@ private fun ResourceBrowserToolbar(
             } else {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ResourceProviderButtons(browser, actions)
+                    TextButton(onClick = { showFilters = !showFilters }) { Text(if (showFilters) "Hide filters" else "Filter options") }
                     Spacer(Modifier.weight(1f))
                     Selector(
                         label = "Content type",
@@ -1978,8 +1997,106 @@ private fun ResourceBrowserToolbar(
                 }
             }
         }
+        if (showFilters) {
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val filterFields: @Composable ColumnScope.() -> Unit = {
+                    TextField(
+                        value = browser.gameVersionFilter,
+                        onValueChange = actions::setResourceGameVersionFilter,
+                        label = { Text("Minecraft version") },
+                        placeholder = { Text("Any version") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Selector(
+                        label = "Mod loader",
+                        value = browser.loaderFilter?.label ?: "Any loader",
+                        values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
+                        onSelect = { label ->
+                            actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
+                        },
+                    )
+                    TextField(
+                        value = browser.categoryFilter,
+                        onValueChange = actions::setResourceCategoryFilter,
+                        label = { Text("Category") },
+                        placeholder = { Text("Any category") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Selector(
+                        label = "Sort by",
+                        value = browser.sort.label,
+                        values = ResourceSearchSort.entries.map { it.label },
+                        onSelect = { label ->
+                            ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
+                        },
+                    )
+                    Button(onClick = { actions.searchResources() }, modifier = Modifier.fillMaxWidth()) { Text("Apply filters") }
+                }
+                if (maxWidth < 720.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = filterFields)
+                } else {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextField(
+                            value = browser.gameVersionFilter,
+                            onValueChange = actions::setResourceGameVersionFilter,
+                            label = { Text("Minecraft version") },
+                            placeholder = { Text("Any version") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Selector(
+                            label = "Mod loader",
+                            value = browser.loaderFilter?.label ?: "Any loader",
+                            values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
+                            modifier = Modifier.weight(1f),
+                            onSelect = { label ->
+                                actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
+                            },
+                        )
+                        TextField(
+                            value = browser.categoryFilter,
+                            onValueChange = actions::setResourceCategoryFilter,
+                            label = { Text("Category") },
+                            placeholder = { Text("Any category") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Selector(
+                            label = "Sort by",
+                            value = browser.sort.label,
+                            values = ResourceSearchSort.entries.map { it.label },
+                            modifier = Modifier.weight(1f),
+                            onSelect = { label ->
+                                ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
+                            },
+                        )
+                        Button(onClick = actions::searchResources) { Text("Apply") }
+                    }
+                }
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text("Versions", style = MaterialTheme.typography.labelLarge)
+                ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
+                    CompactCheck(channel.label, channel in browser.releaseChannels) {
+                        actions.toggleResourceReleaseChannel(channel)
+                    }
+                }
+            }
+        }
         if (!browser.curseForgeAvailable) {
             Text("CurseForge requires a Trestle API key configured by the application build.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (browser.type == ResourceType.MODPACK) {
+            Text(
+                "ATLauncher does not permit third-party launcher access to its CDN. Direct pack archives can still be imported.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }
@@ -1988,7 +2105,9 @@ private fun ResourceBrowserToolbar(
 private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: LauncherUiActions) {
     SingleChoiceSegmentedButtonRow {
         ResourceProvider.entries.forEachIndexed { index, provider ->
-            val available = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable
+            val available = provider != ResourceProvider.ATLAUNCHER &&
+                (provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable) &&
+                (browser.type == ResourceType.MODPACK || provider in setOf(ResourceProvider.MODRINTH, ResourceProvider.CURSEFORGE))
             SegmentedButton(
                 selected = browser.provider == provider,
                 onClick = { actions.setResourceProvider(provider) },
@@ -2177,6 +2296,13 @@ private fun ResourceSelection(
             }
         }
         Text(project.summary, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        project.description?.takeIf(String::isNotBlank)?.let { description ->
+            HorizontalDivider()
+            Text(
+                readableProjectDescription(description),
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+        }
         ResourceProjectDetails(project)
         project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
             TextButton(onClick = { uriHandler.openUri(websiteUrl) }) { Text("View on ${project.provider.label}") }
@@ -2231,11 +2357,11 @@ private fun ResourceSelection(
         val supportedType = project.type in installableResourceTypes
         val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
         val selectedFile = version?.primaryFile
-        val downloadable = selectedFile?.url != null || selectedFile?.sha1 != null
+        val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
         if (!supportedType) Text("This content type cannot be installed into an instance yet.", color = MaterialTheme.colorScheme.error)
         if (selectedFile?.url == null && selectedFile?.sha1 != null) {
             Text("CurseForge blocks this file. Trestle will look for the identical file on Modrinth.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else if (version != null && !downloadable) {
+        } else if (version != null && version.externalPack == null && !downloadable) {
             Text("The author blocks downloads from third-party launchers.", color = MaterialTheme.colorScheme.error)
         }
         if (
@@ -2262,8 +2388,30 @@ private fun ResourceSelection(
             Spacer(Modifier.height(8.dp))
             ResourceProjectBanner(project, Modifier.fillMaxWidth())
         }
+        project.galleryUrls.filterNot { it == project.featuredImageUrl }.take(4).forEach { imageUrl ->
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f)
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+            )
+        }
     }
 }
+
+private fun readableProjectDescription(value: String): String = value
+    .replace(Regex("(?i)<br\\s*/?>"), "\n")
+    .replace(Regex("(?i)</p>|</div>|</h[1-6]>|</li>"), "\n")
+    .replace(Regex("<[^>]+>"), "")
+    .replace(Regex("!\\[[^]]*]\\([^)]*\\)"), "")
+    .replace(Regex("\\[([^]]+)]\\(([^)]+)\\)"), "$1 ($2)")
+    .replace("&amp;", "&")
+    .replace("&lt;", "<")
+    .replace("&gt;", ">")
+    .replace(Regex("\n{3,}"), "\n\n")
+    .trim()
 
 @Composable
 private fun ResourceProjectDetails(project: ResourceProject) {
@@ -2283,14 +2431,15 @@ private fun ResourceProjectDetails(project: ResourceProject) {
 @Composable
 private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: LauncherUiActions) {
     val selected = browser.selectedVersion
-    val labels = browser.versions.map { "${it.versionNumber} · ${it.channel.label}" }
+    val versions = browser.versions.filter { it.channel in browser.releaseChannels }
+    val labels = versions.map { "${it.versionNumber} · ${it.channel.label}" }
     Selector(
         label = "Version",
         value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: "Select version",
         values = labels,
         modifier = Modifier.fillMaxWidth(),
         onSelect = { label ->
-            browser.versions.getOrNull(labels.indexOf(label))?.let { actions.selectResourceVersion(it.id) }
+            versions.getOrNull(labels.indexOf(label))?.let { actions.selectResourceVersion(it.id) }
         },
     )
 }
@@ -2453,6 +2602,11 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
         .filter { state.supportedModLoaders == null || it in state.supportedModLoaders }
     val focusManager = LocalFocusManager.current
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
+    var showSnapshots by rememberSaveable { mutableStateOf(false) }
+    var showBetas by rememberSaveable { mutableStateOf(false) }
+    var showAlphas by rememberSaveable { mutableStateOf(false) }
+    var source by rememberSaveable { mutableStateOf("custom") }
+    var remoteUrl by rememberSaveable { mutableStateOf("") }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
         properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false),
@@ -2460,7 +2614,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
         Surface(
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
-            modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp)
+            modifier = Modifier.widthIn(max = 760.dp).fillMaxWidth().heightIn(max = 820.dp)
                 .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeCreate)
                 .testTag(LauncherTestTags.CREATE_DIALOG),
         ) {
@@ -2472,18 +2626,24 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     Text("New instance", style = MaterialTheme.typography.headlineMedium)
                     if (!restrictedRuntime) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
                         SegmentedButton(
-                            selected = true,
-                            onClick = {},
-                            shape = SegmentedButtonDefaults.itemShape(0, 2),
+                            selected = source == "custom",
+                            onClick = { source = "custom" },
+                            shape = SegmentedButtonDefaults.itemShape(0, 3),
                             modifier = Modifier.weight(1f),
                         ) { Text("Custom") }
+                        SegmentedButton(
+                            selected = source == "import",
+                            onClick = { source = "import" },
+                            shape = SegmentedButtonDefaults.itemShape(1, 3),
+                            modifier = Modifier.weight(1f),
+                        ) { Text("Import") }
                         SegmentedButton(
                             selected = false,
                             onClick = {
                                 actions.closeCreate()
                                 actions.openResourceBrowser(ResourceType.MODPACK)
                             },
-                            shape = SegmentedButtonDefaults.itemShape(1, 2),
+                            shape = SegmentedButtonDefaults.itemShape(2, 3),
                             modifier = Modifier.weight(1f),
                         ) { Text("Browse modpacks") }
                     }
@@ -2498,7 +2658,73 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    val versionChoices = state.versions.take(200).map { it.id }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        TextField(
+                            value = form.group,
+                            onValueChange = actions::setCreateGroup,
+                            label = { Text("Group") },
+                            supportingText = { Text("Optional") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextField(
+                            value = form.iconReference,
+                            onValueChange = actions::setCreateIconReference,
+                            label = { Text("Icon path or URL") },
+                            supportingText = { Text("Optional") },
+                            singleLine = true,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (source == "import") {
+                        TextField(
+                            value = remoteUrl,
+                            onValueChange = { remoteUrl = it },
+                            label = { Text("Direct download or CurseForge URL") },
+                            placeholder = { Text("https://… or curseforge://…") },
+                            supportingText = {
+                                Text("Supports Modrinth, CurseForge, Prism, and MultiMC pack archives.")
+                            },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        HorizontalDivider()
+                        Text("Existing FTB App library", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            state.launcherPreferences.ftbAppInstancesPath.ifBlank {
+                                "Set the FTB App instances folder in Settings > Services."
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        OutlinedButton(
+                            onClick = actions::importFtbAppInstances,
+                            enabled = state.launcherPreferences.ftbAppInstancesPath.isNotBlank() && !form.isSaving,
+                        ) { Text("Import FTB App instances") }
+                    } else {
+                    val visibleVersions = state.versions.filter { version ->
+                        when (version.type) {
+                            "release" -> true
+                            "snapshot" -> showSnapshots
+                            "old_beta" -> showBetas
+                            "old_alpha" -> showAlphas
+                            else -> false
+                        }
+                    }.take(500)
+                    val versionLabels = visibleVersions.map { version ->
+                        val type = when (version.type) {
+                            "old_beta" -> "beta"
+                            "old_alpha" -> "alpha"
+                            else -> version.type
+                        }
+                        listOfNotNull(version.id, type, version.releaseTime?.substringBefore('T')).joinToString(" · ")
+                    }
+                    val selectedVersionLabel = visibleVersions.indexOfFirst { it.id == form.versionId }
+                        .takeIf { it >= 0 }
+                        ?.let(versionLabels::get)
+                        ?: form.versionId
+                    val versionChoices = visibleVersions.map { it.id }
                     if (versionChoices.size == 1) {
                         OutlinedTextField(
                             value = versionChoices.single(),
@@ -2511,13 +2737,24 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     } else {
                         Selector(
                             label = "Minecraft version",
-                            value = form.versionId.ifBlank {
+                            value = selectedVersionLabel.ifBlank {
                                 if (state.isLoadingVersions) "Loading versions…" else "No versions available"
                             },
-                            values = versionChoices,
+                            values = versionLabels,
                             enabled = !state.isLoadingVersions,
-                            onSelect = actions::setCreateVersion,
+                            onSelect = { label ->
+                                visibleVersions.getOrNull(versionLabels.indexOf(label))?.id?.let(actions::setCreateVersion)
+                            },
                         )
+                    }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CompactCheck("Snapshots", showSnapshots) { showSnapshots = it }
+                        CompactCheck("Betas", showBetas) { showBetas = it }
+                        CompactCheck("Alphas", showAlphas) { showAlphas = it }
                     }
                     if (loaderChoices.size == 1) {
                         OutlinedTextField(
@@ -2563,6 +2800,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         }
                     }
                     if (showAdvanced) ClientDefaultsFields(form, actions, showHeading = false)
+                    }
                 }
                 HorizontalDivider()
                 Row(
@@ -2571,16 +2809,22 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                 ) {
                     TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text("Cancel") }
                     Button(
-                        onClick = actions::createInstance,
-                        enabled = form.name.isNotBlank() && form.versionId.isNotBlank() &&
-                            (form.modLoader == ModLoader.VANILLA || form.loaderVersion != null) && !form.isSaving,
+                        onClick = {
+                            if (source == "import") actions.importRemoteModpack(remoteUrl) else actions.createInstance()
+                        },
+                        enabled = if (source == "import") {
+                            remoteUrl.isNotBlank()
+                        } else {
+                            form.name.isNotBlank() && form.versionId.isNotBlank() &&
+                                (form.modLoader == ModLoader.VANILLA || form.loaderVersion != null) && !form.isSaving
+                        },
                     ) {
                         if (form.isSaving) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text("Creating…")
                         } else {
-                            Text("Create instance")
+                            Text(if (source == "import") "Import modpack" else "Create instance")
                         }
                     }
                 }
@@ -2818,6 +3062,21 @@ private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange
             onValueChange = onCheckedChange,
         ),
     )
+}
+
+@Composable
+private fun CompactCheck(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.toggleable(
+            value = checked,
+            role = Role.Checkbox,
+            onValueChange = onCheckedChange,
+        ),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = null)
+        Text(label)
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -5045,8 +5304,8 @@ private val AccountLoginState.canSubmit: Boolean
 
 @Composable
 private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
-    var sectionName by rememberSaveable { mutableStateOf(SettingsSection.RUNTIME.name) }
-    val section = SettingsSection.entries.firstOrNull { it.name == sectionName } ?: SettingsSection.RUNTIME
+    var sectionName by rememberSaveable { mutableStateOf(SettingsSection.GENERAL.name) }
+    val section = SettingsSection.entries.firstOrNull { it.name == sectionName } ?: SettingsSection.GENERAL
     val runtimeScrollState = rememberScrollState()
     val logListState = rememberLazyListState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
@@ -5055,7 +5314,7 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth < 640.dp) {
                 Column(Modifier.fillMaxSize()) {
-                    SecondaryTabRow(selectedTabIndex = section.ordinal) {
+                    SecondaryScrollableTabRow(selectedTabIndex = section.ordinal, edgePadding = 0.dp) {
                         SettingsSection.entries.forEach { item ->
                             Tab(
                                 selected = section == item,
@@ -5110,9 +5369,17 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
 }
 
 private enum class SettingsSection(val label: String) {
+    GENERAL("General"),
+    LANGUAGE("Language"),
     APPEARANCE("Appearance"),
+    FOLDERS("Folders"),
+    CONTENT("Content"),
+    NETWORK("Network"),
+    PROXY("Proxy"),
     RUNTIME("Runtime"),
     LOGS("Launcher log"),
+    SERVICES("Services"),
+    TOOLS("Tools"),
 }
 
 @Composable
@@ -5140,10 +5407,321 @@ private fun SettingsSectionContent(
     modifier: Modifier,
 ) {
     when (section) {
+        SettingsSection.GENERAL -> GeneralSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.LANGUAGE -> LanguageSettings(state, actions, runtimeScrollState, modifier)
         SettingsSection.APPEARANCE -> AppearanceSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.FOLDERS -> FolderSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.CONTENT -> ContentSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.NETWORK -> NetworkSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.PROXY -> ProxySettings(state, actions, runtimeScrollState, modifier)
         SettingsSection.RUNTIME -> RuntimeSettings(state, actions, runtimeScrollState, modifier)
         SettingsSection.LOGS -> LauncherLog(state, actions, logListState, modifier)
+        SettingsSection.SERVICES -> ServiceSettings(state, actions, runtimeScrollState, modifier)
+        SettingsSection.TOOLS -> ToolSettings(state, actions, runtimeScrollState, modifier)
     }
+}
+
+@Composable
+private fun SettingsColumn(
+    title: String,
+    scrollState: ScrollState,
+    modifier: Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier.verticalScroll(scrollState).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(title, style = MaterialTheme.typography.titleLarge)
+        content()
+    }
+}
+
+@Composable
+private fun GeneralSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("General", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    Text("Instance sorting", style = MaterialTheme.typography.titleMedium)
+    SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+        InstanceSortMode.entries.forEachIndexed { index, mode ->
+            SegmentedButton(
+                selected = preferences.instanceSort == mode,
+                onClick = { actions.setLauncherPreferences(preferences.copy(instanceSort = mode)) },
+                shape = SegmentedButtonDefaults.itemShape(index, InstanceSortMode.entries.size),
+            ) { Text(mode.label) }
+        }
+    }
+    Text(
+        "Instance folders use stable IDs, so renaming an instance never invalidates its files.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun LanguageSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Language", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    Selector(
+        label = "Interface language",
+        value = preferences.language,
+        values = listOf("System default", "English"),
+        modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        onSelect = { actions.setLauncherPreferences(preferences.copy(language = it)) },
+    )
+    Text(
+        "Trestle currently ships English text. The saved language preference is ready for additional translations.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun FolderSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Folders", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    val folders = preferences.folders
+    FolderPreferenceField("Instances", folders.instances, state.defaultFolders.instances) {
+        actions.setLauncherPreferences(preferences.copy(folders = folders.copy(instances = it)))
+    }
+    FolderPreferenceField("Java runtimes", folders.runtimes, state.defaultFolders.runtimes) {
+        actions.setLauncherPreferences(preferences.copy(folders = folders.copy(runtimes = it)))
+    }
+    FolderPreferenceField("Skins", folders.skins, state.defaultFolders.skins) {
+        actions.setLauncherPreferences(preferences.copy(folders = folders.copy(skins = it)))
+    }
+    FolderPreferenceField("Downloads and exports", folders.downloads, state.defaultFolders.downloads) {
+        actions.setLauncherPreferences(preferences.copy(folders = folders.copy(downloads = it)))
+    }
+    Text("Folder changes apply after Trestle restarts.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun FolderPreferenceField(label: String, value: String, defaultValue: String, onValueChange: (String) -> Unit) {
+    TextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label) },
+        placeholder = { Text(defaultValue) },
+        supportingText = { Text(if (value.isBlank()) "Default: $defaultValue" else "Custom location") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    )
+}
+
+@Composable
+private fun ContentSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Mods and modpacks", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    val content = preferences.content
+    SettingsSwitch("Scan subfolders for blocked mods", content.scanSubfolders) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(scanSubfolders = it)))
+    }
+    SettingsSwitch("Move blocked mods instead of copying them", content.moveBlockedFiles) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(moveBlockedFiles = it)))
+    }
+    SettingsSwitch("Keep track of content metadata", content.trackMetadata) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(trackMetadata = it)))
+    }
+    SettingsSwitch("Install required dependencies automatically", content.installDependencies) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(installDependencies = it)))
+    }
+    SettingsSwitch("Detect incompatible content", content.detectIncompatibilities) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(detectIncompatibilities = it)))
+    }
+    SettingsSwitch("Suggest updating an existing instance during modpack installation", content.suggestModpackUpdates) {
+        actions.setLauncherPreferences(preferences.copy(content = content.copy(suggestModpackUpdates = it)))
+    }
+}
+
+@Composable
+private fun SettingsSwitch(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().widthIn(max = 760.dp).toggleable(
+            value = checked,
+            role = Role.Switch,
+            onValueChange = onCheckedChange,
+        ).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, modifier = Modifier.weight(1f))
+        Switch(checked = checked, onCheckedChange = null)
+    }
+}
+
+@Composable
+private fun NetworkSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Tasks and downloads", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    val network = preferences.network
+    IntegerSlider("Concurrent task limit", network.concurrentTasks.toString(), network.concurrentTasks, 1..64) {
+        actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentTasks = it)))
+    }
+    IntegerSlider("Concurrent download limit", network.concurrentDownloads.toString(), network.concurrentDownloads, 1..32) {
+        actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentDownloads = it)))
+    }
+    IntegerSlider("Retry limit", network.retryLimit.toString(), network.retryLimit, 1..10) {
+        actions.setLauncherPreferences(preferences.copy(network = network.copy(retryLimit = it)))
+    }
+    IntegerSlider("HTTP timeout", "${network.httpTimeoutSeconds}s", network.httpTimeoutSeconds, 5..300, steps = 58) {
+        actions.setLauncherPreferences(preferences.copy(network = network.copy(httpTimeoutSeconds = it)))
+    }
+    HorizontalDivider()
+    Text("Console", style = MaterialTheme.typography.titleMedium)
+    IntegerSlider(
+        "Log history limit",
+        "${preferences.console.historyLimit} lines",
+        preferences.console.historyLimit,
+        1_000..100_000,
+        steps = 98,
+    ) {
+        actions.setLauncherPreferences(preferences.copy(console = preferences.console.copy(historyLimit = it)))
+    }
+    SettingsSwitch("Stop logging when the history limit is reached", preferences.console.stopLoggingOnOverflow) {
+        actions.setLauncherPreferences(preferences.copy(console = preferences.console.copy(stopLoggingOnOverflow = it)))
+    }
+    Text("HTTP timeout and proxy changes apply to new connections after restart.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun ProxySettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Proxy", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    val proxy = preferences.proxy
+    Text("Proxy settings apply to Trestle. Minecraft does not use them.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    Selector(
+        label = "Type",
+        value = proxy.type.label,
+        values = LauncherProxyType.entries.map { it.label },
+        modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
+        onSelect = { label ->
+            LauncherProxyType.entries.firstOrNull { it.label == label }?.let {
+                actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(type = it)))
+            }
+        },
+    )
+    val editable = proxy.type == LauncherProxyType.HTTP || proxy.type == LauncherProxyType.SOCKS5
+    Row(Modifier.fillMaxWidth().widthIn(max = 760.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        TextField(
+            value = proxy.host,
+            onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(host = it))) },
+            label = { Text("Address") },
+            enabled = editable,
+            singleLine = true,
+            modifier = Modifier.weight(1f),
+        )
+        TextField(
+            value = proxy.port.toString(),
+            onValueChange = { value ->
+                value.toIntOrNull()?.takeIf { it in 1..65535 }?.let {
+                    actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(port = it)))
+                }
+            },
+            label = { Text("Port") },
+            enabled = editable,
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            modifier = Modifier.width(140.dp),
+        )
+    }
+    TextField(
+        value = proxy.username,
+        onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(username = it))) },
+        label = { Text("Username") },
+        enabled = editable,
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    )
+    TextField(
+        value = proxy.password,
+        onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(password = it))) },
+        label = { Text("Password") },
+        enabled = editable,
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    )
+    Text("Proxy credentials are stored in the launcher preferences file.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun ServiceSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Services", scrollState, modifier) {
+    val preferences = state.launcherPreferences
+    Text("Modrinth", style = MaterialTheme.typography.titleMedium)
+    Text("Available without an API key.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    HorizontalDivider()
+    Text("CurseForge", style = MaterialTheme.typography.titleMedium)
+    Text("Availability is controlled by the Trestle build API key.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    HorizontalDivider()
+    Text("ATLauncher", style = MaterialTheme.typography.titleMedium)
+    Text(
+        "Direct archive import is available. Catalog access is disabled because ATLauncher does not permit third-party CDN use.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    HorizontalDivider()
+    Text("Technic", style = MaterialTheme.typography.titleMedium)
+    TextField(
+        value = preferences.technicClientId,
+        onValueChange = { actions.setLauncherPreferences(preferences.copy(technicClientId = it)) },
+        label = { Text("Client ID") },
+        supportingText = { Text("Optional. Some private or rate-limited Technic packs require it. Applies after restart.") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    )
+    TextField(
+        value = preferences.ftbAppInstancesPath,
+        onValueChange = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
+        label = { Text("FTB App instances folder") },
+        supportingText = { Text("Used when importing existing FTB App instances.") },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    )
+}
+
+@Composable
+private fun ToolSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) = SettingsColumn("Tools", scrollState, modifier) {
+    OutlinedButton(onClick = actions::refreshVersions) {
+        Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh Minecraft metadata")
+    }
+    OutlinedButton(onClick = actions::checkForLauncherUpdate, enabled = !state.isCheckingForUpdate) {
+        Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates")
+    }
+    Text(
+        "Instance export, launch-plan inspection, log diagnostics, and file-management tools remain available from each instance.",
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 @Composable

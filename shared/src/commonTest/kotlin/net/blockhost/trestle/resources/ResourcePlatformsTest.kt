@@ -173,6 +173,61 @@ class ResourcePlatformsTest {
         assertTrue(error.message.orEmpty().contains("Unknown Minecraft version"))
     }
 
+    @Test
+    fun mapsFtbCatalogAndDirectInstallPlan() = runTest {
+        val engine = MockEngine { request ->
+            val body = when (request.url.encodedPath) {
+                "/v1/modpacks/public/modpack/all" -> """{"packs":[42]}"""
+                "/v1/modpacks/public/modpack/42" -> """{"id":42,"name":"Stone Pack","slug":"stone-pack","synopsis":"A pack","description":"Long description","installs":123,"updated":99,"authors":[{"name":"FTB Team"}],"art":[{"url":"https://cdn.test/icon.webp","type":"square"}],"tags":[{"name":"Questing"}],"versions":[{"id":7,"name":"1.0.0","type":"release","released":12,"targets":[{"name":"minecraft","version":"1.21.1","type":"game"},{"name":"neoforge","version":"21.1.1","type":"modloader"}]}]}"""
+                "/v1/modpacks/public/modpack/42/7" -> """{"id":7,"name":"1.0.0","type":"release","released":12,"targets":[{"name":"minecraft","version":"1.21.1","type":"game"},{"name":"neoforge","version":"21.1.1","type":"modloader"}],"files":[{"path":"./mods","name":"example.jar","url":"https://cdn.test/example.jar","hashes":{"sha1":"abc"},"size":4}]}"""
+                else -> error("Unexpected request: ${request.url}")
+            }
+            respond(body, headers = jsonHeaders)
+        }
+        val platform = FtbResourcePlatform(HttpClient(engine))
+        val project = platform.search(ResourceSearchRequest(type = ResourceType.MODPACK)).projects.single()
+        val summaryVersion = platform.versions(project, null, null).single()
+        val resolvedVersion = platform.version(project.id, summaryVersion.id)
+
+        assertEquals("Stone Pack", project.name)
+        assertEquals(ModLoader.NEOFORGE, resolvedVersion.externalPack?.loader)
+        assertEquals("mods/example.jar", resolvedVersion.externalPack?.files?.single()?.path)
+        assertEquals("abc", resolvedVersion.externalPack?.files?.single()?.sha1)
+    }
+
+    @Test
+    fun resolvesTechnicSolderBuildIntoComponentArchives() = runTest {
+        val engine = MockEngine { request ->
+            val body = when (request.url.encodedPath) {
+                "/modpack/example" -> """{"id":1,"name":"example","displayName":"Example Pack","user":"author","minecraft":"1.20.1","version":"2.0","description":"Pack description","solder":"https://solder.test/api/"}"""
+                "/api/modpack/example" -> """{"recommended":"2.0","latest":"2.0","builds":["1.0","2.0"]}"""
+                "/api/modpack/example/2.0" -> """{"minecraft":"1.20.1","forge":"47.3.0","mods":[{"name":"core","url":"https://cdn.test/core.zip","filesize":42}]}"""
+                else -> error("Unexpected request: ${request.url}")
+            }
+            respond(body, headers = jsonHeaders)
+        }
+        val platform = TechnicResourcePlatform(HttpClient(engine))
+        val project = ResourceProject(
+            ResourceProvider.TECHNIC,
+            "example",
+            "example",
+            "Example Pack",
+            "",
+            "author",
+            ResourceType.MODPACK,
+            0,
+            null,
+            null,
+            emptyList(),
+        )
+        val selected = platform.versions(project, null, null).first()
+        val resolved = platform.version(project.id, selected.id)
+
+        assertEquals("2.0", selected.id)
+        assertEquals(ModLoader.FORGE, resolved.externalPack?.loader)
+        assertEquals("https://cdn.test/core.zip", resolved.externalPack?.componentArchives?.single()?.url)
+    }
+
     private fun project(provider: ResourceProvider, id: String = "project-1") = ResourceProject(
         provider = provider,
         id = id,

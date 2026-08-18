@@ -52,6 +52,16 @@ class ModpackInstaller(
         require(project.provider == version.provider && project.id == version.projectId) {
             "The selected modpack and version do not match."
         }
+        if (version.externalPack != null) {
+            val resolvedVersion = if (version.externalPack.isUnresolved()) {
+                platforms.platform(version.provider).version(project.id, version.id)
+            } else {
+                version
+            }
+            val plan = resolvedVersion.externalPack
+                ?: throw LauncherException.InvalidMetadata("${version.name} has no installation plan.")
+            return installExternal(project, resolvedVersion, plan, onProgress)
+        }
         val archiveFile = version.primaryFile
             ?: throw LauncherException.InvalidMetadata("${version.name} has no modpack archive.")
         val archiveUrl = archiveFile.url ?: throw LauncherException.InvalidMetadata(
@@ -77,6 +87,132 @@ class ModpackInstaller(
         return installArchive(archive, staging, project.name, project.iconUrl, onProgress)
     }
 
+    private suspend fun installExternal(
+        project: ResourceProject,
+        version: ResourceVersion,
+        external: ExternalModpackPlan,
+        onProgress: suspend (DownloadProgress) -> Unit,
+    ): GameInstance {
+        if (external.isUnresolved()) {
+            throw LauncherException.InvalidMetadata("${project.name} does not provide downloadable client files.")
+        }
+        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / project.id / version.id
+        resetDirectory(staging)
+        val resolvedFiles = staging / "resolved-files"
+        fileSystem.createDirectories(resolvedFiles)
+
+        val requests = external.files.map { file ->
+            DownloadRequest(
+                url = file.url,
+                destination = safePackDestination(resolvedFiles, file.path),
+                sha1 = file.sha1,
+                size = file.size,
+                progressLabel = file.path.substringAfterLast('/'),
+                sha512 = file.sha512,
+            )
+        }
+        if (requests.isNotEmpty()) {
+            downloadPipeline.download(requests, staging / "file-downloads", onProgress)
+        }
+
+        external.archiveUrl?.let { url ->
+            val archive = staging / "pack.zip"
+            downloadPipeline.download(
+                listOf(DownloadRequest(url, archive, progressLabel = "Downloading ${project.name}")),
+                staging / "archive-download",
+                onProgress,
+            )
+            val extracted = staging / "archive"
+            archiveExtractor.extract(archive, extracted)
+            val content = listOf(extracted / ".minecraft", extracted / "minecraft")
+                .firstOrNull(fileSystem::exists) ?: extracted
+            copyDirectory(content, resolvedFiles)
+        }
+
+        if (external.componentArchives.isNotEmpty()) {
+            val downloads = staging / "components"
+            val componentRequests = external.componentArchives.mapIndexed { index, archive ->
+                DownloadRequest(
+                    url = archive.url,
+                    destination = downloads / "$index.zip",
+                    size = archive.size,
+                    progressLabel = archive.name,
+                )
+            }
+            downloadPipeline.download(componentRequests, staging / "component-downloads", onProgress)
+            componentRequests.forEachIndexed { index, request ->
+                archiveExtractor.extract(request.destination, staging / "component-$index")
+                copyDirectory(staging / "component-$index", resolvedFiles)
+            }
+        }
+
+        val detectedLoader = detectExternalLoader(resolvedFiles, external.minecraftVersion)
+        val plan = ModpackPlan(
+            name = project.name,
+            minecraftVersion = external.minecraftVersion,
+            loader = detectedLoader?.first ?: external.loader,
+            loaderVersion = detectedLoader?.second ?: external.loaderVersion,
+            files = emptyList(),
+            overrideDirectories = emptyList(),
+        )
+        ensureRuntimeSupported(plan)
+        val minecraftMetadata = metadataClient.resolveVersion(plan.minecraftVersion)
+        val instance = repository.create(
+            CreateInstanceRequest(
+                displayName = project.name,
+                minecraftVersionId = plan.minecraftVersion,
+                modLoader = plan.loader,
+                loaderVersion = plan.loaderVersion,
+                requiredJavaMajor = minecraftMetadata.javaVersion?.majorVersion ?: 8,
+                memory = LaunchTuningAdvisor.recommendMemory(plan.loader, systemProfile),
+                iconReference = project.iconUrl,
+            ),
+        )
+        try {
+            val installed = minecraftInstaller.install(instance, onProgress)
+            copyDirectory(resolvedFiles, installed.instanceDirectory.toPath() / "game")
+            runCatching { deleteTree(staging) }
+            return installed
+        } catch (error: CancellationException) {
+            withContext(NonCancellable) {
+                runCatching { repository.delete(instance.id) }
+                runCatching { deleteTree(instance.instanceDirectory.toPath()) }
+            }
+            throw error
+        } catch (error: Exception) {
+            repository.update(
+                instance.copy(
+                    installationState = InstallationState.Failed(
+                        error.message ?: "The modpack could not be installed.",
+                    ),
+                ),
+            )
+            throw error
+        }
+    }
+
+    private fun detectExternalLoader(root: Path, minecraftVersion: String): Pair<ModLoader, String>? {
+        val profile = listOf(root / "pack.json", root / "bin" / "version.json", root / "version.json")
+            .firstOrNull(fileSystem::exists) ?: return null
+        val libraries = runCatching { decode<ExternalPackProfile>(profile, "modpack loader profile").libraries }.getOrNull()
+            ?: return null
+        for (library in libraries) {
+            val coordinate = library.name
+            val artifact = coordinate.substringBefore(':') + ":" + coordinate.substringAfter(':').substringBefore(':')
+            val rawVersion = coordinate.split(':').getOrNull(2).orEmpty()
+            val detected = when (artifact) {
+                "net.neoforged:neoforge", "net.neoforged:fancymodloader" -> ModLoader.NEOFORGE to rawVersion
+                "net.fabricmc:fabric-loader" -> ModLoader.FABRIC to rawVersion
+                "org.quiltmc:quilt-loader" -> ModLoader.QUILT to rawVersion
+                "net.minecraftforge:forge" -> ModLoader.FORGE to rawVersion.removePrefix("$minecraftVersion-")
+                "net.minecraftforge:minecraftforge" -> ModLoader.FORGE to rawVersion
+                else -> null
+            }
+            if (detected != null) return detected
+        }
+        return null
+    }
+
     suspend fun installLocal(
         fileName: String,
         bytes: ByteArray,
@@ -97,6 +233,57 @@ class ModpackInstaller(
             flush()
         }
         return installArchive(archive, staging, safeName.substringBeforeLast('.'), null, onProgress)
+    }
+
+    suspend fun importFtbAppInstances(rootValue: String): List<GameInstance> {
+        val root = rootValue.toPath()
+        require(fileSystem.metadataOrNull(root)?.isDirectory == true) { "The FTB App instances folder does not exist." }
+        val candidates = buildList {
+            if (fileSystem.exists(root / "instance.json")) add(root)
+            fileSystem.list(root).filterTo(this) { child ->
+                fileSystem.metadataOrNull(child)?.isDirectory == true && fileSystem.exists(child / "instance.json")
+            }
+        }
+        require(candidates.isNotEmpty()) { "No FTB App instances were found in that folder." }
+        return candidates.map { source -> importFtbAppInstance(source) }
+    }
+
+    private suspend fun importFtbAppInstance(source: Path): GameInstance {
+        val metadata = decode<FtbAppInstance>(source / "instance.json", "FTB App instance")
+        val loaderName = metadata.modLoader.substringBefore('-', "").lowercase()
+        val loader = when (loaderName) {
+            "fabric" -> ModLoader.FABRIC
+            "neoforge" -> ModLoader.NEOFORGE
+            "forge" -> ModLoader.FORGE
+            "quilt" -> ModLoader.QUILT
+            else -> ModLoader.VANILLA
+        }
+        val loaderVersion = metadata.modLoader.substringAfter('-', "").ifBlank { null }
+        val minecraftMetadata = metadataClient.resolveVersion(metadata.mcVersion)
+        val icon = (source / "folder.jpg").takeIf(fileSystem::exists)?.toString()
+        val instance = repository.create(
+            CreateInstanceRequest(
+                displayName = metadata.name,
+                minecraftVersionId = metadata.mcVersion,
+                modLoader = loader,
+                loaderVersion = loaderVersion,
+                requiredJavaMajor = minecraftMetadata.javaVersion?.majorVersion ?: 8,
+                memory = LaunchTuningAdvisor.recommendMemory(loader, systemProfile),
+                iconReference = icon,
+            ),
+        )
+        try {
+            val installed = minecraftInstaller.install(instance)
+            val gameDirectory = installed.instanceDirectory.toPath() / "game"
+            copyDirectory(source, gameDirectory)
+            runCatching { fileSystem.delete(gameDirectory / "instance.json", mustExist = false) }
+            runCatching { deleteTree(gameDirectory / ".ftbapp") }
+            return repository.update(installed.copy(playTimeMillis = metadata.totalPlayTime.coerceAtLeast(0)))
+        } catch (error: Exception) {
+            runCatching { repository.delete(instance.id) }
+            runCatching { deleteTree(instance.instanceDirectory.toPath()) }
+            throw error
+        }
     }
 
     private suspend fun installArchive(
@@ -336,7 +523,7 @@ class ModpackInstaller(
         when (plan.loader) {
             ModLoader.VANILLA -> Unit
             ModLoader.FABRIC -> {
-                val requested = requireNotNull(plan.loaderVersion)
+                val requested = plan.loaderVersion ?: return
                 val available = fabricMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
@@ -345,7 +532,7 @@ class ModpackInstaller(
                 }
             }
             ModLoader.NEOFORGE -> {
-                val requested = requireNotNull(plan.loaderVersion)
+                val requested = plan.loaderVersion ?: return
                 val available = neoForgeMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
@@ -354,7 +541,7 @@ class ModpackInstaller(
                 }
             }
             ModLoader.FORGE -> {
-                val requested = requireNotNull(plan.loaderVersion)
+                val requested = plan.loaderVersion ?: return
                 val available = forgeMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
@@ -363,7 +550,7 @@ class ModpackInstaller(
                 }
             }
             ModLoader.QUILT -> {
-                val requested = requireNotNull(plan.loaderVersion)
+                val requested = plan.loaderVersion ?: return
                 val available = quiltMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
@@ -426,6 +613,9 @@ private data class PackFile(
     val sha512: String? = null,
 )
 
+private fun ExternalModpackPlan.isUnresolved(): Boolean =
+    files.isEmpty() && archiveUrl == null && componentArchives.isEmpty()
+
 @Serializable
 private data class ModrinthPackIndex(
     val name: String,
@@ -485,6 +675,22 @@ private data class PrismPackComponent(
     val uid: String,
     val version: String,
 )
+
+@Serializable
+private data class FtbAppInstance(
+    val name: String,
+    val mcVersion: String,
+    val modLoader: String = "",
+    val totalPlayTime: Long = 0,
+)
+
+@Serializable
+private data class ExternalPackProfile(
+    val libraries: List<ExternalPackLibrary> = emptyList(),
+)
+
+@Serializable
+private data class ExternalPackLibrary(val name: String)
 
 private fun safeRelativePath(value: String): String {
     val normalized = value.replace('\\', '/').trim('/')

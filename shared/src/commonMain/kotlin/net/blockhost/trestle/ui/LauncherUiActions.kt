@@ -3,11 +3,14 @@ package net.blockhost.trestle.ui
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.app.ThemePreference
+import net.blockhost.trestle.app.LauncherPreferences
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ResourceSearchSort
+import net.blockhost.trestle.resources.ReleaseChannel
 
 /**
  * Events emitted by the Compose UI.
@@ -24,12 +27,16 @@ interface LauncherUiActions {
     fun openCreate() {}
     fun closeCreate() {}
     fun setCreateName(value: String) {}
+    fun setCreateGroup(value: String) {}
+    fun setCreateIconReference(value: String) {}
     fun setCreateVersion(value: String) {}
     fun setCreateLoader(value: ModLoader) {}
     fun setCreateLoaderVersion(value: String) {}
     fun setCreateClientPreconfiguration(value: Boolean) {}
     fun setCreateClientSettings(value: MinecraftClientSettings) {}
     fun createInstance() {}
+    fun importRemoteModpack(url: String) {}
+    fun importFtbAppInstances() {}
     fun installSelected() {}
     fun cancelInstall() {}
     fun cancelActiveOperation() {}
@@ -46,6 +53,11 @@ interface LauncherUiActions {
     fun setResourceProvider(provider: ResourceProvider) {}
     fun setResourceType(type: ResourceType) {}
     fun setResourceQuery(value: String) {}
+    fun setResourceGameVersionFilter(value: String) {}
+    fun setResourceLoaderFilter(value: ModLoader?) {}
+    fun setResourceCategoryFilter(value: String) {}
+    fun setResourceSort(value: ResourceSearchSort) {}
+    fun toggleResourceReleaseChannel(value: ReleaseChannel) {}
     fun searchResources() {}
     fun loadMoreResources() {}
     fun selectResource(projectId: String) {}
@@ -153,6 +165,7 @@ interface LauncherUiActions {
     fun deleteSelectedSkin() {}
     fun clearLogs() {}
     fun setThemePreference(value: ThemePreference) {}
+    fun setLauncherPreferences(value: LauncherPreferences) {}
     fun checkForLauncherUpdate() {}
 }
 

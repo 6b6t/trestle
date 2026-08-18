@@ -47,13 +47,26 @@ data class DownloadProgress(
 class DownloadPipeline(
     private val httpClient: HttpClient,
     private val fileSystem: FileSystem,
-    private val maxConcurrency: Int = 6,
-    private val maxAttempts: Int = 3,
+    maxConcurrency: Int = 6,
+    maxAttempts: Int = 3,
     private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
+    @Volatile
+    private var maxConcurrency: Int = maxConcurrency
+
+    @Volatile
+    private var maxAttempts: Int = maxAttempts
+
     init {
         require(maxConcurrency > 0)
         require(maxAttempts > 0)
+    }
+
+    fun configure(maxConcurrency: Int, maxAttempts: Int) {
+        require(maxConcurrency > 0)
+        require(maxAttempts > 0)
+        this.maxConcurrency = maxConcurrency
+        this.maxAttempts = maxAttempts
     }
 
     suspend fun download(

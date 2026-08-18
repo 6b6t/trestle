@@ -18,6 +18,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.app.LauncherServices
 import net.blockhost.trestle.app.ThemePreference
+import net.blockhost.trestle.app.LauncherPreferences
+import net.blockhost.trestle.app.FolderPreferences
 import net.blockhost.trestle.app.LauncherUpdate
 import net.blockhost.trestle.auth.ManagedAccount
 import net.blockhost.trestle.auth.SavedSkin
@@ -50,6 +52,7 @@ import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceSearchRequest
+import net.blockhost.trestle.resources.ResourceSearchSort
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.ReleaseChannel
@@ -59,6 +62,8 @@ import okio.Path.Companion.toPath
 data class CreateInstanceState(
     val visible: Boolean = false,
     val name: String = "",
+    val group: String = "",
+    val iconReference: String = "",
     val versionId: String = "",
     val modLoader: ModLoader = ModLoader.VANILLA,
     val loaderVersion: String? = null,
@@ -105,6 +110,16 @@ data class ResourceBrowserState(
     val provider: ResourceProvider = ResourceProvider.MODRINTH,
     val type: ResourceType = ResourceType.MOD,
     val query: String = "",
+    val gameVersionFilter: String = "",
+    val loaderFilter: ModLoader? = null,
+    val categoryFilter: String = "",
+    val sort: ResourceSearchSort = ResourceSearchSort.RELEVANCE,
+    val releaseChannels: Set<ReleaseChannel> = setOf(
+        ReleaseChannel.RELEASE,
+        ReleaseChannel.BETA,
+        ReleaseChannel.ALPHA,
+        ReleaseChannel.UNKNOWN,
+    ),
     val projects: List<ResourceProject> = emptyList(),
     val totalProjects: Int = 0,
     val selectedProjectId: String? = null,
@@ -303,6 +318,8 @@ data class LauncherUiState(
     val isLoadingInstanceLog: Boolean = false,
     val lastCrashReport: String? = null,
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
+    val launcherPreferences: LauncherPreferences = LauncherPreferences(),
+    val defaultFolders: FolderPreferences = FolderPreferences(),
     val availableUpdate: LauncherUpdate? = null,
     val isCheckingForUpdate: Boolean = false,
     val pendingWorldDeletionKey: String? = null,
@@ -318,6 +335,7 @@ class LauncherViewModel(
     private val services: LauncherServices,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) : LauncherUiActions {
+    private val initialPreferences = services.preferences.read()
     private val mutableState = MutableStateFlow(
         LauncherUiState(
             credentialProtection = services.credentialStore.protection,
@@ -325,7 +343,14 @@ class LauncherViewModel(
             supportedModLoaders = services.runtime.capabilities.supportedModLoaders,
             supportsLaunchCommands = services.runtime.capabilities.supportsLaunchCommands,
             supportsCustomJava = services.runtime.capabilities.supportsCustomJava,
-            themePreference = services.preferences.read().theme,
+            themePreference = initialPreferences.theme,
+            launcherPreferences = initialPreferences,
+            defaultFolders = FolderPreferences(
+                instances = services.directories.instances.toString(),
+                runtimes = services.directories.runtimes.toString(),
+                skins = services.directories.root.resolve("skins").toString(),
+                downloads = services.directories.exports.toString(),
+            ),
         ),
     )
     private var installJob: Job? = null
@@ -423,7 +448,8 @@ class LauncherViewModel(
                 val manifest = services.metadataClient.fetchVersionManifest()
                 val supported = services.runtime.capabilities.supportedMinecraftVersions
                 val versions = manifest.versions.filter {
-                    (it.type == "release" || it.type == "snapshot") && (supported == null || it.id in supported)
+                    it.type in setOf("release", "snapshot", "old_beta", "old_alpha") &&
+                        (supported == null || it.id in supported)
                 }
                 val defaultVersion = versions.firstOrNull { it.id == manifest.latest.release }?.id
                     ?: versions.firstOrNull()?.id.orEmpty()
@@ -566,6 +592,14 @@ class LauncherViewModel(
         mutableState.update { it.copy(create = it.create.copy(name = value)) }
     }
 
+    override fun setCreateGroup(value: String) {
+        mutableState.update { it.copy(create = it.create.copy(group = value)) }
+    }
+
+    override fun setCreateIconReference(value: String) {
+        mutableState.update { it.copy(create = it.create.copy(iconReference = value)) }
+    }
+
     override fun setCreateVersion(value: String) {
         val supported = services.runtime.capabilities.supportedMinecraftVersions
         if (supported != null && value !in supported) return
@@ -618,12 +652,16 @@ class LauncherViewModel(
                         loaderVersion = form.loaderVersion,
                         requiredJavaMajor = metadata.javaVersion?.majorVersion ?: 8,
                         memory = LaunchTuningAdvisor.recommendMemory(form.modLoader, services.systemProfile),
+                        iconReference = form.iconReference.trim().ifBlank { null },
                         clientSettings = form.clientSettings.takeIf { form.preconfigureClientSettings },
                     ),
                 )
+                val configured = if (form.group.isBlank()) instance else services.repository.update(
+                    instance.copy(group = form.group.trim()),
+                )
                 mutableState.update {
                     it.copy(
-                        selectedId = instance.id,
+                        selectedId = configured.id,
                         create = CreateInstanceState(),
                         notice = "Instance created. Install its game files when you are ready.",
                     )
@@ -633,6 +671,104 @@ class LauncherViewModel(
             } catch (error: Exception) {
                 mutableState.update { it.copy(create = form.copy(isSaving = false)) }
                 showError(error)
+            }
+        }
+    }
+
+    override fun importRemoteModpack(url: String) {
+        val source = url.trim()
+        if (source.isBlank() || resourceJob?.isActive == true) return
+        val requestedIdentity = mutableState.value.create
+        mutableState.update {
+            it.copy(
+                create = CreateInstanceState(),
+                operation = OperationStatus("Importing modpack", source, cancellable = true, cancelLabel = "Cancel"),
+                error = null,
+            )
+        }
+        resourceJob = scope.launch {
+            try {
+                val downloadUrl = if (source.startsWith("curseforge://", ignoreCase = true)) {
+                    val parameters = source.substringAfter('?', "").split('&').mapNotNull { part ->
+                        val key = part.substringBefore('=', "").lowercase()
+                        val value = part.substringAfter('=', "")
+                        if (key.isBlank() || value.isBlank()) null else key to value
+                    }.toMap()
+                    val projectId = parameters["addonid"] ?: parameters["projectid"]
+                        ?: throw IllegalArgumentException("The CurseForge link has no project ID.")
+                    val fileId = parameters["fileid"]
+                        ?: throw IllegalArgumentException("The CurseForge link has no file ID.")
+                    services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE)
+                        .version(projectId, fileId).primaryFile?.url
+                        ?: throw IllegalArgumentException("The CurseForge file blocks third-party downloads.")
+                } else {
+                    require(source.startsWith("https://") || source.startsWith("http://")) {
+                        "Enter an HTTP, HTTPS, or curseforge:// URL."
+                    }
+                    source
+                }
+                val (fileName, bytes) = services.downloadImport(downloadUrl)
+                val imported = services.modpackInstaller.installLocal(fileName, bytes, ::updateResourceProgress)
+                val configured = services.repository.update(
+                    imported.copy(
+                        displayName = requestedIdentity.name.trim().ifBlank { imported.displayName },
+                        group = requestedIdentity.group.trim().ifBlank { null },
+                        iconReference = requestedIdentity.iconReference.trim().ifBlank { imported.iconReference },
+                    ),
+                )
+                mutableState.update {
+                    it.copy(
+                        selectedId = configured.id,
+                        operation = null,
+                        notice = "${configured.displayName} was imported.",
+                    )
+                }
+            } catch (_: CancellationException) {
+                mutableState.update { it.copy(operation = null, notice = "Modpack import cancelled.") }
+            } catch (error: Exception) {
+                mutableState.update { it.copy(operation = null) }
+                showError(error)
+            } finally {
+                resourceJob = null
+            }
+        }
+    }
+
+    override fun importFtbAppInstances() {
+        if (resourceJob?.isActive == true) return
+        val path = mutableState.value.launcherPreferences.ftbAppInstancesPath.trim()
+        val requestedGroup = mutableState.value.create.group.trim()
+        if (path.isBlank()) {
+            showError(IllegalArgumentException("Set the FTB App instances folder in Settings > Services first."))
+            return
+        }
+        mutableState.update {
+            it.copy(
+                create = CreateInstanceState(),
+                operation = OperationStatus("Importing FTB App instances", path, cancellable = true, cancelLabel = "Cancel"),
+                error = null,
+            )
+        }
+        resourceJob = scope.launch {
+            try {
+                val imported = services.modpackInstaller.importFtbAppInstances(path)
+                val configured = if (requestedGroup.isBlank()) imported else imported.map { instance ->
+                    services.repository.update(instance.copy(group = requestedGroup))
+                }
+                mutableState.update {
+                    it.copy(
+                        selectedId = configured.lastOrNull()?.id ?: it.selectedId,
+                        operation = null,
+                        notice = "Imported ${configured.size} FTB App ${if (configured.size == 1) "instance" else "instances"}.",
+                    )
+                }
+            } catch (_: CancellationException) {
+                mutableState.update { it.copy(operation = null, notice = "FTB App import cancelled.") }
+            } catch (error: Exception) {
+                mutableState.update { it.copy(operation = null) }
+                showError(error)
+            } finally {
+                resourceJob = null
             }
         }
     }
@@ -966,7 +1102,7 @@ class LauncherViewModel(
                 selectedVersionId = null,
                 selectedOptionalDependencies = emptySet(),
                 error = when {
-                    !platform.isAvailable -> "CurseForge is not configured for this build."
+                    !platform.isAvailable -> "${provider.label} is not available for third-party launcher access."
                     !platform.supports(current.type) -> "${provider.label} does not provide ${current.type.label.lowercase()}."
                     else -> null
                 },
@@ -1002,6 +1138,35 @@ class LauncherViewModel(
         )
     }
 
+    override fun setResourceGameVersionFilter(value: String) {
+        mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(gameVersionFilter = value)) }
+    }
+
+    override fun setResourceLoaderFilter(value: ModLoader?) {
+        mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(loaderFilter = value)) }
+    }
+
+    override fun setResourceCategoryFilter(value: String) {
+        mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(categoryFilter = value)) }
+    }
+
+    override fun setResourceSort(value: ResourceSearchSort) {
+        mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(sort = value)) }
+        searchResources()
+    }
+
+    override fun toggleResourceReleaseChannel(value: ReleaseChannel) {
+        val browser = mutableState.value.resourceBrowser
+        val channels = if (value in browser.releaseChannels) {
+            browser.releaseChannels - value
+        } else {
+            browser.releaseChannels + value
+        }
+        if (channels.isNotEmpty()) {
+            mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(releaseChannels = channels)) }
+        }
+    }
+
     override fun searchResources() {
         searchResources(append = false)
     }
@@ -1028,13 +1193,18 @@ class LauncherViewModel(
             )
             try {
                 val instance = mutableState.value.selectedInstance
-                val versions = services.resourcePlatforms.platform(project.provider).versions(
-                    project = project,
+                val platform = services.resourcePlatforms.platform(project.provider)
+                val detailedProject = platform.details(project)
+                val versions = platform.versions(
+                    project = detailedProject,
                     gameVersion = if (project.type == ResourceType.MODPACK) null else instance?.minecraftVersionId,
                     loader = if (project.type == ResourceType.MODPACK) null else instance?.modLoader,
                 )
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
+                        projects = mutableState.value.resourceBrowser.projects.map {
+                            if (it.provider == detailedProject.provider && it.id == detailedProject.id) detailedProject else it
+                        },
                         versions = versions,
                         selectedVersionId = versions.firstOrNull { it.channel == ReleaseChannel.RELEASE }?.id
                             ?: versions.firstOrNull()?.id,
@@ -2444,9 +2614,21 @@ class LauncherViewModel(
     override fun clearLogs() = services.logger.clear()
 
     override fun setThemePreference(value: ThemePreference) {
-        val preferences = services.preferences.read().copy(theme = value)
-        runCatching { services.preferences.write(preferences) }
-            .onSuccess { mutableState.update { it.copy(themePreference = value) } }
+        setLauncherPreferences(mutableState.value.launcherPreferences.copy(theme = value))
+    }
+
+    override fun setLauncherPreferences(value: LauncherPreferences) {
+        runCatching { services.preferences.write(value) }
+            .onSuccess {
+                mutableState.update { state ->
+                    state.copy(
+                        themePreference = value.theme,
+                        launcherPreferences = value,
+                        notice = "Launcher settings saved.",
+                    )
+                }
+                services.configurePreferences(value)
+            }
             .onFailure(::showError)
     }
 
@@ -2557,8 +2739,12 @@ class LauncherViewModel(
                     ResourceSearchRequest(
                         query = browser.query,
                         type = browser.type,
-                        gameVersion = if (browser.type == ResourceType.MODPACK) null else instance?.minecraftVersionId,
-                        loader = if (browser.type == ResourceType.MODPACK) null else instance?.modLoader,
+                        gameVersion = browser.gameVersionFilter.ifBlank {
+                            if (browser.type == ResourceType.MODPACK) "" else instance?.minecraftVersionId.orEmpty()
+                        }.ifBlank { null },
+                        loader = browser.loaderFilter ?: if (browser.type == ResourceType.MODPACK) null else instance?.modLoader,
+                        category = browser.categoryFilter.ifBlank { null },
+                        sort = browser.sort,
                         offset = if (append) browser.projects.size else 0,
                     ),
                 )
