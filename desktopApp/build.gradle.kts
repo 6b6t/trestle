@@ -131,3 +131,9 @@ compose.desktop {
         }
     }
 }
+
+tasks.configureEach {
+    if (name == "run") {
+        outputs.upToDateWhen { false }
+    }
+}
