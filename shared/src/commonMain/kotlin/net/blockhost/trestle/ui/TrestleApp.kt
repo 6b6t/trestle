@@ -49,7 +49,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -65,6 +64,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,10 +72,9 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryScrollableTabRow
@@ -96,6 +95,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -103,6 +103,7 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
@@ -163,7 +164,6 @@ import io.github.vinceglb.filekit.readBytes
 import io.github.vinceglb.filekit.size
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.app.InstanceSortMode
 import net.blockhost.trestle.app.LauncherProxyType
 import net.blockhost.trestle.app.ThemePreference
@@ -194,8 +194,10 @@ import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.ic_account
 import net.blockhost.trestle.resources.ic_add
 import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ic_close
 import net.blockhost.trestle.resources.ic_extension
 import net.blockhost.trestle.resources.ic_library
+import net.blockhost.trestle.resources.ic_more_vert
 import net.blockhost.trestle.resources.ic_settings
 import net.blockhost.trestle.resources.ic_visibility
 import net.blockhost.trestle.resources.ic_visibility_off
@@ -268,6 +270,7 @@ import net.blockhost.trestle.resources.ui_events_from_this_session_right_click_a
 import net.blockhost.trestle.resources.ui_existing_ftb_app_library
 import net.blockhost.trestle.resources.ui_file_name
 import net.blockhost.trestle.resources.ui_filter_named_field
+import net.blockhost.trestle.resources.ui_filters
 import net.blockhost.trestle.resources.ui_find_in_log
 import net.blockhost.trestle.resources.ui_folder_changes_apply_after_trestle_restarts
 import net.blockhost.trestle.resources.ui_folders
@@ -471,6 +474,9 @@ internal object LauncherTestTags {
     const val DISCOVER = "discover"
     const val ACCOUNTS = "accounts"
     const val SETTINGS = "settings"
+    const val SETTINGS_CATEGORIES = "settings-categories"
+    const val SETTINGS_DETAIL = "settings-detail"
+    const val RESOURCE_FILTERS = "resource-filters"
     const val CREATE_DIALOG = "create-dialog"
     const val INSTANCE_SETTINGS_DIALOG = "instance-settings-dialog"
     const val INSTANCE_ICON_EDIT = "instance-icon-edit"
@@ -1802,244 +1808,241 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
         minimum != null && maximum < minimum -> "Maximum memory must be at least the minimum."
         else -> null
     }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
+        maxWidth = 620.dp,
+        maxHeight = 820.dp,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
+            .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
             usePlatformDefaultWidth = false,
         ),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 620.dp,
-            maxHeight = 820.dp,
-            modifier = Modifier
-                .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
-                .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
-        ) {
-            Column {
-                Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text(stringResource(Res.string.ui_instance_settings), style = MaterialTheme.typography.headlineMedium)
-                    Text(stringResource(Res.string.ui_identity), style = MaterialTheme.typography.titleMedium)
-                    TextField(
-                        value = form.name,
-                        onValueChange = actions::setInstanceName,
-                        label = { Text(stringResource(Res.string.ui_name)) },
-                        isError = form.name.isBlank(),
-                        supportingText = if (form.name.isBlank()) ({ Text(stringResource(Res.string.ui_enter_an_instance_name)) }) else null,
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_instance_settings),
+                onClose = actions::closeInstanceSettings,
+                closeEnabled = !form.isSaving,
+            )
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Text(stringResource(Res.string.ui_identity), style = MaterialTheme.typography.titleMedium)
+                TextField(
+                    value = form.name,
+                    onValueChange = actions::setInstanceName,
+                    label = { Text(stringResource(Res.string.ui_name)) },
+                    isError = form.name.isBlank(),
+                    supportingText = if (form.name.isBlank()) ({ Text(stringResource(Res.string.ui_enter_an_instance_name)) }) else null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextField(
+                    value = form.group,
+                    onValueChange = actions::setInstanceGroup,
+                    label = { Text(stringResource(Res.string.ui_group)) },
+                    supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_group_this_instance_by_loader)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                instance?.let {
+                    InstanceIconSetting(
+                        instance = it,
+                        form = form,
+                        onEdit = { showIconEditor = true },
                     )
-                    TextField(
-                        value = form.group,
-                        onValueChange = actions::setInstanceGroup,
-                        label = { Text(stringResource(Res.string.ui_group)) },
-                        supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_group_this_instance_by_loader)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                }
+
+                HorizontalDivider()
+                Text(stringResource(Res.string.ui_game_components), style = MaterialTheme.typography.titleMedium)
+                Selector(
+                    label = "Minecraft version",
+                    value = form.minecraftVersionId,
+                    values = availableVersions,
+                    enabled = !state.isLoadingVersions,
+                    onSelect = actions::setInstanceVersion,
+                )
+                Selector(
+                    label = "Mod loader",
+                    value = form.modLoader.label,
+                    values = availableLoaders.map { it.label },
+                    onSelect = { selected ->
+                        availableLoaders.firstOrNull { it.label == selected }?.let(actions::setInstanceLoader)
+                    },
+                )
+                if (componentsChanged) {
+                    Text(
+                        "Changing the game version or loader requires another installation. Trestle keeps worlds and content files in place.",
+                        color = MaterialTheme.colorScheme.primary,
                     )
-                    instance?.let {
-                        InstanceIconSetting(
-                            instance = it,
-                            form = form,
-                            onEdit = { showIconEditor = true },
+                }
+
+                HorizontalDivider()
+                Text(stringResource(Res.string.ui_launch), style = MaterialTheme.typography.titleMedium)
+                Selector(
+                    label = "Account",
+                    value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
+                        ?: "Use active account",
+                    values = accountChoices.map { it.first },
+                    onSelect = { selected ->
+                        actions.setInstanceAccount(accountChoices.firstOrNull { it.first == selected }?.second)
+                    },
+                )
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
+                        val error = if (isMinimum) minimumError else maximumError
+                        TextField(
+                            value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
+                            onValueChange = if (isMinimum) actions::setMinimumMemory else actions::setMaximumMemory,
+                            label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
+                            isError = error != null,
+                            supportingText = if (error == null) null else ({ Text(error) }),
+                            keyboardOptions = KeyboardOptions(
+                                keyboardType = KeyboardType.Number,
+                                imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                                onDone = {
+                                    if (valid && !form.isLoadingClientSettings && !form.isSaving) {
+                                        actions.saveInstanceSettings()
+                                    }
+                                },
+                            ),
+                            singleLine = true,
+                            modifier = modifier,
                         )
                     }
-
-                    HorizontalDivider()
-                    Text(stringResource(Res.string.ui_game_components), style = MaterialTheme.typography.titleMedium)
-                    Selector(
-                        label = "Minecraft version",
-                        value = form.minecraftVersionId,
-                        values = availableVersions,
-                        enabled = !state.isLoadingVersions,
-                        onSelect = actions::setInstanceVersion,
-                    )
-                    Selector(
-                        label = "Mod loader",
-                        value = form.modLoader.label,
-                        values = availableLoaders.map { it.label },
-                        onSelect = { selected ->
-                            availableLoaders.firstOrNull { it.label == selected }?.let(actions::setInstanceLoader)
-                        },
-                    )
-                    if (componentsChanged) {
-                        Text(
-                            "Changing the game version or loader requires another installation. Trestle keeps worlds and content files in place.",
-                            color = MaterialTheme.colorScheme.primary,
-                        )
+                    if (maxWidth < 440.dp) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            memoryField(true, Modifier.fillMaxWidth())
+                            memoryField(false, Modifier.fillMaxWidth())
+                        }
+                    } else {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            memoryField(true, Modifier.weight(1f))
+                            memoryField(false, Modifier.weight(1f))
+                        }
                     }
-
-                    HorizontalDivider()
-                    Text(stringResource(Res.string.ui_launch), style = MaterialTheme.typography.titleMedium)
-                    Selector(
-                        label = "Account",
-                        value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
-                            ?: "Use active account",
-                        values = accountChoices.map { it.first },
-                        onSelect = { selected ->
-                            actions.setInstanceAccount(accountChoices.firstOrNull { it.first == selected }?.second)
-                        },
-                    )
+                }
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(form.recommendation.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                    TextButton(onClick = actions::applyRecommendedMemory) { Text(stringResource(Res.string.ui_use_recommended)) }
+                }
+                form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
+                TextField(
+                    value = form.jvmArguments,
+                    onValueChange = actions::setJvmArguments,
+                    label = { Text(stringResource(Res.string.ui_additional_jvm_arguments)) },
+                    supportingText = {
+                        Text(stringResource(Res.string.ui_memory_classpath_native_path_and_architecture_options_are_managed_by_tre))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextField(
+                    value = form.gameArguments,
+                    onValueChange = actions::setGameArguments,
+                    label = { Text(stringResource(Res.string.ui_additional_game_arguments)) },
+                    supportingText = { Text(stringResource(Res.string.ui_quoted_values_and_escaped_characters_are_preserved)) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (state.supportsCustomJava) {
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
-                            val error = if (isMinimum) minimumError else maximumError
+                        val javaField: @Composable (Modifier) -> Unit = { fieldModifier ->
                             TextField(
-                                value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
-                                onValueChange = if (isMinimum) actions::setMinimumMemory else actions::setMaximumMemory,
-                                label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
-                                isError = error != null,
-                                supportingText = if (error == null) null else ({ Text(error) }),
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Number,
-                                    imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onNext = { focusManager.moveFocus(FocusDirection.Next) },
-                                    onDone = {
-                                        if (valid && !form.isLoadingClientSettings && !form.isSaving) {
-                                            actions.saveInstanceSettings()
-                                        }
-                                    },
-                                ),
+                                value = form.javaExecutable,
+                                onValueChange = actions::setJavaExecutable,
+                                label = { Text(stringResource(Res.string.ui_custom_java_executable)) },
+                                supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_use_trestles_managed_mojang_runtime)) },
                                 singleLine = true,
-                                modifier = modifier,
+                                modifier = fieldModifier,
                             )
                         }
                         if (maxWidth < 440.dp) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                memoryField(true, Modifier.fillMaxWidth())
-                                memoryField(false, Modifier.fillMaxWidth())
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                javaField(Modifier.fillMaxWidth())
+                                OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
                             }
                         } else {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                memoryField(true, Modifier.weight(1f))
-                                memoryField(false, Modifier.weight(1f))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
+                                javaField(Modifier.weight(1f))
+                                OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
                             }
                         }
-                    }
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(form.recommendation.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-                        TextButton(onClick = actions::applyRecommendedMemory) { Text(stringResource(Res.string.ui_use_recommended)) }
-                    }
-                    form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
-                    TextField(
-                        value = form.jvmArguments,
-                        onValueChange = actions::setJvmArguments,
-                        label = { Text(stringResource(Res.string.ui_additional_jvm_arguments)) },
-                        supportingText = {
-                            Text(stringResource(Res.string.ui_memory_classpath_native_path_and_architecture_options_are_managed_by_tre))
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    TextField(
-                        value = form.gameArguments,
-                        onValueChange = actions::setGameArguments,
-                        label = { Text(stringResource(Res.string.ui_additional_game_arguments)) },
-                        supportingText = { Text(stringResource(Res.string.ui_quoted_values_and_escaped_characters_are_preserved)) },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (state.supportsCustomJava) {
-                        BoxWithConstraints(Modifier.fillMaxWidth()) {
-                            val javaField: @Composable (Modifier) -> Unit = { fieldModifier ->
-                                TextField(
-                                    value = form.javaExecutable,
-                                    onValueChange = actions::setJavaExecutable,
-                                    label = { Text(stringResource(Res.string.ui_custom_java_executable)) },
-                                    supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_use_trestles_managed_mojang_runtime)) },
-                                    singleLine = true,
-                                    modifier = fieldModifier,
-                                )
-                            }
-                            if (maxWidth < 440.dp) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    javaField(Modifier.fillMaxWidth())
-                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
-                                }
-                            } else {
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
-                                    javaField(Modifier.weight(1f))
-                                    OutlinedButton(onClick = { javaPicker.launch() }) { Text(stringResource(Res.string.ui_browse)) }
-                                }
-                            }
-                        }
-                    }
-                    TextField(
-                        value = form.environmentVariables,
-                        onValueChange = actions::setEnvironmentVariables,
-                        label = { Text(stringResource(Res.string.ui_environment_variables)) },
-                        supportingText = { Text(stringResource(Res.string.ui_enter_one_name_value_pair_per_line_lines_starting_with_are_ignored)) },
-                        minLines = 2,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (state.supportsLaunchCommands) {
-                        HorizontalDivider()
-                        Text(stringResource(Res.string.ui_custom_commands), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        TextField(
-                            value = form.preLaunchCommand,
-                            onValueChange = actions::setPreLaunchCommand,
-                            label = { Text(stringResource(Res.string.ui_pre_launch_command)) },
-                            supportingText = { Text(stringResource(Res.string.ui_must_exit_successfully_before_minecraft_starts)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        TextField(
-                            value = form.wrapperCommand,
-                            onValueChange = actions::setWrapperCommand,
-                            label = { Text(stringResource(Res.string.ui_wrapper_command)) },
-                            supportingText = { Text(stringResource(Res.string.ui_runs_before_the_java_executable_for_example_gamescope)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        TextField(
-                            value = form.postExitCommand,
-                            onValueChange = actions::setPostExitCommand,
-                            label = { Text(stringResource(Res.string.ui_post_exit_command)) },
-                            supportingText = { Text(stringResource(Res.string.ui_runs_after_minecraft_exits)) },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-
-                    HorizontalDivider()
-                    Text(stringResource(Res.string.ui_minecraft_client), style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    when {
-                        form.isLoadingClientSettings -> Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        ) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text(stringResource(Res.string.ui_loading_client_settings), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
-                        form.clientSettings != null -> ClientSettingsFields(
-                            form.clientSettings,
-                            actions::setInstanceClientSettings,
-                        )
                     }
                 }
+                TextField(
+                    value = form.environmentVariables,
+                    onValueChange = actions::setEnvironmentVariables,
+                    label = { Text(stringResource(Res.string.ui_environment_variables)) },
+                    supportingText = { Text(stringResource(Res.string.ui_enter_one_name_value_pair_per_line_lines_starting_with_are_ignored)) },
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (state.supportsLaunchCommands) {
+                    HorizontalDivider()
+                    Text(stringResource(Res.string.ui_custom_commands), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    TextField(
+                        value = form.preLaunchCommand,
+                        onValueChange = actions::setPreLaunchCommand,
+                        label = { Text(stringResource(Res.string.ui_pre_launch_command)) },
+                        supportingText = { Text(stringResource(Res.string.ui_must_exit_successfully_before_minecraft_starts)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = form.wrapperCommand,
+                        onValueChange = actions::setWrapperCommand,
+                        label = { Text(stringResource(Res.string.ui_wrapper_command)) },
+                        supportingText = { Text(stringResource(Res.string.ui_runs_before_the_java_executable_for_example_gamescope)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = form.postExitCommand,
+                        onValueChange = actions::setPostExitCommand,
+                        label = { Text(stringResource(Res.string.ui_post_exit_command)) },
+                        supportingText = { Text(stringResource(Res.string.ui_runs_after_minecraft_exits)) },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
                 HorizontalDivider()
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                ) {
-                    TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
-                    Button(
-                        onClick = actions::saveInstanceSettings,
-                        enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
+                Text(stringResource(Res.string.ui_minecraft_client), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                when {
+                    form.isLoadingClientSettings -> Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Text(stringResource(Res.string.ui_save_changes))
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Text(stringResource(Res.string.ui_loading_client_settings), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
+                    form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
+                    form.clientSettings != null -> ClientSettingsFields(
+                        form.clientSettings,
+                        actions::setInstanceClientSettings,
+                    )
+                }
+            }
+            TrestleDialogActions {
+                TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
+                Button(
+                    onClick = actions::saveInstanceSettings,
+                    enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
+                ) {
+                    if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    else Text(stringResource(Res.string.ui_save_changes))
                 }
             }
         }
@@ -2065,27 +2068,22 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
 @Composable
 private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val browser = state.resourceBrowser
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = actions::closeResourceBrowser,
+        maxWidth = 1040.dp,
+        widthFraction = 0.94f,
+        heightFraction = 0.9f,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !browser.isInstalling, onDismiss = actions::closeResourceBrowser)
+            .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 1040.dp,
-            widthFraction = 0.94f,
-            heightFraction = 0.9f,
-            modifier = Modifier
-                .dismissOnEscape(enabled = !browser.isInstalling, onDismiss = actions::closeResourceBrowser)
-                .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(Res.string.ui_browse_content), style = MaterialTheme.typography.headlineMedium)
-                        val instance = state.selectedInstance
+        Column(Modifier.fillMaxSize()) {
+            val instance = state.selectedInstance
+            TopAppBar(
+                title = {
+                    Column {
+                        Text(stringResource(Res.string.ui_browse_content))
                         Text(
                             if (browser.type == ResourceType.MODPACK) {
                                 "Modpacks create a new instance."
@@ -2095,13 +2093,25 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                                 "Compatible with ${instance.minecraftVersionId} · ${instance.modLoader.label}"
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
-                    TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text(stringResource(Res.string.ui_close)) }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ResourceBrowserContent(state, actions, Modifier.fillMaxSize(), searchFocusRequest = 0)
-            }
+                },
+                actions = {
+                    IconButton(
+                        onClick = actions::closeResourceBrowser,
+                        enabled = !browser.isInstalling,
+                    ) {
+                        Icon(
+                            painterResource(Res.drawable.ic_close),
+                            contentDescription = stringResource(Res.string.ui_close),
+                        )
+                    }
+                },
+                windowInsets = WindowInsets(0, 0, 0, 0),
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ResourceBrowserContent(state, actions, Modifier.fillMaxSize(), searchFocusRequest = 0)
         }
     }
 }
@@ -2115,7 +2125,10 @@ private fun ResourceBrowserContent(
     searchFocusRequest: Int,
 ) {
     val browser = state.resourceBrowser
-    val navigator = rememberListDetailPaneScaffoldNavigator<String?>()
+    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
+    val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
+        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
+    )
     val resultListState = rememberLazyListState()
     val detailScrollState = rememberScrollState()
     val searchFocusRequester = remember { FocusRequester() }
@@ -2198,6 +2211,7 @@ private fun ResourceBrowserToolbar(
     searchFocusRequester: FocusRequester,
 ) {
     var showFilters by rememberSaveable { mutableStateOf(false) }
+    val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -2213,127 +2227,168 @@ private fun ResourceBrowserToolbar(
                 .testTag(LauncherTestTags.RESOURCE_SEARCH),
         )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            if (maxWidth < 600.dp) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ResourceProviderButtons(browser, actions)
-                    TextButton(onClick = { showFilters = !showFilters }) { Text(if (showFilters) "Hide filters" else "Filter options") }
-                    Selector(
-                        label = "Content type",
-                        value = browser.type.label,
-                        values = browsableResourceTypes.map { it.label },
-                        modifier = Modifier.fillMaxWidth(),
-                        onSelect = { label -> actions.setResourceType(browsableResourceTypes.first { it.label == label }) },
-                    )
-                }
-            } else {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ResourceProviderButtons(browser, actions)
-                    TextButton(onClick = { showFilters = !showFilters }) { Text(if (showFilters) "Hide filters" else "Filter options") }
-                    Spacer(Modifier.weight(1f))
-                    Selector(
-                        label = "Content type",
-                        value = browser.type.label,
-                        values = browsableResourceTypes.map { it.label },
-                        modifier = Modifier.width(190.dp),
-                        onSelect = { label -> actions.setResourceType(browsableResourceTypes.first { it.label == label }) },
-                    )
-                }
-            }
-        }
-        if (showFilters) {
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val filterFields: @Composable ColumnScope.() -> Unit = {
-                    TextField(
-                        value = browser.gameVersionFilter,
-                        onValueChange = actions::setResourceGameVersionFilter,
-                        label = { Text(stringResource(Res.string.ui_minecraft_version)) },
-                        placeholder = { Text(stringResource(Res.string.ui_any_version)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Selector(
-                        label = "Mod loader",
-                        value = browser.loaderFilter?.label ?: "Any loader",
-                        values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
-                        onSelect = { label ->
-                            actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
-                        },
-                    )
-                    TextField(
-                        value = browser.categoryFilter,
-                        onValueChange = actions::setResourceCategoryFilter,
-                        label = { Text(stringResource(Res.string.ui_category)) },
-                        placeholder = { Text(stringResource(Res.string.ui_any_category)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Selector(
-                        label = "Sort by",
-                        value = browser.sort.label,
-                        values = ResourceSearchSort.entries.map { it.label },
-                        onSelect = { label ->
-                            ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
-                        },
-                    )
-                    Button(onClick = { actions.searchResources() }, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.ui_apply_filters)) }
-                }
-                if (maxWidth < 720.dp) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp), content = filterFields)
+            val toolbarWidth = maxWidth
+            val compactFilterSheet = toolbarWidth < 720.dp
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (toolbarWidth < 600.dp) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ResourceProviderButtons(browser, actions)
+                        OutlinedButton(
+                            onClick = { showFilters = !showFilters },
+                            modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
+                        ) {
+                            Text(stringResource(Res.string.ui_filters))
+                        }
+                        Selector(
+                            label = "Content type",
+                            value = browser.type.label,
+                            values = browsableResourceTypes.map { it.label },
+                            modifier = Modifier.fillMaxWidth(),
+                            onSelect = { label ->
+                                actions.setResourceType(browsableResourceTypes.first { it.label == label })
+                            },
+                        )
+                    }
                 } else {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        TextField(
-                            value = browser.gameVersionFilter,
-                            onValueChange = actions::setResourceGameVersionFilter,
-                            label = { Text(stringResource(Res.string.ui_minecraft_version)) },
-                            placeholder = { Text(stringResource(Res.string.ui_any_version)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
+                        ResourceProviderButtons(browser, actions)
+                        OutlinedButton(
+                            onClick = { showFilters = !showFilters },
+                            modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
+                        ) {
+                            Text(stringResource(Res.string.ui_filters))
+                        }
+                        Spacer(Modifier.weight(1f))
                         Selector(
-                            label = "Mod loader",
-                            value = browser.loaderFilter?.label ?: "Any loader",
-                            values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
-                            modifier = Modifier.weight(1f),
+                            label = "Content type",
+                            value = browser.type.label,
+                            values = browsableResourceTypes.map { it.label },
+                            modifier = Modifier.width(190.dp),
                             onSelect = { label ->
-                                actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
+                                actions.setResourceType(browsableResourceTypes.first { it.label == label })
                             },
                         )
-                        TextField(
-                            value = browser.categoryFilter,
-                            onValueChange = actions::setResourceCategoryFilter,
-                            label = { Text(stringResource(Res.string.ui_category)) },
-                            placeholder = { Text(stringResource(Res.string.ui_any_category)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Selector(
-                            label = "Sort by",
-                            value = browser.sort.label,
-                            values = ResourceSearchSort.entries.map { it.label },
-                            modifier = Modifier.weight(1f),
-                            onSelect = { label ->
-                                ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
-                            },
-                        )
-                        Button(onClick = actions::searchResources) { Text(stringResource(Res.string.ui_apply)) }
                     }
                 }
+                if (showFilters && !compactFilterSheet) {
+                    ResourceFilterFields(
+                        browser = browser,
+                        actions = actions,
+                        compact = false,
+                        onApply = actions::searchResources,
+                    )
+                }
             }
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(stringResource(Res.string.ui_versions), style = MaterialTheme.typography.labelLarge)
-                ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
-                    CompactCheck(channel.label, channel in browser.releaseChannels) {
-                        actions.toggleResourceReleaseChannel(channel)
-                    }
+            if (showFilters && compactFilterSheet) {
+                ModalBottomSheet(
+                    onDismissRequest = { showFilters = false },
+                    sheetState = filterSheetState,
+                ) {
+                    ResourceFilterFields(
+                        browser = browser,
+                        actions = actions,
+                        compact = true,
+                        onApply = {
+                            actions.searchResources()
+                            showFilters = false
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                    )
                 }
             }
         }
         if (!browser.curseForgeAvailable) {
             Text(stringResource(Res.string.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun ResourceFilterFields(
+    browser: ResourceBrowserState,
+    actions: LauncherUiActions,
+    compact: Boolean,
+    onApply: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val gameVersionField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        TextField(
+            value = browser.gameVersionFilter,
+            onValueChange = actions::setResourceGameVersionFilter,
+            label = { Text(stringResource(Res.string.ui_minecraft_version)) },
+            placeholder = { Text(stringResource(Res.string.ui_any_version)) },
+            singleLine = true,
+            modifier = fieldModifier,
+        )
+    }
+    val loaderField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        Selector(
+            label = "Mod loader",
+            value = browser.loaderFilter?.label ?: "Any loader",
+            values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
+            modifier = fieldModifier,
+            onSelect = { label ->
+                actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
+            },
+        )
+    }
+    val categoryField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        TextField(
+            value = browser.categoryFilter,
+            onValueChange = actions::setResourceCategoryFilter,
+            label = { Text(stringResource(Res.string.ui_category)) },
+            placeholder = { Text(stringResource(Res.string.ui_any_category)) },
+            singleLine = true,
+            modifier = fieldModifier,
+        )
+    }
+    val sortField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        Selector(
+            label = "Sort by",
+            value = browser.sort.label,
+            values = ResourceSearchSort.entries.map { it.label },
+            modifier = fieldModifier,
+            onSelect = { label ->
+                ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
+            },
+        )
+    }
+
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (compact) {
+            Text(stringResource(Res.string.ui_filters), style = MaterialTheme.typography.titleLarge)
+            gameVersionField(Modifier.fillMaxWidth())
+            loaderField(Modifier.fillMaxWidth())
+            categoryField(Modifier.fillMaxWidth())
+            sortField(Modifier.fillMaxWidth())
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                gameVersionField(Modifier.weight(1f))
+                loaderField(Modifier.weight(1f))
+                categoryField(Modifier.weight(1f))
+                sortField(Modifier.weight(1f))
+                Button(onClick = onApply) { Text(stringResource(Res.string.ui_apply)) }
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(stringResource(Res.string.ui_versions), style = MaterialTheme.typography.labelLarge)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
+                    FilterChip(
+                        selected = channel in browser.releaseChannels,
+                        onClick = { actions.toggleResourceReleaseChannel(channel) },
+                        label = { Text(channel.label) },
+                    )
+                }
+            }
+        }
+        if (compact) {
+            Button(onClick = onApply, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.ui_apply_filters))
+            }
         }
     }
 }
@@ -2703,29 +2758,31 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
     val pending = state.localFileImport
     val selectedType = pending.selectedType
     val target = pending.targetInstanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = actions::cancelLocalFileImport,
+        maxWidth = 480.dp,
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            when (event.key) {
+                Key.Escape -> {
+                    actions.cancelLocalFileImport()
+                    true
+                }
+                Key.Enter -> {
+                    if (selectedType != null) actions.confirmLocalFileImport()
+                    selectedType != null
+                }
+                else -> false
+            }
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 480.dp,
-            modifier = Modifier.onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                when (event.key) {
-                    Key.Escape -> {
-                        actions.cancelLocalFileImport()
-                        true
-                    }
-                    Key.Enter -> {
-                        if (selectedType != null) actions.confirmLocalFileImport()
-                        selectedType != null
-                    }
-                    else -> false
-                }
-            },
-        ) {
-            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(stringResource(Res.string.ui_import_local_file), style = MaterialTheme.typography.headlineMedium)
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_import_local_file),
+                onClose = actions::cancelLocalFileImport,
+            )
+            Column(Modifier.weight(1f).padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(
                     pending.fileName,
                     maxLines = 2,
@@ -2771,17 +2828,14 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                ) {
-                    TextButton(onClick = actions::cancelLocalFileImport) { Text(stringResource(Res.string.ui_cancel)) }
-                    Button(
-                        onClick = actions::confirmLocalFileImport,
-                        enabled = selectedType != null &&
-                            (selectedType == ResourceType.MODPACK || target?.installationState is InstallationState.Installed),
-                    ) { Text(if (selectedType == ResourceType.MODPACK) "Import modpack" else "Add file") }
-                }
+            }
+            TrestleDialogActions {
+                TextButton(onClick = actions::cancelLocalFileImport) { Text(stringResource(Res.string.ui_cancel)) }
+                Button(
+                    onClick = actions::confirmLocalFileImport,
+                    enabled = selectedType != null &&
+                        (selectedType == ResourceType.MODPACK || target?.installationState is InstallationState.Installed),
+                ) { Text(if (selectedType == ResourceType.MODPACK) "Import modpack" else "Add file") }
             }
         }
     }
@@ -2789,27 +2843,25 @@ private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAct
 
 @Composable
 private fun ShortcutsDialog(onDismiss: () -> Unit) {
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = onDismiss,
+        maxWidth = 480.dp,
+        modifier = Modifier.onPreviewKeyEvent { event ->
+            if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                onDismiss()
+                true
+            } else {
+                false
+            }
+        },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 480.dp,
-            modifier = Modifier.onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
-                    onDismiss()
-                    true
-                } else {
-                    false
-                }
-            },
-        ) {
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_keyboard_shortcuts),
+                onClose = onDismiss,
+            )
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(Res.string.ui_keyboard_shortcuts), style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_close)) }
-                }
                 ShortcutRow("Ctrl/Cmd + N", "New instance")
                 ShortcutRow("Ctrl/Cmd + F", "Search")
                 ShortcutRow("Ctrl/Cmd + 1–4", "Switch section")
@@ -2849,106 +2901,108 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
     var showAlphas by rememberSaveable { mutableStateOf(false) }
     var source by rememberSaveable { mutableStateOf("custom") }
     var remoteUrl by rememberSaveable { mutableStateOf("") }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
+        maxWidth = 760.dp,
+        maxHeight = 820.dp,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeCreate)
+            .testTag(LauncherTestTags.CREATE_DIALOG),
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
             usePlatformDefaultWidth = false,
         ),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 760.dp,
-            maxHeight = 820.dp,
-            modifier = Modifier
-                .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeCreate)
-                .testTag(LauncherTestTags.CREATE_DIALOG),
-        ) {
-            Column {
-                Column(
-                    Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    Text(stringResource(Res.string.ui_new_instance), style = MaterialTheme.typography.headlineMedium)
-                    if (!restrictedRuntime) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        SegmentedButton(
-                            selected = source == "custom",
-                            onClick = { source = "custom" },
-                            shape = SegmentedButtonDefaults.itemShape(0, 3),
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_custom)) }
-                        SegmentedButton(
-                            selected = source == "import",
-                            onClick = { source = "import" },
-                            shape = SegmentedButtonDefaults.itemShape(1, 3),
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_import)) }
-                        SegmentedButton(
-                            selected = false,
-                            onClick = {
-                                actions.closeCreate()
-                                actions.openResourceBrowser(ResourceType.MODPACK)
-                            },
-                            shape = SegmentedButtonDefaults.itemShape(2, 3),
-                            modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_browse_modpacks)) }
-                    }
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_new_instance),
+                onClose = actions::closeCreate,
+                closeEnabled = !form.isSaving,
+            )
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                if (!restrictedRuntime) SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = source == "custom",
+                        onClick = { source = "custom" },
+                        shape = SegmentedButtonDefaults.itemShape(0, 3),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(Res.string.ui_custom)) }
+                    SegmentedButton(
+                        selected = source == "import",
+                        onClick = { source = "import" },
+                        shape = SegmentedButtonDefaults.itemShape(1, 3),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(Res.string.ui_import)) }
+                    SegmentedButton(
+                        selected = false,
+                        onClick = {
+                            actions.closeCreate()
+                            actions.openResourceBrowser(ResourceType.MODPACK)
+                        },
+                        shape = SegmentedButtonDefaults.itemShape(2, 3),
+                        modifier = Modifier.weight(1f),
+                    ) { Text(stringResource(Res.string.ui_browse_modpacks)) }
+                }
+                TextField(
+                    value = form.name,
+                    onValueChange = actions::setCreateName,
+                    label = { Text(stringResource(Res.string.ui_name)) },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(
+                        onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextField(
-                        value = form.name,
-                        onValueChange = actions::setCreateName,
-                        label = { Text(stringResource(Res.string.ui_name)) },
+                        value = form.group,
+                        onValueChange = actions::setCreateGroup,
+                        label = { Text(stringResource(Res.string.ui_group)) },
+                        supportingText = { Text(stringResource(Res.string.ui_optional)) },
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
-                        keyboardActions = KeyboardActions(
-                            onNext = { focusManager.moveFocus(FocusDirection.Next) },
-                        ),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextField(
+                        value = form.iconReference,
+                        onValueChange = actions::setCreateIconReference,
+                        label = { Text(stringResource(Res.string.ui_icon_path_or_url)) },
+                        supportingText = { Text(stringResource(Res.string.ui_optional)) },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                if (source == "import") {
+                    TextField(
+                        value = remoteUrl,
+                        onValueChange = { remoteUrl = it },
+                        label = { Text(stringResource(Res.string.ui_direct_download_or_curseforge_url)) },
+                        placeholder = { Text(stringResource(Res.string.ui_https_or_curseforge)) },
+                        supportingText = {
+                            Text(stringResource(Res.string.ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives))
+                        },
+                        singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        TextField(
-                            value = form.group,
-                            onValueChange = actions::setCreateGroup,
-                            label = { Text(stringResource(Res.string.ui_group)) },
-                            supportingText = { Text(stringResource(Res.string.ui_optional)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextField(
-                            value = form.iconReference,
-                            onValueChange = actions::setCreateIconReference,
-                            label = { Text(stringResource(Res.string.ui_icon_path_or_url)) },
-                            supportingText = { Text(stringResource(Res.string.ui_optional)) },
-                            singleLine = true,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
-                    if (source == "import") {
-                        TextField(
-                            value = remoteUrl,
-                            onValueChange = { remoteUrl = it },
-                            label = { Text(stringResource(Res.string.ui_direct_download_or_curseforge_url)) },
-                            placeholder = { Text(stringResource(Res.string.ui_https_or_curseforge)) },
-                            supportingText = {
-                                Text(stringResource(Res.string.ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives))
-                            },
-                            singleLine = true,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        HorizontalDivider()
-                        Text(stringResource(Res.string.ui_existing_ftb_app_library), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            state.launcherPreferences.ftbAppInstancesPath.ifBlank {
-                                "Set the FTB App instances folder in Settings > Services."
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                        OutlinedButton(
-                            onClick = actions::importFtbAppInstances,
-                            enabled = state.launcherPreferences.ftbAppInstancesPath.isNotBlank() && !form.isSaving,
-                        ) { Text(stringResource(Res.string.ui_import_ftb_app_instances)) }
-                    } else {
+                    HorizontalDivider()
+                    Text(stringResource(Res.string.ui_existing_ftb_app_library), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        state.launcherPreferences.ftbAppInstancesPath.ifBlank {
+                            "Set the FTB App instances folder in Settings > Services."
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    OutlinedButton(
+                        onClick = actions::importFtbAppInstances,
+                        enabled = state.launcherPreferences.ftbAppInstancesPath.isNotBlank() && !form.isSaving,
+                    ) { Text(stringResource(Res.string.ui_import_ftb_app_instances)) }
+                } else {
                     val visibleVersions = state.versions.filter { version ->
                         when (version.type) {
                             "release" -> true
@@ -2995,12 +3049,24 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     }
                     Row(
                         Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        CompactCheck("Snapshots", showSnapshots) { showSnapshots = it }
-                        CompactCheck("Betas", showBetas) { showBetas = it }
-                        CompactCheck("Alphas", showAlphas) { showAlphas = it }
+                        FilterChip(
+                            selected = showSnapshots,
+                            onClick = { showSnapshots = !showSnapshots },
+                            label = { Text("Snapshots") },
+                        )
+                        FilterChip(
+                            selected = showBetas,
+                            onClick = { showBetas = !showBetas },
+                            label = { Text("Betas") },
+                        )
+                        FilterChip(
+                            selected = showAlphas,
+                            onClick = { showAlphas = !showAlphas },
+                            label = { Text("Alphas") },
+                        )
                     }
                     if (loaderChoices.size == 1) {
                         OutlinedTextField(
@@ -3046,32 +3112,27 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         }
                     }
                     if (showAdvanced) ClientDefaultsFields(form, actions, showHeading = false)
-                    }
                 }
-                HorizontalDivider()
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            }
+            TrestleDialogActions {
+                TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
+                Button(
+                    onClick = {
+                        if (source == "import") actions.importRemoteModpack(remoteUrl) else actions.createInstance()
+                    },
+                    enabled = !form.isSaving && if (source == "import") {
+                        remoteUrl.isNotBlank()
+                    } else {
+                        form.name.isNotBlank() && form.versionId.isNotBlank() &&
+                            (form.modLoader == ModLoader.VANILLA || form.loaderVersion != null)
+                    },
                 ) {
-                    TextButton(onClick = actions::closeCreate, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
-                    Button(
-                        onClick = {
-                            if (source == "import") actions.importRemoteModpack(remoteUrl) else actions.createInstance()
-                        },
-                        enabled = if (source == "import") {
-                            remoteUrl.isNotBlank()
-                        } else {
-                            form.name.isNotBlank() && form.versionId.isNotBlank() &&
-                                (form.modLoader == ModLoader.VANILLA || form.loaderVersion != null) && !form.isSaving
-                        },
-                    ) {
-                        if (form.isSaving) {
-                            CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(stringResource(Res.string.ui_creating))
-                        } else {
-                            Text(if (source == "import") "Import modpack" else "Create instance")
-                        }
+                    if (form.isSaving) {
+                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text(stringResource(Res.string.ui_creating))
+                    } else {
+                        Text(if (source == "import") "Import modpack" else "Create instance")
                     }
                 }
             }
@@ -3306,21 +3367,6 @@ private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange
     )
 }
 
-@Composable
-private fun CompactCheck(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier.toggleable(
-            value = checked,
-            role = Role.Checkbox,
-            onValueChange = onCheckedChange,
-        ),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Checkbox(checked = checked, onCheckedChange = null)
-        Text(label)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun Selector(
@@ -3452,9 +3498,17 @@ private fun InstanceWorkspace(
     val configurationScrollState = rememberScrollState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
         if (compact || instance == null) {
-            PageHeader(instance?.displayName ?: stringResource(Res.string.ui_instance)) {
-                TextButton(onClick = onBack) { Text(stringResource(Res.string.ui_back_to_library)) }
-            }
+            PageHeader(
+                title = instance?.displayName ?: stringResource(Res.string.ui_instance),
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            painterResource(Res.drawable.ic_arrow_back),
+                            contentDescription = stringResource(Res.string.ui_back_to_library),
+                        )
+                    }
+                },
+            )
         } else {
             InstanceWorkspaceHeader(state, instance, actions, onBack)
         }
@@ -4542,7 +4596,7 @@ private fun ResourceCatalogPage(
         }
     }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
-        PageHeader(stringResource(Res.string.ui_discover)) {}
+        PageHeader(stringResource(Res.string.ui_discover))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (
             state.resourceBrowser.visible &&
@@ -4648,9 +4702,17 @@ private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS)) {
-        PageHeader(stringResource(Res.string.ui_accounts)) {
-            Button(onClick = actions::openAccountLogin) { Text(stringResource(Res.string.ui_add_account)) }
-        }
+        PageHeader(
+            title = stringResource(Res.string.ui_accounts),
+            actions = {
+                IconButton(onClick = actions::openAccountLogin) {
+                    Icon(
+                        painterResource(Res.drawable.ic_add),
+                        contentDescription = stringResource(Res.string.ui_add_account),
+                    )
+                }
+            },
+        )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (state.accounts.isEmpty()) {
             Column(
@@ -4699,11 +4761,12 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
                 TextButton(onClick = { pendingRemoval = null }) { Text(stringResource(Res.string.ui_cancel)) }
             },
             confirmButton = {
-                Button(
+                TextButton(
                     onClick = {
                         actions.removeAccount(profileId)
                         pendingRemoval = null
                     },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text(stringResource(Res.string.ui_forget_account_2)) }
             },
         )
@@ -4719,6 +4782,7 @@ private fun AccountRow(
 ) {
     val copyText = rememberCopyText()
     val profileId = account.profile.profileId
+    var menuExpanded by rememberSaveable(profileId) { mutableStateOf(false) }
     val canManageOfficialProfile =
         account.isActive &&
             account.isAuthenticated &&
@@ -4795,12 +4859,17 @@ private fun AccountRow(
                                 ) { Text(stringResource(Res.string.ui_use)) }
                             }
                             if (canManageOfficialProfile) {
-                                TextButton(onClick = actions::openSkinStudio) { Text(stringResource(Res.string.ui_skins)) }
+                                OutlinedButton(onClick = actions::openSkinStudio) {
+                                    Text(stringResource(Res.string.ui_skins))
+                                }
                             }
-                            if (account.isAuthenticated) {
-                                TextButton(onClick = { actions.signOutAccount(profileId) }) { Text(stringResource(Res.string.ui_sign_out)) }
-                            }
-                            TextButton(onClick = onForget) { Text(stringResource(Res.string.ui_forget)) }
+                            AccountOverflowMenu(
+                                account = account,
+                                expanded = menuExpanded,
+                                onExpandedChange = { menuExpanded = it },
+                                actions = actions,
+                                onForget = onForget,
+                            )
                         }
                     }
                 } else {
@@ -4839,13 +4908,78 @@ private fun AccountRow(
                                 Text(stringResource(Res.string.ui_manage_skins))
                             }
                         }
-                        if (account.isAuthenticated) {
-                            TextButton(onClick = { actions.signOutAccount(profileId) }) { Text(stringResource(Res.string.ui_sign_out)) }
-                        }
-                        TextButton(onClick = onForget) { Text(stringResource(Res.string.ui_forget)) }
+                        AccountOverflowMenu(
+                            account = account,
+                            expanded = menuExpanded,
+                            onExpandedChange = { menuExpanded = it },
+                            actions = actions,
+                            onForget = onForget,
+                        )
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun AccountOverflowMenu(
+    account: ManagedAccount,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    actions: LauncherUiActions,
+    onForget: () -> Unit,
+) {
+    val profileId = account.profile.profileId
+    Box {
+        IconButton(onClick = { onExpandedChange(true) }) {
+            Icon(
+                painterResource(Res.drawable.ic_more_vert),
+                contentDescription = stringResource(Res.string.ui_more),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { onExpandedChange(false) },
+        ) {
+            if (
+                account.isActive &&
+                account.isAuthenticated &&
+                account.profile.edition == MinecraftEdition.JAVA &&
+                account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Refresh profile") },
+                    onClick = {
+                        onExpandedChange(false)
+                        actions.refreshActiveAccount()
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Reset skin") },
+                    onClick = {
+                        onExpandedChange(false)
+                        actions.resetActiveSkin()
+                    },
+                )
+                HorizontalDivider()
+            }
+            if (account.isAuthenticated) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.ui_sign_out)) },
+                    onClick = {
+                        onExpandedChange(false)
+                        actions.signOutAccount(profileId)
+                    },
+                )
+            }
+            DropdownMenuItem(
+                text = { Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error) },
+                onClick = {
+                    onExpandedChange(false)
+                    onForget()
+                },
+            )
         }
     }
 }
@@ -4855,74 +4989,66 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
     val account = state.accounts.firstOrNull { it.isActive }
     val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
     var confirmDelete by remember { mutableStateOf(false) }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = actions::closeSkinStudio,
+        maxWidth = 1040.dp,
+        widthFraction = 0.92f,
+        heightFraction = 0.9f,
+        minHeight = 540.dp,
+        modifier = Modifier
+            .dismissOnEscape(onDismiss = actions::closeSkinStudio)
+            .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 1040.dp,
-            widthFraction = 0.92f,
-            heightFraction = 0.9f,
-            minHeight = 540.dp,
-            modifier = Modifier
-                .dismissOnEscape(onDismiss = actions::closeSkinStudio)
-                .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
-        ) {
-            Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().height(68.dp).padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(stringResource(Res.string.ui_skins), style = MaterialTheme.typography.headlineMedium)
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = actions::closeSkinStudio) { Text(stringResource(Res.string.ui_close)) }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                BoxWithConstraints(Modifier.fillMaxSize()) {
-                    if (maxWidth >= 720.dp) {
-                        Row(Modifier.fillMaxSize()) {
-                            CurrentSkinPanel(
-                                playerName = account?.profile?.playerName.orEmpty(),
-                                texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
-                                variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                                onSave = actions::saveCurrentSkinToLibrary,
-                                onReset = actions::resetActiveSkin,
-                                modifier = Modifier.width(310.dp).fillMaxHeight(),
-                            )
-                            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            SkinLibraryPanel(
-                                skins = state.savedSkins,
-                                selected = selected,
-                                onSelect = actions::selectSavedSkin,
-                                onNew = actions::openNewSkin,
-                                onUse = actions::useSelectedSkin,
-                                onEdit = actions::editSelectedSkin,
-                                onDelete = { confirmDelete = true },
-                                modifier = Modifier.weight(1f).fillMaxHeight(),
-                            )
-                        }
-                    } else {
-                        Column(Modifier.fillMaxSize()) {
-                            CurrentSkinPanel(
-                                playerName = account?.profile?.playerName.orEmpty(),
-                                texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
-                                variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                                onSave = actions::saveCurrentSkinToLibrary,
-                                onReset = actions::resetActiveSkin,
-                                modifier = Modifier.fillMaxWidth().height(250.dp),
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            SkinLibraryPanel(
-                                skins = state.savedSkins,
-                                selected = selected,
-                                onSelect = actions::selectSavedSkin,
-                                onNew = actions::openNewSkin,
-                                onUse = actions::useSelectedSkin,
-                                onEdit = actions::editSelectedSkin,
-                                onDelete = { confirmDelete = true },
-                                modifier = Modifier.fillMaxWidth().weight(1f),
-                            )
-                        }
+        Column(Modifier.fillMaxSize()) {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_skins),
+                onClose = actions::closeSkinStudio,
+            )
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                if (maxWidth >= 720.dp) {
+                    Row(Modifier.fillMaxSize()) {
+                        CurrentSkinPanel(
+                            playerName = account?.profile?.playerName.orEmpty(),
+                            texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                            variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                            onSave = actions::saveCurrentSkinToLibrary,
+                            onReset = actions::resetActiveSkin,
+                            modifier = Modifier.width(310.dp).fillMaxHeight(),
+                        )
+                        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        SkinLibraryPanel(
+                            skins = state.savedSkins,
+                            selected = selected,
+                            onSelect = actions::selectSavedSkin,
+                            onNew = actions::openNewSkin,
+                            onUse = actions::useSelectedSkin,
+                            onEdit = actions::editSelectedSkin,
+                            onDelete = { confirmDelete = true },
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
+                        )
+                    }
+                } else {
+                    Column(Modifier.fillMaxSize()) {
+                        CurrentSkinPanel(
+                            playerName = account?.profile?.playerName.orEmpty(),
+                            texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                            variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                            onSave = actions::saveCurrentSkinToLibrary,
+                            onReset = actions::resetActiveSkin,
+                            modifier = Modifier.fillMaxWidth().height(250.dp),
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                        SkinLibraryPanel(
+                            skins = state.savedSkins,
+                            selected = selected,
+                            onSelect = actions::selectSavedSkin,
+                            onNew = actions::openNewSkin,
+                            onUse = actions::useSelectedSkin,
+                            onEdit = actions::editSelectedSkin,
+                            onDelete = { confirmDelete = true },
+                            modifier = Modifier.fillMaxWidth().weight(1f),
+                        )
                     }
                 }
             }
@@ -5144,42 +5270,33 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
             }
         }
     }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = actions::closeSkinEditor,
+        maxWidth = 820.dp,
+        widthFraction = 0.88f,
+        minHeight = 500.dp,
+        maxHeight = 650.dp,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !editor.isSaving, onDismiss = actions::closeSkinEditor)
+            .localFileDropTarget(
+                enabled = !editor.isSaving && currentPlatform == "Desktop",
+                extensions = setOf("png"),
+                onActiveChange = { dropActive = it },
+                onFiles = { files ->
+                    files.firstOrNull()?.let { actions.setSkinFile(it.name, it.bytes) }
+                },
+                onFailure = { actions.reportSkinFileReadFailure() },
+            )
+            .testTag(LauncherTestTags.SKIN_EDITOR_DIALOG),
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 820.dp,
-            widthFraction = 0.88f,
-            minHeight = 500.dp,
-            maxHeight = 650.dp,
-            modifier = Modifier
-                .dismissOnEscape(enabled = !editor.isSaving, onDismiss = actions::closeSkinEditor)
-                .localFileDropTarget(
-                    enabled = !editor.isSaving && currentPlatform == "Desktop",
-                    extensions = setOf("png"),
-                    onActiveChange = { dropActive = it },
-                    onFiles = { files ->
-                        files.firstOrNull()?.let { actions.setSkinFile(it.name, it.bytes) }
-                    },
-                    onFailure = { actions.reportSkinFileReadFailure() },
-                )
-                .testTag(LauncherTestTags.SKIN_EDITOR_DIALOG),
-        ) {
-            Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
-                Row(
-                    Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 24.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        if (editor.profileId == null) "Add new skin" else "Edit skin",
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text(stringResource(Res.string.ui_close)) }
-                }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                TrestleDialogHeader(
+                    title = if (editor.profileId == null) "Add new skin" else "Edit skin",
+                    onClose = actions::closeSkinEditor,
+                    closeEnabled = !editor.isSaving,
+                )
                 BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
                     val compact = maxWidth < 650.dp
                     if (compact) {
@@ -5201,11 +5318,7 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                         }
                     }
                 }
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                ) {
+                TrestleDialogActions {
                     TextButton(onClick = actions::closeSkinEditor, enabled = !editor.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
                     OutlinedButton(
                         onClick = { actions.saveSkin(useAfterSave = false) },
@@ -5218,7 +5331,6 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                 }
             }
             if (dropActive) DropOverlay("Drop PNG to use this skin")
-            }
         }
     }
 }
@@ -5309,26 +5421,29 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
     val uriHandler = LocalUriHandler.current
     var passwordVisible by remember(form.method) { mutableStateOf(false) }
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = { if (!form.isWaiting) actions.closeAccountLogin() },
+        maxWidth = 520.dp,
+        maxHeight = 720.dp,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !form.isWaiting, onDismiss = actions::closeAccountLogin)
+            .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
         properties = DialogProperties(
             dismissOnBackPress = false,
             dismissOnClickOutside = false,
             usePlatformDefaultWidth = false,
         ),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 520.dp,
-            maxHeight = 720.dp,
-            modifier = Modifier
-                .dismissOnEscape(enabled = !form.isWaiting, onDismiss = actions::closeAccountLogin)
-                .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
-        ) {
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_add_account),
+                onClose = actions::closeAccountLogin,
+                closeEnabled = !form.isWaiting,
+            )
             Column(
-                Modifier.padding(24.dp).verticalScroll(rememberScrollState()),
+                Modifier.weight(1f).padding(24.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(stringResource(Res.string.ui_add_account), style = MaterialTheme.typography.headlineMedium)
                 Text(
                     "Choose how Trestle should create or verify this account.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -5492,30 +5607,30 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         }
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = actions::closeAccountLogin) { Text(stringResource(Res.string.ui_cancel)) }
-                    if (form.authorization == null) {
-                        Button(
-                            onClick = actions::signInAccount,
-                            enabled = !form.isWaiting && form.canSubmit,
-                        ) {
-                            Text(
-                                if (form.isWaiting) {
-                                    "Waiting…"
-                                } else {
-                                    when (form.method) {
-                                        AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
-                                        AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
-                                        -> "Get sign-in code"
-                                        AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
-                                        AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
-                                        -> "Sign in"
-                                        AccountAuthenticationMethod.OFFLINE -> "Add offline account"
-                                        else -> "Import account"
-                                    }
-                                },
-                            )
-                        }
+            }
+            TrestleDialogActions {
+                TextButton(onClick = actions::closeAccountLogin) { Text(stringResource(Res.string.ui_cancel)) }
+                if (form.authorization == null) {
+                    Button(
+                        onClick = actions::signInAccount,
+                        enabled = !form.isWaiting && form.canSubmit,
+                    ) {
+                        Text(
+                            if (form.isWaiting) {
+                                "Waiting…"
+                            } else {
+                                when (form.method) {
+                                    AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+                                    AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
+                                    -> "Get sign-in code"
+                                    AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
+                                    AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
+                                    -> "Sign in"
+                                    AccountAuthenticationMethod.OFFLINE -> "Add offline account"
+                                    else -> "Import account"
+                                }
+                            },
+                        )
                     }
                 }
             }
@@ -5567,125 +5682,6 @@ private val AccountLoginState.canSubmit: Boolean
     }
 
 @Composable
-private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
-    var sectionName by rememberSaveable { mutableStateOf(SettingsSection.GENERAL.name) }
-    val section = SettingsSection.entries.firstOrNull { it.name == sectionName } ?: SettingsSection.GENERAL
-    val runtimeScrollState = rememberScrollState()
-    val logListState = rememberLazyListState()
-    Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
-        PageHeader(stringResource(Res.string.ui_settings)) {}
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth < 640.dp) {
-                Column(Modifier.fillMaxSize()) {
-                    PrimaryScrollableTabRow(selectedTabIndex = section.ordinal, edgePadding = 0.dp) {
-                        SettingsSection.entries.forEach { item ->
-                            Tab(
-                                selected = section == item,
-                                onClick = { sectionName = item.name },
-                                text = { Text(stringResource(item.label)) },
-                            )
-                        }
-                    }
-                    SettingsSectionContent(
-                        section,
-                        state,
-                        actions,
-                        runtimeScrollState,
-                        logListState,
-                        Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Row(Modifier.fillMaxSize()) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.width(210.dp).fillMaxHeight(),
-                    ) {
-                        Column(Modifier.padding(12.dp)) {
-                            SettingsSection.entries.forEach { item ->
-                                SettingsSectionButton(item, selected = section == item, modifier = Modifier.fillMaxWidth()) {
-                                    sectionName = item.name
-                                }
-                            }
-                            Spacer(Modifier.weight(1f))
-                            Text(
-                                "$currentPlatform build ${BuildInfo.VERSION}",
-                                modifier = Modifier.padding(12.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.labelMedium,
-                            )
-                        }
-                    }
-                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    SettingsSectionContent(
-                        section,
-                        state,
-                        actions,
-                        runtimeScrollState,
-                        logListState,
-                        Modifier.weight(1f),
-                    )
-                }
-            }
-        }
-    }
-}
-
-private enum class SettingsSection(val label: StringResource) {
-    GENERAL(Res.string.ui_general),
-    LANGUAGE(Res.string.ui_language),
-    APPEARANCE(Res.string.ui_appearance),
-    FOLDERS(Res.string.ui_folders),
-    CONTENT(Res.string.ui_content),
-    NETWORK(Res.string.ui_network),
-    PROXY(Res.string.ui_proxy),
-    RUNTIME(Res.string.ui_runtime),
-    LOGS(Res.string.ui_launcher_log),
-    SERVICES(Res.string.ui_services),
-    TOOLS(Res.string.ui_tools),
-}
-
-@Composable
-private fun SettingsSectionButton(
-    section: SettingsSection,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    NavigationDrawerItem(
-        label = { Text(stringResource(section.label)) },
-        selected = selected,
-        onClick = onClick,
-        modifier = modifier,
-    )
-}
-
-@Composable
-private fun SettingsSectionContent(
-    section: SettingsSection,
-    state: LauncherUiState,
-    actions: LauncherUiActions,
-    runtimeScrollState: ScrollState,
-    logListState: LazyListState,
-    modifier: Modifier,
-) {
-    when (section) {
-        SettingsSection.GENERAL -> GeneralSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.LANGUAGE -> LanguageSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.APPEARANCE -> AppearanceSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.FOLDERS -> FolderSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.CONTENT -> ContentSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.NETWORK -> NetworkSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.PROXY -> ProxySettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.RUNTIME -> RuntimeSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.LOGS -> LauncherLog(state, actions, logListState, modifier)
-        SettingsSection.SERVICES -> ServiceSettings(state, actions, runtimeScrollState, modifier)
-        SettingsSection.TOOLS -> ToolSettings(state, actions, runtimeScrollState, modifier)
-    }
-}
-
-@Composable
 private fun SettingsColumn(
     title: StringResource,
     scrollState: ScrollState,
@@ -5702,7 +5698,7 @@ private fun SettingsColumn(
 }
 
 @Composable
-private fun GeneralSettings(
+internal fun GeneralSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5726,7 +5722,7 @@ private fun GeneralSettings(
 }
 
 @Composable
-private fun LanguageSettings(
+internal fun LanguageSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5747,7 +5743,7 @@ private fun LanguageSettings(
 }
 
 @Composable
-private fun FolderSettings(
+internal fun FolderSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5784,7 +5780,7 @@ private fun FolderPreferenceField(label: String, value: String, defaultValue: St
 }
 
 @Composable
-private fun ContentSettings(
+internal fun ContentSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5823,7 +5819,7 @@ private fun SettingsSwitch(label: String, checked: Boolean, onCheckedChange: (Bo
 }
 
 @Composable
-private fun NetworkSettings(
+internal fun NetworkSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5861,7 +5857,7 @@ private fun NetworkSettings(
 }
 
 @Composable
-private fun ProxySettings(
+internal fun ProxySettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5926,7 +5922,7 @@ private fun ProxySettings(
 }
 
 @Composable
-private fun ServiceSettings(
+internal fun ServiceSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5965,7 +5961,7 @@ private fun ServiceSettings(
 }
 
 @Composable
-private fun ToolSettings(
+internal fun ToolSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -5984,7 +5980,7 @@ private fun ToolSettings(
 }
 
 @Composable
-private fun AppearanceSettings(
+internal fun AppearanceSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -6018,7 +6014,7 @@ private fun AppearanceSettings(
 }
 
 @Composable
-private fun RuntimeSettings(
+internal fun RuntimeSettings(
     state: LauncherUiState,
     actions: LauncherUiActions,
     scrollState: ScrollState,
@@ -6074,7 +6070,7 @@ private fun RuntimeSettings(
 }
 
 @Composable
-private fun LauncherLog(
+internal fun LauncherLog(
     state: LauncherUiState,
     actions: LauncherUiActions,
     listState: LazyListState,
@@ -6265,22 +6261,6 @@ private fun PropertyRow(
         modifier = Modifier.fillMaxWidth(),
     )
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-}
-
-@Composable
-private fun PageHeader(title: String, action: @Composable () -> Unit) {
-    TopAppBar(
-        title = {
-            Text(
-                title,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.headlineMedium,
-            )
-        },
-        actions = { action() },
-        windowInsets = WindowInsets(0, 0, 0, 0),
-    )
 }
 
 @Composable

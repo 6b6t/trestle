@@ -49,4 +49,30 @@ class TrestleThemeTest {
         assertEquals(supplied.onSurface, contrasted.outline)
         assertTrue(contrastRatio(contrasted.outlineVariant, contrasted.surface) >= 3f)
     }
+
+    @Test
+    fun `brand schemes define the complete fixed and surface color roles`() {
+        val dark = trestleColorScheme(darkTheme = true)
+        val light = trestleColorScheme(darkTheme = false)
+
+        assertEquals(dark.primary, dark.surfaceTint)
+        assertEquals(light.primary, light.surfaceTint)
+        assertEquals(light.primaryFixed, dark.primaryFixed)
+        assertEquals(light.primaryFixedDim, dark.primaryFixedDim)
+        assertEquals(light.secondaryFixed, dark.secondaryFixed)
+        assertEquals(light.tertiaryFixed, dark.tertiaryFixed)
+        assertTrue(contrastRatio(dark.onPrimaryFixed, dark.primaryFixed) >= 4.5f)
+        assertTrue(contrastRatio(dark.onSecondaryFixed, dark.secondaryFixed) >= 4.5f)
+    }
+
+    @Test
+    fun `system accent updates fixed roles without reducing content contrast`() {
+        val base = trestleColorScheme()
+        val accented = trestleColorScheme(Color(0xFF2B6E45))
+
+        assertTrue(accented.primaryFixed != base.primaryFixed)
+        assertEquals(accented.primary, accented.surfaceTint)
+        assertTrue(contrastRatio(accented.onPrimaryFixed, accented.primaryFixed) >= 4.5f)
+        assertTrue(contrastRatio(accented.onPrimaryFixedVariant, accented.primaryFixedDim) >= 4.5f)
+    }
 }

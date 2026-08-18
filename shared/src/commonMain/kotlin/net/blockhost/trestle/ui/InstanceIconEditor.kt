@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -234,120 +233,115 @@ internal fun InstanceIconEditorDialog(
         selectedReference.isBlank() -> "Automatic"
         else -> builtInInstanceIcons.firstOrNull { it.reference == selectedReference }?.label ?: "Current image"
     }
-    BasicAlertDialog(
+    TrestleDialog(
         onDismissRequest = onDismiss,
+        maxWidth = 560.dp,
+        maxHeight = 720.dp,
+        widthFraction = 0.9f,
+        modifier = Modifier.testTag(LauncherTestTags.INSTANCE_ICON_DIALOG),
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        TrestleDialogSurface(
-            maxWidth = 560.dp,
-            maxHeight = 720.dp,
-            widthFraction = 0.9f,
-            modifier = Modifier
-                .testTag(LauncherTestTags.INSTANCE_ICON_DIALOG),
-        ) {
-            Column {
-                Column(
-                    modifier = Modifier.weight(1f).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+        Column {
+            TrestleDialogHeader(
+                title = stringResource(Res.string.ui_edit_instance_image),
+                onClose = onDismiss,
+            )
+            Column(
+                modifier = Modifier.weight(1f).padding(24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Text(stringResource(Res.string.ui_edit_instance_image), style = MaterialTheme.typography.headlineSmall)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        InstanceIconArtwork(
-                            instance = instance,
-                            size = 76.dp,
-                            reference = selectedReference,
-                            pendingIcon = selectedPendingIcon,
+                    InstanceIconArtwork(
+                        instance = instance,
+                        size = 76.dp,
+                        reference = selectedReference,
+                        pendingIcon = selectedPendingIcon,
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            selectionLabel,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
                         )
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(
-                                selectionLabel,
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            Text(
-                                "Changes are saved with the instance settings.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
+                        Text(
+                            "Changes are saved with the instance settings.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                }
+                Text(stringResource(Res.string.ui_built_in_logos), style = MaterialTheme.typography.titleMedium)
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(92.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
+                    contentPadding = PaddingValues(1.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    item(key = "automatic") {
+                        InstanceIconChoice(
+                            label = "Automatic",
+                            selected = selectedPendingIcon == null && selectedReference.isBlank(),
+                            testTag = LauncherTestTags.instanceIconOption("automatic"),
+                            onClick = {
+                                selectedReference = ""
+                                selectedPendingIcon = null
+                                fileError = null
+                            },
+                        ) {
+                            InstanceIconArtwork(instance = instance, size = 64.dp, reference = null)
+                        }
+                    }
+                    items(builtInInstanceIcons, key = { it.id }) { icon ->
+                        InstanceIconChoice(
+                            label = icon.label,
+                            selected = selectedPendingIcon == null && selectedReference == icon.reference,
+                            testTag = LauncherTestTags.instanceIconOption(icon.id),
+                            onClick = {
+                                selectedReference = icon.reference
+                                selectedPendingIcon = null
+                                fileError = null
+                            },
+                        ) {
+                            Image(
+                                painter = painterResource(icon.resource),
+                                contentDescription = null,
+                                modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.small),
+                                contentScale = ContentScale.Crop,
                             )
                         }
                     }
-                    Text(stringResource(Res.string.ui_built_in_logos), style = MaterialTheme.typography.titleMedium)
-                    LazyVerticalGrid(
-                        columns = GridCells.Adaptive(92.dp),
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 330.dp),
-                        contentPadding = PaddingValues(1.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        item(key = "automatic") {
-                            InstanceIconChoice(
-                                label = "Automatic",
-                                selected = selectedPendingIcon == null && selectedReference.isBlank(),
-                                testTag = LauncherTestTags.instanceIconOption("automatic"),
-                                onClick = {
-                                    selectedReference = ""
-                                    selectedPendingIcon = null
-                                    fileError = null
-                                },
-                            ) {
-                                InstanceIconArtwork(instance = instance, size = 64.dp, reference = null)
-                            }
-                        }
-                        items(builtInInstanceIcons, key = { it.id }) { icon ->
-                            InstanceIconChoice(
-                                label = icon.label,
-                                selected = selectedPendingIcon == null && selectedReference == icon.reference,
-                                testTag = LauncherTestTags.instanceIconOption(icon.id),
-                                onClick = {
-                                    selectedReference = icon.reference
-                                    selectedPendingIcon = null
-                                    fileError = null
-                                },
-                            ) {
-                                Image(
-                                    painter = painterResource(icon.resource),
-                                    contentDescription = null,
-                                    modifier = Modifier.size(64.dp).clip(MaterialTheme.shapes.small),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            }
-                        }
-                    }
-                    HorizontalDivider()
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(stringResource(Res.string.ui_custom_image), style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                "PNG, JPEG, or WebP up to 5 MB.",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall,
-                            )
-                        }
-                        OutlinedButton(
-                            onClick = { picker.launch() },
-                            modifier = Modifier.testTag(LauncherTestTags.INSTANCE_ICON_UPLOAD),
-                        ) { Text(stringResource(Res.string.ui_choose_image)) }
-                    }
-                    fileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
                 HorizontalDivider()
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_cancel)) }
-                    Button(
-                        onClick = { onSave(selectedReference, selectedPendingIcon) },
-                    ) { Text(stringResource(Res.string.ui_done)) }
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(stringResource(Res.string.ui_custom_image), style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "PNG, JPEG, or WebP up to 5 MB.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                    }
+                    OutlinedButton(
+                        onClick = { picker.launch() },
+                        modifier = Modifier.testTag(LauncherTestTags.INSTANCE_ICON_UPLOAD),
+                    ) { Text(stringResource(Res.string.ui_choose_image)) }
                 }
+                fileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+            TrestleDialogActions {
+                TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_cancel)) }
+                Button(
+                    onClick = { onSave(selectedReference, selectedPendingIcon) },
+                ) { Text(stringResource(Res.string.ui_done)) }
             }
         }
     }

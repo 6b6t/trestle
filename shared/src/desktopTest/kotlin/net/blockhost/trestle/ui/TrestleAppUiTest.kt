@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -202,7 +203,68 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.ACCOUNTS).assertIsDisplayed()
-        onNodeWithText("Add account").assertIsDisplayed().assertHasClickAction()
+        onNodeWithContentDescription("Add account").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun compactSettingsUsesCategoryAndDetailNavigation() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.SETTINGS_CATEGORIES).assertIsDisplayed()
+        onNodeWithText("General").performClick()
+        waitForIdle()
+
+        onNodeWithTag(LauncherTestTags.SETTINGS_DETAIL).assertIsDisplayed()
+        onNodeWithText("Instance sorting").assertIsDisplayed()
+        onNodeWithContentDescription("Back").assertIsDisplayed().performClick()
+        waitForIdle()
+
+        onNodeWithTag(LauncherTestTags.SETTINGS_CATEGORIES).assertIsDisplayed()
+    }
+
+    @Test
+    fun wideSettingsKeepsCategoriesAndSelectedDetailVisible() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+        waitForIdle()
+
+        onNodeWithTag(LauncherTestTags.SETTINGS_CATEGORIES).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.SETTINGS_DETAIL).assertIsDisplayed()
+        onNodeWithText("Instance sorting").assertIsDisplayed()
+    }
+
+    @Test
+    fun compactDiscoverOpensFiltersInAMaterialSheet() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.discover,
+                    actions = NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.RESOURCE_FILTERS).performClick()
+        onNodeWithText("Apply filters").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test

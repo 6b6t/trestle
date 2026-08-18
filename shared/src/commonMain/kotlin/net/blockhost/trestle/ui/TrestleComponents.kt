@@ -1,10 +1,14 @@
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -12,7 +16,10 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
@@ -22,22 +29,27 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.DialogProperties
 import androidx.window.core.layout.WindowSizeClass
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_close
 import net.blockhost.trestle.resources.ic_search
 import net.blockhost.trestle.resources.ui_clear_search
+import net.blockhost.trestle.resources.ui_close
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -111,6 +123,82 @@ internal fun TrestleDialogSurface(
         shape = if (compact) RectangleShape else MaterialTheme.shapes.large,
         modifier = sizeModifier.then(modifier),
         content = content,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TrestleDialog(
+    onDismissRequest: () -> Unit,
+    maxWidth: Dp,
+    modifier: Modifier = Modifier,
+    properties: DialogProperties = DialogProperties(usePlatformDefaultWidth = false),
+    widthFraction: Float = 1f,
+    heightFraction: Float? = null,
+    minHeight: Dp? = null,
+    maxHeight: Dp? = null,
+    content: @Composable () -> Unit,
+) {
+    BasicAlertDialog(
+        onDismissRequest = onDismissRequest,
+        properties = properties,
+    ) {
+        TrestleDialogSurface(
+            maxWidth = maxWidth,
+            modifier = modifier,
+            widthFraction = widthFraction,
+            heightFraction = heightFraction,
+            minHeight = minHeight,
+            maxHeight = maxHeight,
+            content = content,
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun TrestleDialogHeader(
+    title: String,
+    onClose: () -> Unit,
+    closeEnabled: Boolean = true,
+) {
+    TopAppBar(
+        title = { Text(title) },
+        actions = {
+            IconButton(onClick = onClose, enabled = closeEnabled) {
+                Icon(
+                    painterResource(Res.drawable.ic_close),
+                    contentDescription = stringResource(Res.string.ui_close),
+                )
+            }
+        },
+        windowInsets = WindowInsets(0, 0, 0, 0),
+    )
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+}
+
+@Composable
+internal fun TrestleDialogActions(content: @Composable RowScope.() -> Unit) {
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+        content = content,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun PageHeader(
+    title: String,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+) {
+    TopAppBar(
+        title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        navigationIcon = navigationIcon,
+        actions = actions,
+        windowInsets = WindowInsets(0, 0, 0, 0),
     )
 }
 

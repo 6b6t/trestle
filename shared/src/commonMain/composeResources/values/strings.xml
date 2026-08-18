@@ -13,6 +13,8 @@
     <string name="ui_appearance">Appearance</string>
     <string name="ui_apply">Apply</string>
     <string name="ui_apply_filters">Apply filters</string>
+    <string name="ui_back">Back</string>
+    <string name="ui_filters">Filters</string>
     <string name="ui_apply_these_defaults">Apply these defaults</string>
     <string name="ui_atlauncher">ATLauncher</string>
     <string name="ui_audio">Audio</string>

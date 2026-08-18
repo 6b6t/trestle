@@ -33,6 +33,14 @@ private val Muted = Color(0xFFA9A49A)
 private val Rule = Color(0xFF3A3833)
 private val ErrorSurface = Color(0xFF3A2520)
 private val ErrorText = Color(0xFFF0AA94)
+private val PrimaryFixed = Color(0xFFF4D9A4)
+private val PrimaryFixedDim = Color(0xFFE2BD75)
+private val OnPrimaryFixed = Color(0xFF2B200D)
+private val OnPrimaryFixedVariant = Color(0xFF55401F)
+private val SecondaryFixed = Color(0xFFE7E1D6)
+private val SecondaryFixedDim = Color(0xFFA9A49A)
+private val OnSecondaryFixed = Color(0xFF211F1B)
+private val OnSecondaryFixedVariant = Color(0xFF49453E)
 private val TrestleDarkColors = darkColorScheme(
     primary = Ochre,
     onPrimary = Color(0xFF211B12),
@@ -44,12 +52,17 @@ private val TrestleDarkColors = darkColorScheme(
     onSecondaryContainer = Chalk,
     tertiary = Ochre,
     onTertiary = Color(0xFF211B12),
+    tertiaryContainer = Color(0xFF55401F),
+    onTertiaryContainer = Color(0xFFF4D9A4),
     background = Soot,
     onBackground = Chalk,
     surface = Surface,
     onSurface = Chalk,
     surfaceVariant = RaisedSurface,
     onSurfaceVariant = Muted,
+    surfaceTint = Ochre,
+    surfaceBright = Color(0xFF35332D),
+    surfaceDim = Soot,
     surfaceContainerLowest = Soot,
     surfaceContainerLow = Surface,
     surfaceContainer = Surface,
@@ -65,6 +78,18 @@ private val TrestleDarkColors = darkColorScheme(
     inverseOnSurface = Soot,
     inversePrimary = Color(0xFF765A2D),
     scrim = Color.Black,
+    primaryFixed = PrimaryFixed,
+    primaryFixedDim = PrimaryFixedDim,
+    onPrimaryFixed = OnPrimaryFixed,
+    onPrimaryFixedVariant = OnPrimaryFixedVariant,
+    secondaryFixed = SecondaryFixed,
+    secondaryFixedDim = SecondaryFixedDim,
+    onSecondaryFixed = OnSecondaryFixed,
+    onSecondaryFixedVariant = OnSecondaryFixedVariant,
+    tertiaryFixed = PrimaryFixed,
+    tertiaryFixedDim = PrimaryFixedDim,
+    onTertiaryFixed = OnPrimaryFixed,
+    onTertiaryFixedVariant = OnPrimaryFixedVariant,
 )
 
 private val TrestleLightColors = lightColorScheme(
@@ -78,12 +103,17 @@ private val TrestleLightColors = lightColorScheme(
     onSecondaryContainer = Color(0xFF211F1B),
     tertiary = Color(0xFF765A2D),
     onTertiary = Color.White,
+    tertiaryContainer = Color(0xFFF4D9A4),
+    onTertiaryContainer = Color(0xFF2B200D),
     background = Color(0xFFF8F5ED),
     onBackground = Color(0xFF24221E),
     surface = Color(0xFFFFFCF5),
     onSurface = Color(0xFF24221E),
     surfaceVariant = Color(0xFFEDE8DE),
     onSurfaceVariant = Color(0xFF625E56),
+    surfaceTint = Color(0xFF765A2D),
+    surfaceBright = Color(0xFFFFFCF5),
+    surfaceDim = Color(0xFFE4E0D7),
     surfaceContainerLowest = Color(0xFFFFFCF5),
     surfaceContainerLow = Color(0xFFF5F1E8),
     surfaceContainer = Color(0xFFF0ECE3),
@@ -99,6 +129,18 @@ private val TrestleLightColors = lightColorScheme(
     inverseOnSurface = Color(0xFFF5F1E8),
     inversePrimary = Color(0xFFE2BD75),
     scrim = Color.Black,
+    primaryFixed = PrimaryFixed,
+    primaryFixedDim = PrimaryFixedDim,
+    onPrimaryFixed = OnPrimaryFixed,
+    onPrimaryFixedVariant = OnPrimaryFixedVariant,
+    secondaryFixed = SecondaryFixed,
+    secondaryFixedDim = SecondaryFixedDim,
+    onSecondaryFixed = OnSecondaryFixed,
+    onSecondaryFixedVariant = OnSecondaryFixedVariant,
+    tertiaryFixed = PrimaryFixed,
+    tertiaryFixedDim = PrimaryFixedDim,
+    onTertiaryFixed = OnPrimaryFixed,
+    onTertiaryFixedVariant = OnPrimaryFixedVariant,
 )
 
 internal fun trestleColorScheme(
@@ -111,6 +153,8 @@ internal fun trestleColorScheme(
     if (accentColor == null) return contrastedBase
     val primary = primaryAccent(accentColor, contrastedBase.surface, if (darkTheme) Chalk else Soot)
     val primaryContainer = lerp(contrastedBase.surface, primary, if (darkTheme) 0.32f else 0.18f)
+    val fixedDim = primaryAccent(accentColor, Soot, Chalk)
+    val fixed = lerp(Chalk, fixedDim, 0.24f)
     return contrastedBase.copy(
         primary = primary,
         onPrimary = contentColor(primary),
@@ -118,11 +162,22 @@ internal fun trestleColorScheme(
         onPrimaryContainer = contentColor(primaryContainer),
         tertiary = primary,
         onTertiary = contentColor(primary),
+        tertiaryContainer = primaryContainer,
+        onTertiaryContainer = contentColor(primaryContainer),
+        surfaceTint = primary,
         inversePrimary = accessibleAccent(
             accentColor,
             contrastedBase.inverseSurface,
             contrastedBase.inverseOnSurface,
         ),
+        primaryFixed = fixed,
+        primaryFixedDim = fixedDim,
+        onPrimaryFixed = contentColor(fixed),
+        onPrimaryFixedVariant = contentColor(fixedDim),
+        tertiaryFixed = fixed,
+        tertiaryFixedDim = fixedDim,
+        onTertiaryFixed = contentColor(fixed),
+        onTertiaryFixedVariant = contentColor(fixedDim),
     )
 }
 
