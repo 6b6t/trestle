@@ -22,6 +22,41 @@ class ResourceInstaller(
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
 ) {
+    suspend fun installLocal(
+        instance: GameInstance,
+        fileName: String,
+        bytes: ByteArray,
+        type: ResourceType,
+    ) {
+        require(instance.installationState is net.blockhost.trestle.domain.InstallationState.Installed) {
+            "Install the instance before adding local content."
+        }
+        require(type != ResourceType.MODPACK) { "Modpacks create new instances." }
+        require(bytes.isNotEmpty()) { "The selected file is empty." }
+        require(bytes.size <= MAX_LOCAL_RESOURCE_BYTES) { "Local content files must be smaller than 512 MiB." }
+        val safeName = safeFileName(fileName)
+        val extension = safeName.substringAfterLast('.', "").lowercase()
+        require(extension in type.localExtensions()) {
+            "${type.label} files must use ${type.localExtensions().joinToString { ".$it" }}."
+        }
+        val folder = type.installFolder()
+        val destination = instance.instanceDirectory.toPath() / "game" / folder / safeName
+        require(!fileSystem.exists(destination)) {
+            "$safeName already exists in ${instance.displayName}."
+        }
+        try {
+            fileSystem.createDirectories(requireNotNull(destination.parent))
+            val temporary = destination.parent!! / ".${destination.name}.tmp"
+            fileSystem.write(temporary) {
+                write(bytes)
+                flush()
+            }
+            fileSystem.atomicMove(temporary, destination)
+        } catch (error: Exception) {
+            throw LauncherException.FileSystem("$safeName could not be added to the instance.", error)
+        }
+    }
+
     suspend fun install(
         instance: GameInstance,
         project: ResourceProject,
@@ -291,6 +326,7 @@ class ResourceInstaller(
 
     private companion object {
         const val MAX_RESOLVED_RESOURCES = 128
+        const val MAX_LOCAL_RESOURCE_BYTES = 512 * 1024 * 1024
     }
 }
 
@@ -332,6 +368,14 @@ private fun ResourceType.installFolder(): String = when (this) {
     ResourceType.RESOURCE_PACK -> "resourcepacks"
     ResourceType.SHADER_PACK -> "shaderpacks"
     ResourceType.MODPACK -> throw LauncherException.InvalidMetadata("Modpacks create new instances.")
+}
+
+private fun ResourceType.localExtensions(): Set<String> = when (this) {
+    ResourceType.MOD -> setOf("jar")
+    ResourceType.RESOURCE_PACK,
+    ResourceType.SHADER_PACK,
+    -> setOf("zip")
+    ResourceType.MODPACK -> setOf("mrpack", "zip")
 }
 
 private fun resourceKey(provider: ResourceProvider, projectId: String) = "${provider.name}:$projectId"

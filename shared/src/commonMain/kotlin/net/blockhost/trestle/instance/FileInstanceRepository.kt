@@ -68,7 +68,7 @@ class FileInstanceRepository(
                     ),
                 )
             }
-            mutableInstances.value = recoveredInstances.sortedBy { it.displayName.lowercase() }
+            mutableInstances.value = recoveredInstances.sortedForLibrary()
             logger.info("instances", "Loaded instance registry", mapOf("count" to recoveredInstances.size))
         } catch (error: LauncherException) {
             throw error
@@ -137,6 +137,15 @@ class FileInstanceRepository(
         true
     }
 
+    override suspend fun restore(instance: GameInstance): GameInstance = mutex.withLock {
+        check(mutableInstances.value.none { it.id == instance.id }) {
+            "Instance ${instance.id.value} is already in the library."
+        }
+        persist(mutableInstances.value + instance)
+        logger.info("instances", "Restored instance to registry", mapOf("id" to instance.id.value))
+        instance
+    }
+
     private fun generateUniqueId(): InstanceId {
         repeat(20) {
             val id = idFactory.create()
@@ -147,7 +156,7 @@ class FileInstanceRepository(
     }
 
     private fun persist(instances: List<GameInstance>) {
-        val sorted = instances.sortedBy { it.displayName.lowercase() }
+        val sorted = instances.sortedForLibrary()
         try {
             writeRegistry(InstanceRegistry(instances = sorted))
             mutableInstances.value = sorted
@@ -194,3 +203,6 @@ class FileInstanceRepository(
 
     private fun GameInstance.optionsPath(): Path = instanceDirectory.toPath() / "game" / "options.txt"
 }
+
+private fun List<GameInstance>.sortedForLibrary(): List<GameInstance> =
+    sortedWith(compareByDescending<GameInstance> { it.pinned }.thenBy { it.displayName.lowercase() })

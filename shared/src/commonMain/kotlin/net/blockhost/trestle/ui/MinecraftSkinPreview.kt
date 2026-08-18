@@ -3,6 +3,7 @@ package net.blockhost.trestle.ui
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -23,8 +24,15 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -95,7 +103,7 @@ fun MinecraftSkinPreview(
     val pixels = remember(texture) {
         texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap().toPixelMap() }.getOrNull() }
     }
-    var yaw by remember(texture) { mutableFloatStateOf(-0.42f) }
+    var yaw by remember(texture) { mutableFloatStateOf(DefaultYaw) }
     var animationTime by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pixels, animate) {
@@ -109,15 +117,57 @@ fun MinecraftSkinPreview(
     Box(
         modifier
             .background(PreviewBackground)
-            .semantics { contentDescription = "Interactive 3D Minecraft skin preview" }
+            .semantics {
+                contentDescription = if (interactive) {
+                    "Interactive 3D Minecraft skin preview. Use Left and Right to rotate, or Home to reset."
+                } else {
+                    "3D Minecraft skin preview"
+                }
+                if (interactive) {
+                    customActions = listOf(
+                        CustomAccessibilityAction("Rotate left") {
+                            yaw -= KeyboardRotationStep
+                            true
+                        },
+                        CustomAccessibilityAction("Rotate right") {
+                            yaw += KeyboardRotationStep
+                            true
+                        },
+                        CustomAccessibilityAction("Reset rotation") {
+                            yaw = DefaultYaw
+                            true
+                        },
+                    )
+                }
+            }
             .then(
                 if (interactive) {
-                    Modifier.pointerInput(Unit) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            yaw += dragAmount.x * 0.012f
+                    Modifier
+                        .onKeyEvent { event ->
+                            if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                            when (event.key) {
+                                Key.DirectionLeft -> {
+                                    yaw -= KeyboardRotationStep
+                                    true
+                                }
+                                Key.DirectionRight -> {
+                                    yaw += KeyboardRotationStep
+                                    true
+                                }
+                                Key.MoveHome -> {
+                                    yaw = DefaultYaw
+                                    true
+                                }
+                                else -> false
+                            }
                         }
-                    }
+                        .focusable()
+                        .pointerInput(Unit) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                yaw += dragAmount.x * 0.012f
+                            }
+                        }
                 } else {
                     Modifier
                 },
@@ -300,3 +350,5 @@ private fun Color.shade(amount: Float): Color = Color(
 )
 
 private val PreviewBackground = Color(0xFF171613)
+private const val DefaultYaw = -0.42f
+private const val KeyboardRotationStep = 0.18f

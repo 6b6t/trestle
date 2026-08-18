@@ -7,7 +7,9 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
@@ -15,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +46,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Button
@@ -108,9 +112,23 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -222,12 +240,18 @@ fun TrestleApp(
     actions: LauncherUiActions,
     initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
     accentColor: Color? = null,
+    externalCommand: LauncherCommandRequest? = null,
+    onExternalCommandHandled: (Long) -> Unit = {},
 ) {
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
         ?: LauncherDestination.LIBRARY
     val snackbarHostState = remember { SnackbarHostState() }
     val destinationStateHolder = rememberSaveableStateHolder()
+    var showShortcuts by rememberSaveable { mutableStateOf(false) }
+    var librarySearchFocusRequest by rememberSaveable { mutableStateOf(0) }
+    var libraryImportRequest by rememberSaveable { mutableStateOf(0) }
+    var resourceSearchFocusRequest by rememberSaveable { mutableStateOf(0) }
     val changeDestination: (LauncherDestination) -> Unit = { target ->
         if (
             destination == LauncherDestination.DISCOVER &&
@@ -244,26 +268,112 @@ fun TrestleApp(
             actions.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
         }
     }
+    val handleCommand: (LauncherCommand) -> Boolean = { command ->
+        when (command) {
+            LauncherCommand.NEW_INSTANCE -> actions.openCreate()
+            LauncherCommand.IMPORT_LOCAL_FILE -> {
+                changeDestination(LauncherDestination.LIBRARY)
+                libraryImportRequest++
+            }
+            LauncherCommand.FOCUS_SEARCH -> {
+                if (destination == LauncherDestination.DISCOVER) {
+                    resourceSearchFocusRequest++
+                } else {
+                    changeDestination(LauncherDestination.LIBRARY)
+                    librarySearchFocusRequest++
+                }
+            }
+            LauncherCommand.LAUNCH_SELECTED -> actions.launchSelected()
+            LauncherCommand.REMOVE_SELECTED -> actions.deleteSelected()
+            LauncherCommand.TOGGLE_SELECTED_PIN -> actions.toggleSelectedInstancePinned()
+            LauncherCommand.SHOW_LIBRARY -> changeDestination(LauncherDestination.LIBRARY)
+            LauncherCommand.SHOW_DISCOVER -> changeDestination(LauncherDestination.DISCOVER)
+            LauncherCommand.SHOW_ACCOUNTS -> changeDestination(LauncherDestination.ACCOUNTS)
+            LauncherCommand.SHOW_SETTINGS -> changeDestination(LauncherDestination.SETTINGS)
+            LauncherCommand.SHOW_SHORTCUTS -> showShortcuts = true
+        }
+        true
+    }
+
+    LaunchedEffect(externalCommand?.sequence) {
+        val request = externalCommand ?: return@LaunchedEffect
+        handleCommand(request.command)
+        onExternalCommandHandled(request.sequence)
+    }
 
     TrestleTheme(accentColor) {
+        val modalVisible = state.create.visible ||
+            state.instanceSettings.visible ||
+            state.accountLogin.visible ||
+            state.skinStudio.visible ||
+            state.localFileImport.visible ||
+            state.pendingInstanceRemovalId != null ||
+            showShortcuts ||
+            (
+                state.resourceBrowser.visible &&
+                    state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
+            )
         LaunchedEffect(state.error, state.notice) {
             val message = state.error ?: state.notice ?: return@LaunchedEffect
-            val actionLabel = "Retry".takeIf { state.error != null && state.errorRecovery != null }
+            val actionLabel = when {
+                state.error != null && state.errorRecovery != null -> "Retry"
+                state.removedInstanceUndo != null -> "Undo"
+                else -> null
+            }
             val result = snackbarHostState.showSnackbar(
                 message = message,
                 actionLabel = actionLabel,
                 withDismissAction = state.error != null,
-                duration = if (state.error != null) SnackbarDuration.Indefinite else SnackbarDuration.Short,
+                duration = when {
+                    state.error != null -> SnackbarDuration.Indefinite
+                    state.removedInstanceUndo != null -> SnackbarDuration.Long
+                    else -> SnackbarDuration.Short
+                },
             )
-            if (result == SnackbarResult.ActionPerformed && actionLabel != null) actions.retryError()
-            else actions.clearMessage()
+            if (result == SnackbarResult.ActionPerformed) {
+                when (actionLabel) {
+                    "Retry" -> actions.retryError()
+                    "Undo" -> actions.undoInstanceRemoval()
+                }
+            } else actions.clearMessage()
         }
         Scaffold(
-            modifier = Modifier.testTag(LauncherTestTags.ROOT),
+            modifier = Modifier
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    if (modalVisible) return@onPreviewKeyEvent false
+                    val primary = event.isCtrlPressed || event.isMetaPressed
+                    val command = when {
+                        primary && event.key == Key.N -> LauncherCommand.NEW_INSTANCE
+                        primary && event.key == Key.F -> LauncherCommand.FOCUS_SEARCH
+                        primary && event.key == Key.Comma -> LauncherCommand.SHOW_SETTINGS
+                        primary && event.key == Key.One -> LauncherCommand.SHOW_LIBRARY
+                        primary && event.key == Key.Two -> LauncherCommand.SHOW_DISCOVER
+                        primary && event.key == Key.Three -> LauncherCommand.SHOW_ACCOUNTS
+                        primary && event.key == Key.Four -> LauncherCommand.SHOW_SETTINGS
+                        event.key == Key.F1 -> LauncherCommand.SHOW_SHORTCUTS
+                        event.key == Key.Escape && destination == LauncherDestination.INSTANCE ->
+                            LauncherCommand.SHOW_LIBRARY
+                        else -> null
+                    }
+                    command?.let(handleCommand) ?: false
+                }
+                .testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                state.operation?.let { OperationBar(it, actions::cancelActiveOperation) }
+                state.operation?.let { operation ->
+                    OperationBar(
+                        status = operation,
+                        onCancel = actions::cancelActiveOperation,
+                        onClick = operation.instanceId?.let { instanceId ->
+                            {
+                                actions.selectInstance(instanceId)
+                                changeDestination(LauncherDestination.INSTANCE)
+                            }
+                        },
+                    )
+                }
             },
         ) { contentPadding ->
             BoxWithConstraints(Modifier.fillMaxSize().padding(contentPadding)) {
@@ -277,6 +387,8 @@ fun TrestleApp(
                                 actions,
                                 compact = isCompact,
                                 onManage = { changeDestination(LauncherDestination.INSTANCE) },
+                                searchFocusRequest = librarySearchFocusRequest,
+                                importRequest = libraryImportRequest,
                             )
                             LauncherDestination.INSTANCE -> InstanceWorkspace(
                                 state,
@@ -285,7 +397,12 @@ fun TrestleApp(
                                 onBack = { changeDestination(LauncherDestination.LIBRARY) },
                                 compact = isCompact,
                             )
-                            LauncherDestination.DISCOVER -> ResourceCatalogPage(state, modifier, actions)
+                            LauncherDestination.DISCOVER -> ResourceCatalogPage(
+                                state,
+                                modifier,
+                                actions,
+                                searchFocusRequest = resourceSearchFocusRequest,
+                            )
                             LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions)
                             LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
                         }
@@ -308,6 +425,8 @@ fun TrestleApp(
             if (state.accountLogin.visible) AccountLoginDialog(state, actions)
             if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, actions)
             if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
+            if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
+            if (showShortcuts) ShortcutsDialog { showShortcuts = false }
             state.pendingInstanceRemovalId?.let { pendingId ->
                 val instance = state.instances.firstOrNull { it.id == pendingId }
                 AlertDialog(
@@ -468,55 +587,123 @@ private fun LibraryPage(
     actions: LauncherUiActions,
     compact: Boolean = false,
     onManage: () -> Unit,
+    searchFocusRequest: Int,
+    importRequest: Int,
 ) {
     var query by rememberSaveable { mutableStateOf("") }
+    var dropActive by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val importPicker = rememberFilePickerLauncher(
+        type = FileKitType.File(extensions = listOf("jar", "zip", "mrpack")),
+    ) { file ->
+        if (file != null) {
+            scope.launch {
+                runCatching { file.readBytes() }
+                    .onSuccess { actions.queueLocalFileImport(file.name, it) }
+                    .onFailure { actions.reportLocalFileReadFailure(file.name) }
+            }
+        }
+    }
+    val searchFocusRequester = remember { FocusRequester() }
     val compactListState = rememberLazyListState()
     val gridState = rememberLazyGridState()
     val filteredInstances = state.instances.filter {
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
     }
-    when {
-        state.isInitializing -> LoadingRows(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
-        state.instances.isEmpty() -> EmptyLibrary(actions::openCreate, modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
-        compact -> Column(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
-            InstanceShelfToolbar(query, { query = it }, compact = true, actions::openCreate)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            state.selectedInstance?.let { instance ->
-                CompactLaunchStrip(state, instance, actions, onManage)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-            InstanceCollection(
-                instances = filteredInstances,
-                state = state,
-                actions = actions,
-                compact = true,
-                compactListState = compactListState,
-                gridState = gridState,
-                modifier = Modifier.weight(1f),
+    LaunchedEffect(searchFocusRequest) {
+        if (searchFocusRequest > 0) searchFocusRequester.requestFocus()
+    }
+    LaunchedEffect(importRequest) {
+        if (importRequest > 0) importPicker.launch()
+    }
+    Box(
+        modifier.fillMaxSize().localFileDropTarget(
+            enabled = currentPlatform == "Desktop",
+            extensions = setOf("jar", "zip", "mrpack"),
+            onActiveChange = { dropActive = it },
+            onFiles = { files ->
+                files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
+            },
+            onFailure = actions::reportLocalFileReadFailure,
+        ),
+    ) {
+        when {
+            state.isInitializing -> LoadingRows(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
+            state.instances.isEmpty() -> EmptyLibrary(
+                actions::openCreate,
+                Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
             )
-        }
-        else -> Row(modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
-            Column(Modifier.weight(1f).fillMaxHeight()) {
-                InstanceShelfToolbar(query, { query = it }, compact = false, actions::openCreate)
+            compact -> Column(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
+                InstanceShelfToolbar(
+                    query,
+                    { query = it },
+                    compact = true,
+                    onNew = actions::openCreate,
+                    onImport = { importPicker.launch() },
+                    searchFocusRequester = searchFocusRequester,
+                )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                state.selectedInstance?.let { instance ->
+                    CompactLaunchStrip(state, instance, actions, onManage)
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
                 InstanceCollection(
                     instances = filteredInstances,
                     state = state,
                     actions = actions,
-                    compact = false,
+                    compact = true,
                     compactListState = compactListState,
                     gridState = gridState,
                     modifier = Modifier.weight(1f),
                 )
             }
-            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            SelectedInstancePanel(
-                state = state,
-                actions = actions,
-                onManage = onManage,
-                modifier = Modifier.width(300.dp).fillMaxHeight(),
-            )
+            else -> Row(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
+                Column(Modifier.weight(1f).fillMaxHeight()) {
+                    InstanceShelfToolbar(
+                        query,
+                        { query = it },
+                        compact = false,
+                        onNew = actions::openCreate,
+                        onImport = { importPicker.launch() },
+                        searchFocusRequester = searchFocusRequester,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    InstanceCollection(
+                        instances = filteredInstances,
+                        state = state,
+                        actions = actions,
+                        compact = false,
+                        compactListState = compactListState,
+                        gridState = gridState,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                SelectedInstancePanel(
+                    state = state,
+                    actions = actions,
+                    onManage = onManage,
+                    modifier = Modifier.width(300.dp).fillMaxHeight(),
+                )
+            }
+        }
+        if (dropActive) {
+            DropOverlay("Drop to import local content")
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.DropOverlay(message: String) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(message, style = MaterialTheme.typography.titleLarge)
         }
     }
 }
@@ -557,7 +744,14 @@ private fun InstanceCollection(
 }
 
 @Composable
-private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit, compact: Boolean, onNew: () -> Unit) {
+private fun InstanceShelfToolbar(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    compact: Boolean,
+    onNew: () -> Unit,
+    onImport: () -> Unit,
+    searchFocusRequester: FocusRequester,
+) {
     BoxWithConstraints(Modifier.fillMaxWidth()) {
         if (compact || maxWidth < 620.dp) {
             Column(
@@ -567,6 +761,7 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("Instances", style = MaterialTheme.typography.titleLarge)
                     Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onImport) { Text("Import") }
                     Button(
                         onClick = onNew,
                         modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
@@ -580,7 +775,8 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                     value = query,
                     onValueChange = onQueryChange,
                     placeholder = { Text("Search instances…") },
-                    modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.INSTANCE_SEARCH),
+                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
+                        .testTag(LauncherTestTags.INSTANCE_SEARCH),
                 )
             }
         } else {
@@ -595,8 +791,10 @@ private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit,
                     value = query,
                     onValueChange = onQueryChange,
                     placeholder = { Text("Search instances…") },
-                    modifier = Modifier.width(320.dp).testTag(LauncherTestTags.INSTANCE_SEARCH),
+                    modifier = Modifier.width(320.dp).focusRequester(searchFocusRequester)
+                        .testTag(LauncherTestTags.INSTANCE_SEARCH),
                 )
+                OutlinedButton(onClick = onImport) { Text("Import") }
                 Button(
                     onClick = onNew,
                     modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
@@ -663,10 +861,17 @@ private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)
 }
 
 @Composable
-private fun OperationBar(status: OperationStatus, onCancel: () -> Unit, modifier: Modifier = Modifier) {
+private fun OperationBar(
+    status: OperationStatus,
+    onCancel: () -> Unit,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.navigationBars),
+        modifier = modifier.fillMaxWidth()
+            .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
+            .windowInsetsPadding(WindowInsets.navigationBars),
     ) {
         Column {
             val progress = progressFraction(
@@ -850,7 +1055,7 @@ private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
         is LaunchStatus.Failed -> status.message
         is LaunchStatus.Unavailable -> status.reason
         LaunchStatus.Checking -> "Checking launch requirements"
-        LaunchStatus.Starting -> "Starting Minecraft"
+        LaunchStatus.Starting -> "Starting Minecraft…"
         is LaunchStatus.Running -> status.processId?.let { "Minecraft is running · Process $it" } ?: "Minecraft is running"
         else -> null
     } ?: return
@@ -959,6 +1164,16 @@ private fun Modifier.primarySelectable(
     this.selected = selected
 }
 
+private fun Modifier.dismissOnEscape(enabled: Boolean = true, onDismiss: () -> Unit): Modifier =
+    onPreviewKeyEvent { event ->
+        if (enabled && event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+            onDismiss()
+            true
+        } else {
+            false
+        }
+    }
+
 @Composable
 private fun InstanceGrid(
     instances: List<GameInstance>,
@@ -993,6 +1208,7 @@ private fun InstanceGrid(
 }
 
 private fun instanceGroupLabel(instance: GameInstance): String = when {
+    instance.pinned -> "Pinned"
     instance.iconReference != null -> "Modpacks"
     instance.modLoader == ModLoader.VANILLA -> "Vanilla"
     else -> "${instance.modLoader.label} instances"
@@ -1006,9 +1222,12 @@ private fun InstanceTile(
     actions: LauncherUiActions,
     compact: Boolean = false,
 ) {
+    val focusManager = LocalFocusManager.current
     val installationState = instance.installationState
     val running = launcherState.launch.instanceId == instance.id && launcherState.launch.status is LaunchStatus.Running
     val progress = installationState.installationProgress()
+    val versionLabel = "${instance.minecraftVersionId} · ${instance.modLoader.label}" +
+        if (instance.pinned) " · Pinned" else ""
     ContextActionArea(instanceContextActions(instance, actions)) {
         Card(
             modifier = Modifier
@@ -1022,6 +1241,29 @@ private fun InstanceTile(
                         actions.launchSelected()
                     },
                 )
+                .onFocusChanged { focusState ->
+                    if (focusState.isFocused) actions.selectInstance(instance.id)
+                }
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (event.key) {
+                        Key.Enter -> {
+                            actions.selectInstance(instance.id)
+                            actions.launchSelected()
+                            true
+                        }
+                        Key.Delete -> {
+                            actions.selectInstance(instance.id)
+                            actions.deleteSelected()
+                            true
+                        }
+                        Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
+                        Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+                        Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                        Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                        else -> false
+                    }
+                }
                 .testTag(LauncherTestTags.instance(instance.id)),
             colors = CardDefaults.cardColors(
                 containerColor = if (selected) {
@@ -1042,7 +1284,7 @@ private fun InstanceTile(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                            versionLabel,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
@@ -1062,7 +1304,7 @@ private fun InstanceTile(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                            versionLabel,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
                         )
@@ -1107,6 +1349,7 @@ private fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.un
 @Composable
 private fun instanceContextActions(instance: GameInstance, actions: LauncherUiActions): List<ContextAction> {
     val copyText = rememberCopyText()
+    val openPath = rememberOpenPath()
     val state = instance.installationState
     val selectedAction: (() -> Unit) -> Unit = { action ->
         actions.selectInstance(instance.id)
@@ -1138,6 +1381,12 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
             add(ContextAction("Add content") { selectedAction { actions.openResourceBrowser() } })
         }
         add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(actions::openInstanceSettings) })
+        add(ContextAction(if (instance.pinned) "Unpin from top" else "Pin to top") {
+            selectedAction(actions::toggleSelectedInstancePinned)
+        })
+        if (currentPlatform == "Desktop") {
+            add(ContextAction("Open folder", separatorBefore = true) { openPath(instance.instanceDirectory) })
+        }
         add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
         add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
         add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(actions::deleteSelected) })
@@ -1190,6 +1439,7 @@ private fun LaunchButton(
 @Composable
 private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.instanceSettings
+    val focusManager = LocalFocusManager.current
     val minimum = form.minimumMemoryMiB.toIntOrNull()
     val maximum = form.maximumMemoryMiB.toIntOrNull()
     val valid = minimum != null && maximum != null && minimum > 0 && maximum >= minimum
@@ -1212,6 +1462,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 620.dp).fillMaxWidth().heightIn(max = 820.dp)
+                .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
                 .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
         ) {
             Column {
@@ -1233,6 +1484,14 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                                 keyboardOptions = KeyboardOptions(
                                     keyboardType = KeyboardType.Number,
                                     imeAction = if (isMinimum) ImeAction.Next else ImeAction.Done,
+                                ),
+                                keyboardActions = KeyboardActions(
+                                    onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                                    onDone = {
+                                        if (valid && !form.isLoadingClientSettings && !form.isSaving) {
+                                            actions.saveInstanceSettings()
+                                        }
+                                    },
                                 ),
                                 singleLine = true,
                                 modifier = modifier,
@@ -1278,7 +1537,7 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                            Text("Loading client settings", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("Loading client settings…", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
                         form.clientSettings != null -> ClientSettingsFields(
@@ -1317,6 +1576,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.94f).fillMaxHeight(0.9f).widthIn(max = 1040.dp)
+                .dismissOnEscape(enabled = !browser.isInstalling, onDismiss = actions::closeResourceBrowser)
                 .testTag(LauncherTestTags.RESOURCE_BROWSER_DIALOG),
         ) {
             Column(Modifier.fillMaxSize()) {
@@ -1342,7 +1602,7 @@ private fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAct
                     TextButton(onClick = actions::closeResourceBrowser, enabled = !browser.isInstalling) { Text("Close") }
                 }
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                ResourceBrowserContent(state, actions, Modifier.fillMaxSize())
+                ResourceBrowserContent(state, actions, Modifier.fillMaxSize(), searchFocusRequest = 0)
             }
         }
     }
@@ -1354,12 +1614,18 @@ private fun ResourceBrowserContent(
     state: LauncherUiState,
     actions: LauncherUiActions,
     modifier: Modifier,
+    searchFocusRequest: Int,
 ) {
     val browser = state.resourceBrowser
     val navigator = rememberListDetailPaneScaffoldNavigator<String?>()
     val resultListState = rememberLazyListState()
     val detailScrollState = rememberScrollState()
+    val searchFocusRequester = remember { FocusRequester() }
     val listPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Hidden
+
+    LaunchedEffect(searchFocusRequest) {
+        if (searchFocusRequest > 0) searchFocusRequester.requestFocus()
+    }
 
     LaunchedEffect(browser.selectedProjectId) {
         detailScrollState.scrollTo(0)
@@ -1384,7 +1650,7 @@ private fun ResourceBrowserContent(
         onBack = clearSelection,
     )
     Column(modifier) {
-        ResourceBrowserToolbar(browser, actions)
+        ResourceBrowserToolbar(browser, actions, searchFocusRequester)
         browser.error?.let { InlineMessage(it, true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
@@ -1428,7 +1694,11 @@ private fun ResourceBrowserContent(
 }
 
 @Composable
-private fun ResourceBrowserToolbar(browser: ResourceBrowserState, actions: LauncherUiActions) {
+private fun ResourceBrowserToolbar(
+    browser: ResourceBrowserState,
+    actions: LauncherUiActions,
+    searchFocusRequester: FocusRequester,
+) {
     Column(
         Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1439,7 +1709,9 @@ private fun ResourceBrowserToolbar(browser: ResourceBrowserState, actions: Launc
             searching = browser.isSearching,
             onSearch = { actions.searchResources() },
             placeholder = { Text("Search mods, packs, and shaders") },
-            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp).testTag(LauncherTestTags.RESOURCE_SEARCH),
+            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp)
+                .focusRequester(searchFocusRequester)
+                .testTag(LauncherTestTags.RESOURCE_SEARCH),
         )
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             if (maxWidth < 600.dp) {
@@ -1525,7 +1797,7 @@ private fun ResourceResultList(
                         onClick = actions::loadMoreResources,
                         enabled = !browser.isSearching,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (browser.isSearching) "Loading" else "Load more") }
+                    ) { Text(if (browser.isSearching) "Loading…" else "Load more") }
                 }
             }
         }
@@ -1801,11 +2073,139 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
 }
 
 @Composable
+private fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiActions) {
+    val pending = state.localFileImport
+    val selectedType = pending.selectedType
+    val target = pending.targetInstanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
+    BasicAlertDialog(onDismissRequest = actions::cancelLocalFileImport) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.Escape -> {
+                        actions.cancelLocalFileImport()
+                        true
+                    }
+                    Key.Enter -> {
+                        if (selectedType != null) actions.confirmLocalFileImport()
+                        selectedType != null
+                    }
+                    else -> false
+                }
+            },
+        ) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text("Import local file", style = MaterialTheme.typography.headlineMedium)
+                Text(
+                    pending.fileName,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                if (pending.allowedTypes.size > 1) {
+                    Text("Choose how Trestle should use this ZIP file.")
+                    Column {
+                        pending.allowedTypes.forEach { type ->
+                            Row(
+                                Modifier.fillMaxWidth().selectable(
+                                    selected = selectedType == type,
+                                    role = Role.RadioButton,
+                                    onClick = { actions.setLocalFileImportType(type) },
+                                ).padding(vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                RadioButton(selected = selectedType == type, onClick = null)
+                                Text(type.label)
+                            }
+                        }
+                    }
+                }
+                if (selectedType != ResourceType.MODPACK) {
+                    Text(
+                        target?.let { "Target: ${it.displayName}" }
+                            ?: "Select an instance before adding this file.",
+                        color = if (target == null) MaterialTheme.colorScheme.error
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Text(
+                        "The modpack creates a new instance.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                ) {
+                    TextButton(onClick = actions::cancelLocalFileImport) { Text("Cancel") }
+                    Button(
+                        onClick = actions::confirmLocalFileImport,
+                        enabled = selectedType != null &&
+                            (selectedType == ResourceType.MODPACK || target?.installationState is InstallationState.Installed),
+                    ) { Text(if (selectedType == ResourceType.MODPACK) "Import modpack" else "Add file") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShortcutsDialog(onDismiss: () -> Unit) {
+    BasicAlertDialog(onDismissRequest = onDismiss) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.widthIn(max = 480.dp).fillMaxWidth().onPreviewKeyEvent { event ->
+                if (event.type == KeyEventType.KeyDown && event.key == Key.Escape) {
+                    onDismiss()
+                    true
+                } else {
+                    false
+                }
+            },
+        ) {
+            Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Keyboard shortcuts", style = MaterialTheme.typography.headlineMedium)
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onDismiss) { Text("Close") }
+                }
+                ShortcutRow("Ctrl/Cmd + N", "New instance")
+                ShortcutRow("Ctrl/Cmd + F", "Search")
+                ShortcutRow("Ctrl/Cmd + 1–4", "Switch section")
+                ShortcutRow("Ctrl/Cmd + ,", "Settings")
+                ShortcutRow("Enter", "Launch focused instance")
+                ShortcutRow("Arrow keys", "Move instance focus")
+                ShortcutRow("Delete", "Remove focused instance")
+                ShortcutRow("Escape", "Close or go back")
+                ShortcutRow("F1", "Show shortcuts")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShortcutRow(keys: String, action: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(action, modifier = Modifier.weight(1f))
+        Text(keys, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
 private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.create
     val restrictedRuntime = state.supportedMinecraftVersions != null || state.supportedModLoaders != null
     val loaderChoices = listOf(ModLoader.VANILLA, ModLoader.FABRIC, ModLoader.NEOFORGE)
         .filter { state.supportedModLoaders == null || it in state.supportedModLoaders }
+    val focusManager = LocalFocusManager.current
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     BasicAlertDialog(
         onDismissRequest = { if (!form.isSaving) actions.closeCreate() },
@@ -1815,6 +2215,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 560.dp).fillMaxWidth().heightIn(max = 760.dp)
+                .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeCreate)
                 .testTag(LauncherTestTags.CREATE_DIALOG),
         ) {
             Column {
@@ -1846,6 +2247,9 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         label = { Text("Name") },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     val versionChoices = state.versions.take(200).map { it.id }
@@ -1862,7 +2266,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         Selector(
                             label = "Minecraft version",
                             value = form.versionId.ifBlank {
-                                if (state.isLoadingVersions) "Loading versions" else "No versions available"
+                                if (state.isLoadingVersions) "Loading versions…" else "No versions available"
                             },
                             values = versionChoices,
                             enabled = !state.isLoadingVersions,
@@ -1891,7 +2295,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     if (form.modLoader in setOf(ModLoader.FABRIC, ModLoader.NEOFORGE)) {
                         Selector(
                             label = "${form.modLoader.label} version",
-                            value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading" else "No compatible loader",
+                            value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading…" else "No compatible loader",
                             values = form.loaderVersions,
                             enabled = !form.isResolvingLoader,
                             onSelect = actions::setCreateLoaderVersion,
@@ -1928,7 +2332,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         if (form.isSaving) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
-                            Text("Creating...")
+                            Text("Creating…")
                         } else {
                             Text("Create instance")
                         }
@@ -2402,6 +2806,7 @@ private fun InstanceOverview(
     modifier: Modifier,
     compact: Boolean,
 ) {
+    val openPath = rememberOpenPath()
     LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(24.dp)) {
         if (compact) {
             item("identity") {
@@ -2425,7 +2830,13 @@ private fun InstanceOverview(
                 Spacer(Modifier.height(8.dp))
                 PropertyRow("Java", instance.requiredJavaMajor.toString())
                 PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
-                PropertyRow("Directory", instance.instanceDirectory)
+                PropertyRow(
+                    "Directory",
+                    instance.instanceDirectory,
+                    actionLabel = "Open",
+                    onClick = { openPath(instance.instanceDirectory) },
+                    actionEnabled = currentPlatform == "Desktop",
+                )
                 PropertyRow(
                     "Last launch",
                     instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never",
@@ -2465,24 +2876,49 @@ private fun InstanceContent(
     listState: LazyListState,
     modifier: Modifier,
 ) {
-    LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)) {
-        item("intro") {
-            Text(
-                "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
-                modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(vertical = 16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
-            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                ContentTypeRow(
-                    type = type,
-                    enabled = instance.installationState is InstallationState.Installed,
-                    onClick = { actions.openResourceBrowser(type) },
+    var dropActive by remember { mutableStateOf(false) }
+    Box(
+        modifier.localFileDropTarget(
+            enabled = instance.installationState is InstallationState.Installed && currentPlatform == "Desktop",
+            extensions = setOf("jar", "zip"),
+            onActiveChange = { dropActive = it },
+            onFiles = { files ->
+                files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
+            },
+            onFailure = actions::reportLocalFileReadFailure,
+        ),
+    ) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+        ) {
+            item("intro") {
+                Text(
+                    "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
+                    modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(vertical = 16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
+                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+                    ContentTypeRow(
+                        type = type,
+                        enabled = instance.installationState is InstallationState.Installed,
+                        onClick = { actions.openResourceBrowser(type) },
+                        localFileAction = {
+                            LocalFileButton(
+                                type = type,
+                                enabled = instance.installationState is InstallationState.Installed,
+                                actions = actions,
+                            )
+                        },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
             }
         }
+        if (dropActive) DropOverlay("Drop to add content to ${instance.displayName}")
     }
 }
 
@@ -2517,7 +2953,12 @@ private fun InstanceConfiguration(
 }
 
 @Composable
-private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
+private fun ResourceCatalogPage(
+    state: LauncherUiState,
+    modifier: Modifier,
+    actions: LauncherUiActions,
+    searchFocusRequest: Int,
+) {
     LaunchedEffect(state.resourceBrowser.visible, state.resourceBrowser.presentation) {
         if (
             !state.resourceBrowser.visible ||
@@ -2533,7 +2974,12 @@ private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, acti
             state.resourceBrowser.visible &&
             state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
         ) {
-            ResourceBrowserContent(state, actions, Modifier.fillMaxSize())
+            ResourceBrowserContent(
+                state,
+                actions,
+                Modifier.fillMaxSize(),
+                searchFocusRequest = searchFocusRequest,
+            )
         } else {
             LoadingRows(Modifier.fillMaxSize())
         }
@@ -2541,7 +2987,12 @@ private fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, acti
 }
 
 @Composable
-private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> Unit) {
+private fun ContentTypeRow(
+    type: ResourceType,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    localFileAction: @Composable () -> Unit,
+) {
     val description = when (type) {
         ResourceType.MOD -> "Extend an installed game with compatible client mods and required dependencies."
         ResourceType.MODPACK -> "Create a complete, isolated instance from a curated pack."
@@ -2575,11 +3026,42 @@ private fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> 
             }
         },
         trailingContent = {
-            OutlinedButton(onClick = onClick, enabled = enabled) { Text("Browse") }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                localFileAction()
+                OutlinedButton(onClick = onClick, enabled = enabled) { Text("Browse") }
+            }
         },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     )
+}
+
+@Composable
+private fun LocalFileButton(
+    type: ResourceType,
+    enabled: Boolean,
+    actions: LauncherUiActions,
+) {
+    val scope = rememberCoroutineScope()
+    val extensions = when (type) {
+        ResourceType.MOD -> listOf("jar")
+        ResourceType.RESOURCE_PACK,
+        ResourceType.SHADER_PACK,
+        -> listOf("zip")
+        ResourceType.MODPACK -> listOf("mrpack", "zip")
+    }
+    val picker = rememberFilePickerLauncher(
+        type = FileKitType.File(extensions = extensions),
+    ) { file ->
+        if (file != null) {
+            scope.launch {
+                runCatching { file.readBytes() }
+                    .onSuccess { actions.queueLocalFileImport(file.name, it, type) }
+                    .onFailure { actions.reportLocalFileReadFailure(file.name) }
+            }
+        }
+    }
+    TextButton(onClick = { picker.launch() }, enabled = enabled) { Text("Add file") }
 }
 
 @Composable
@@ -2694,7 +3176,15 @@ private fun AccountRow(
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val compact = maxWidth < 700.dp
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().then(
+                    if (account.isActive) {
+                        Modifier
+                    } else {
+                        Modifier.pointerInput(profileId) {
+                            detectTapGestures(onDoubleTap = { actions.selectAccount(profileId) })
+                        }
+                    },
+                ),
                 colors = CardDefaults.cardColors(
                     containerColor = if (account.isActive) {
                         MaterialTheme.colorScheme.secondaryContainer
@@ -2793,6 +3283,7 @@ private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions)
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.92f).fillMaxHeight(0.9f).widthIn(max = 1040.dp).heightIn(min = 540.dp)
+                .dismissOnEscape(onDismiss = actions::closeSkinStudio)
                 .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
         ) {
             Column(Modifier.fillMaxSize()) {
@@ -2898,7 +3389,7 @@ private fun CurrentSkinPanel(
             texture = texture,
             variant = variant,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 16.dp),
-            emptyLabel = "Loading skin preview",
+            emptyLabel = "Loading skin preview…",
         )
         Text(playerName, style = MaterialTheme.typography.titleMedium)
         Text(
@@ -3062,6 +3553,7 @@ private fun SkinLibraryItem(
 private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val editor = state.skinStudio.editor
     val scope = rememberCoroutineScope()
+    var dropActive by remember { mutableStateOf(false) }
     val picker = rememberFilePickerLauncher(
         type = FileKitType.File(extensions = listOf("png")),
     ) { file ->
@@ -3081,8 +3573,19 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.fillMaxWidth(0.88f).widthIn(max = 820.dp).heightIn(min = 500.dp, max = 650.dp)
+                .dismissOnEscape(enabled = !editor.isSaving, onDismiss = actions::closeSkinEditor)
+                .localFileDropTarget(
+                    enabled = !editor.isSaving && currentPlatform == "Desktop",
+                    extensions = setOf("png"),
+                    onActiveChange = { dropActive = it },
+                    onFiles = { files ->
+                        files.firstOrNull()?.let { actions.setSkinFile(it.name, it.bytes) }
+                    },
+                    onFailure = { actions.reportSkinFileReadFailure() },
+                )
                 .testTag(LauncherTestTags.SKIN_EDITOR_DIALOG),
         ) {
+            Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 Row(
                     Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 24.dp),
@@ -3133,6 +3636,8 @@ private fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions)
                     ) { Text(if (editor.isSaving) "Saving" else "Save and use") }
                 }
             }
+            if (dropActive) DropOverlay("Drop PNG to use this skin")
+            }
         }
     }
 }
@@ -3164,16 +3669,28 @@ private fun SkinEditorFields(
             label = { Text("Name") },
             singleLine = true,
             enabled = !editor.isSaving,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = { if (editor.canSave) actions.saveSkin(useAfterSave = true) },
+            ),
             modifier = Modifier.fillMaxWidth(),
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Player model", style = MaterialTheme.typography.labelLarge)
             Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
                 SkinVariant.entries.forEach { variant ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        Modifier.selectable(
+                            selected = editor.variant == variant,
+                            enabled = !editor.isSaving,
+                            role = Role.RadioButton,
+                            onClick = { actions.setSkinVariant(variant) },
+                        ),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         RadioButton(
                             selected = editor.variant == variant,
-                            onClick = { actions.setSkinVariant(variant) },
+                            onClick = null,
                             enabled = !editor.isSaving,
                         )
                         Text(variant.label)
@@ -3207,6 +3724,7 @@ private val SkinEditorState.canSave: Boolean
 @Composable
 private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.accountLogin
+    val focusManager = LocalFocusManager.current
     val uriHandler = LocalUriHandler.current
     var passwordVisible by remember(form.method) { mutableStateOf(false) }
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
@@ -3218,6 +3736,7 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
             shape = MaterialTheme.shapes.large,
             modifier = Modifier.widthIn(max = 520.dp).fillMaxWidth().heightIn(max = 720.dp)
+                .dismissOnEscape(enabled = !form.isWaiting, onDismiss = actions::closeAccountLogin)
                 .testTag(LauncherTestTags.ACCOUNT_LOGIN_DIALOG),
         ) {
             Column(
@@ -3267,6 +3786,9 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                             keyboardType = KeyboardType.Email,
                             imeAction = ImeAction.Next,
                         ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { focusManager.moveFocus(FocusDirection.Next) },
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     TextField(
@@ -3293,6 +3815,9 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Password,
                             imeAction = ImeAction.Done,
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { if (form.canSubmit && !form.isWaiting) actions.signInAccount() },
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -3351,6 +3876,9 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
                         enabled = !form.isWaiting,
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = { if (form.canSubmit && !form.isWaiting) actions.signInAccount() },
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
@@ -3592,7 +4120,7 @@ private fun RuntimeSettings(
         OutlinedButton(
             onClick = actions::refreshVersions,
             modifier = Modifier.padding(top = 8.dp),
-        ) { Text(if (state.isLoadingVersions) "Refreshing versions" else "Refresh versions") }
+        ) { Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh versions") }
     }
 }
 
@@ -3603,6 +4131,7 @@ private fun LauncherLog(
     listState: LazyListState,
     modifier: Modifier,
 ) {
+    var selectedEntryId by rememberSaveable { mutableStateOf<Long?>(null) }
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -3622,15 +4151,20 @@ private fun LauncherLog(
             item("logs-empty") { Text("No launcher events in this session.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
         } else {
             items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
-                LogRow(entry)
+                LogRow(entry, onDoubleClick = { selectedEntryId = entry.id })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
+        }
+    }
+    selectedEntryId?.let { entryId ->
+        state.logs.firstOrNull { it.id == entryId }?.let { entry ->
+            LogDetailsDialog(entry) { selectedEntryId = null }
         }
     }
 }
 
 @Composable
-private fun LogRow(entry: LogEntry) {
+private fun LogRow(entry: LogEntry, onDoubleClick: () -> Unit) {
     val copyText = rememberCopyText()
     val actions = buildList {
         add(ContextAction("Copy message") { copyText(entry.message) })
@@ -3643,7 +4177,9 @@ private fun LogRow(entry: LogEntry) {
     }
     ContextActionArea(actions) {
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            Modifier.fillMaxWidth().pointerInput(entry.id) {
+                detectTapGestures(onDoubleTap = { onDoubleClick() })
+            }.padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Column(Modifier.width(68.dp)) {
@@ -3673,6 +4209,23 @@ private fun LogRow(entry: LogEntry) {
             }
         }
     }
+}
+
+@Composable
+private fun LogDetailsDialog(entry: LogEntry, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(entry.message) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PropertyRow("Time", formatUtcTime(entry.timestampEpochMillis))
+                PropertyRow("Level", entry.level.name)
+                PropertyRow("Category", entry.category)
+                if (entry.details.isNotEmpty()) PropertyRow("Details", formatLogDetails(entry))
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+    )
 }
 
 private fun formatUtcTime(epochMillis: Long): String {
@@ -3732,10 +4285,21 @@ private fun formatLogEntryForClipboard(entry: LogEntry): String = buildString {
 }
 
 @Composable
-private fun PropertyRow(label: String, value: String) {
+private fun PropertyRow(
+    label: String,
+    value: String,
+    actionLabel: String? = null,
+    onClick: (() -> Unit)? = null,
+    actionEnabled: Boolean = true,
+) {
     ListItem(
         headlineContent = { Text(value) },
         overlineContent = { Text(label) },
+        trailingContent = if (actionLabel == null || onClick == null || !actionEnabled) {
+            null
+        } else {
+            { TextButton(onClick = onClick) { Text(actionLabel) } }
+        },
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     )

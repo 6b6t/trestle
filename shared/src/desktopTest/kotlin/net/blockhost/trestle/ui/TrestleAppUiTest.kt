@@ -163,6 +163,22 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun externalShortcutCommandOpensTheShortcutSheet() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = NoopLauncherUiActions,
+                    externalCommand = LauncherCommandRequest(1L, LauncherCommand.SHOW_SHORTCUTS),
+                )
+            }
+        }
+
+        onNodeWithText("Keyboard shortcuts").assertIsDisplayed()
+        onNodeWithText("Launch focused instance").assertIsDisplayed()
+    }
+
+    @Test
     fun doubleClickingInstanceSelectsItBeforeLaunching() = runComposeUiTest {
         val events = mutableListOf<String>()
         val instanceId = InstanceId("vanilla")
@@ -221,6 +237,52 @@ class TrestleAppUiTest {
         onNodeWithText("Copper adventurer").performMouseInput { doubleClick() }
 
         assertEquals(listOf("select:copper", "use"), events)
+    }
+
+    @Test
+    fun doubleClickingInactiveAccountMakesItActive() = runComposeUiTest {
+        var selectedProfileId: String? = null
+        val state = LauncherPreviewFixtures.loaded.copy(
+            accounts = listOf(LauncherPreviewFixtures.activeAccount.copy(isActive = false)),
+        )
+        val actions = object : LauncherUiActions {
+            override fun selectAccount(profileId: String) {
+                selectedProfileId = profileId
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(state, actions, initialDestination = LauncherDestination.ACCOUNTS)
+            }
+        }
+
+        onNodeWithText("Pistonmaster").performMouseInput { doubleClick() }
+
+        assertEquals("preview-account", selectedProfileId)
+    }
+
+    @Test
+    fun clickingInstanceOperationOpensItsWorkspace() = runComposeUiTest {
+        val instanceId = InstanceId("vanilla")
+        var selectedId: InstanceId? = null
+        val state = LauncherPreviewFixtures.loaded.copy(
+            operation = OperationStatus("Installing Vanilla", instanceId = instanceId),
+        )
+        val actions = object : LauncherUiActions {
+            override fun selectInstance(id: InstanceId) {
+                selectedId = id
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(state, actions)
+            }
+        }
+
+        onNodeWithText("Installing Vanilla").performClick()
+
+        assertEquals(instanceId, selectedId)
+        onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
     }
 
     @Test

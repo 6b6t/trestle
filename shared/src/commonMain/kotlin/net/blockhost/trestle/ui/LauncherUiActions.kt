@@ -17,6 +17,7 @@ import net.blockhost.trestle.resources.ResourceType
 interface LauncherUiActions {
     fun refreshVersions() {}
     fun selectInstance(id: InstanceId) {}
+    fun toggleSelectedInstancePinned() {}
     fun openCreate() {}
     fun closeCreate() {}
     fun setCreateName(value: String) {}
@@ -50,6 +51,12 @@ interface LauncherUiActions {
     fun deleteSelected() {}
     fun cancelInstanceRemoval() {}
     fun confirmInstanceRemoval() {}
+    fun undoInstanceRemoval() {}
+    fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType? = null) {}
+    fun reportLocalFileReadFailure(fileName: String) {}
+    fun setLocalFileImportType(type: ResourceType) {}
+    fun confirmLocalFileImport() {}
+    fun cancelLocalFileImport() {}
     fun clearMessage() {}
     fun retryError() {}
     fun openInstanceSettings() {}

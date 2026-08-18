@@ -70,6 +70,38 @@ class ModpackInstaller(
             stagingDirectory = staging / "archive-download",
             onProgress = onProgress,
         )
+        return installArchive(archive, staging, project.name, project.iconUrl, onProgress)
+    }
+
+    suspend fun installLocal(
+        fileName: String,
+        bytes: ByteArray,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ): GameInstance {
+        require(bytes.isNotEmpty()) { "The selected modpack is empty." }
+        require(bytes.size <= MAX_LOCAL_MODPACK_BYTES) { "Local modpacks must be smaller than 1 GiB." }
+        val safeName = safeFileName(fileName)
+        require(safeName.substringAfterLast('.', "").lowercase() in setOf("mrpack", "zip")) {
+            "Choose a .mrpack or .zip modpack archive."
+        }
+        val importId = bytes.contentHashCode().toUInt().toString(16)
+        val staging = directories.staging / "modpacks" / "local" / importId
+        resetDirectory(staging)
+        val archive = staging / safeName
+        fileSystem.write(archive) {
+            write(bytes)
+            flush()
+        }
+        return installArchive(archive, staging, safeName.substringBeforeLast('.'), null, onProgress)
+    }
+
+    private suspend fun installArchive(
+        archive: Path,
+        staging: Path,
+        fallbackName: String,
+        iconReference: String?,
+        onProgress: suspend (DownloadProgress) -> Unit,
+    ): GameInstance {
         val extracted = staging / "extracted"
         archiveExtractor.extract(archive, extracted)
         val plan = when {
@@ -101,13 +133,13 @@ class ModpackInstaller(
         val minecraftMetadata = metadataClient.resolveVersion(plan.minecraftVersion)
         val instance = repository.create(
             CreateInstanceRequest(
-                displayName = plan.name.ifBlank { project.name },
+                displayName = plan.name.ifBlank { fallbackName },
                 minecraftVersionId = plan.minecraftVersion,
                 modLoader = plan.loader,
                 loaderVersion = plan.loaderVersion,
                 requiredJavaMajor = minecraftMetadata.javaVersion?.majorVersion ?: 8,
                 memory = LaunchTuningAdvisor.recommendMemory(plan.loader, systemProfile),
-                iconReference = project.iconUrl,
+                iconReference = iconReference,
             ),
         )
         try {
@@ -136,6 +168,10 @@ class ModpackInstaller(
             )
             throw error
         }
+    }
+
+    private companion object {
+        const val MAX_LOCAL_MODPACK_BYTES = 1024 * 1024 * 1024
     }
 
     private fun readModrinthPlan(extracted: Path): ModpackPlan {

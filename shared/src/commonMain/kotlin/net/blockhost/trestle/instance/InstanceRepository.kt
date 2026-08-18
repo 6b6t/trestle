@@ -46,6 +46,7 @@ interface InstanceRepository {
     suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings?
     suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings)
     suspend fun delete(id: InstanceId): Boolean
+    suspend fun restore(instance: GameInstance): GameInstance
 }
 
 internal val registryJson = Json {

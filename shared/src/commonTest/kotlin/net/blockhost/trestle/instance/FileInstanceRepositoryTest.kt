@@ -226,4 +226,37 @@ class FileInstanceRepositoryTest {
         secondReload.initialize()
         assertIs<InstallationState.Interrupted>(secondReload.instances.value.single().installationState)
     }
+
+    @Test
+    fun keepsPinnedInstancesFirstAndRestoresRemovedEntries() = runTest {
+        val fileSystem = FakeFileSystem()
+        val registry = "/data/instances.json".toPath()
+        val instances = "/data/instances".toPath()
+        val ids = ArrayDeque(listOf(InstanceId("zebra01"), InstanceId("alpha01")))
+        val repository = FileInstanceRepository(
+            fileSystem,
+            registry,
+            instances,
+            InstanceIdFactory { ids.removeFirst() },
+        )
+        repository.initialize()
+        val zebra = repository.create(CreateInstanceRequest("Zebra", "1.21.8"))
+        repository.create(CreateInstanceRequest("Alpha", "1.21.8"))
+
+        val pinned = repository.update(zebra.copy(pinned = true))
+        assertEquals(listOf("Zebra", "Alpha"), repository.instances.value.map { it.displayName })
+
+        assertTrue(repository.delete(pinned.id))
+        repository.restore(pinned)
+
+        val reloaded = FileInstanceRepository(
+            fileSystem,
+            registry,
+            instances,
+            InstanceIdFactory { InstanceId("unused01") },
+        )
+        reloaded.initialize()
+        assertTrue(reloaded.instances.value.first().pinned)
+        assertEquals(pinned.id, reloaded.instances.value.first().id)
+    }
 }

@@ -122,7 +122,42 @@ data class OperationStatus(
     val totalItems: Int? = null,
     val cancellable: Boolean = false,
     val cancelLabel: String = "Pause",
+    val instanceId: InstanceId? = null,
 )
+
+data class LocalFileImportState(
+    val visible: Boolean = false,
+    val fileName: String = "",
+    val bytes: ByteArray = byteArrayOf(),
+    val selectedType: ResourceType? = null,
+    val targetInstanceId: InstanceId? = null,
+) {
+    val extension: String get() = fileName.substringAfterLast('.', "").lowercase()
+    val allowedTypes: List<ResourceType>
+        get() = when (extension) {
+            "jar" -> listOf(ResourceType.MOD)
+            "mrpack" -> listOf(ResourceType.MODPACK)
+            "zip" -> listOf(ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK, ResourceType.MODPACK)
+            else -> emptyList()
+        }
+
+    override fun equals(other: Any?): Boolean =
+        other is LocalFileImportState &&
+            visible == other.visible &&
+            fileName == other.fileName &&
+            bytes.contentEquals(other.bytes) &&
+            selectedType == other.selectedType &&
+            targetInstanceId == other.targetInstanceId
+
+    override fun hashCode(): Int {
+        var result = visible.hashCode()
+        result = 31 * result + fileName.hashCode()
+        result = 31 * result + bytes.contentHashCode()
+        result = 31 * result + (selectedType?.hashCode() ?: 0)
+        result = 31 * result + (targetInstanceId?.hashCode() ?: 0)
+        return result
+    }
+}
 
 enum class ErrorRecoveryAction {
     INITIALIZE,
@@ -209,6 +244,8 @@ data class LauncherUiState(
     val pendingInstanceRemovalId: InstanceId? = null,
     val supportedMinecraftVersions: Set<String>? = null,
     val supportedModLoaders: Set<ModLoader>? = null,
+    val removedInstanceUndo: GameInstance? = null,
+    val localFileImport: LocalFileImportState = LocalFileImportState(),
 ) {
     val selectedInstance: GameInstance?
         get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
@@ -351,6 +388,26 @@ class LauncherViewModel(
         checkLaunchReadiness(mutableState.value.selectedInstance)
     }
 
+    override fun toggleSelectedInstancePinned() {
+        val instance = mutableState.value.selectedInstance ?: return
+        scope.launch {
+            runCatching { services.repository.update(instance.copy(pinned = !instance.pinned)) }
+                .onSuccess { updated ->
+                    mutableState.update {
+                        it.copy(
+                            selectedId = updated.id,
+                            notice = if (updated.pinned) {
+                                "${updated.displayName} was pinned to the top."
+                            } else {
+                                "${updated.displayName} was unpinned."
+                            },
+                        )
+                    }
+                }
+                .onFailure(::showError)
+        }
+    }
+
     override fun openCreate() {
         val defaultVersion = mutableState.value.create.versionId.ifBlank {
             mutableState.value.versions.firstOrNull()?.id.orEmpty()
@@ -460,6 +517,7 @@ class LauncherViewModel(
                         if (resuming) "Preparing installation resume" else "Preparing installation",
                         instance.displayName,
                         cancellable = true,
+                        instanceId = instance.id,
                     ),
                 )
             }
@@ -481,6 +539,7 @@ class LauncherViewModel(
                                 completedItems = progress.completedFiles,
                                 totalItems = progress.totalFiles,
                                 cancellable = !progress.isFinalizing,
+                                instanceId = instance.id,
                             ),
                         )
                     }
@@ -839,6 +898,7 @@ class LauncherViewModel(
                     detail = project.name,
                     cancellable = true,
                     cancelLabel = "Cancel",
+                    instanceId = instance?.id,
                 ),
             )
             try {
@@ -904,6 +964,7 @@ class LauncherViewModel(
 
     override fun confirmInstanceRemoval() {
         val id = mutableState.value.pendingInstanceRemovalId ?: return
+        val removed = mutableState.value.instances.firstOrNull { it.id == id } ?: return
         scope.launch {
             try {
                 services.repository.delete(id)
@@ -913,6 +974,7 @@ class LauncherViewModel(
                         pendingInstanceRemovalId = null,
                         notice = "Instance removed from the library. Its game directory was kept.",
                         launchPlan = null,
+                        removedInstanceUndo = removed,
                     )
                 }
             } catch (error: Exception) {
@@ -922,8 +984,128 @@ class LauncherViewModel(
         }
     }
 
+    override fun undoInstanceRemoval() {
+        val instance = mutableState.value.removedInstanceUndo ?: return
+        scope.launch {
+            runCatching { services.repository.restore(instance) }
+                .onSuccess {
+                    mutableState.update { state ->
+                        state.copy(
+                            selectedId = instance.id,
+                            removedInstanceUndo = null,
+                            notice = "${instance.displayName} was restored to the library.",
+                        )
+                    }
+                }
+                .onFailure { error ->
+                    mutableState.update { it.copy(removedInstanceUndo = null) }
+                    showError(error)
+                }
+        }
+    }
+
+    override fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType?) {
+        val extension = fileName.substringAfterLast('.', "").lowercase()
+        val allowedTypes = when (extension) {
+            "jar" -> listOf(ResourceType.MOD)
+            "mrpack" -> listOf(ResourceType.MODPACK)
+            "zip" -> listOf(ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK, ResourceType.MODPACK)
+            else -> emptyList()
+        }
+        if (allowedTypes.isEmpty()) {
+            mutableState.update { it.copy(error = "Choose a .jar, .zip, or .mrpack file.") }
+            return
+        }
+        if (bytes.isEmpty()) {
+            mutableState.update { it.copy(error = "$fileName is empty.") }
+            return
+        }
+        val selectedType = type?.takeIf { it in allowedTypes }
+            ?: allowedTypes.singleOrNull()
+        mutableState.update {
+            it.copy(
+                localFileImport = LocalFileImportState(
+                    visible = true,
+                    fileName = fileName,
+                    bytes = bytes.copyOf(),
+                    selectedType = selectedType,
+                    targetInstanceId = it.selectedInstance?.id,
+                ),
+                error = null,
+            )
+        }
+    }
+
+    override fun reportLocalFileReadFailure(fileName: String) {
+        mutableState.update { it.copy(error = "$fileName could not be read.") }
+    }
+
+    override fun setLocalFileImportType(type: ResourceType) {
+        mutableState.update { state ->
+            val pending = state.localFileImport
+            if (type !in pending.allowedTypes) state
+            else state.copy(localFileImport = pending.copy(selectedType = type))
+        }
+    }
+
+    override fun cancelLocalFileImport() {
+        mutableState.update { it.copy(localFileImport = LocalFileImportState()) }
+    }
+
+    override fun confirmLocalFileImport() {
+        if (resourceJob?.isActive == true) return
+        val pending = mutableState.value.localFileImport
+        val type = pending.selectedType ?: return
+        val target = pending.targetInstanceId?.let { id -> mutableState.value.instances.firstOrNull { it.id == id } }
+        if (type != ResourceType.MODPACK && target?.installationState !is InstallationState.Installed) {
+            mutableState.update {
+                it.copy(error = "Install the target instance before adding local content.")
+            }
+            return
+        }
+        resourceJob = scope.launch {
+            mutableState.update {
+                it.copy(
+                    localFileImport = LocalFileImportState(),
+                    operation = OperationStatus(
+                        title = if (type == ResourceType.MODPACK) "Importing modpack" else "Adding local ${type.label.lowercase()}",
+                        detail = pending.fileName,
+                        cancellable = true,
+                        cancelLabel = "Cancel",
+                        instanceId = target?.id,
+                    ),
+                )
+            }
+            try {
+                val notice = if (type == ResourceType.MODPACK) {
+                    val created = services.modpackInstaller.installLocal(
+                        pending.fileName,
+                        pending.bytes,
+                        ::updateResourceProgress,
+                    )
+                    mutableState.update { it.copy(selectedId = created.id) }
+                    "${created.displayName} was imported."
+                } else {
+                    val instance = requireNotNull(target)
+                    services.resourceInstaller.installLocal(instance, pending.fileName, pending.bytes, type)
+                    "${pending.fileName} was added to ${instance.displayName}."
+                }
+                mutableState.update { it.copy(operation = null, notice = notice) }
+            } catch (_: CancellationException) {
+                mutableState.update { it.copy(operation = null, notice = "Local file import cancelled.") }
+            } catch (error: Exception) {
+                mutableState.update { it.copy(operation = null) }
+                showError(error)
+            } finally {
+                resourceJob = null
+            }
+        }
+    }
+
     override fun clearMessage() {
-        mutableState.update { it.copy(error = null, errorRecovery = null, notice = null) }
+        mutableState.update {
+            it.copy(error = null, errorRecovery = null, notice = null, removedInstanceUndo = null)
+        }
     }
 
     override fun retryError() {

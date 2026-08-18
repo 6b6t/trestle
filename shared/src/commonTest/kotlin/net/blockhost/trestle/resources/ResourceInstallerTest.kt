@@ -13,12 +13,53 @@ import net.blockhost.trestle.download.DownloadPipeline
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class ResourceInstallerTest {
+    @Test
+    fun installsLocalContentInTheMatchingGameFolder() = runTest {
+        val root = "/instances/local-files".toPath()
+        val fileSystem = FakeFileSystem().apply { createDirectories(root / "game") }
+        val installer = ResourceInstaller(
+            ResourcePlatformRegistry(emptyList()),
+            DownloadPipeline(HttpClient(MockEngine { respond("unused") }), fileSystem),
+            fileSystem,
+        )
+        val bytes = byteArrayOf(1, 3, 3, 7)
+
+        installer.installLocal(instance(root), "sodium.jar", bytes, ResourceType.MOD)
+        installer.installLocal(instance(root), "faithful.zip", bytes, ResourceType.RESOURCE_PACK)
+        installer.installLocal(instance(root), "complementary.zip", bytes, ResourceType.SHADER_PACK)
+
+        assertContentEquals(bytes, fileSystem.read(root / "game" / "mods" / "sodium.jar") { readByteArray() })
+        assertTrue(fileSystem.exists(root / "game" / "resourcepacks" / "faithful.zip"))
+        assertTrue(fileSystem.exists(root / "game" / "shaderpacks" / "complementary.zip"))
+        assertFailsWith<IllegalArgumentException> {
+            installer.installLocal(instance(root), "sodium.jar", byteArrayOf(9), ResourceType.MOD)
+        }
+        assertContentEquals(bytes, fileSystem.read(root / "game" / "mods" / "sodium.jar") { readByteArray() })
+    }
+
+    @Test
+    fun rejectsLocalContentWithTheWrongExtension() = runTest {
+        val root = "/instances/local-files".toPath()
+        val fileSystem = FakeFileSystem().apply { createDirectories(root / "game") }
+        val installer = ResourceInstaller(
+            ResourcePlatformRegistry(emptyList()),
+            DownloadPipeline(HttpClient(MockEngine { respond("unused") }), fileSystem),
+            fileSystem,
+        )
+
+        assertFailsWith<IllegalArgumentException> {
+            installer.installLocal(instance(root), "not-a-mod.zip", byteArrayOf(1), ResourceType.MOD)
+        }
+        assertFalse(fileSystem.exists(root / "game" / "mods" / "not-a-mod.zip"))
+    }
+
     @Test
     fun installsRequiredDependenciesAndRecordsOwnedFiles() = runTest {
         val root = "/instances/instance-1".toPath()

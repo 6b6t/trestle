@@ -75,6 +75,7 @@ data class GameInstance(
     val installationState: InstallationState = InstallationState.NotInstalled,
     val lastLaunchAtEpochMillis: Long? = null,
     val iconReference: String? = null,
+    val pinned: Boolean = false,
 ) {
     init {
         require(displayName.isNotBlank()) { "Instance name must not be blank." }
