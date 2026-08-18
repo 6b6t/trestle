@@ -19,7 +19,6 @@ import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Notification
-import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowDecoration
 import androidx.compose.ui.window.WindowPlacement
@@ -44,6 +43,7 @@ import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
+import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.ui.LaunchStatus
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherCommandRequest
@@ -71,6 +71,7 @@ fun main(arguments: Array<String>) {
     val viewModel = LauncherViewModel(createDesktopLauncherServices())
     application {
         val icon = painterResource(Res.drawable.trestle_icon)
+        val trayIcon = painterResource(Res.drawable.trestle_mark)
         val state by viewModel.state.collectAsState()
         val preferences = remember { DesktopWindowPreferences() }
         val restoredWindow = remember { preferences.restore() }
@@ -183,8 +184,51 @@ fun main(arguments: Array<String>) {
         }
 
         if (isTraySupported) {
-            Tray(
-                icon = icon,
+            val trayMenu = buildList {
+                add(DesktopTrayMenuEntry.Item("Show Trestle", onClick = showWindow))
+                state.operation?.let { operation ->
+                    add(DesktopTrayMenuEntry.Item(operation.title, enabled = false, onClick = {}))
+                }
+                add(DesktopTrayMenuEntry.Separator)
+                add(
+                    DesktopTrayMenuEntry.Item(
+                        "Launch selected",
+                        enabled = state.selectedInstance?.installationState is InstallationState.Installed &&
+                            state.activeLaunch == null,
+                        onClick = viewModel::launchSelected,
+                    ),
+                )
+                val pinned = state.instances.filter { it.pinned }.take(5)
+                if (pinned.isNotEmpty()) {
+                    add(
+                        DesktopTrayMenuEntry.Submenu(
+                            "Pinned instances",
+                            pinned.map { instance ->
+                                DesktopTrayMenuEntry.Item(
+                                    instance.displayName,
+                                    enabled = state.activeLaunch == null,
+                                    onClick = { viewModel.launchInstance(instance.id) },
+                                )
+                            },
+                        ),
+                    )
+                }
+                state.activeInstance?.let { instance ->
+                    add(DesktopTrayMenuEntry.Item("Stop ${instance.displayName}", onClick = viewModel::stopLaunch))
+                }
+                if (state.operation?.cancellable == true) {
+                    add(
+                        DesktopTrayMenuEntry.Item(
+                            state.operation?.cancelLabel ?: "Cancel operation",
+                            onClick = viewModel::cancelActiveOperation,
+                        ),
+                    )
+                }
+                add(DesktopTrayMenuEntry.Separator)
+                add(DesktopTrayMenuEntry.Item("Quit Trestle", onClick = ::quit))
+            }
+            DesktopTray(
+                icon = trayIcon,
                 state = trayState,
                 tooltip = buildString {
                     append("Trestle")
@@ -192,39 +236,8 @@ fun main(arguments: Array<String>) {
                     state.operation?.let { append(" · ${it.title}") }
                 },
                 onAction = showWindow,
-            ) {
-                Item("Show Trestle", onClick = showWindow)
-                state.operation?.let { operation ->
-                    Item(operation.title, enabled = false, onClick = {})
-                }
-                Separator()
-                Item(
-                    "Launch selected",
-                    enabled = state.selectedInstance?.installationState is InstallationState.Installed &&
-                        state.activeLaunch == null,
-                    onClick = viewModel::launchSelected,
-                )
-                val pinned = state.instances.filter { it.pinned }.take(5)
-                if (pinned.isNotEmpty()) {
-                    Menu("Pinned instances") {
-                        pinned.forEach { instance ->
-                            Item(
-                                instance.displayName,
-                                enabled = state.activeLaunch == null,
-                                onClick = { viewModel.launchInstance(instance.id) },
-                            )
-                        }
-                    }
-                }
-                state.activeInstance?.let { instance ->
-                    Item("Stop ${instance.displayName}", onClick = viewModel::stopLaunch)
-                }
-                if (state.operation?.cancellable == true) {
-                    Item(state.operation?.cancelLabel ?: "Cancel operation", onClick = viewModel::cancelActiveOperation)
-                }
-                Separator()
-                Item("Quit Trestle", onClick = ::quit)
-            }
+                menu = trayMenu,
+            )
         }
         LaunchedEffect(state.notice, state.error, windowVisible) {
             if (windowVisible) return@LaunchedEffect
