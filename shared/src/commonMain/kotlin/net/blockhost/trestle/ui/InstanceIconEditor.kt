@@ -60,10 +60,16 @@ import net.blockhost.trestle.domain.MANAGED_INSTANCE_ICON_PREFIX
 import net.blockhost.trestle.domain.MAX_INSTANCE_ICON_BYTES
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.instance_logo_archive
+import net.blockhost.trestle.resources.instance_logo_citadel
 import net.blockhost.trestle.resources.instance_logo_circuit
 import net.blockhost.trestle.resources.instance_logo_compass
 import net.blockhost.trestle.resources.instance_logo_forge
+import net.blockhost.trestle.resources.instance_logo_lantern
+import net.blockhost.trestle.resources.instance_logo_moonrise
+import net.blockhost.trestle.resources.instance_logo_mushroom
+import net.blockhost.trestle.resources.instance_logo_peaks
 import net.blockhost.trestle.resources.instance_logo_portal
+import net.blockhost.trestle.resources.instance_logo_potion
 import net.blockhost.trestle.resources.instance_logo_terrain
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.DrawableResource
@@ -85,6 +91,12 @@ internal val builtInInstanceIcons = listOf(
     BuiltInInstanceIcon("forge", "Forge", Res.drawable.instance_logo_forge),
     BuiltInInstanceIcon("circuit", "Circuit", Res.drawable.instance_logo_circuit),
     BuiltInInstanceIcon("archive", "Archive", Res.drawable.instance_logo_archive),
+    BuiltInInstanceIcon("lantern", "Lantern", Res.drawable.instance_logo_lantern),
+    BuiltInInstanceIcon("peaks", "Peaks", Res.drawable.instance_logo_peaks),
+    BuiltInInstanceIcon("mushroom", "Mushroom", Res.drawable.instance_logo_mushroom),
+    BuiltInInstanceIcon("potion", "Potion", Res.drawable.instance_logo_potion),
+    BuiltInInstanceIcon("moonrise", "Moonrise", Res.drawable.instance_logo_moonrise),
+    BuiltInInstanceIcon("citadel", "Citadel", Res.drawable.instance_logo_citadel),
 )
 
 @Composable
