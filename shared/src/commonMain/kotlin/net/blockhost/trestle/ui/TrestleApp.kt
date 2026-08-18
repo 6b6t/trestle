@@ -27,12 +27,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -64,8 +62,8 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -77,8 +75,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SecondaryScrollableTabRow
-import androidx.compose.material3.SecondaryTabRow
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -89,7 +85,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
@@ -107,11 +102,6 @@ import androidx.compose.material3.adaptive.layout.SupportingPaneScaffold
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaffoldNavigator
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -153,7 +143,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import androidx.window.core.layout.WindowSizeClass
 import coil3.compose.AsyncImage
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
@@ -221,6 +210,7 @@ import net.blockhost.trestle.resources.ui_audio
 import net.blockhost.trestle.resources.ui_availability_is_controlled_by_the_trestle_build_api_key
 import net.blockhost.trestle.resources.ui_available_versions_and_installation_details_will_appear_here
 import net.blockhost.trestle.resources.ui_available_without_an_api_key
+import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_back_to_library
 import net.blockhost.trestle.resources.ui_back_to_results
 import net.blockhost.trestle.resources.ui_browse
@@ -282,7 +272,6 @@ import net.blockhost.trestle.resources.ui_forget_account_2
 import net.blockhost.trestle.resources.ui_ftb_app_instances_folder
 import net.blockhost.trestle.resources.ui_game_components
 import net.blockhost.trestle.resources.ui_game_console
-import net.blockhost.trestle.resources.ui_game_data
 import net.blockhost.trestle.resources.ui_general
 import net.blockhost.trestle.resources.ui_group
 import net.blockhost.trestle.resources.ui_homepage
@@ -395,6 +384,7 @@ import net.blockhost.trestle.resources.ui_seed_value
 import net.blockhost.trestle.resources.ui_select_a_result
 import net.blockhost.trestle.resources.ui_select_an_instance
 import net.blockhost.trestle.resources.ui_server_status
+import net.blockhost.trestle.resources.ui_servers
 import net.blockhost.trestle.resources.ui_services
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_sign_out
@@ -426,10 +416,11 @@ import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_video
 import net.blockhost.trestle.resources.ui_view_on_provider
 import net.blockhost.trestle.resources.ui_world_name
+import net.blockhost.trestle.resources.ui_worlds
+import net.blockhost.trestle.resources.ui_screenshots
 import net.blockhost.trestle.resources.ui_wrap_lines
 import net.blockhost.trestle.resources.ui_wrapper_command
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
-import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -441,13 +432,6 @@ enum class LauncherDestination(val label: StringResource) {
     ACCOUNTS(Res.string.ui_accounts),
     SETTINGS(Res.string.ui_settings),
 }
-
-private val globalDestinations = listOf(
-    LauncherDestination.LIBRARY,
-    LauncherDestination.DISCOVER,
-    LauncherDestination.ACCOUNTS,
-    LauncherDestination.SETTINGS,
-)
 
 private val browsableResourceTypes = listOf(
     ResourceType.MOD,
@@ -470,6 +454,7 @@ internal object LauncherTestTags {
     const val SELECTED_INSTANCE = "selected-instance"
     const val PRIMARY_INSTANCE_ACTION = "primary-instance-action"
     const val INSTANCE_WORKSPACE = "instance-workspace"
+    const val INSTANCE_BACK = "instance-back"
     const val DISCOVER = "discover"
     const val ACCOUNTS = "accounts"
     const val SETTINGS = "settings"
@@ -483,7 +468,7 @@ internal object LauncherTestTags {
     const val INSTANCE_ICON_UPLOAD = "instance-icon-upload"
     const val RESOURCE_BROWSER_DIALOG = "resource-browser-dialog"
     const val ACCOUNT_LOGIN_DIALOG = "account-login-dialog"
-    const val SKIN_STUDIO_DIALOG = "skin-studio-dialog"
+    const val SKIN_STUDIO = "skin-studio"
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 
     fun instance(id: InstanceId): String = "instance-${id.value}"
@@ -580,7 +565,7 @@ fun TrestleApp(
         val modalVisible = state.create.visible ||
             state.instanceSettings.visible ||
             state.accountLogin.visible ||
-            state.skinStudio.visible ||
+            state.skinStudio.editor.visible ||
             state.localFileImport.visible ||
             state.serverEditor.visible ||
             state.pendingInstanceRemovalId != null ||
@@ -648,30 +633,20 @@ fun TrestleApp(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = topBar,
-            bottomBar = {
-                state.operation?.let { operation ->
-                    OperationBar(
-                        status = operation,
-                        onCancel = actions::cancelActiveOperation,
-                        onClick = operation.instanceId?.let { instanceId ->
-                            {
-                                actions.selectInstance(instanceId)
-                                changeDestination(LauncherDestination.INSTANCE)
-                            }
-                        },
-                    )
-                }
-            },
         ) { contentPadding ->
-            val destinationContent: @Composable (Modifier, Boolean) -> Unit = { modifier, isCompact ->
+            val destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit = { modifier, layoutMode ->
                 destinationStateHolder.SaveableStateProvider(destination.name) {
                     when (destination) {
                         LauncherDestination.LIBRARY -> LibraryPage(
                             state,
                             modifier,
                             actions,
-                            compact = isCompact,
+                            compact = layoutMode != TrestleLayoutMode.EXPANDED,
                             onManage = { changeDestination(LauncherDestination.INSTANCE) },
+                            onDiscover = { type ->
+                                actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
+                                changeDestination(LauncherDestination.DISCOVER)
+                            },
                             searchFocusRequest = librarySearchFocusRequest,
                             importRequest = libraryImportRequest,
                         )
@@ -680,7 +655,11 @@ fun TrestleApp(
                             modifier,
                             actions,
                             onBack = { changeDestination(LauncherDestination.LIBRARY) },
-                            compact = isCompact,
+                            onDiscover = { type ->
+                                actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
+                                changeDestination(LauncherDestination.DISCOVER)
+                            },
+                            layoutMode = layoutMode,
                         )
                         LauncherDestination.DISCOVER -> ResourceCatalogPage(
                             state,
@@ -688,17 +667,22 @@ fun TrestleApp(
                             actions,
                             searchFocusRequest = resourceSearchFocusRequest,
                         )
-                        LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions)
+                        LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions, layoutMode)
                         LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
                     }
                 }
             }
             LauncherNavigationLayout(
-                state = state,
                 destination = destination,
                 onDestinationChange = changeDestination,
                 adaptiveInfo = windowAdaptiveInfo,
                 modifier = Modifier.fillMaxSize().padding(contentPadding),
+                operation = state.operation,
+                onCancelOperation = actions::cancelActiveOperation,
+                onOpenOperation = { instanceId ->
+                    actions.selectInstance(instanceId)
+                    changeDestination(LauncherDestination.INSTANCE)
+                },
                 destinationContent = destinationContent,
             )
             if (state.create.visible) CreateInstanceDialog(state, actions)
@@ -708,9 +692,10 @@ fun TrestleApp(
             ) {
                 ResourceBrowserDialog(state, actions)
             }
-            if (state.instanceSettings.visible) InstanceSettingsDialog(state, actions)
+            if (state.instanceSettings.visible && destination != LauncherDestination.INSTANCE) {
+                InstanceSettingsDialog(state, actions)
+            }
             if (state.accountLogin.visible) AccountLoginDialog(state, actions)
-            if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, actions)
             if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
             if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
             if (state.serverEditor.visible) ServerEditorDialog(state, actions)
@@ -794,151 +779,13 @@ private enum class LauncherSnackbarAction {
 }
 
 @Composable
-private fun LauncherNavigationLayout(
-    state: LauncherUiState,
-    destination: LauncherDestination,
-    onDestinationChange: (LauncherDestination) -> Unit,
-    adaptiveInfo: WindowAdaptiveInfo,
-    modifier: Modifier,
-    destinationContent: @Composable (Modifier, Boolean) -> Unit,
-) {
-    val windowSizeClass = adaptiveInfo.windowSizeClass
-    val navigationSuiteType = when {
-        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND) &&
-            windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) ->
-            NavigationSuiteType.WideNavigationRailExpanded
-        else -> NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
-    }
-    val horizontalNavigation = navigationSuiteType == NavigationSuiteType.ShortNavigationBarCompact ||
-        navigationSuiteType == NavigationSuiteType.ShortNavigationBarMedium
-    val compactContent = !windowSizeClass.isWidthAtLeastBreakpoint(
-        WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND,
-    )
-    NavigationSuiteScaffold(
-        navigationItems = {
-            globalDestinations.forEach { destinationItem ->
-                NavigationSuiteItem(
-                    selected = destination == destinationItem ||
-                        destinationItem == LauncherDestination.LIBRARY &&
-                        destination == LauncherDestination.INSTANCE,
-                    onClick = { onDestinationChange(destinationItem) },
-                    icon = {
-                        Icon(painterResource(destinationIcon(destinationItem)), contentDescription = null)
-                    },
-                    label = { Text(stringResource(destinationItem.label)) },
-                    modifier = Modifier.testTag(LauncherTestTags.navigation(destinationItem)),
-                    navigationSuiteType = navigationSuiteType,
-                )
-            }
-        },
-        modifier = modifier.then(
-            if (horizontalNavigation) Modifier else Modifier.testTag(LauncherTestTags.TOP_NAVIGATION),
-        ),
-        navigationSuiteType = navigationSuiteType,
-        navigationSuiteColors = NavigationSuiteDefaults.colors(
-            shortNavigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-        ),
-        containerColor = MaterialTheme.colorScheme.background,
-        primaryActionContent = {
-            if (!horizontalNavigation) {
-                Box(
-                    modifier = Modifier.padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    BridgeMark(Modifier.size(width = 36.dp, height = 28.dp))
-                }
-            }
-        },
-    ) {
-        if (horizontalNavigation) {
-            CompactContentScaffold(state, destinationContent, compactContent, onDestinationChange)
-        } else {
-            destinationContent(Modifier.fillMaxSize(), compactContent)
-        }
-    }
-}
-
-@Composable
-private fun CompactContentScaffold(
-    state: LauncherUiState,
-    destinationContent: @Composable (Modifier, Boolean) -> Unit,
-    compactContent: Boolean,
-    onDestinationChange: (LauncherDestination) -> Unit,
-) {
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        topBar = {
-            TopAppBar(
-                title = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        BridgeMark()
-                        Text(stringResource(Res.string.ui_trestle))
-                    }
-                },
-                actions = {
-                    state.accounts.firstOrNull { it.isActive }?.let { account ->
-                        AccountIdentity(
-                            account = account,
-                            texture = state.accountSkinTextures[account.profile.profileId],
-                            compact = true,
-                            onClick = { onDestinationChange(LauncherDestination.ACCOUNTS) },
-                        )
-                    }
-                },
-                windowInsets = WindowInsets(0, 0, 0, 0),
-            )
-        },
-    ) { padding ->
-        destinationContent(Modifier.padding(padding), compactContent)
-    }
-}
-
-private fun destinationIcon(destination: LauncherDestination): DrawableResource = when (destination) {
-    LauncherDestination.LIBRARY -> Res.drawable.ic_library
-    LauncherDestination.INSTANCE -> Res.drawable.ic_library
-    LauncherDestination.DISCOVER -> Res.drawable.ic_extension
-    LauncherDestination.ACCOUNTS -> Res.drawable.ic_account
-    LauncherDestination.SETTINGS -> Res.drawable.ic_settings
-}
-
-@Composable
-private fun AccountIdentity(
-    account: ManagedAccount,
-    texture: ByteArray?,
-    compact: Boolean = false,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    if (compact) {
-        TrestleTooltip(account.profile.playerName, modifier) {
-            FilledTonalIconButton(onClick = onClick) {
-                MinecraftSkinHead(
-                    texture = texture.takeIf { account.profile.edition == MinecraftEdition.JAVA },
-                    contentDescription = account.profile.playerName,
-                    modifier = Modifier.size(32.dp),
-                ) {
-                    Text(account.profile.playerName.take(1).uppercase(), style = MaterialTheme.typography.labelLarge)
-                }
-            }
-        }
-    } else {
-        FilledTonalButton(onClick = onClick, modifier = modifier) {
-            Text(account.profile.playerName)
-        }
-    }
-}
-
-@Composable
 private fun LibraryPage(
     state: LauncherUiState,
     modifier: Modifier,
     actions: LauncherUiActions,
     compact: Boolean = false,
     onManage: () -> Unit,
+    onDiscover: (ResourceType) -> Unit,
     searchFocusRequest: Int,
     importRequest: Int,
 ) {
@@ -977,89 +824,131 @@ private fun LibraryPage(
     LaunchedEffect(importRequest) {
         if (importRequest > 0) importPicker.launch()
     }
-    Box(
-        modifier.fillMaxSize().localFileDropTarget(
-            enabled = currentPlatform == "Desktop",
-            extensions = setOf("jar", "zip", "mrpack"),
-            onActiveChange = { dropActive = it },
-            onFiles = { files ->
-                files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
-            },
-            onFailure = actions::reportLocalFileReadFailure,
-        ),
-    ) {
-        when {
-            state.isInitializing -> LoadingRows(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
-            state.instances.isEmpty() -> EmptyLibrary(
-                actions::openCreate,
-                Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
-            )
-            compact -> Column(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
-                InstanceShelfToolbar(
-                    query,
-                    { query = it },
-                    compact = true,
-                    onNew = actions::openCreate,
-                    onImport = { importPicker.launch() },
-                    searchFocusRequester = searchFocusRequester,
+    Scaffold(
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            Column {
+                PageHeader(
+                    title = stringResource(Res.string.ui_library),
+                    actions = {
+                        if (compact) {
+                            TextButton(onClick = { importPicker.launch() }) {
+                                Text(stringResource(Res.string.ui_import))
+                            }
+                        } else {
+                            OutlinedButton(onClick = { importPicker.launch() }) {
+                                Text(stringResource(Res.string.ui_import))
+                            }
+                            Button(
+                                onClick = actions::openCreate,
+                                modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
+                            ) {
+                                Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(stringResource(Res.string.ui_new_instance))
+                            }
+                        }
+                    },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                state.selectedInstance?.let { instance ->
-                    CompactLaunchStrip(state, instance, actions, onManage)
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
-                InstanceCollection(
-                    instances = filteredInstances,
-                    state = state,
-                    actions = actions,
-                    compact = true,
-                    compactListState = compactListState,
-                    gridState = gridState,
-                    modifier = Modifier.weight(1f),
-                )
             }
-            else -> SupportingPaneScaffold(
-                directive = supportingPaneNavigator.scaffoldDirective,
-                scaffoldState = supportingPaneNavigator.scaffoldState,
-                modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
-                mainPane = {
-                    AnimatedPane {
-                        Column(Modifier.fillMaxSize()) {
-                            InstanceShelfToolbar(
-                                query,
-                                { query = it },
-                                compact = false,
-                                onNew = actions::openCreate,
-                                onImport = { importPicker.launch() },
-                                searchFocusRequester = searchFocusRequester,
-                            )
-                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                            InstanceCollection(
-                                instances = filteredInstances,
+        },
+        floatingActionButton = {
+            if (compact && state.instances.isNotEmpty()) {
+                FloatingActionButton(
+                    onClick = actions::openCreate,
+                    modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
+                ) {
+                    Icon(
+                        painterResource(Res.drawable.ic_add),
+                        contentDescription = stringResource(Res.string.ui_new_instance),
+                    )
+                }
+            }
+        },
+    ) { contentPadding ->
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(contentPadding)
+                .localFileDropTarget(
+                    enabled = currentPlatform == "Desktop",
+                    extensions = setOf("jar", "zip", "mrpack"),
+                    onActiveChange = { dropActive = it },
+                    onFiles = { files ->
+                        files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
+                    },
+                    onFailure = actions::reportLocalFileReadFailure,
+                ),
+        ) {
+            when {
+                state.isInitializing -> LoadingRows(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
+                state.instances.isEmpty() -> EmptyLibrary(
+                    actions::openCreate,
+                    Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
+                )
+                compact -> Column(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
+                    InstanceShelfToolbar(
+                        query,
+                        { query = it },
+                        searchFocusRequester = searchFocusRequester,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    InstanceCollection(
+                        instances = filteredInstances,
+                        state = state,
+                        actions = actions,
+                        compact = true,
+                        compactListState = compactListState,
+                        gridState = gridState,
+                        onOpenInstance = onManage,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                else -> SupportingPaneScaffold(
+                    directive = supportingPaneNavigator.scaffoldDirective,
+                    scaffoldState = supportingPaneNavigator.scaffoldState,
+                    modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
+                    mainPane = {
+                        AnimatedPane {
+                            Column(Modifier.fillMaxSize()) {
+                                InstanceShelfToolbar(
+                                    query,
+                                    { query = it },
+                                    searchFocusRequester = searchFocusRequester,
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                                InstanceCollection(
+                                    instances = filteredInstances,
+                                    state = state,
+                                    actions = actions,
+                                    compact = false,
+                                    compactListState = compactListState,
+                                    gridState = gridState,
+                                    onOpenInstance = onManage,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                    },
+                    supportingPane = {
+                        AnimatedPane(Modifier.preferredWidth(380.dp)) {
+                            SelectedInstancePanel(
                                 state = state,
                                 actions = actions,
-                                compact = false,
-                                compactListState = compactListState,
-                                gridState = gridState,
-                                modifier = Modifier.weight(1f),
+                                onManage = onManage,
+                                onDiscover = { onDiscover(ResourceType.MOD) },
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
-                    }
-                },
-                supportingPane = {
-                    AnimatedPane(Modifier.preferredWidth(300.dp)) {
-                        SelectedInstancePanel(
-                            state = state,
-                            actions = actions,
-                            onManage = onManage,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                },
-            )
-        }
-        if (dropActive) {
-            DropOverlay("Drop to import local content")
+                    },
+                )
+            }
+            if (dropActive) {
+                DropOverlay("Drop to import local content")
+            }
         }
     }
 }
@@ -1086,6 +975,7 @@ private fun InstanceCollection(
     compact: Boolean,
     compactListState: LazyListState,
     gridState: LazyGridState,
+    onOpenInstance: () -> Unit,
     modifier: Modifier,
 ) {
     if (instances.isEmpty()) {
@@ -1105,7 +995,14 @@ private fun InstanceCollection(
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             items(sortInstances(instances, state), key = { it.id.value }) { instance ->
-                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions, compact = true)
+                InstanceTile(
+                    instance,
+                    instance.id == state.selectedInstance?.id,
+                    state,
+                    actions,
+                    compact = true,
+                    onOpen = onOpenInstance,
+                )
             }
         }
     } else {
@@ -1117,64 +1014,16 @@ private fun InstanceCollection(
 private fun InstanceShelfToolbar(
     query: String,
     onQueryChange: (String) -> Unit,
-    compact: Boolean,
-    onNew: () -> Unit,
-    onImport: () -> Unit,
     searchFocusRequester: FocusRequester,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        if (compact || maxWidth < 620.dp) {
-            Column(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(Res.string.ui_instances), style = MaterialTheme.typography.titleLarge)
-                    Spacer(Modifier.weight(1f))
-                    TextButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
-                    Button(
-                        onClick = onNew,
-                        modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                    ) {
-                        Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text(stringResource(Res.string.ui_new))
-                    }
-                }
-                TrestleSearchField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
-                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
-                        .testTag(LauncherTestTags.INSTANCE_SEARCH),
-                )
-            }
-        } else {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Text(stringResource(Res.string.ui_instances), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.weight(1f))
-                TrestleSearchField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
-                    modifier = Modifier.width(320.dp).focusRequester(searchFocusRequester)
-                        .testTag(LauncherTestTags.INSTANCE_SEARCH),
-                )
-                OutlinedButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
-                Button(
-                    onClick = onNew,
-                    modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                ) {
-                    Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(Res.string.ui_new_instance))
-                }
-            }
-        }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+        TrestleSearchField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
+            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp).focusRequester(searchFocusRequester)
+                .testTag(LauncherTestTags.INSTANCE_SEARCH),
+        )
     }
 }
 
@@ -1197,7 +1046,7 @@ private fun InlineMessage(message: String, error: Boolean, onRetry: (() -> Unit)
 }
 
 @Composable
-private fun OperationBar(
+internal fun OperationBar(
     status: OperationStatus,
     onCancel: () -> Unit,
     onClick: (() -> Unit)?,
@@ -1216,8 +1065,7 @@ private fun OperationBar(
                         onClick = onClick,
                     )
                 },
-            )
-            .windowInsetsPadding(WindowInsets.navigationBars),
+            ),
     ) {
         Column {
             val progress = progressFraction(
@@ -1273,65 +1121,11 @@ private fun OperationBar(
 }
 
 @Composable
-private fun CompactLaunchStrip(
-    launcherState: LauncherUiState,
-    instance: GameInstance,
-    actions: LauncherUiActions,
-    onManage: () -> Unit,
-) {
-    val activeAccount = launcherState.accounts.firstOrNull { it.isActive }
-    val installationState = instance.installationState
-    val progress = installationState.installationProgress()
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                InstanceArtwork(instance, 52.dp)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        instance.displayName,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        "${instance.minecraftVersionId} · ${instance.modLoader.label}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-                Text(
-                    stateLabel(installationState),
-                    color = stateColor(installationState),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-            InstallationProgress(installationState, progress)
-            LaunchContext(state = installationState, activeAccount = activeAccount)
-            LaunchReadiness(launcherState, instance)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilledTonalButton(
-                    onClick = { actions.openResourceBrowser() },
-                    enabled = installationState is InstallationState.Installed,
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(Res.string.ui_content)) }
-                OutlinedButton(
-                    onClick = onManage,
-                    modifier = Modifier.weight(1f),
-                ) { Text(stringResource(Res.string.ui_manage)) }
-            }
-            PrimaryInstanceButton(instance, launcherState, actions, Modifier.fillMaxWidth())
-        }
-    }
-}
-
-@Composable
 private fun SelectedInstancePanel(
     state: LauncherUiState,
     actions: LauncherUiActions,
     onManage: () -> Unit,
+    onDiscover: () -> Unit,
     modifier: Modifier,
 ) {
     val instance = state.selectedInstance
@@ -1381,7 +1175,7 @@ private fun SelectedInstancePanel(
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
             FilledTonalButton(
-                onClick = { actions.openResourceBrowser() },
+                onClick = onDiscover,
                 enabled = installationState is InstallationState.Installed,
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(Res.string.ui_manage_content)) }
@@ -1517,11 +1311,11 @@ private fun InstanceGrid(
     val grouped = instances.groupBy(::instanceGroupLabel)
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Adaptive(136.dp),
+        columns = GridCells.Adaptive(184.dp),
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         grouped.forEach { (group, groupInstances) ->
             item(key = "group-$group", span = { GridItemSpan(maxLineSpan) }) {
@@ -1566,6 +1360,7 @@ private fun InstanceTile(
     launcherState: LauncherUiState,
     actions: LauncherUiActions,
     compact: Boolean = false,
+    onOpen: (() -> Unit)? = null,
 ) {
     val focusManager = LocalFocusManager.current
     val installationState = instance.installationState
@@ -1574,43 +1369,72 @@ private fun InstanceTile(
     val progress = installationState.installationProgress()
     val versionLabel = "${instance.minecraftVersionId} · ${instance.modLoader.label}" +
         if (instance.pinned) " · Pinned" else ""
+    val interactionModifier = Modifier
+        .fillMaxWidth()
+        .trestleSelectable(
+            selected = selected,
+            onClickLabel = if (onOpen == null) "Select instance" else "Open instance",
+            onClick = {
+                actions.selectInstance(instance.id)
+                onOpen?.invoke()
+            },
+            onDoubleClick = {
+                actions.selectInstance(instance.id)
+                actions.launchSelected()
+            },
+        )
+        .onFocusChanged { focusState ->
+            if (focusState.isFocused) actions.selectInstance(instance.id)
+        }
+        .onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            when (event.key) {
+                Key.Enter -> {
+                    actions.selectInstance(instance.id)
+                    if (onOpen == null) actions.launchSelected() else onOpen()
+                    true
+                }
+                Key.Delete -> {
+                    actions.selectInstance(instance.id)
+                    actions.deleteSelected()
+                    true
+                }
+                Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
+                Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+                Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+                Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+                else -> false
+            }
+        }
+        .testTag(LauncherTestTags.instance(instance.id))
     ContextActionArea(instanceContextActions(instance, actions)) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .trestleSelectable(
-                    selected = selected,
-                    onClickLabel = "Select instance",
-                    onClick = { actions.selectInstance(instance.id) },
-                    onDoubleClick = {
-                        actions.selectInstance(instance.id)
-                        actions.launchSelected()
+        if (compact) {
+            ListItem(
+                headlineContent = {
+                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
+                },
+                supportingContent = { Text(versionLabel) },
+                leadingContent = { InstanceArtwork(instance, 48.dp) },
+                trailingContent = {
+                    Text(
+                        if (running) "Running" else stateLabel(installationState),
+                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                },
+                colors = ListItemDefaults.colors(
+                    containerColor = if (selected) {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    } else {
+                        Color.Transparent
                     },
-                )
-                .onFocusChanged { focusState ->
-                    if (focusState.isFocused) actions.selectInstance(instance.id)
-                }
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    when (event.key) {
-                        Key.Enter -> {
-                            actions.selectInstance(instance.id)
-                            actions.launchSelected()
-                            true
-                        }
-                        Key.Delete -> {
-                            actions.selectInstance(instance.id)
-                            actions.deleteSelected()
-                            true
-                        }
-                        Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
-                        Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
-                        Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
-                        Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
-                        else -> false
-                    }
-                }
-                .testTag(LauncherTestTags.instance(instance.id)),
+                ),
+                modifier = interactionModifier,
+            )
+            return@ContextActionArea
+        }
+        Card(
+            modifier = interactionModifier,
             colors = CardDefaults.cardColors(
                 containerColor = if (selected) {
                     MaterialTheme.colorScheme.secondaryContainer
@@ -1620,48 +1444,27 @@ private fun InstanceTile(
             ),
             border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
         ) {
-            if (compact) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    InstanceArtwork(instance, 48.dp)
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            versionLabel,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                InstanceArtwork(instance, 72.dp)
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
-                        if (running) "Running" else stateLabel(installationState),
-                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
+                        instance.displayName,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        versionLabel,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
-            } else {
-                Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    InstanceArtwork(instance, 58.dp)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            instance.displayName,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                        Text(
-                            versionLabel,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                    Text(
-                        if (running) "Running" else stateLabel(installationState),
-                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    if (progress != null) InstallationProgress(installationState, progress)
-                }
+                Text(
+                    if (running) "Running" else stateLabel(installationState),
+                    color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
+                    style = MaterialTheme.typography.labelMedium,
+                )
+                if (progress != null) InstallationProgress(installationState, progress)
             }
         }
     }
@@ -1777,6 +1580,36 @@ private fun LaunchButton(
 @Composable
 private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.instanceSettings
+    TrestleDialog(
+        onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
+        maxWidth = 620.dp,
+        maxHeight = 820.dp,
+        modifier = Modifier
+            .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
+            .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
+        properties = DialogProperties(
+            dismissOnBackPress = false,
+            dismissOnClickOutside = false,
+            usePlatformDefaultWidth = false,
+        ),
+    ) {
+        InstanceSettingsContent(
+            state = state,
+            actions = actions,
+            modifier = Modifier.fillMaxSize(),
+            showHeader = true,
+        )
+    }
+}
+
+@Composable
+private fun InstanceSettingsContent(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+    showHeader: Boolean,
+) {
+    val form = state.instanceSettings
     val instance = form.instanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
     var showIconEditor by rememberSaveable(form.instanceId?.value) { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
@@ -1810,29 +1643,24 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
         minimum != null && maximum < minimum -> "Maximum memory must be at least the minimum."
         else -> null
     }
-    TrestleDialog(
-        onDismissRequest = { if (!form.isSaving) actions.closeInstanceSettings() },
-        maxWidth = 620.dp,
-        maxHeight = 820.dp,
-        modifier = Modifier
-            .dismissOnEscape(enabled = !form.isSaving, onDismiss = actions::closeInstanceSettings)
-            .testTag(LauncherTestTags.INSTANCE_SETTINGS_DIALOG),
-        properties = DialogProperties(
-            dismissOnBackPress = false,
-            dismissOnClickOutside = false,
-            usePlatformDefaultWidth = false,
-        ),
-    ) {
-        Column {
+    Column(modifier) {
+        if (showHeader) {
             TrestleDialogHeader(
                 title = stringResource(Res.string.ui_instance_settings),
                 onClose = actions::closeInstanceSettings,
                 closeEnabled = !form.isSaving,
             )
-            Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .widthIn(max = 820.dp)
+                .align(Alignment.CenterHorizontally)
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
                 Text(stringResource(Res.string.ui_identity), style = MaterialTheme.typography.titleMedium)
                 TextField(
                     value = form.name,
@@ -2036,16 +1864,17 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         actions::setInstanceClientSettings,
                     )
                 }
+        }
+        TrestleDialogActions {
+            TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) {
+                Text(stringResource(Res.string.ui_cancel))
             }
-            TrestleDialogActions {
-                TextButton(onClick = actions::closeInstanceSettings, enabled = !form.isSaving) { Text(stringResource(Res.string.ui_cancel)) }
-                Button(
-                    onClick = actions::saveInstanceSettings,
-                    enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
-                ) {
-                    if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(Res.string.ui_save_changes))
-                }
+            Button(
+                onClick = actions::saveInstanceSettings,
+                enabled = valid && !form.isLoadingClientSettings && !form.isSaving,
+            ) {
+                if (form.isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text(stringResource(Res.string.ui_save_changes))
             }
         }
     }
@@ -2164,7 +1993,7 @@ private fun ResourceBrowserContent(
         onBack = clearSelection,
     )
     Column(modifier) {
-        ResourceBrowserToolbar(browser, actions, searchFocusRequester)
+        ResourceBrowserToolbar(browser, state.selectedInstance, actions, searchFocusRequester)
         browser.error?.let { InlineMessage(it, true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
@@ -2210,6 +2039,7 @@ private fun ResourceBrowserContent(
 @Composable
 private fun ResourceBrowserToolbar(
     browser: ResourceBrowserState,
+    instance: GameInstance?,
     actions: LauncherUiActions,
     searchFocusRequester: FocusRequester,
 ) {
@@ -2229,6 +2059,13 @@ private fun ResourceBrowserToolbar(
             inputModifier = Modifier.focusRequester(searchFocusRequester)
                 .testTag(LauncherTestTags.RESOURCE_SEARCH),
         )
+        if (browser.type != ResourceType.MODPACK && instance != null) {
+            Text(
+                "Installing into ${instance.displayName} · ${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val toolbarWidth = maxWidth
             val compactFilterSheet = toolbarWidth < 720.dp
@@ -2458,51 +2295,27 @@ private fun ResourceResultList(
 
 @Composable
 private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.secondaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
-            },
-        ),
-        border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-    ) {
-        Row(
-            Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.Top,
-        ) {
-            ResourceProjectLogo(
-                project = project,
-                modifier = Modifier.size(64.dp),
+    ListItem(
+        headlineContent = {
+            Text(
+                project.name,
+                style = MaterialTheme.typography.titleMedium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        project.name,
-                        modifier = Modifier.weight(1f),
-                        style = MaterialTheme.typography.titleMedium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        formatDownloads(project.downloads),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-                Text(
-                    "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
-                    color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        },
+        overlineContent = {
+            Text(
+                "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        },
+        supportingContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     project.summary,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -2516,8 +2329,28 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
                     )
                 }
             }
-        }
-    }
+        },
+        leadingContent = {
+            ResourceProjectLogo(project = project, modifier = Modifier.size(64.dp))
+        },
+        trailingContent = {
+            Text(
+                formatDownloads(project.downloads),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+            )
+        },
+        colors = ListItemDefaults.colors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.secondaryContainer
+            } else {
+                Color.Transparent
+            },
+        ),
+        modifier = Modifier
+            .fillMaxWidth()
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
+    )
 }
 
 @Composable
@@ -2565,15 +2398,26 @@ private fun ResourceSelection(
 ) {
     val project = browser.selectedProject
     val uriHandler = LocalUriHandler.current
-    Column(
-        modifier.fillMaxHeight().verticalScroll(scrollState).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        if (project == null) {
+    if (project == null) {
+        Column(
+            modifier.fillMaxHeight().padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             Text(stringResource(Res.string.ui_select_a_result), style = MaterialTheme.typography.titleLarge)
             Text(stringResource(Res.string.ui_available_versions_and_installation_details_will_appear_here), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            return@Column
         }
+        return
+    }
+    val version = browser.selectedVersion
+    val supportedType = project.type in installableResourceTypes
+    val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
+    val selectedFile = version?.primaryFile
+    val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
+    Column(modifier.fillMaxHeight()) {
+        Column(
+            Modifier.weight(1f).verticalScroll(scrollState).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -2620,7 +2464,6 @@ private fun ResourceSelection(
         } else if (browser.versions.isNotEmpty()) {
             ResourceVersionPicker(browser, actions)
         }
-        val version = browser.selectedVersion
         version?.let {
             ResourceVersionDetails(it)
             val optionalDependencies = it.dependencies.filter { dependency -> dependency.kind == DependencyKind.OPTIONAL }
@@ -2650,10 +2493,6 @@ private fun ResourceSelection(
             }
         }
         Spacer(Modifier.height(8.dp))
-        val supportedType = project.type in installableResourceTypes
-        val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
-        val selectedFile = version?.primaryFile
-        val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
         if (!supportedType) Text(stringResource(Res.string.ui_this_content_type_cannot_be_installed_into_an_instance_yet), color = MaterialTheme.colorScheme.error)
         if (selectedFile?.url == null && selectedFile?.sha1 != null) {
             Text(stringResource(Res.string.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_), color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2672,14 +2511,6 @@ private fun ResourceSelection(
                 modifier = Modifier.fillMaxWidth(),
             ) { Text(stringResource(Res.string.ui_open_manual_download)) }
         }
-        Button(
-            onClick = actions::installSelectedResource,
-            enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-            else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
-        }
         if (project.featuredImageUrl != null) {
             Spacer(Modifier.height(8.dp))
             ResourceProjectBanner(project, Modifier.fillMaxWidth())
@@ -2693,6 +2524,20 @@ private fun ResourceSelection(
                     .clip(MaterialTheme.shapes.medium)
                     .background(MaterialTheme.colorScheme.surfaceContainerHigh),
             )
+        }
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Button(
+                onClick = actions::installSelectedResource,
+                enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+            ) {
+                if (browser.isInstalling) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                else Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+            }
         }
     }
 }
@@ -3468,7 +3313,9 @@ private fun LoadingRows(modifier: Modifier) {
 private enum class InstanceSection(val label: StringResource) {
     OVERVIEW(Res.string.ui_overview),
     CONTENT(Res.string.ui_content),
-    GAME_DATA(Res.string.ui_game_data),
+    WORLDS(Res.string.ui_worlds),
+    SERVERS(Res.string.ui_servers),
+    SCREENSHOTS(Res.string.ui_screenshots),
     NOTES(Res.string.ui_notes),
     LOGS(Res.string.ui_logs),
     SETTINGS(Res.string.ui_settings),
@@ -3480,33 +3327,78 @@ private fun InstanceWorkspace(
     modifier: Modifier,
     actions: LauncherUiActions,
     onBack: () -> Unit,
-    compact: Boolean = false,
+    onDiscover: (ResourceType) -> Unit,
+    layoutMode: TrestleLayoutMode,
 ) {
     val instance = state.selectedInstance
     var sectionName by rememberSaveable(instance?.id) { mutableStateOf(InstanceSection.OVERVIEW.name) }
     val section = InstanceSection.entries.firstOrNull { it.name == sectionName } ?: InstanceSection.OVERVIEW
     val overviewListState = rememberLazyListState()
     val contentListState = rememberLazyListState()
-    val gameDataListState = rememberLazyListState()
+    val worldsListState = rememberLazyListState()
+    val serversListState = rememberLazyListState()
+    val screenshotsListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
+    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
+    val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
+        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
+    )
+    val scope = rememberCoroutineScope()
+    val listPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Hidden
+    val selectSection: (InstanceSection) -> Unit = { selectedSection ->
+        sectionName = selectedSection.name
+        if (selectedSection == InstanceSection.SETTINGS && !state.instanceSettings.visible) {
+            actions.openInstanceSettings()
+        }
+        scope.launch {
+            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedSection.name)
+        }
+    }
+    val showSections: () -> Unit = {
+        scope.launch {
+            if (navigator.canNavigateBack()) navigator.navigateBack()
+            else navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+        }
+    }
+
+    LaunchedEffect(instance?.id) {
+        if (instance != null) {
+            sectionName = InstanceSection.OVERVIEW.name
+            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, InstanceSection.OVERVIEW.name)
+        }
+    }
+    PlatformBackHandler(
+        enabled = instance != null && listPaneHidden && navigator.canNavigateBack(),
+        onBack = showSections,
+    )
+
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
-        if (compact || instance == null) {
+        if (layoutMode == TrestleLayoutMode.EXPANDED && instance != null) {
+            InstanceWorkspaceHeader(state, instance, actions, onBack)
+        } else {
             PageHeader(
-                title = instance?.displayName ?: stringResource(Res.string.ui_instance),
+                title = if (listPaneHidden && instance != null) {
+                    stringResource(section.label)
+                } else {
+                    instance?.displayName ?: stringResource(Res.string.ui_instance)
+                },
                 navigationIcon = {
                     TrestleTooltipIconButton(
-                        label = stringResource(Res.string.ui_back_to_library),
-                        onClick = onBack,
+                        label = if (listPaneHidden && instance != null) {
+                            stringResource(Res.string.ui_back)
+                        } else {
+                            stringResource(Res.string.ui_back_to_library)
+                        },
+                        onClick = if (listPaneHidden && instance != null) showSections else onBack,
+                        modifier = Modifier.testTag(LauncherTestTags.INSTANCE_BACK),
                     ) {
                         Icon(
                             painterResource(Res.drawable.ic_arrow_back),
-                            contentDescription = stringResource(Res.string.ui_back_to_library),
+                            contentDescription = null,
                         )
                     }
                 },
             )
-        } else {
-            InstanceWorkspaceHeader(state, instance, actions, onBack)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (instance == null) {
@@ -3520,55 +3412,118 @@ private fun InstanceWorkspace(
             }
             return@Column
         }
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            SecondaryScrollableTabRow(
-                selectedTabIndex = section.ordinal,
-                modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth(),
-                edgePadding = 0.dp,
-            ) {
-                InstanceSection.entries.forEach { item ->
-                    Tab(
-                        selected = section == item,
-                        onClick = { sectionName = item.name },
-                        modifier = Modifier.testTag(LauncherTestTags.instanceSection(item.name)),
-                        text = { Text(stringResource(item.label)) },
-                    )
+        ListDetailPaneScaffold(
+            directive = navigator.scaffoldDirective,
+            scaffoldState = navigator.scaffoldState,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            listPane = {
+                AnimatedPane(Modifier.preferredWidth(232.dp)) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        LazyColumn(
+                            contentPadding = PaddingValues(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(2.dp),
+                        ) {
+                            items(InstanceSection.entries, key = InstanceSection::name) { item ->
+                                ListItem(
+                                    headlineContent = { Text(stringResource(item.label)) },
+                                    colors = ListItemDefaults.colors(
+                                        containerColor = if (section == item) {
+                                            MaterialTheme.colorScheme.secondaryContainer
+                                        } else {
+                                            Color.Transparent
+                                        },
+                                    ),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .selectable(
+                                            selected = section == item,
+                                            role = Role.RadioButton,
+                                            onClick = { selectSection(item) },
+                                        )
+                                        .testTag(LauncherTestTags.instanceSection(item.name)),
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-        }
-        Box(
-            Modifier.weight(1f).fillMaxWidth(),
-            contentAlignment = Alignment.TopCenter,
-        ) {
-            val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
-            when (section) {
-                InstanceSection.OVERVIEW -> InstanceOverview(
-                    state,
-                    instance,
-                    actions,
-                    overviewListState,
-                    contentModifier,
-                    compact,
-                )
-                InstanceSection.CONTENT -> InstanceContent(state, instance, actions, contentListState, contentModifier)
-                InstanceSection.GAME_DATA -> InstanceGameData(
-                    state,
-                    instance,
-                    actions,
-                    gameDataListState,
-                    contentModifier,
-                )
-                InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
-                InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
-                InstanceSection.SETTINGS -> InstanceConfiguration(
-                    instance,
-                    actions,
-                    configurationScrollState,
-                    contentModifier,
-                )
-            }
-        }
+            },
+            detailPane = {
+                AnimatedPane {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                        val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
+                        when (section) {
+                            InstanceSection.OVERVIEW -> InstanceOverview(
+                                state,
+                                instance,
+                                actions,
+                                overviewListState,
+                                contentModifier,
+                                layoutMode == TrestleLayoutMode.COMPACT,
+                            )
+                            InstanceSection.CONTENT -> InstanceContent(
+                                state,
+                                instance,
+                                actions,
+                                onDiscover,
+                                contentListState,
+                                contentModifier,
+                            )
+                            InstanceSection.WORLDS -> InstanceGameData(
+                                state,
+                                instance,
+                                actions,
+                                GameDataView.WORLDS,
+                                worldsListState,
+                                contentModifier,
+                            )
+                            InstanceSection.SERVERS -> InstanceGameData(
+                                state,
+                                instance,
+                                actions,
+                                GameDataView.SERVERS,
+                                serversListState,
+                                contentModifier,
+                            )
+                            InstanceSection.SCREENSHOTS -> InstanceGameData(
+                                state,
+                                instance,
+                                actions,
+                                GameDataView.SCREENSHOTS,
+                                screenshotsListState,
+                                contentModifier,
+                            )
+                            InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
+                            InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
+                            InstanceSection.SETTINGS -> if (state.instanceSettings.visible) {
+                                InstanceSettingsContent(
+                                    state = state,
+                                    actions = actions,
+                                    modifier = contentModifier,
+                                    showHeader = false,
+                                )
+                            } else {
+                                InstanceConfiguration(
+                                    instance = instance,
+                                    actions = actions,
+                                    scrollState = configurationScrollState,
+                                    modifier = contentModifier,
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+        )
     }
+}
+
+private enum class GameDataView {
+    WORLDS,
+    SERVERS,
+    SCREENSHOTS,
 }
 
 @Composable
@@ -3576,6 +3531,7 @@ private fun InstanceGameData(
     state: LauncherUiState,
     instance: GameInstance,
     actions: LauncherUiActions,
+    view: GameDataView,
     listState: LazyListState,
     modifier: Modifier,
 ) {
@@ -3598,9 +3554,20 @@ private fun InstanceGameData(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(Res.string.ui_game_data), style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "Manage worlds, data packs, server bookmarks, screenshots, and backups for ${instance.displayName}.",
+                        when (view) {
+                            GameDataView.WORLDS -> stringResource(Res.string.ui_worlds)
+                            GameDataView.SERVERS -> stringResource(Res.string.ui_servers)
+                            GameDataView.SCREENSHOTS -> stringResource(Res.string.ui_screenshots)
+                        },
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        when (view) {
+                            GameDataView.WORLDS -> "Manage local worlds, data packs, and backups for ${instance.displayName}."
+                            GameDataView.SERVERS -> "Manage multiplayer servers saved in ${instance.displayName}."
+                            GameDataView.SCREENSHOTS -> "Review and organize screenshots from ${instance.displayName}."
+                        },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -3617,7 +3584,7 @@ private fun InstanceGameData(
                 }
             }
         }
-        item("worlds") {
+        if (view == GameDataView.WORLDS) item("worlds") {
             GameDataSection("Worlds", if (state.gameData.worlds.isEmpty()) "No local worlds yet." else null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     WorldImportButton(actions)
@@ -3699,7 +3666,7 @@ private fun InstanceGameData(
                 }
             }
         }
-        item("servers") {
+        if (view == GameDataView.SERVERS) item("servers") {
             GameDataSection("Servers", if (state.gameData.servers.isEmpty()) "No saved multiplayer servers." else null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                     TextButton(onClick = { actions.openServerEditor() }) { Text(stringResource(Res.string.ui_add_server)) }
@@ -3748,7 +3715,7 @@ private fun InstanceGameData(
                 }
             }
         }
-        item("backups") {
+        if (view == GameDataView.WORLDS) item("backups") {
             GameDataSection("Backups", if (state.gameData.backups.isEmpty()) "No world backups yet." else null) {
                 state.gameData.backups.forEach { backup ->
                     ListItem(
@@ -3762,7 +3729,7 @@ private fun InstanceGameData(
                 }
             }
         }
-        item("screenshots") {
+        if (view == GameDataView.SCREENSHOTS) item("screenshots") {
             GameDataSection("Screenshots", if (state.gameData.screenshots.isEmpty()) "No screenshots yet." else null) {
                 state.gameData.screenshots.forEach { screenshot ->
                     ListItem(
@@ -4311,6 +4278,7 @@ private fun InstanceContent(
     state: LauncherUiState,
     instance: GameInstance,
     actions: LauncherUiActions,
+    onDiscover: (ResourceType) -> Unit,
     listState: LazyListState,
     modifier: Modifier,
 ) {
@@ -4346,7 +4314,7 @@ private fun InstanceContent(
                     ContentTypeRow(
                         type = type,
                         enabled = instance.installationState is InstallationState.Installed,
-                        onClick = { actions.openResourceBrowser(type) },
+                        onClick = { onDiscover(type) },
                         localFileAction = {
                             LocalFileButton(
                                 type = type,
@@ -4703,58 +4671,179 @@ private fun LocalFileButton(
 private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 
 @Composable
-private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
+private fun AccountsPage(
+    state: LauncherUiState,
+    modifier: Modifier,
+    actions: LauncherUiActions,
+    layoutMode: TrestleLayoutMode,
+) {
+    if (state.skinStudio.visible && !state.skinStudio.editor.visible) {
+        SkinStudioPage(state, actions, modifier)
+        return
+    }
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
-    Column(modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS)) {
-        PageHeader(
-            title = stringResource(Res.string.ui_accounts),
-            actions = {
-                TrestleTooltipIconButton(
-                    label = stringResource(Res.string.ui_add_account),
-                    onClick = actions::openAccountLogin,
-                ) {
+    var selectedProfileId by rememberSaveable {
+        mutableStateOf(state.accounts.firstOrNull { it.isActive }?.profile?.profileId)
+    }
+    val selectedAccount = state.accounts.firstOrNull { it.profile.profileId == selectedProfileId }
+    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
+    val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
+        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
+    )
+    val scope = rememberCoroutineScope()
+    val listPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Hidden
+    val detailPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.Detail] == PaneAdaptedValue.Hidden
+    val openAccount: (ManagedAccount) -> Unit = { account ->
+        selectedProfileId = account.profile.profileId
+        scope.launch {
+            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, account.profile.profileId)
+        }
+    }
+    val showAccounts: () -> Unit = {
+        scope.launch {
+            if (navigator.canNavigateBack()) navigator.navigateBack()
+            else navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+        }
+    }
+
+    LaunchedEffect(state.accounts, detailPaneHidden) {
+        if (selectedProfileId !in state.accounts.map { it.profile.profileId }) {
+            selectedProfileId = state.accounts.firstOrNull { it.isActive }?.profile?.profileId
+                ?: state.accounts.firstOrNull()?.profile?.profileId
+        }
+        if (!detailPaneHidden && selectedProfileId != null) {
+            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedProfileId)
+        }
+    }
+    PlatformBackHandler(
+        enabled = listPaneHidden && navigator.canNavigateBack(),
+        onBack = showAccounts,
+    )
+
+    Scaffold(
+        modifier = modifier.fillMaxSize().testTag(LauncherTestTags.ACCOUNTS),
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+        topBar = {
+            Column {
+                PageHeader(
+                    title = if (listPaneHidden && selectedAccount != null) {
+                        selectedAccount.profile.playerName
+                    } else {
+                        stringResource(Res.string.ui_accounts)
+                    },
+                    navigationIcon = {
+                        if (listPaneHidden) {
+                            TrestleTooltipIconButton(
+                                label = stringResource(Res.string.ui_back),
+                                onClick = showAccounts,
+                            ) {
+                                Icon(
+                                    painterResource(Res.drawable.ic_arrow_back),
+                                    contentDescription = stringResource(Res.string.ui_back),
+                                )
+                            }
+                        }
+                    },
+                    actions = {
+                        if (layoutMode != TrestleLayoutMode.COMPACT) {
+                            TrestleTooltipIconButton(
+                                label = stringResource(Res.string.ui_add_account),
+                                onClick = actions::openAccountLogin,
+                            ) {
+                                Icon(
+                                    painterResource(Res.drawable.ic_add),
+                                    contentDescription = stringResource(Res.string.ui_add_account),
+                                )
+                            }
+                        }
+                    },
+                )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        },
+        floatingActionButton = {
+            if (layoutMode == TrestleLayoutMode.COMPACT && !listPaneHidden) {
+                FloatingActionButton(onClick = actions::openAccountLogin) {
                     Icon(
                         painterResource(Res.drawable.ic_add),
                         contentDescription = stringResource(Res.string.ui_add_account),
                     )
                 }
-            },
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        },
+    ) { contentPadding ->
         if (state.accounts.isEmpty()) {
             Column(
-                Modifier.fillMaxSize().padding(24.dp),
+                Modifier.fillMaxSize().padding(contentPadding).padding(24.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(stringResource(Res.string.ui_no_accounts), style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Add a verified Java or Bedrock account, import an existing session, or create an offline profile. " +
-                        "Trestle encrypts saved online authentication state in the platform credential vault.",
+                    "Add an online account, import an existing session, or create an offline profile.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.widthIn(max = 620.dp),
+                    modifier = Modifier.widthIn(max = 520.dp),
                 )
+                Button(
+                    onClick = actions::openAccountLogin,
+                    modifier = Modifier.padding(top = 16.dp),
+                ) { Text(stringResource(Res.string.ui_add_account)) }
             }
         } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
-            ) {
-                item("accounts-summary") {
-                    Text(
-                        "Choose the identity Trestle uses to launch. Online credential state stays in the platform vault.",
-                        modifier = Modifier.widthIn(max = 720.dp).padding(vertical = 16.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                items(state.accounts, key = { it.profile.profileId }) { account ->
-                    AccountRow(
-                        account = account,
-                        texture = state.accountSkinTextures[account.profile.profileId],
-                        actions = actions,
-                    ) { pendingRemoval = account.profile.profileId }
-                }
-            }
+            ListDetailPaneScaffold(
+                directive = navigator.scaffoldDirective,
+                scaffoldState = navigator.scaffoldState,
+                modifier = Modifier.fillMaxSize().padding(contentPadding),
+                listPane = {
+                    AnimatedPane(Modifier.preferredWidth(340.dp)) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainer,
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            LazyColumn(
+                                contentPadding = PaddingValues(vertical = 8.dp),
+                            ) {
+                                items(state.accounts, key = { it.profile.profileId }) { account ->
+                                    AccountRow(
+                                        account = account,
+                                        texture = state.accountSkinTextures[account.profile.profileId],
+                                        selected = account.profile.profileId == selectedProfileId,
+                                        actions = actions,
+                                        onOpen = { openAccount(account) },
+                                        onForget = { pendingRemoval = account.profile.profileId },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                },
+                detailPane = {
+                    AnimatedPane {
+                        if (selectedAccount == null) {
+                            Column(
+                                Modifier.fillMaxSize().padding(24.dp),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Text(stringResource(Res.string.ui_accounts), style = MaterialTheme.typography.titleLarge)
+                                Text(
+                                    "Choose an account to view its profile.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else {
+                            AccountDetail(
+                                account = selectedAccount,
+                                texture = state.accountSkinTextures[selectedAccount.profile.profileId],
+                                actions = actions,
+                                onForget = { pendingRemoval = selectedAccount.profile.profileId },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                },
+            )
         }
     }
     pendingRemoval?.let { profileId ->
@@ -4784,17 +4873,14 @@ private fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: La
 private fun AccountRow(
     account: ManagedAccount,
     texture: ByteArray?,
+    selected: Boolean,
     actions: LauncherUiActions,
+    onOpen: () -> Unit,
     onForget: () -> Unit,
 ) {
     val copyText = rememberCopyText()
     val profileId = account.profile.profileId
     var menuExpanded by rememberSaveable(profileId) { mutableStateOf(false) }
-    val canManageOfficialProfile =
-        account.isActive &&
-            account.isAuthenticated &&
-            account.profile.edition == MinecraftEdition.JAVA &&
-            account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
     val statusText = when {
         account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
         !account.isAuthenticated -> "Sign-in required"
@@ -4805,7 +4891,7 @@ private fun AccountRow(
         if (!account.isActive) {
             add(ContextAction("Use account") { actions.selectAccount(profileId) })
         }
-        if (canManageOfficialProfile) {
+        if (account.canManageOfficialProfile) {
             add(ContextAction("Manage skins") { actions.openSkinStudio() })
             add(ContextAction("Refresh profile") { actions.refreshActiveAccount() })
             add(ContextAction("Reset skin") { actions.resetActiveSkin() })
@@ -4824,106 +4910,128 @@ private fun AccountRow(
     }
 
     ContextActionArea(contextActions) {
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 700.dp
-            Card(
-                modifier = Modifier.fillMaxWidth().trestleSelectable(
-                    selected = account.isActive,
-                    onClickLabel = "Use ${account.profile.playerName}",
-                    onClick = { actions.selectAccount(profileId) },
-                ).testTag(LauncherTestTags.account(profileId)),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (account.isActive) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainerLow
-                    },
-                ),
-            ) {
-                if (compact) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            AccountMark(account, texture, compact = true)
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                            }
-                            if (account.isActive) Text(stringResource(Res.string.ui_active), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                        }
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                statusText,
-                                modifier = Modifier.weight(1f),
-                                color = if (account.isReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            )
-                            if (!account.isActive) {
-                                OutlinedButton(
-                                    onClick = { actions.selectAccount(profileId) },
-                                ) { Text(stringResource(Res.string.ui_use)) }
-                            }
-                            if (canManageOfficialProfile) {
-                                OutlinedButton(onClick = actions::openSkinStudio) {
-                                    Text(stringResource(Res.string.ui_skins))
-                                }
-                            }
-                            AccountOverflowMenu(
-                                account = account,
-                                expanded = menuExpanded,
-                                onExpandedChange = { menuExpanded = it },
-                                actions = actions,
-                                onForget = onForget,
-                            )
-                        }
-                    }
-                } else {
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    ) {
-                        AccountMark(account, texture)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium)
-                                if (account.isActive) Text(stringResource(Res.string.ui_active), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium)
-                            }
-                            Text(account.profile.authenticationMethod.label, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                        }
-                        Column(Modifier.widthIn(min = 150.dp), horizontalAlignment = Alignment.End) {
-                            Text(
-                                statusText,
-                                color = if (account.isReady) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                            )
-                            account.profile.skin?.let { skin ->
-                                Text(
-                                    "${skin.variant.name.lowercase().replaceFirstChar(Char::uppercase)} model",
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                            }
-                        }
-                        if (!account.isActive) {
-                            OutlinedButton(onClick = { actions.selectAccount(profileId) }) {
-                                Text(stringResource(Res.string.ui_use))
-                            }
-                        } else if (canManageOfficialProfile) {
-                            OutlinedButton(onClick = actions::openSkinStudio) {
-                                Text(stringResource(Res.string.ui_manage_skins))
-                            }
-                        }
-                        AccountOverflowMenu(
-                            account = account,
-                            expanded = menuExpanded,
-                            onExpandedChange = { menuExpanded = it },
-                            actions = actions,
-                            onForget = onForget,
+        ListItem(
+            headlineContent = { Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium) },
+            supportingContent = {
+                Text("${account.profile.authenticationMethod.label} · $statusText")
+            },
+            leadingContent = { AccountMark(account, texture, compact = true) },
+            trailingContent = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (account.isActive) {
+                        Text(
+                            stringResource(Res.string.ui_active),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelMedium,
                         )
                     }
+                    AccountOverflowMenu(
+                        account = account,
+                        expanded = menuExpanded,
+                        onExpandedChange = { menuExpanded = it },
+                        actions = actions,
+                        onForget = onForget,
+                    )
                 }
+            },
+            colors = ListItemDefaults.colors(
+                containerColor = if (selected) {
+                    MaterialTheme.colorScheme.secondaryContainer
+                } else {
+                    Color.Transparent
+                },
+            ),
+            modifier = Modifier
+                .fillMaxWidth()
+                .trestleSelectable(
+                    selected = selected,
+                    onClickLabel = "Open ${account.profile.playerName}",
+                    onClick = onOpen,
+                )
+                .testTag(LauncherTestTags.account(profileId)),
+        )
+    }
+}
+
+@Composable
+private fun AccountDetail(
+    account: ManagedAccount,
+    texture: ByteArray?,
+    actions: LauncherUiActions,
+    onForget: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val profileId = account.profile.profileId
+    val statusText = when {
+        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
+        !account.isAuthenticated -> "Sign-in required"
+        account.profile.edition == MinecraftEdition.JAVA -> "Ready to launch"
+        else -> "Bedrock saved"
+    }
+    Column(
+        modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        if (account.profile.edition == MinecraftEdition.JAVA) {
+            MinecraftSkinPreview(
+                texture = texture,
+                variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
+                modifier = Modifier.fillMaxWidth().height(260.dp),
+                interactive = texture != null,
+                emptyLabel = "Loading skin preview…",
+            )
+        } else {
+            AccountMark(account, texture)
+        }
+        Column(
+            Modifier.fillMaxWidth().widthIn(max = 640.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(account.profile.playerName, style = MaterialTheme.typography.headlineMedium)
+            Text(
+                "${account.profile.authenticationMethod.label} · $statusText",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            HorizontalDivider(Modifier.padding(vertical = 12.dp))
+            PropertyRow("Edition", account.profile.edition.name.lowercase().replaceFirstChar(Char::uppercase))
+            PropertyRow("Profile ID", profileId)
+            account.profile.skin?.let { skin -> PropertyRow("Player model", skin.variant.label) }
+            Row(
+                Modifier.fillMaxWidth().padding(top = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                if (!account.isActive) {
+                    Button(onClick = { actions.selectAccount(profileId) }) {
+                        Text(stringResource(Res.string.ui_use))
+                    }
+                }
+                if (account.canManageOfficialProfile) {
+                    Button(onClick = actions::openSkinStudio) {
+                        Text(stringResource(Res.string.ui_manage_skins))
+                    }
+                    OutlinedButton(onClick = actions::refreshActiveAccount) {
+                        Text(stringResource(Res.string.ui_refresh))
+                    }
+                }
+                if (account.isAuthenticated) {
+                    OutlinedButton(onClick = { actions.signOutAccount(profileId) }) {
+                        Text(stringResource(Res.string.ui_sign_out))
+                    }
+                }
+            }
+            TextButton(onClick = onForget, modifier = Modifier.padding(top = 8.dp)) {
+                Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error)
             }
         }
     }
 }
+
+private val ManagedAccount.canManageOfficialProfile: Boolean
+    get() = isActive &&
+        isAuthenticated &&
+        profile.edition == MinecraftEdition.JAVA &&
+        profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
 
 @Composable
 private fun AccountOverflowMenu(
@@ -4991,71 +5099,79 @@ private fun AccountOverflowMenu(
 }
 
 @Composable
-private fun SkinStudioDialog(state: LauncherUiState, actions: LauncherUiActions) {
+private fun SkinStudioPage(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+) {
     val account = state.accounts.firstOrNull { it.isActive }
     val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
     var confirmDelete by remember { mutableStateOf(false) }
-    TrestleDialog(
-        onDismissRequest = actions::closeSkinStudio,
-        maxWidth = 1040.dp,
-        widthFraction = 0.92f,
-        heightFraction = 0.9f,
-        minHeight = 540.dp,
-        modifier = Modifier
+    Column(
+        modifier
+            .fillMaxSize()
             .dismissOnEscape(onDismiss = actions::closeSkinStudio)
-            .testTag(LauncherTestTags.SKIN_STUDIO_DIALOG),
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+            .testTag(LauncherTestTags.SKIN_STUDIO),
     ) {
-        Column(Modifier.fillMaxSize()) {
-            TrestleDialogHeader(
-                title = stringResource(Res.string.ui_skins),
-                onClose = actions::closeSkinStudio,
-            )
-            BoxWithConstraints(Modifier.fillMaxSize()) {
-                if (maxWidth >= 720.dp) {
-                    Row(Modifier.fillMaxSize()) {
-                        CurrentSkinPanel(
-                            playerName = account?.profile?.playerName.orEmpty(),
-                            texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
-                            variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                            onSave = actions::saveCurrentSkinToLibrary,
-                            onReset = actions::resetActiveSkin,
-                            modifier = Modifier.width(310.dp).fillMaxHeight(),
-                        )
-                        VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        SkinLibraryPanel(
-                            skins = state.savedSkins,
-                            selected = selected,
-                            onSelect = actions::selectSavedSkin,
-                            onNew = actions::openNewSkin,
-                            onUse = actions::useSelectedSkin,
-                            onEdit = actions::editSelectedSkin,
-                            onDelete = { confirmDelete = true },
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
-                        )
-                    }
-                } else {
-                    Column(Modifier.fillMaxSize()) {
-                        CurrentSkinPanel(
-                            playerName = account?.profile?.playerName.orEmpty(),
-                            texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
-                            variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
-                            onSave = actions::saveCurrentSkinToLibrary,
-                            onReset = actions::resetActiveSkin,
-                            modifier = Modifier.fillMaxWidth().height(250.dp),
-                        )
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        SkinLibraryPanel(
-                            skins = state.savedSkins,
-                            selected = selected,
-                            onSelect = actions::selectSavedSkin,
-                            onNew = actions::openNewSkin,
-                            onUse = actions::useSelectedSkin,
-                            onEdit = actions::editSelectedSkin,
-                            onDelete = { confirmDelete = true },
-                            modifier = Modifier.fillMaxWidth().weight(1f),
-                        )
-                    }
+        PageHeader(
+            title = stringResource(Res.string.ui_skins),
+            navigationIcon = {
+                TrestleTooltipIconButton(
+                    label = stringResource(Res.string.ui_back),
+                    onClick = actions::closeSkinStudio,
+                ) {
+                    Icon(
+                        painterResource(Res.drawable.ic_arrow_back),
+                        contentDescription = stringResource(Res.string.ui_back),
+                    )
+                }
+            },
+        )
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            if (maxWidth >= 720.dp) {
+                Row(Modifier.fillMaxSize()) {
+                    CurrentSkinPanel(
+                        playerName = account?.profile?.playerName.orEmpty(),
+                        texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                        variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                        onSave = actions::saveCurrentSkinToLibrary,
+                        onReset = actions::resetActiveSkin,
+                        modifier = Modifier.width(310.dp).fillMaxHeight(),
+                    )
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SkinLibraryPanel(
+                        skins = state.savedSkins,
+                        selected = selected,
+                        onSelect = actions::selectSavedSkin,
+                        onNew = actions::openNewSkin,
+                        onUse = actions::useSelectedSkin,
+                        onEdit = actions::editSelectedSkin,
+                        onDelete = { confirmDelete = true },
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
+                }
+            } else {
+                Column(Modifier.fillMaxSize()) {
+                    CurrentSkinPanel(
+                        playerName = account?.profile?.playerName.orEmpty(),
+                        texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
+                        variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
+                        onSave = actions::saveCurrentSkinToLibrary,
+                        onReset = actions::resetActiveSkin,
+                        modifier = Modifier.fillMaxWidth().height(250.dp),
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    SkinLibraryPanel(
+                        skins = state.savedSkins,
+                        selected = selected,
+                        onSelect = actions::selectSavedSkin,
+                        onNew = actions::openNewSkin,
+                        onUse = actions::useSelectedSkin,
+                        onEdit = actions::editSelectedSkin,
+                        onDelete = { confirmDelete = true },
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                    )
                 }
             }
         }
@@ -5700,12 +5816,14 @@ private fun SettingsColumn(
     modifier: Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(
-        modifier.verticalScroll(scrollState).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
-        content()
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.fillMaxWidth().widthIn(max = 840.dp).verticalScroll(scrollState).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
+            content()
+        }
     }
 }
 
@@ -6283,7 +6401,7 @@ private fun PropertyRow(
 }
 
 @Composable
-private fun BridgeMark(modifier: Modifier = Modifier.size(width = 32.dp, height = 24.dp)) {
+internal fun BridgeMark(modifier: Modifier = Modifier.size(width = 32.dp, height = 24.dp)) {
     Image(
         painter = painterResource(Res.drawable.trestle_mark),
         contentDescription = null,

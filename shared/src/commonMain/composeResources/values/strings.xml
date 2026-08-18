@@ -82,7 +82,9 @@
     <string name="ui_ftb_app_instances_folder">FTB App instances folder</string>
     <string name="ui_game_components">Game components</string>
     <string name="ui_game_console">Game console</string>
-    <string name="ui_game_data">Game data</string>
+    <string name="ui_worlds">Worlds</string>
+    <string name="ui_servers">Servers</string>
+    <string name="ui_screenshots">Screenshots</string>
     <string name="ui_group">Group</string>
     <string name="ui_homepage">Homepage</string>
     <string name="ui_http_timeout_and_proxy_changes_apply_to_new_connections_after_restart">HTTP timeout and proxy changes apply to new connections after restart.</string>

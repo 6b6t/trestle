@@ -10,7 +10,6 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -51,7 +50,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun compactLibraryKeepsLaunchAndManagementActionsVisible() = runComposeUiTest {
+    fun compactLibraryOpensAnInstanceFromTheList() = runComposeUiTest {
         setContent {
             Box(Modifier.size(480.dp, 720.dp)) {
                 TrestleApp(
@@ -64,10 +63,10 @@ class TrestleAppUiTest {
 
         onNodeWithTag(LauncherTestTags.LIBRARY).assertIsDisplayed()
         onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
-        onNodeWithText("Content").assertIsDisplayed().assertHasClickAction()
-        onNodeWithText("Manage").assertIsDisplayed().assertHasClickAction()
+        onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).performClick()
+
+        onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
         onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
-        onNodeWithText("Settings").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test
@@ -82,9 +81,9 @@ class TrestleAppUiTest {
             }
         }
 
-        onAllNodesWithTag(LauncherTestTags.TOP_NAVIGATION).assertCountEquals(0)
-        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
-        onNodeWithText("Content").assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.TOP_NAVIGATION).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).assertIsDisplayed()
     }
 
     @Test
@@ -100,8 +99,8 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.TOP_NAVIGATION).assertIsDisplayed()
-        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
-        onNodeWithText("Content").assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).assertIsDisplayed()
     }
 
     @Test
@@ -301,8 +300,12 @@ class TrestleAppUiTest {
             }
         }
         setContent {
-            Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.loaded, actions)
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    actions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
             }
         }
 
@@ -379,7 +382,7 @@ class TrestleAppUiTest {
         }
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(state, actions)
+                TrestleApp(state, actions, initialDestination = LauncherDestination.ACCOUNTS)
             }
         }
 
@@ -389,7 +392,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun clickingInactiveAccountMakesItActive() = runComposeUiTest {
+    fun inactiveAccountRequiresAnExplicitUseAction() = runComposeUiTest {
         var selectedProfileId: String? = null
         val state = LauncherPreviewFixtures.loaded.copy(
             accounts = listOf(LauncherPreviewFixtures.activeAccount.copy(isActive = false)),
@@ -405,9 +408,10 @@ class TrestleAppUiTest {
             }
         }
 
-        onNodeWithTag(LauncherTestTags.account("preview-account"))
-            .assertHasClickAction()
-        onNodeWithText("Pistonmaster").performMouseInput { click() }
+        onNodeWithTag(LauncherTestTags.account("preview-account")).performClick()
+
+        assertEquals(null, selectedProfileId)
+        onNodeWithText("Use").performClick()
 
         assertEquals("preview-account", selectedProfileId)
     }
@@ -437,7 +441,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun longSelectedNameDoesNotDisplaceCompactActions() = runComposeUiTest {
+    fun longSelectedNameDoesNotDisplaceCompactLibraryControls() = runComposeUiTest {
         val state = LauncherPreviewFixtures.loaded.copy(
             selectedId = InstanceId("long-name"),
             launch = InstanceLaunchState(InstanceId("long-name"), LaunchStatus.NotChecked),
@@ -452,9 +456,8 @@ class TrestleAppUiTest {
             }
         }
 
-        onNodeWithText("Content").assertIsDisplayed()
-        onNodeWithText("Manage").assertIsDisplayed()
-        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.instance(InstanceId("long-name"))).assertIsDisplayed()
     }
 
     @Test
@@ -470,24 +473,30 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
-        listOf("overview", "content", "game_data", "settings").forEach { section ->
+        listOf("overview", "content", "worlds", "servers", "screenshots", "notes", "logs", "settings")
+            .forEach { section ->
             onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
         }
     }
 
     @Test
-    fun compactInstanceWorkspaceKeepsAllSectionsVisible() = runComposeUiTest {
+    fun compactInstanceWorkspaceMovesBetweenDetailAndSectionList() = runComposeUiTest {
         setContent {
-            Box(Modifier.size(600.dp, 720.dp)) {
+            Box(Modifier.size(480.dp, 720.dp)) {
                 TrestleApp(
                     state = LauncherPreviewFixtures.loaded,
                     actions = NoopLauncherUiActions,
                     initialDestination = LauncherDestination.INSTANCE,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
                 )
             }
         }
 
-        listOf("overview", "content", "game_data", "settings").forEach { section ->
+        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.INSTANCE_BACK).performClick()
+
+        listOf("overview", "content", "worlds", "servers", "screenshots", "notes", "logs", "settings")
+            .forEach { section ->
             onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
         }
     }

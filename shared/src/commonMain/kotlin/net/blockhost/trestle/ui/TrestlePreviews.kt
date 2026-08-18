@@ -271,9 +271,12 @@ private fun InstanceSettingsDialogPreview() = LauncherPreview(LauncherPreviewFix
 @Composable
 private fun ResourceBrowserDialogPreview() = LauncherPreview(LauncherPreviewFixtures.resourceDialog)
 
-@Preview(name = "Skin library", group = "Dialogs", widthDp = 1100, heightDp = 800, showBackground = true)
+@Preview(name = "Skin library", group = "Destinations", widthDp = 1100, heightDp = 800, showBackground = true)
 @Composable
-private fun SkinStudioDialogPreview() = LauncherPreview(LauncherPreviewFixtures.skinStudio)
+private fun SkinStudioPagePreview() = LauncherPreview(
+    LauncherPreviewFixtures.skinStudio,
+    LauncherDestination.ACCOUNTS,
+)
 
 @Preview(name = "Skin editor", group = "Dialogs", widthDp = 1000, heightDp = 760, showBackground = true)
 @Composable

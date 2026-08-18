@@ -138,13 +138,26 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
                             contentPadding = PaddingValues(12.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
-                            items(SettingsSection.entries, key = SettingsSection::name) { item ->
-                                SettingsSectionButton(
-                                    section = item,
-                                    selected = section == item,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    onClick = { selectSection(item) },
-                                )
+                            SettingsGroup.entries.forEach { group ->
+                                item("group-${group.name}") {
+                                    Text(
+                                        group.label,
+                                        modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.labelLarge,
+                                    )
+                                }
+                                items(
+                                    SettingsSection.entries.filter { it.group == group },
+                                    key = SettingsSection::name,
+                                ) { item ->
+                                    SettingsSectionButton(
+                                        section = item,
+                                        selected = section == item,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        onClick = { selectSection(item) },
+                                    )
+                                }
                             }
                             item("build-info") {
                                 Text(
@@ -190,18 +203,25 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
     }
 }
 
-private enum class SettingsSection(val label: StringResource) {
-    GENERAL(Res.string.ui_general),
-    LANGUAGE(Res.string.ui_language),
-    APPEARANCE(Res.string.ui_appearance),
-    FOLDERS(Res.string.ui_folders),
-    CONTENT(Res.string.ui_content),
-    NETWORK(Res.string.ui_network),
-    PROXY(Res.string.ui_proxy),
-    RUNTIME(Res.string.ui_runtime),
-    LOGS(Res.string.ui_launcher_log),
-    SERVICES(Res.string.ui_services),
-    TOOLS(Res.string.ui_tools),
+private enum class SettingsGroup(val label: String) {
+    APP("App"),
+    STORAGE("Storage"),
+    NETWORK("Network"),
+    DIAGNOSTICS("Diagnostics"),
+}
+
+private enum class SettingsSection(val label: StringResource, val group: SettingsGroup) {
+    GENERAL(Res.string.ui_general, SettingsGroup.APP),
+    APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP),
+    LANGUAGE(Res.string.ui_language, SettingsGroup.APP),
+    FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE),
+    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE),
+    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK),
+    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK),
+    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK),
+    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS),
+    LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS),
+    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS),
 }
 
 @Composable
