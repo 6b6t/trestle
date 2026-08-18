@@ -13,6 +13,7 @@ val curseForgeApiKey = providers.gradleProperty("trestle.curseforge.apiKey").orE
 dependencies {
     implementation(project(":shared"))
     implementation(compose.desktop.currentOs)
+    implementation(libs.compose.material3)
     implementation(libs.compose.resources)
     implementation(libs.dbus.java.core)
     implementation(libs.dbus.java.transport.native.unixsocket)
@@ -22,6 +23,7 @@ dependencies {
     implementation(libs.kotlinx.coroutines.core)
     runtimeOnly(libs.slf4j.simple)
     testImplementation(kotlin("test"))
+    testImplementation(libs.compose.ui.test)
 }
 
 tasks.processResources {

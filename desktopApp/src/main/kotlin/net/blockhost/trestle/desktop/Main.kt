@@ -21,6 +21,8 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowDecoration
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.isTraySupported
 import androidx.compose.ui.window.rememberTrayState
@@ -227,19 +229,22 @@ fun main(arguments: Array<String>) {
                 )
             }
         }
+        val requestClose: () -> Unit = {
+            if (state.activeLaunch != null || state.operation != null) {
+                if (isTraySupported) windowVisible = false else windowState.isMinimized = true
+            } else {
+                quit()
+            }
+        }
+        val windowTitle = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle"
 
         Window(
-            onCloseRequest = {
-                if (state.activeLaunch != null || state.operation != null) {
-                    if (isTraySupported) windowVisible = false else windowState.isMinimized = true
-                } else {
-                    quit()
-                }
-            },
+            onCloseRequest = requestClose,
             state = windowState,
             visible = windowVisible,
-            title = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle",
+            title = windowTitle,
             icon = icon,
+            decoration = WindowDecoration.Undecorated(),
             onPreviewKeyEvent = { event ->
                 val primaryPressed = if (isMac) event.isMetaPressed else event.isCtrlPressed
                 if (event.type == KeyEventType.KeyDown && primaryPressed && event.key == Key.Q) {
@@ -285,6 +290,26 @@ fun main(arguments: Array<String>) {
                     if (pendingCommand?.sequence == sequence) pendingCommand = null
                 },
                 onDestinationChanged = preferences::saveDestination,
+                topBar = {
+                    DesktopTitleBar(
+                        title = windowTitle,
+                        state = state,
+                        isMac = isMac,
+                        placement = windowState.placement,
+                        onCommand = sendCommand,
+                        onStopInstance = viewModel::stopLaunch,
+                        onQuit = ::quit,
+                        onMinimize = { windowState.isMinimized = true },
+                        onToggleMaximize = {
+                            windowState.placement = if (windowState.placement == WindowPlacement.Maximized) {
+                                WindowPlacement.Floating
+                            } else {
+                                WindowPlacement.Maximized
+                            }
+                        },
+                        onClose = requestClose,
+                    )
+                },
             )
         }
     }

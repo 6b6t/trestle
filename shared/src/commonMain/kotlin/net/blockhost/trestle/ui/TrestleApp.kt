@@ -247,6 +247,7 @@ fun TrestleApp(
     externalCommand: LauncherCommandRequest? = null,
     onExternalCommandHandled: (Long) -> Unit = {},
     onDestinationChanged: (LauncherDestination) -> Unit = {},
+    topBar: @Composable () -> Unit = {},
 ) {
     var destinationName by rememberSaveable { mutableStateOf(initialDestination.name) }
     val destination = LauncherDestination.entries.firstOrNull { it.name == destinationName }
@@ -368,6 +369,7 @@ fun TrestleApp(
                 .testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = topBar,
             bottomBar = {
                 state.operation?.let { operation ->
                     OperationBar(

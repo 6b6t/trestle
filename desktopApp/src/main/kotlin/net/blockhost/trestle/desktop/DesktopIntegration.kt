@@ -24,11 +24,13 @@ internal class DesktopIntegration {
     fun prepare(window: Window, darkTheme: Boolean) {
         window.minimumSize = Dimension(MINIMUM_WINDOW_WIDTH, MINIMUM_WINDOW_HEIGHT)
         window.iconImages = listOf(appIcon)
+        window.background = windowBackground(darkTheme)
         WindowsIntegration.prepareWindow(window, darkTheme)
         taskbar?.runIfSupported(Taskbar.Feature.ICON_IMAGE) { setIconImage(appIcon) }
     }
 
     fun updateAppearance(window: Window, darkTheme: Boolean) {
+        window.background = windowBackground(darkTheme)
         WindowsIntegration.prepareWindow(window, darkTheme)
     }
 
@@ -112,6 +114,9 @@ internal class DesktopIntegration {
     private fun Taskbar.runIfSupported(feature: Taskbar.Feature, action: Taskbar.() -> Unit) {
         if (isSupported(feature)) runCatching { action() }
     }
+
+    private fun windowBackground(darkTheme: Boolean): Color =
+        if (darkTheme) Color(0x17, 0x17, 0x15) else Color(0xF8, 0xF5, 0xED)
 
     private fun createBadge(color: Color, glyph: String?): BufferedImage =
         BufferedImage(BADGE_SIZE, BADGE_SIZE, BufferedImage.TYPE_INT_ARGB).also { image ->
