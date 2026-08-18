@@ -13,12 +13,14 @@ import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
+import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.InstalledVersion
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataResolver
 import net.blockhost.trestle.metadata.MojangLibrary
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.metadata.QuiltMetadataClient
 import net.blockhost.trestle.metadata.downloads
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
@@ -39,6 +41,7 @@ data class LauncherDirectories(
     val runtimes: Path = root / "runtimes",
     val logging: Path = root / "logging",
     val staging: Path = root / "staging",
+    val exports: Path = root / "exports",
 )
 
 class MinecraftInstaller(
@@ -46,6 +49,8 @@ class MinecraftInstaller(
     private val metadataClient: MinecraftMetadataClient,
     private val fabricMetadataClient: FabricMetadataClient,
     private val neoForgeMetadataClient: NeoForgeMetadataClient,
+    private val forgeMetadataClient: ForgeMetadataClient,
+    private val quiltMetadataClient: QuiltMetadataClient,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
     private val directories: LauncherDirectories,
@@ -106,7 +111,37 @@ class MinecraftInstaller(
                     auxiliaryLibraries = profile.mavenFiles
                     MinecraftMetadataResolver.merge(vanilla, profile.metadata)
                 }
-                else -> throw LauncherException.UnsupportedLoader(instance.modLoader)
+                ModLoader.FORGE -> {
+                    val loaderVersion = instance.loaderVersion
+                        ?: forgeMetadataClient.loaderVersions(instance.minecraftVersionId)
+                            .let { versions ->
+                                versions.firstOrNull { it.recommended }
+                                    ?: versions.firstOrNull { it.stable }
+                                    ?: versions.firstOrNull()
+                            }
+                            ?.version
+                        ?: throw LauncherException.InvalidMetadata(
+                            "No Forge version supports ${instance.minecraftVersionId}.",
+                        )
+                    working = working.copy(loaderVersion = loaderVersion)
+                    val profile = forgeMetadataClient.profile(instance.minecraftVersionId, loaderVersion)
+                    auxiliaryLibraries = profile.mavenFiles
+                    MinecraftMetadataResolver.merge(vanilla, profile.metadata)
+                }
+                ModLoader.QUILT -> {
+                    val loaderVersion = instance.loaderVersion
+                        ?: quiltMetadataClient.loaderVersions(instance.minecraftVersionId)
+                            .let { versions -> versions.firstOrNull { it.stable } ?: versions.firstOrNull() }
+                            ?.version
+                        ?: throw LauncherException.InvalidMetadata(
+                            "No Quilt Loader version supports ${instance.minecraftVersionId}.",
+                        )
+                    working = working.copy(loaderVersion = loaderVersion)
+                    MinecraftMetadataResolver.merge(
+                        vanilla,
+                        quiltMetadataClient.profile(instance.minecraftVersionId, loaderVersion),
+                    )
+                }
             }
             val baseResolved = MinecraftMetadataResolver.resolve(effective, environment)
             val resolved = if (auxiliaryLibraries.isEmpty()) {

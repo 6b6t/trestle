@@ -2,6 +2,7 @@ package net.blockhost.trestle.ui
 
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.SkinVariant
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.instance.MinecraftClientSettings
@@ -18,6 +19,8 @@ interface LauncherUiActions {
     fun refreshVersions() {}
     fun selectInstance(id: InstanceId) {}
     fun toggleSelectedInstancePinned() {}
+    fun cloneSelectedInstance() {}
+    fun exportSelectedInstance() {}
     fun openCreate() {}
     fun closeCreate() {}
     fun setCreateName(value: String) {}
@@ -34,6 +37,7 @@ interface LauncherUiActions {
     fun launchSelected() {}
     fun launchInstance(id: InstanceId) {}
     fun stopLaunch() {}
+    fun clearGameLog() {}
     fun openResourceBrowser(
         type: ResourceType = ResourceType.MOD,
         presentation: ResourceBrowserPresentation = ResourceBrowserPresentation.DIALOG,
@@ -49,10 +53,30 @@ interface LauncherUiActions {
     fun selectResourceVersion(versionId: String) {}
     fun toggleOptionalDependency(key: String) {}
     fun installSelectedResource() {}
+    fun refreshInstalledContent() {}
+    fun checkInstalledContentUpdates() {}
+    fun toggleInstalledContent(key: String) {}
+    fun updateInstalledContent(key: String) {}
+    fun removeInstalledContent(key: String) {}
+    fun refreshGameData() {}
+    fun backupWorld(worldKey: String) {}
+    fun restoreWorldBackup(backupKey: String) {}
+    fun deleteWorld(worldKey: String) {}
+    fun cancelWorldDeletion() {}
+    fun confirmWorldDeletion() {}
+    fun deleteScreenshot(screenshotKey: String) {}
+    fun toggleDataPack(worldKey: String, dataPackKey: String) {}
+    fun openServerEditor(serverKey: String? = null) {}
+    fun closeServerEditor() {}
+    fun setServerName(value: String) {}
+    fun setServerAddress(value: String) {}
+    fun saveServer() {}
+    fun removeServer(serverKey: String) {}
     fun deleteSelected() {}
     fun moveSelectedToTrash() {}
     fun cancelInstanceRemoval() {}
     fun confirmInstanceRemoval() {}
+    fun confirmInstanceDeletion() {}
     fun undoInstanceRemoval() {}
     fun queueLocalFileImport(
         fileName: String,
@@ -72,6 +96,14 @@ interface LauncherUiActions {
     fun setMinimumMemory(value: String) {}
     fun setMaximumMemory(value: String) {}
     fun setJvmArguments(value: String) {}
+    fun setGameArguments(value: String) {}
+    fun setJavaExecutable(value: String) {}
+    fun setEnvironmentVariables(value: String) {}
+    fun setInstanceName(value: String) {}
+    fun setInstanceGroup(value: String) {}
+    fun setInstanceIconReference(value: String) {}
+    fun setInstanceVersion(value: String) {}
+    fun setInstanceLoader(value: ModLoader) {}
     fun setInstanceClientSettings(value: MinecraftClientSettings) {}
     fun applyRecommendedMemory() {}
     fun saveInstanceSettings() {}
@@ -104,6 +136,8 @@ interface LauncherUiActions {
     fun useSelectedSkin() {}
     fun deleteSelectedSkin() {}
     fun clearLogs() {}
+    fun setThemePreference(value: ThemePreference) {}
+    fun checkForLauncherUpdate() {}
 }
 
 object NoopLauncherUiActions : LauncherUiActions

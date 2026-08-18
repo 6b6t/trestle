@@ -21,6 +21,8 @@ import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.resources.JvmArchiveExtractor
+import net.blockhost.trestle.instance.JvmInstanceExporter
+import net.blockhost.trestle.instance.JvmGameDataManager
 import net.blockhost.trestle.runtime.AndroidMinecraftRuntime
 import net.blockhost.trestle.runtime.AndroidGraphicsCompatibilityProbe
 import net.blockhost.trestle.runtime.SystemProfile
@@ -77,6 +79,8 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
             ?.getString("net.blockhost.trestle.CURSEFORGE_API_KEY")
             .orEmpty(),
         archiveExtractor = JvmArchiveExtractor(),
+        instanceExporter = JvmInstanceExporter(),
+        gameDataManager = JvmGameDataManager(),
     ) { directories, installer, sessionProvider, logger, downloadPipeline ->
         AndroidMinecraftRuntime(
             context = context,

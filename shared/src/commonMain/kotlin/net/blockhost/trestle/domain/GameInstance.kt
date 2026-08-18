@@ -72,16 +72,25 @@ data class GameInstance(
     val jvmArguments: List<String> = emptyList(),
     val memory: MemorySettings = MemorySettings(),
     val gameArguments: List<String> = emptyList(),
+    val javaExecutable: String? = null,
+    val environmentVariables: Map<String, String> = emptyMap(),
     val installationState: InstallationState = InstallationState.NotInstalled,
     val lastLaunchAtEpochMillis: Long? = null,
     val iconReference: String? = null,
     val pinned: Boolean = false,
+    val group: String? = null,
+    val launchCount: Int = 0,
+    val playTimeMillis: Long = 0,
 ) {
     init {
         require(displayName.isNotBlank()) { "Instance name must not be blank." }
         require(minecraftVersionId.isNotBlank()) { "Minecraft version must not be blank." }
         require(instanceDirectory.isNotBlank()) { "Instance directory must not be blank." }
         require(requiredJavaMajor > 0) { "Java major version must be positive." }
+        require(launchCount >= 0) { "Launch count must not be negative." }
+        require(playTimeMillis >= 0) { "Play time must not be negative." }
+        require(javaExecutable?.isNotBlank() != false) { "The Java executable must not be blank." }
+        require(environmentVariables.keys.none(String::isBlank)) { "Environment variable names must not be blank." }
         require(modLoader != ModLoader.VANILLA || loaderVersion == null) {
             "Vanilla instances cannot have a loader version."
         }

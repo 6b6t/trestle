@@ -1,6 +1,6 @@
 # Launcher service endpoints
 
-This reference records the remote services used by the first milestone. The service clients keep these details outside Compose code.
+This reference records the remote services that Trestle uses. The service clients keep these details outside Compose code.
 
 ## Minecraft metadata and files
 
@@ -68,6 +68,30 @@ Prism metadata uses ForgeWrapper as the NeoForge bootstrap. Trestle gives ForgeW
 
 NeoForge 1.20.1 uses the transitional `net.neoforged:forge` installer. Newer NeoForge versions use the `net.neoforged:neoforge` installer.
 
+## Forge
+
+Trestle uses the Prism Launcher metadata service for Forge component metadata:
+
+```text
+GET https://meta.prismlauncher.org/v1/net.minecraftforge/index.json
+GET https://meta.prismlauncher.org/v1/net.minecraftforge/{loader-version}.json
+```
+
+The client filters the index by the exact Minecraft version. It validates each component profile with the supplied SHA-256 value.
+
+Forge uses ForgeWrapper during launch. Trestle supplies the installer, library directory, and Mojang client path.
+
+## Quilt
+
+Trestle uses the Quilt Meta API for loader versions and launch profiles:
+
+```text
+GET https://meta.quiltmc.org/v3/versions/loader/{game-version}
+GET https://meta.quiltmc.org/v3/versions/loader/{game-version}/{loader-version}/profile/json
+```
+
+The installer merges the Quilt profile with the matching Mojang version.
+
 ## Resource platforms
 
 Trestle uses one resource model for projects, versions, files, and dependencies. The model supports mods, modpacks, resource packs, and shaders.
@@ -123,17 +147,17 @@ Trestle downloads required dependencies in the same operation. The instance reso
 
 Trestle reads `modrinth.index.json` from Modrinth packs. It reads `manifest.json` from CurseForge packs.
 
+Trestle reads `mmc-pack.json` and `instance.cfg` from Prism Launcher and MultiMC archives. A Trestle export uses this format.
+
 The archive extractor rejects paths outside the staging directory. It also limits the number of entries and the extracted size.
 
 Trestle downloads pack files before it creates the instance. A canceled download does not leave an incomplete instance in the library.
 
-Trestle installs Vanilla, Fabric, and NeoForge packs. Forge and Quilt packs remain visible, but installation stops with a loader error.
+Trestle installs Vanilla, Fabric, NeoForge, Forge, and Quilt packs.
 
 ## Microsoft authentication
 
-Authentication is outside this milestone. `SessionProvider` reserves the boundary for a future Microsoft, Xbox, XSTS, and Minecraft Services token chain.
-
-A current device-code flow uses these service stages:
+The Java device-code flow uses these service stages:
 
 ```text
 POST https://login.microsoftonline.com/consumers/oauth2/v2.0/devicecode
@@ -149,8 +173,18 @@ The XSTS request uses `rp://api.minecraftservices.com/` as its relying party. Th
 
 The entitlements request proves product ownership. The profile request returns the player ID and name used in the launch arguments.
 
-The future implementation must use an app registration that permits launcher authentication. It must store refresh credentials in platform-protected storage.
+Trestle validates Minecraft ownership and profile data. The credential vault encrypts saved authentication state.
 
-The implementation must validate Minecraft ownership and profile data. Logs and launch-plan diagnostics must redact all access tokens and sensitive headers.
+Logs and launch diagnostics redact access tokens and sensitive headers.
 
-The [MinecraftAuth project](https://github.com/RaphiMC/MinecraftAuth) shows a modern token-holder design with refresh and device-code flows. Trestle does not copy its implementation.
+The authentication adapter uses the [MinecraftAuth project](https://github.com/RaphiMC/MinecraftAuth) for modern token-holder and device-code flows.
+
+## Launcher updates
+
+Trestle reads the latest public release from GitHub:
+
+```text
+GET https://api.github.com/repos/6b6t/trestle/releases/latest
+```
+
+The client compares the release tag with the current application version. The application opens the official release page for downloads.

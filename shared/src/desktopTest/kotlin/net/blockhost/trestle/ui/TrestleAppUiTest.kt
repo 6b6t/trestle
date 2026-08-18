@@ -315,7 +315,7 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
-        listOf("overview", "content", "settings").forEach { section ->
+        listOf("overview", "content", "game_data", "settings").forEach { section ->
             onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
         }
     }
@@ -332,7 +332,7 @@ class TrestleAppUiTest {
             }
         }
 
-        listOf("overview", "content", "settings").forEach { section ->
+        listOf("overview", "content", "game_data", "settings").forEach { section ->
             onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
         }
     }

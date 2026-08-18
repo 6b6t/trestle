@@ -46,6 +46,8 @@ interface InstanceRepository {
     suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings?
     suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings)
     suspend fun delete(id: InstanceId): Boolean
+    suspend fun deleteWithFiles(id: InstanceId): Boolean
+    suspend fun clone(id: InstanceId, displayName: String): GameInstance
     suspend fun restore(instance: GameInstance): GameInstance
 }
 

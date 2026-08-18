@@ -40,6 +40,7 @@ class DesktopMinecraftRuntime(
         canLaunch = true,
         supportsManagedJava = true,
         supportsNativeExtraction = true,
+        supportsCustomJava = true,
     )
 
     override suspend fun prepare(
@@ -50,10 +51,16 @@ class DesktopMinecraftRuntime(
         withContext(Dispatchers.IO) {
             val session = sessionProvider.currentSession()
             val installed = installedVersionReader(instance)
-            val java = javaResolver.resolve(
+            val java = instance.javaExecutable ?: javaResolver.resolve(
                 component = installed.metadata.javaVersion?.component,
                 requiredMajor = installed.requiredJavaMajor,
             )
+            if (instance.javaExecutable != null) {
+                val executable = Path.of(java)
+                if (!Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
+                    throw LauncherException.RuntimeUnavailable("The custom Java executable is not usable: $java")
+                }
+            }
             val nativeDirectory = extractNatives(instance, installed)
             val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
             val classpathEntries = installed.libraries.filter { !it.native && it.classpath }
@@ -97,6 +104,7 @@ class DesktopMinecraftRuntime(
                 executable = java,
                 arguments = commandArguments,
                 workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
+                environment = instance.environmentVariables,
                 mainClass = installed.metadata.mainClass,
                 classpathEntries = classpathEntries,
                 nativeDirectory = nativeDirectory.toString(),
@@ -230,13 +238,17 @@ class DesktopMinecraftRuntime(
         installed: InstalledVersion,
         clientJar: okio.Path,
     ): List<String> {
-        if (instance.modLoader != ModLoader.NEOFORGE) return emptyList()
+        if (instance.modLoader !in setOf(ModLoader.NEOFORGE, ModLoader.FORGE)) return emptyList()
         val loaderVersion = instance.loaderVersion
-            ?: throw LauncherException.InvalidMetadata("The NeoForge instance has no loader version.")
-        val installerCoordinate = if ("--fml.neoForgeVersion" in installed.gameArguments) {
-            "net.neoforged:neoforge:$loaderVersion:installer"
-        } else {
-            "net.neoforged:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
+            ?: throw LauncherException.InvalidMetadata("The ${instance.modLoader.label} instance has no loader version.")
+        val installerCoordinate = when (instance.modLoader) {
+            ModLoader.FORGE -> "net.minecraftforge:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
+            ModLoader.NEOFORGE -> if ("--fml.neoForgeVersion" in installed.gameArguments) {
+                "net.neoforged:neoforge:$loaderVersion:installer"
+            } else {
+                "net.neoforged:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
+            }
+            else -> error("Loader bootstrap arguments were requested for an unsupported loader.")
         }
         val installer = directories.libraries /
             MavenCoordinate.parse(installerCoordinate).path()

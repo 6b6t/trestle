@@ -17,11 +17,122 @@ data class ResourceInstallSummary(
     val dependencyCount: Int,
 )
 
+data class InstalledContent(
+    val key: String,
+    val name: String,
+    val type: ResourceType,
+    val fileNames: List<String>,
+    val enabled: Boolean,
+    val direct: Boolean,
+    val provider: ResourceProvider? = null,
+    val projectId: String? = null,
+    val versionId: String? = null,
+    val requiredByCount: Int = 0,
+) {
+    val isTracked: Boolean get() = provider != null && projectId != null
+    val canManage: Boolean get() = direct
+}
+
 class ResourceInstaller(
     private val platforms: ResourcePlatformRegistry,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
 ) {
+    fun installedContent(instance: GameInstance): List<InstalledContent> {
+        val root = instance.instanceDirectory.toPath()
+        val manifest = readManifest(root / ".trestle" / "resources.json")
+        val trackedFiles = manifest.resources.flatMapTo(mutableSetOf()) { it.files }
+        val tracked = manifest.resources.map { resource ->
+            InstalledContent(
+                key = resourceKey(resource.provider, resource.projectId),
+                name = resource.name,
+                type = resource.type,
+                fileNames = resource.files.map { it.substringAfterLast('/') },
+                enabled = resource.enabled,
+                direct = resource.direct,
+                provider = resource.provider,
+                projectId = resource.projectId,
+                versionId = resource.versionId,
+                requiredByCount = resource.requiredBy.size,
+            )
+        }
+        val local = MANAGED_RESOURCE_TYPES.flatMap { type ->
+            val folder = root / "game" / type.installFolder()
+            val metadata = fileSystem.metadataOrNull(folder)
+            if (metadata?.isDirectory != true) return@flatMap emptyList()
+            fileSystem.list(folder).mapNotNull { file ->
+                if (fileSystem.metadataOrNull(file)?.isRegularFile != true) return@mapNotNull null
+                val relativePath = "${type.installFolder()}/${file.name}"
+                if (relativePath in trackedFiles) return@mapNotNull null
+                val enabled = !file.name.endsWith(DISABLED_SUFFIX)
+                val visibleName = file.name.removeSuffix(DISABLED_SUFFIX)
+                if (visibleName.substringAfterLast('.', "").lowercase() !in type.localExtensions()) {
+                    return@mapNotNull null
+                }
+                InstalledContent(
+                    key = "local:$relativePath",
+                    name = visibleName,
+                    type = type,
+                    fileNames = listOf(file.name),
+                    enabled = enabled,
+                    direct = true,
+                )
+            }
+        }
+        return (tracked + local).sortedWith(
+            compareBy<InstalledContent> { it.type.ordinal }
+                .thenByDescending { it.direct }
+                .thenBy { it.name.lowercase() },
+        )
+    }
+
+    suspend fun latestCompatibleVersion(instance: GameInstance, content: InstalledContent): ResourceVersion? {
+        val provider = content.provider ?: return null
+        val projectId = content.projectId ?: return null
+        val platform = platforms.platform(provider)
+        if (!platform.isAvailable || !platform.supports(content.type)) return null
+        val project = ResourceProject(
+            provider = provider,
+            id = projectId,
+            slug = projectId,
+            name = content.name,
+            summary = "",
+            author = "",
+            type = content.type,
+            downloads = 0,
+            iconUrl = null,
+            websiteUrl = null,
+            categories = emptyList(),
+        )
+        return platform.versions(project, instance.minecraftVersionId, instance.modLoader)
+            .firstOrNull()
+            ?.takeIf { it.id != content.versionId }
+    }
+
+    suspend fun update(
+        instance: GameInstance,
+        content: InstalledContent,
+        version: ResourceVersion,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ): ResourceInstallSummary {
+        val provider = requireNotNull(content.provider) { "Local files do not have an update source." }
+        val projectId = requireNotNull(content.projectId) { "Local files do not have an update source." }
+        val project = ResourceProject(
+            provider = provider,
+            id = projectId,
+            slug = projectId,
+            name = content.name,
+            summary = "",
+            author = "",
+            type = content.type,
+            downloads = 0,
+            iconUrl = null,
+            websiteUrl = null,
+            categories = emptyList(),
+        )
+        return install(instance, project, version, onProgress = onProgress)
+    }
+
     suspend fun installLocal(
         instance: GameInstance,
         fileName: String,
@@ -166,6 +277,72 @@ class ResourceInstaller(
         val nextManifest = ResourceManifest(resources = retained)
         removeReplacedFiles(manifest, nextManifest, root)
         writeManifest(manifestPath, nextManifest)
+        return true
+    }
+
+    suspend fun uninstall(instance: GameInstance, content: InstalledContent): Boolean {
+        val provider = content.provider
+        val projectId = content.projectId
+        if (provider != null && projectId != null) return uninstall(instance, provider, projectId)
+        if (!content.key.startsWith("local:")) return false
+        val relativePath = content.key.removePrefix("local:")
+        val path = safeOwnedPath(instance.instanceDirectory.toPath(), relativePath) ?: return false
+        fileSystem.delete(path, mustExist = false)
+        return true
+    }
+
+    suspend fun setEnabled(instance: GameInstance, content: InstalledContent, enabled: Boolean): Boolean {
+        if (!content.canManage || content.enabled == enabled) return false
+        val root = instance.instanceDirectory.toPath()
+        if (!content.isTracked) {
+            if (!content.key.startsWith("local:")) return false
+            val relativePath = content.key.removePrefix("local:")
+            val source = safeOwnedPath(root, relativePath) ?: return false
+            val destination = if (enabled) {
+                source.parent!! / source.name.removeSuffix(DISABLED_SUFFIX)
+            } else {
+                source.parent!! / "${source.name}$DISABLED_SUFFIX"
+            }
+            if (!fileSystem.exists(source) || fileSystem.exists(destination)) return false
+            fileSystem.atomicMove(source, destination)
+            return true
+        }
+
+        val manifestPath = root / ".trestle" / "resources.json"
+        val manifest = readManifest(manifestPath)
+        val provider = requireNotNull(content.provider)
+        val projectId = requireNotNull(content.projectId)
+        val key = resourceKey(provider, projectId)
+        val resource = manifest.resources.firstOrNull { resourceKey(it.provider, it.projectId) == key }
+            ?: return false
+        if (!resource.direct || resource.enabled == enabled) return false
+        val renamedFiles = resource.files.map { relativePath ->
+            val source = safeOwnedPath(root, relativePath)
+                ?: throw LauncherException.FileSystem("The installed resource contains an unsafe file path.")
+            val destination = if (enabled) {
+                source.parent!! / source.name.removeSuffix(DISABLED_SUFFIX)
+            } else {
+                source.parent!! / "${source.name}$DISABLED_SUFFIX"
+            }
+            if (fileSystem.exists(source)) {
+                require(!fileSystem.exists(destination)) { "${destination.name} already exists." }
+                fileSystem.atomicMove(source, destination)
+            }
+            relativePath.substringBeforeLast('/', "")
+                .takeIf(String::isNotEmpty)
+                ?.let { "$it/${destination.name}" }
+                ?: destination.name
+        }
+        val next = manifest.copy(
+            resources = manifest.resources.map {
+                if (resourceKey(it.provider, it.projectId) == key) {
+                    it.copy(files = renamedFiles, enabled = enabled)
+                } else {
+                    it
+                }
+            },
+        )
+        writeManifest(manifestPath, next)
         return true
     }
 
@@ -359,6 +536,7 @@ private data class InstalledResource(
     val files: List<String>,
     val direct: Boolean = true,
     val requiredBy: List<String> = emptyList(),
+    val enabled: Boolean = true,
 )
 
 private fun InstalledResource?.orEmptyRequiredBy(): List<String> = this?.requiredBy.orEmpty()
@@ -387,6 +565,14 @@ private fun safeOwnedPath(instanceRoot: Path, relativePath: String): Path? {
     segments.forEach { path /= it }
     return path
 }
+
+private val MANAGED_RESOURCE_TYPES = listOf(
+    ResourceType.MOD,
+    ResourceType.RESOURCE_PACK,
+    ResourceType.SHADER_PACK,
+)
+
+private const val DISABLED_SUFFIX = ".disabled"
 
 private val installJson = Json {
     prettyPrint = true

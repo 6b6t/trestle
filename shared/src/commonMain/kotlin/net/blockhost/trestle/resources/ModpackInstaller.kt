@@ -18,8 +18,10 @@ import net.blockhost.trestle.install.MinecraftInstaller
 import net.blockhost.trestle.instance.CreateInstanceRequest
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
+import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
+import net.blockhost.trestle.metadata.QuiltMetadataClient
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.SystemProfile
 import okio.FileSystem
@@ -32,6 +34,8 @@ class ModpackInstaller(
     private val metadataClient: MinecraftMetadataClient,
     private val fabricMetadataClient: FabricMetadataClient,
     private val neoForgeMetadataClient: NeoForgeMetadataClient,
+    private val forgeMetadataClient: ForgeMetadataClient,
+    private val quiltMetadataClient: QuiltMetadataClient,
     private val minecraftInstaller: MinecraftInstaller,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
@@ -107,8 +111,9 @@ class ModpackInstaller(
         val plan = when {
             fileSystem.exists(extracted / "modrinth.index.json") -> readModrinthPlan(extracted)
             fileSystem.exists(extracted / "manifest.json") -> readCurseForgePlan(extracted)
+            fileSystem.exists(extracted / "mmc-pack.json") -> readPrismPlan(extracted)
             else -> throw LauncherException.InvalidMetadata(
-                "The archive is not a supported Modrinth or CurseForge modpack.",
+                "The archive is not a supported Modrinth, CurseForge, Prism Launcher, or MultiMC pack.",
             )
         }
         ensureRuntimeSupported(plan)
@@ -150,8 +155,26 @@ class ModpackInstaller(
                 val source = extracted / directory
                 if (fileSystem.exists(source)) copyDirectory(source, gameDirectory)
             }
+            val restored = if (fileSystem.exists(extracted / "trestle-instance.json")) {
+                val exported = decode<GameInstance>(extracted / "trestle-instance.json", "Trestle instance settings")
+                repository.update(
+                    installed.copy(
+                        displayName = exported.displayName,
+                        jvmArguments = exported.jvmArguments,
+                        memory = exported.memory,
+                        gameArguments = exported.gameArguments,
+                        javaExecutable = exported.javaExecutable,
+                        environmentVariables = exported.environmentVariables,
+                        iconReference = exported.iconReference,
+                        pinned = exported.pinned,
+                        group = exported.group,
+                    ),
+                )
+            } else {
+                installed
+            }
             runCatching { deleteTree(staging) }
-            return installed
+            return restored
         } catch (error: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { repository.delete(instance.id) }
@@ -172,6 +195,12 @@ class ModpackInstaller(
 
     private companion object {
         const val MAX_LOCAL_MODPACK_BYTES = 1024 * 1024 * 1024
+        val PRISM_LOADER_COMPONENTS = setOf(
+            "net.fabricmc.fabric-loader",
+            "net.neoforged",
+            "net.minecraftforge",
+            "org.quiltmc.quilt-loader",
+        )
     }
 
     private fun readModrinthPlan(extracted: Path): ModpackPlan {
@@ -265,6 +294,44 @@ class ModpackInstaller(
         )
     }
 
+    private fun readPrismPlan(extracted: Path): ModpackPlan {
+        val pack = decode<PrismPackManifest>(extracted / "mmc-pack.json", "Prism Launcher component manifest")
+        val minecraftVersion = pack.components.firstOrNull { it.uid == "net.minecraft" }?.version
+            ?: throw LauncherException.InvalidMetadata("The Prism pack does not declare a Minecraft version.")
+        val loaderComponent = pack.components.firstOrNull { it.uid in PRISM_LOADER_COMPONENTS }
+        val loader = when (loaderComponent?.uid) {
+            "net.fabricmc.fabric-loader" -> ModLoader.FABRIC
+            "net.neoforged" -> ModLoader.NEOFORGE
+            "net.minecraftforge" -> ModLoader.FORGE
+            "org.quiltmc.quilt-loader" -> ModLoader.QUILT
+            null -> ModLoader.VANILLA
+            else -> throw LauncherException.InvalidMetadata(
+                "The Prism pack uses unsupported component ${loaderComponent.uid}.",
+            )
+        }
+        val name = if (fileSystem.exists(extracted / "instance.cfg")) {
+            fileSystem.read(extracted / "instance.cfg") { readUtf8() }
+                .lineSequence()
+                .firstOrNull { it.startsWith("name=") }
+                ?.substringAfter('=')
+                ?.trim()
+                .orEmpty()
+        } else {
+            ""
+        }
+        val gameDirectory = listOf(".minecraft", "minecraft").firstOrNull {
+            fileSystem.exists(extracted / it)
+        } ?: throw LauncherException.InvalidMetadata("The Prism pack does not contain a game directory.")
+        return ModpackPlan(
+            name = name,
+            minecraftVersion = minecraftVersion,
+            loader = loader,
+            loaderVersion = loaderComponent?.version,
+            files = emptyList(),
+            overrideDirectories = listOf(gameDirectory),
+        )
+    }
+
     private suspend fun ensureRuntimeSupported(plan: ModpackPlan) {
         when (plan.loader) {
             ModLoader.VANILLA -> Unit
@@ -286,7 +353,24 @@ class ModpackInstaller(
                     )
                 }
             }
-            else -> throw LauncherException.UnsupportedLoader(plan.loader)
+            ModLoader.FORGE -> {
+                val requested = requireNotNull(plan.loaderVersion)
+                val available = forgeMetadataClient.loaderVersions(plan.minecraftVersion)
+                if (available.none { it.version == requested }) {
+                    throw LauncherException.InvalidMetadata(
+                        "Forge $requested does not support Minecraft ${plan.minecraftVersion}.",
+                    )
+                }
+            }
+            ModLoader.QUILT -> {
+                val requested = requireNotNull(plan.loaderVersion)
+                val available = quiltMetadataClient.loaderVersions(plan.minecraftVersion)
+                if (available.none { it.version == requested }) {
+                    throw LauncherException.InvalidMetadata(
+                        "Quilt Loader $requested does not support Minecraft ${plan.minecraftVersion}.",
+                    )
+                }
+            }
         }
     }
 
@@ -389,6 +473,17 @@ private data class CurseForgePackFile(
     @SerialName("projectID") val projectId: Long,
     @SerialName("fileID") val fileId: Long,
     val required: Boolean = true,
+)
+
+@Serializable
+private data class PrismPackManifest(
+    val components: List<PrismPackComponent>,
+)
+
+@Serializable
+private data class PrismPackComponent(
+    val uid: String,
+    val version: String,
 )
 
 private fun safeRelativePath(value: String): String {

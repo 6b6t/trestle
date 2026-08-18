@@ -21,6 +21,7 @@ dependencies {
     implementation(libs.jna.platform)
     implementation(libs.java.objc.bridge)
     implementation(libs.kotlinx.coroutines.core)
+    implementation(libs.okio)
     runtimeOnly(libs.slf4j.simple)
     testImplementation(kotlin("test"))
     testImplementation(libs.compose.ui.test)

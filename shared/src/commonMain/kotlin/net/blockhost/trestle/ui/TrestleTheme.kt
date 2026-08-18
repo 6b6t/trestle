@@ -1,6 +1,7 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
@@ -20,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.resources.barlow_condensed_semibold
 import net.blockhost.trestle.resources.barlow_medium
 import net.blockhost.trestle.resources.barlow_regular
@@ -34,7 +36,6 @@ private val Muted = Color(0xFFA9A49A)
 private val Rule = Color(0xFF3A3833)
 private val ErrorSurface = Color(0xFF3A2520)
 private val ErrorText = Color(0xFFF0AA94)
-
 private val TrestleDarkColors = darkColorScheme(
     primary = Ochre,
     onPrimary = Color(0xFF211B12),
@@ -266,11 +267,17 @@ private fun trestleTypography(): Typography {
 @Composable
 internal fun TrestleTheme(
     accentColor: Color? = null,
-    darkTheme: Boolean = true,
+    preference: ThemePreference = ThemePreference.SYSTEM,
+    systemDarkTheme: Boolean? = null,
     highContrast: Boolean = false,
     reducedMotion: Boolean = false,
     content: @Composable () -> Unit,
 ) {
+    val darkTheme = when (preference) {
+        ThemePreference.SYSTEM -> systemDarkTheme ?: isSystemInDarkTheme()
+        ThemePreference.DARK -> true
+        ThemePreference.LIGHT -> false
+    }
     val colorScheme = remember(accentColor, darkTheme, highContrast) {
         trestleColorScheme(accentColor, darkTheme, highContrast)
     }

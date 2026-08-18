@@ -49,6 +49,9 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
     private val nativeBridgeReady = AtomicBoolean(false)
     private val surfaceLock = Any()
     private var attachedSurface: Surface? = null
+    private val gamepadKeys = mutableSetOf<Int>()
+    private var gamepadAttackPressed = false
+    private var gamepadUsePressed = false
 
     private val stopReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -165,6 +168,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
         runCatching { unregisterReceiver(stopReceiver) }
         detachSurface()
         controls.releaseAllInputs()
+        releaseGamepadInputs()
         super.onDestroy()
     }
 
@@ -204,6 +208,9 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
 
     private fun handleGameKeyEvent(event: KeyEvent): Boolean {
         if (!nativeBridgeReady.get()) return false
+        if (event.source and InputDevice.SOURCE_GAMEPAD == InputDevice.SOURCE_GAMEPAD) {
+            handleGamepadButton(event)?.let { return it }
+        }
         val glfwKey = AndroidGlfwInput.key(event.keyCode)
         val action = when (event.action) {
             KeyEvent.ACTION_UP -> AndroidGlfwInput.RELEASE
@@ -230,6 +237,14 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
     }
 
     private fun handleGameMotionEvent(event: MotionEvent): Boolean {
+        if (
+            nativeBridgeReady.get() &&
+            event.source and InputDevice.SOURCE_JOYSTICK == InputDevice.SOURCE_JOYSTICK &&
+            event.actionMasked == MotionEvent.ACTION_MOVE
+        ) {
+            handleGamepadAxes(event)
+            return true
+        }
         if (nativeBridgeReady.get() && event.source and InputDevice.SOURCE_MOUSE == InputDevice.SOURCE_MOUSE) {
             val modifiers = AndroidGlfwInput.modifiers(event.metaState)
             when (event.actionMasked) {
@@ -263,6 +278,87 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
             return true
         }
         return false
+    }
+
+    private fun handleGamepadButton(event: KeyEvent): Boolean? {
+        val pressed = event.action != KeyEvent.ACTION_UP
+        val key = when (event.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_A -> GlfwKey.SPACE
+            KeyEvent.KEYCODE_BUTTON_B -> GlfwKey.LEFT_SHIFT
+            KeyEvent.KEYCODE_BUTTON_X -> GlfwKey.E
+            KeyEvent.KEYCODE_BUTTON_Y -> GlfwKey.Q
+            KeyEvent.KEYCODE_BUTTON_START -> GlfwKey.ESCAPE
+            KeyEvent.KEYCODE_BUTTON_THUMBL -> GlfwKey.LEFT_CONTROL
+            KeyEvent.KEYCODE_DPAD_UP -> GlfwKey.W
+            KeyEvent.KEYCODE_DPAD_LEFT -> GlfwKey.A
+            KeyEvent.KEYCODE_DPAD_DOWN -> GlfwKey.S
+            KeyEvent.KEYCODE_DPAD_RIGHT -> GlfwKey.D
+            else -> null
+        }
+        if (key != null) {
+            setGamepadKey(key, pressed)
+            return true
+        }
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_BUTTON_L1 -> if (pressed && event.repeatCount == 0) CallbackBridge.sendScroll(0.0, 1.0)
+            KeyEvent.KEYCODE_BUTTON_R1 -> if (pressed && event.repeatCount == 0) CallbackBridge.sendScroll(0.0, -1.0)
+            KeyEvent.KEYCODE_BUTTON_L2 -> setGamepadMouseButton(1, pressed)
+            KeyEvent.KEYCODE_BUTTON_R2 -> setGamepadMouseButton(0, pressed)
+            else -> return null
+        }
+        return true
+    }
+
+    private fun handleGamepadAxes(event: MotionEvent) {
+        val x = centeredAxis(event, MotionEvent.AXIS_X)
+        val y = centeredAxis(event, MotionEvent.AXIS_Y)
+        setGamepadKey(GlfwKey.A, x < -GAMEPAD_MOVE_DEAD_ZONE)
+        setGamepadKey(GlfwKey.D, x > GAMEPAD_MOVE_DEAD_ZONE)
+        setGamepadKey(GlfwKey.W, y < -GAMEPAD_MOVE_DEAD_ZONE)
+        setGamepadKey(GlfwKey.S, y > GAMEPAD_MOVE_DEAD_ZONE)
+
+        val lookX = centeredAxis(event, MotionEvent.AXIS_Z).takeUnless { it == 0f }
+            ?: centeredAxis(event, MotionEvent.AXIS_RX)
+        val lookY = centeredAxis(event, MotionEvent.AXIS_RZ).takeUnless { it == 0f }
+            ?: centeredAxis(event, MotionEvent.AXIS_RY)
+        if (kotlin.math.abs(lookX) > GAMEPAD_LOOK_DEAD_ZONE || kotlin.math.abs(lookY) > GAMEPAD_LOOK_DEAD_ZONE) {
+            CallbackBridge.moveCursor(
+                lookX * GAMEPAD_LOOK_SPEED * resources.displayMetrics.density,
+                lookY * GAMEPAD_LOOK_SPEED * resources.displayMetrics.density,
+            )
+        }
+
+        val attack = maxOf(event.getAxisValue(MotionEvent.AXIS_RTRIGGER), event.getAxisValue(MotionEvent.AXIS_GAS))
+        val use = maxOf(event.getAxisValue(MotionEvent.AXIS_LTRIGGER), event.getAxisValue(MotionEvent.AXIS_BRAKE))
+        setGamepadMouseButton(0, attack > GAMEPAD_TRIGGER_THRESHOLD)
+        setGamepadMouseButton(1, use > GAMEPAD_TRIGGER_THRESHOLD)
+    }
+
+    private fun centeredAxis(event: MotionEvent, axis: Int): Float {
+        val value = event.getAxisValue(axis)
+        val range = event.device?.getMotionRange(axis, event.source) ?: return value
+        return if (kotlin.math.abs(value) > range.flat) value else 0f
+    }
+
+    private fun setGamepadKey(key: Int, pressed: Boolean) {
+        if (pressed && gamepadKeys.add(key)) CallbackBridge.sendKey(key, true)
+        if (!pressed && gamepadKeys.remove(key)) CallbackBridge.sendKey(key, false)
+    }
+
+    private fun setGamepadMouseButton(button: Int, pressed: Boolean) {
+        val wasPressed = if (button == 0) gamepadAttackPressed else gamepadUsePressed
+        if (pressed == wasPressed) return
+        if (button == 0) gamepadAttackPressed = pressed else gamepadUsePressed = pressed
+        CallbackBridge.sendMouseButton(button, pressed)
+    }
+
+    private fun releaseGamepadInputs() {
+        gamepadKeys.toList().forEach { CallbackBridge.sendKey(it, false) }
+        gamepadKeys.clear()
+        if (gamepadAttackPressed) CallbackBridge.sendMouseButton(0, false)
+        if (gamepadUsePressed) CallbackBridge.sendMouseButton(1, false)
+        gamepadAttackPressed = false
+        gamepadUsePressed = false
     }
 
     @SuppressLint("UnsafeDynamicallyLoadedCode")
@@ -472,6 +568,10 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
 
     private companion object {
         const val MAX_STREAMED_LOG_LINE = 8_000
+        const val GAMEPAD_MOVE_DEAD_ZONE = 0.28f
+        const val GAMEPAD_LOOK_DEAD_ZONE = 0.12f
+        const val GAMEPAD_LOOK_SPEED = 18f
+        const val GAMEPAD_TRIGGER_THRESHOLD = 0.45f
     }
 }
 

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -168,7 +169,9 @@ import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.app.BuildInfo
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.resources.ResourceProject
+import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
@@ -241,7 +244,7 @@ fun TrestleApp(
     actions: LauncherUiActions,
     initialDestination: LauncherDestination = LauncherDestination.LIBRARY,
     accentColor: Color? = null,
-    darkTheme: Boolean = true,
+    darkTheme: Boolean? = null,
     highContrast: Boolean = false,
     reducedMotion: Boolean = false,
     externalCommand: LauncherCommandRequest? = null,
@@ -308,13 +311,21 @@ fun TrestleApp(
         onExternalCommandHandled(request.sequence)
     }
 
-    TrestleTheme(accentColor, darkTheme, highContrast, reducedMotion) {
+    TrestleTheme(
+        accentColor = accentColor,
+        preference = state.themePreference,
+        systemDarkTheme = darkTheme,
+        highContrast = highContrast,
+        reducedMotion = reducedMotion,
+    ) {
         val modalVisible = state.create.visible ||
             state.instanceSettings.visible ||
             state.accountLogin.visible ||
             state.skinStudio.visible ||
             state.localFileImport.visible ||
+            state.serverEditor.visible ||
             state.pendingInstanceRemovalId != null ||
+            state.pendingWorldDeletionKey != null ||
             showShortcuts ||
             (
                 state.resourceBrowser.visible &&
@@ -435,6 +446,7 @@ fun TrestleApp(
             if (state.skinStudio.visible && !state.skinStudio.editor.visible) SkinStudioDialog(state, actions)
             if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
             if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
+            if (state.serverEditor.visible) ServerEditorDialog(state, actions)
             if (showShortcuts) ShortcutsDialog { showShortcuts = false }
             state.pendingInstanceRemovalId?.let { pendingId ->
                 val instance = state.instances.firstOrNull { it.id == pendingId }
@@ -455,17 +467,43 @@ fun TrestleApp(
                             if (moveToTrash) {
                                 "This removes the instance from Trestle and moves its complete directory to the system Trash."
                             } else {
-                                "This removes the instance from the library. Its game directory and files stay on disk."
+                                "Remove it from the library and keep its files, or permanently delete the complete instance directory."
                             },
                         )
                     },
                     dismissButton = {
-                        TextButton(onClick = actions::cancelInstanceRemoval) { Text("Cancel") }
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            TextButton(onClick = actions::cancelInstanceRemoval) { Text("Cancel") }
+                            if (!moveToTrash) {
+                                TextButton(onClick = actions::confirmInstanceRemoval) { Text("Keep files") }
+                            }
+                        }
                     },
                     confirmButton = {
-                        Button(onClick = actions::confirmInstanceRemoval) {
-                            Text(if (moveToTrash) "Move to Trash" else "Remove from library")
+                        Button(
+                            onClick = if (moveToTrash) {
+                                actions::confirmInstanceRemoval
+                            } else {
+                                actions::confirmInstanceDeletion
+                            },
+                        ) {
+                            Text(if (moveToTrash) "Move to Trash" else "Delete files")
                         }
+                    },
+                )
+            }
+            state.pendingWorldDeletionKey?.let { worldKey ->
+                AlertDialog(
+                    onDismissRequest = actions::cancelWorldDeletion,
+                    title = { Text("Delete $worldKey?") },
+                    text = {
+                        Text("This permanently deletes the world directory. Existing ZIP backups remain available.")
+                    },
+                    dismissButton = {
+                        TextButton(onClick = actions::cancelWorldDeletion) { Text("Cancel") }
+                    },
+                    confirmButton = {
+                        Button(onClick = actions::confirmWorldDeletion) { Text("Delete world") }
                     },
                 )
             }
@@ -1241,6 +1279,7 @@ private fun InstanceGrid(
 
 private fun instanceGroupLabel(instance: GameInstance): String = when {
     instance.pinned -> "Pinned"
+    !instance.group.isNullOrBlank() -> instance.group
     instance.iconReference != null -> "Modpacks"
     instance.modLoader == ModLoader.VANILLA -> "Vanilla"
     else -> "${instance.modLoader.label} instances"
@@ -1414,6 +1453,8 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
             add(ContextAction("Add content") { selectedAction { actions.openResourceBrowser() } })
         }
         add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(actions::openInstanceSettings) })
+        add(ContextAction("Duplicate instance") { selectedAction(actions::cloneSelectedInstance) })
+        add(ContextAction("Export instance") { selectedAction(actions::exportSelectedInstance) })
         add(ContextAction(if (instance.pinned) "Unpin from top" else "Pin to top") {
             selectedAction(actions::toggleSelectedInstancePinned)
         })
@@ -1482,10 +1523,19 @@ private fun LaunchButton(
 @Composable
 private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.instanceSettings
+    val instance = form.instanceId?.let { id -> state.instances.firstOrNull { it.id == id } }
     val focusManager = LocalFocusManager.current
     val minimum = form.minimumMemoryMiB.toIntOrNull()
     val maximum = form.maximumMemoryMiB.toIntOrNull()
-    val valid = minimum != null && maximum != null && minimum > 0 && maximum >= minimum
+    val valid = form.name.isNotBlank() && form.minecraftVersionId.isNotBlank() &&
+        minimum != null && maximum != null && minimum > 0 && maximum >= minimum
+    val availableVersions = state.versions.map { it.id }
+    val availableLoaders = ModLoader.entries.filter { loader ->
+        state.supportedModLoaders == null || loader in state.supportedModLoaders
+    }
+    val componentsChanged = instance != null && (
+        instance.minecraftVersionId != form.minecraftVersionId || instance.modLoader != form.modLoader
+    )
     val minimumError = when {
         form.minimumMemoryMiB.isBlank() -> "Enter a minimum memory value."
         minimum == null || minimum <= 0 -> "Minimum memory must be greater than 0."
@@ -1514,6 +1564,58 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Text("Instance settings", style = MaterialTheme.typography.headlineMedium)
+                    Text("Identity", style = MaterialTheme.typography.titleMedium)
+                    TextField(
+                        value = form.name,
+                        onValueChange = actions::setInstanceName,
+                        label = { Text("Name") },
+                        isError = form.name.isBlank(),
+                        supportingText = if (form.name.isBlank()) ({ Text("Enter an instance name.") }) else null,
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = form.group,
+                        onValueChange = actions::setInstanceGroup,
+                        label = { Text("Group") },
+                        supportingText = { Text("Leave blank to group this instance by loader.") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = form.iconReference,
+                        onValueChange = actions::setInstanceIconReference,
+                        label = { Text("Icon path or URL") },
+                        supportingText = { Text("Use a local image path or an HTTPS image URL.") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    HorizontalDivider()
+                    Text("Game components", style = MaterialTheme.typography.titleMedium)
+                    Selector(
+                        label = "Minecraft version",
+                        value = form.minecraftVersionId,
+                        values = availableVersions,
+                        enabled = !state.isLoadingVersions,
+                        onSelect = actions::setInstanceVersion,
+                    )
+                    Selector(
+                        label = "Mod loader",
+                        value = form.modLoader.label,
+                        values = availableLoaders.map { it.label },
+                        onSelect = { selected ->
+                            availableLoaders.firstOrNull { it.label == selected }?.let(actions::setInstanceLoader)
+                        },
+                    )
+                    if (componentsChanged) {
+                        Text(
+                            "Changing the game version or loader requires another installation. Trestle keeps worlds and content files in place.",
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+
+                    HorizontalDivider()
                     Text("Launch", style = MaterialTheme.typography.titleMedium)
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
                         val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
@@ -1564,6 +1666,31 @@ private fun InstanceSettingsDialog(state: LauncherUiState, actions: LauncherUiAc
                         supportingText = {
                             Text("Memory, classpath, native path, and architecture options are managed by Trestle.")
                         },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextField(
+                        value = form.gameArguments,
+                        onValueChange = actions::setGameArguments,
+                        label = { Text("Additional game arguments") },
+                        supportingText = { Text("Quoted values and escaped characters are preserved.") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    if (state.supportsCustomJava) {
+                        TextField(
+                            value = form.javaExecutable,
+                            onValueChange = actions::setJavaExecutable,
+                            label = { Text("Custom Java executable") },
+                            supportingText = { Text("Leave blank to use Trestle's managed Mojang runtime.") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    TextField(
+                        value = form.environmentVariables,
+                        onValueChange = actions::setEnvironmentVariables,
+                        label = { Text("Environment variables") },
+                        supportingText = { Text("Enter one NAME=value pair per line. Lines starting with # are ignored.") },
+                        minLines = 2,
                         modifier = Modifier.fillMaxWidth(),
                     )
 
@@ -2253,7 +2380,7 @@ private fun ShortcutRow(keys: String, action: String) {
 private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActions) {
     val form = state.create
     val restrictedRuntime = state.supportedMinecraftVersions != null || state.supportedModLoaders != null
-    val loaderChoices = listOf(ModLoader.VANILLA, ModLoader.FABRIC, ModLoader.NEOFORGE)
+    val loaderChoices = ModLoader.entries
         .filter { state.supportedModLoaders == null || it in state.supportedModLoaders }
     val focusManager = LocalFocusManager.current
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
@@ -2309,7 +2436,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             onValueChange = {},
                             readOnly = true,
                             label = { Text("Minecraft version") },
-                            supportingText = { Text("Android MVP") },
+                            supportingText = { Text("Android runtime") },
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
@@ -2342,7 +2469,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             },
                         )
                     }
-                    if (form.modLoader in setOf(ModLoader.FABRIC, ModLoader.NEOFORGE)) {
+                    if (form.modLoader != ModLoader.VANILLA) {
                         Selector(
                             label = "${form.modLoader.label} version",
                             value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading…" else "No compatible loader",
@@ -2377,7 +2504,7 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                     Button(
                         onClick = actions::createInstance,
                         enabled = form.name.isNotBlank() && form.versionId.isNotBlank() &&
-                            (form.modLoader != ModLoader.FABRIC || form.loaderVersion != null) && !form.isSaving,
+                            (form.modLoader == ModLoader.VANILLA || form.loaderVersion != null) && !form.isSaving,
                     ) {
                         if (form.isSaving) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -2704,7 +2831,7 @@ private fun EmptyLibrary(onNew: () -> Unit, modifier: Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text("No instances yet", style = MaterialTheme.typography.titleLarge)
-        Text("Create an isolated Vanilla or Fabric instance.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Create an isolated Minecraft instance.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(16.dp))
         Button(onClick = onNew) { Text("Create instance") }
     }
@@ -2732,6 +2859,7 @@ private fun LoadingRows(modifier: Modifier) {
 private enum class InstanceSection(val label: String) {
     OVERVIEW("Overview"),
     CONTENT("Content"),
+    GAME_DATA("Game data"),
     SETTINGS("Settings"),
 }
 
@@ -2748,6 +2876,7 @@ private fun InstanceWorkspace(
     val section = InstanceSection.entries.firstOrNull { it.name == sectionName } ?: InstanceSection.OVERVIEW
     val overviewListState = rememberLazyListState()
     val contentListState = rememberLazyListState()
+    val gameDataListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
         if (compact || instance == null) {
@@ -2798,7 +2927,14 @@ private fun InstanceWorkspace(
                     contentModifier,
                     compact,
                 )
-                InstanceSection.CONTENT -> InstanceContent(instance, actions, contentListState, contentModifier)
+                InstanceSection.CONTENT -> InstanceContent(state, instance, actions, contentListState, contentModifier)
+                InstanceSection.GAME_DATA -> InstanceGameData(
+                    state,
+                    instance,
+                    actions,
+                    gameDataListState,
+                    contentModifier,
+                )
                 InstanceSection.SETTINGS -> InstanceConfiguration(
                     instance,
                     actions,
@@ -2808,6 +2944,200 @@ private fun InstanceWorkspace(
             }
         }
     }
+}
+
+@Composable
+private fun InstanceGameData(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    listState: LazyListState,
+    modifier: Modifier,
+) {
+    val openPath = rememberOpenPath()
+    LazyColumn(
+        state = listState,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        item("game-data-heading") {
+            Row(
+                Modifier.widthIn(max = 820.dp).fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Game data", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        "Manage worlds, data packs, server bookmarks, screenshots, and backups for ${instance.displayName}.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                TextButton(onClick = actions::refreshGameData, enabled = !state.isLoadingGameData) {
+                    Text("Refresh")
+                }
+            }
+        }
+        if (state.isLoadingGameData) {
+            item("game-data-loading") {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text("Reading the game directory…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        item("worlds") {
+            GameDataSection("Worlds", if (state.gameData.worlds.isEmpty()) "No local worlds yet." else null) {
+                state.gameData.worlds.forEach { world ->
+                    ListItem(
+                        headlineContent = { Text(world.name) },
+                        supportingContent = {
+                            Text("${formatFileSize(world.sizeBytes)} · ${world.dataPacks.size} data packs")
+                        },
+                        trailingContent = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { actions.backupWorld(world.key) }) { Text("Back up") }
+                                TextButton(onClick = { actions.deleteWorld(world.key) }) { Text("Delete") }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                    world.dataPacks.forEach { pack ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(pack.fileName, style = MaterialTheme.typography.bodyMedium)
+                                Text(formatFileSize(pack.sizeBytes), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Switch(
+                                checked = pack.enabled,
+                                onCheckedChange = { actions.toggleDataPack(world.key, pack.key) },
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+        }
+        item("servers") {
+            GameDataSection("Servers", if (state.gameData.servers.isEmpty()) "No saved multiplayer servers." else null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { actions.openServerEditor() }) { Text("Add server") }
+                }
+                state.gameData.servers.forEach { server ->
+                    ListItem(
+                        headlineContent = { Text(server.name) },
+                        supportingContent = { Text(server.address) },
+                        trailingContent = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(onClick = { actions.openServerEditor(server.key) }) { Text("Edit") }
+                                TextButton(onClick = { actions.removeServer(server.key) }) { Text("Remove") }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+            }
+        }
+        item("backups") {
+            GameDataSection("Backups", if (state.gameData.backups.isEmpty()) "No world backups yet." else null) {
+                state.gameData.backups.forEach { backup ->
+                    ListItem(
+                        headlineContent = { Text(backup.fileName) },
+                        supportingContent = { Text(formatFileSize(backup.sizeBytes)) },
+                        trailingContent = {
+                            TextButton(onClick = { actions.restoreWorldBackup(backup.key) }) { Text("Restore copy") }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+            }
+        }
+        item("screenshots") {
+            GameDataSection("Screenshots", if (state.gameData.screenshots.isEmpty()) "No screenshots yet." else null) {
+                state.gameData.screenshots.forEach { screenshot ->
+                    ListItem(
+                        leadingContent = {
+                            AsyncImage(
+                                model = screenshot.path,
+                                contentDescription = null,
+                                modifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.small),
+                                contentScale = ContentScale.Crop,
+                            )
+                        },
+                        headlineContent = { Text(screenshot.fileName) },
+                        supportingContent = { Text(formatFileSize(screenshot.sizeBytes)) },
+                        trailingContent = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                TextButton(
+                                    onClick = { openPath(screenshot.path) },
+                                    enabled = currentPlatform == "Desktop",
+                                ) { Text("Open") }
+                                TextButton(onClick = { actions.deleteScreenshot(screenshot.key) }) { Text("Delete") }
+                            }
+                        },
+                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GameDataSection(title: String, emptyMessage: String?, content: @Composable ColumnScope.() -> Unit) {
+    Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
+        Text(title, style = MaterialTheme.typography.titleMedium)
+        if (emptyMessage != null) {
+            Text(
+                emptyMessage,
+                modifier = Modifier.padding(vertical = 12.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        content()
+    }
+}
+
+@Composable
+private fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActions) {
+    val editor = state.serverEditor
+    val valid = editor.name.isNotBlank() && editor.address.isNotBlank()
+    AlertDialog(
+        onDismissRequest = { if (!editor.isSaving) actions.closeServerEditor() },
+        title = { Text(if (editor.key == null) "Add server" else "Edit server") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                TextField(
+                    value = editor.name,
+                    onValueChange = actions::setServerName,
+                    label = { Text("Name") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextField(
+                    value = editor.address,
+                    onValueChange = actions::setServerAddress,
+                    label = { Text("Address") },
+                    supportingText = { Text("For example, play.example.net:25565") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = actions::closeServerEditor, enabled = !editor.isSaving) { Text("Cancel") }
+        },
+        confirmButton = {
+            Button(onClick = actions::saveServer, enabled = valid && !editor.isSaving) {
+                Text(if (editor.isSaving) "Saving…" else "Save")
+            }
+        },
+    )
 }
 
 @Composable
@@ -2880,6 +3210,9 @@ private fun InstanceOverview(
                 Spacer(Modifier.height(8.dp))
                 PropertyRow("Java", instance.requiredJavaMajor.toString())
                 PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
+                instance.group?.let { PropertyRow("Group", it) }
+                PropertyRow("Launches", instance.launchCount.toString())
+                PropertyRow("Play time", formatPlayTime(instance.playTimeMillis))
                 PropertyRow(
                     "Directory",
                     instance.instanceDirectory,
@@ -2916,11 +3249,51 @@ private fun InstanceOverview(
                 ) { Text("Inspect launch plan") }
             }
         }
+        if (state.gameLogLines.isNotEmpty() || state.lastCrashReport != null) {
+            item("game-console") {
+                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 24.dp)) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Game console", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                        TextButton(onClick = actions::clearGameLog, enabled = state.gameLogLines.isNotEmpty()) {
+                            Text("Clear")
+                        }
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                        shape = MaterialTheme.shapes.small,
+                        modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
+                    ) {
+                        androidx.compose.foundation.text.selection.SelectionContainer {
+                            Text(
+                                state.gameLogLines.takeLast(120).joinToString("\n").ifBlank { "No process output." },
+                                modifier = Modifier.padding(12.dp),
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
+                    }
+                    state.lastCrashReport?.let { report ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("Crash report: $report", color = MaterialTheme.colorScheme.error, modifier = Modifier.weight(1f))
+                            TextButton(
+                                onClick = { openPath(report) },
+                                enabled = currentPlatform == "Desktop",
+                            ) { Text("Open") }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
 @Composable
 private fun InstanceContent(
+    state: LauncherUiState,
     instance: GameInstance,
     actions: LauncherUiActions,
     listState: LazyListState,
@@ -2943,10 +3316,13 @@ private fun InstanceContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
         ) {
+            item("installed-content") {
+                InstalledContentPanel(state, instance, actions)
+            }
             item("intro") {
                 Text(
-                    "Browse compatible content for ${instance.displayName}. Required dependencies are resolved during installation.",
-                    modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(vertical = 16.dp),
+                    "Add compatible content to ${instance.displayName}. Required dependencies are resolved during installation.",
+                    modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 28.dp, bottom = 16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -2973,6 +3349,138 @@ private fun InstanceContent(
 }
 
 @Composable
+private fun InstalledContentPanel(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+) {
+    Column(
+        Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Installed content", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "Manage Trestle installs and compatible files already in ${instance.displayName}.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(
+                onClick = actions::refreshInstalledContent,
+                enabled = !state.isLoadingInstalledContent,
+            ) { Text("Refresh") }
+            OutlinedButton(
+                onClick = actions::checkInstalledContentUpdates,
+                enabled = state.installedContent.any { it.direct && it.isTracked } &&
+                    !state.isCheckingInstalledContentUpdates,
+            ) {
+                Text(if (state.isCheckingInstalledContentUpdates) "Checking…" else "Check updates")
+            }
+        }
+        when {
+            state.isLoadingInstalledContent -> Row(
+                Modifier.fillMaxWidth().padding(vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                Text("Reading installed content…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            state.installedContent.isEmpty() -> Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = MaterialTheme.shapes.medium,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    "No mods, resource packs, or shaders are installed yet.",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            else -> Column {
+                state.installedContent.forEach { content ->
+                    InstalledContentRow(
+                        content = content,
+                        update = state.installedContentUpdates[content.key],
+                        actions = actions,
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InstalledContentRow(
+    content: InstalledContent,
+    update: ResourceVersion?,
+    actions: LauncherUiActions,
+) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        ListItem(
+            headlineContent = {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(content.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (update != null) {
+                        Text(
+                            "Update ${update.versionNumber}",
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                }
+            },
+            supportingContent = {
+                val source = content.provider?.label ?: "Local file"
+                val role = if (content.direct) source else {
+                    "Dependency${if (content.requiredByCount > 1) " for ${content.requiredByCount} items" else ""}"
+                }
+                Text("${content.type.label.removeSuffix("s")} · $role · ${content.fileNames.joinToString()}")
+            },
+            leadingContent = {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = MaterialTheme.shapes.small,
+                    modifier = Modifier.size(42.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(content.type.label.take(1), style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+            },
+            trailingContent = {
+                Switch(
+                    checked = content.enabled,
+                    onCheckedChange = { actions.toggleInstalledContent(content.key) },
+                    enabled = content.canManage,
+                )
+            },
+            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        )
+        if (content.canManage) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+            ) {
+                if (update != null) {
+                    FilledTonalButton(onClick = { actions.updateInstalledContent(content.key) }) {
+                        Text("Update")
+                    }
+                }
+                TextButton(onClick = { actions.removeInstalledContent(content.key) }) { Text("Remove") }
+            }
+        }
+    }
+}
+
+@Composable
 private fun InstanceConfiguration(
     instance: GameInstance,
     actions: LauncherUiActions,
@@ -2994,6 +3502,9 @@ private fun InstanceConfiguration(
             PropertyRow("Minimum memory", "${instance.memory.minimumMiB} MiB")
             PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
             PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
+            PropertyRow("Game arguments", instance.gameArguments.joinToString().ifBlank { "None" })
+            PropertyRow("Java runtime", instance.javaExecutable ?: "Managed Java ${instance.requiredJavaMajor}")
+            PropertyRow("Environment", if (instance.environmentVariables.isEmpty()) "Inherited" else "${instance.environmentVariables.size} custom")
             OutlinedButton(
                 onClick = actions::openInstanceSettings,
                 modifier = Modifier.padding(top = 12.dp),
@@ -4104,6 +4615,7 @@ private fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: La
 }
 
 private enum class SettingsSection(val label: String) {
+    APPEARANCE("Appearance"),
     RUNTIME("Runtime"),
     LOGS("Launcher log"),
 }
@@ -4133,8 +4645,43 @@ private fun SettingsSectionContent(
     modifier: Modifier,
 ) {
     when (section) {
+        SettingsSection.APPEARANCE -> AppearanceSettings(state, actions, runtimeScrollState, modifier)
         SettingsSection.RUNTIME -> RuntimeSettings(state, actions, runtimeScrollState, modifier)
         SettingsSection.LOGS -> LauncherLog(state, actions, logListState, modifier)
+    }
+}
+
+@Composable
+private fun AppearanceSettings(
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    scrollState: ScrollState,
+    modifier: Modifier,
+) {
+    Column(
+        modifier.verticalScroll(scrollState).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text("Appearance", style = MaterialTheme.typography.titleLarge)
+        Text(
+            "Choose how Trestle follows your device appearance. The preference applies on the next screen immediately.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.widthIn(max = 640.dp),
+        )
+        SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+            ThemePreference.entries.forEachIndexed { index, preference ->
+                SegmentedButton(
+                    selected = state.themePreference == preference,
+                    onClick = { actions.setThemePreference(preference) },
+                    shape = SegmentedButtonDefaults.itemShape(index, ThemePreference.entries.size),
+                ) { Text(preference.label) }
+            }
+        }
+        Text(
+            "Desktop system accent colors remain available in every mode.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyMedium,
+        )
     }
 }
 
@@ -4145,6 +4692,7 @@ private fun RuntimeSettings(
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
+    val uriHandler = LocalUriHandler.current
     Column(
         modifier.verticalScroll(scrollState).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -4158,6 +4706,8 @@ private fun RuntimeSettings(
         PropertyRow("Platform", currentPlatform)
         PropertyRow("Instances", state.instances.size.toString())
         PropertyRow("Accounts", state.accounts.size.toString())
+        PropertyRow("Total launches", state.instances.sumOf(GameInstance::launchCount).toString())
+        PropertyRow("Total play time", formatPlayTime(state.instances.sumOf(GameInstance::playTimeMillis)))
         state.credentialProtection?.let { protection ->
             PropertyRow(
                 "Credential vault",
@@ -4166,7 +4716,7 @@ private fun RuntimeSettings(
         }
         Text(
             if (currentPlatform == "Android") {
-                "Android can manage and install instances. A native game runtime is not installed."
+                "Android provisions its Java runtime and verified native game components when the selected version is launched."
             } else {
                 "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
             },
@@ -4177,6 +4727,17 @@ private fun RuntimeSettings(
             onClick = actions::refreshVersions,
             modifier = Modifier.padding(top = 8.dp),
         ) { Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh versions") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+                onClick = actions::checkForLauncherUpdate,
+                enabled = !state.isCheckingForUpdate,
+            ) { Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates") }
+            state.availableUpdate?.let { update ->
+                TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) {
+                    Text("Open ${update.version} release")
+                }
+            }
+        }
     }
 }
 
@@ -4321,6 +4882,18 @@ private fun formatInstanceForClipboard(instance: GameInstance): String = buildSt
     appendLine("Minecraft ${instance.minecraftVersionId}")
     appendLine("${instance.modLoader.label} · Java ${instance.requiredJavaMajor}")
     append(instance.instanceDirectory)
+}
+
+private fun formatPlayTime(milliseconds: Long): String {
+    val totalMinutes = milliseconds / 60_000
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return when {
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m"
+        milliseconds > 0 -> "Less than a minute"
+        else -> "Not played"
+    }
 }
 
 private fun formatLogDetails(entry: LogEntry): String =

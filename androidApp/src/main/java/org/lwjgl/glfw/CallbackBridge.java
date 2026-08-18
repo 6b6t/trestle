@@ -110,7 +110,7 @@ public final class CallbackBridge {
 
     @SuppressWarnings("unused")
     private static void onDirectInputEnable() {
-        // The fixed MVP controls use GLFW input. Direct gamepad input is out of scope.
+        // Android gamepad events are translated to GLFW keyboard, mouse, and cursor events.
     }
 
     @SuppressWarnings("unused")

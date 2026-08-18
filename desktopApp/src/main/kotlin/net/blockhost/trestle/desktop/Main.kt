@@ -34,10 +34,14 @@ import javax.swing.SwingUtilities
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import net.blockhost.trestle.app.LauncherServices
 import net.blockhost.trestle.app.createDesktopLauncherServices
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
 import net.blockhost.trestle.ui.LaunchStatus
@@ -46,11 +50,20 @@ import net.blockhost.trestle.ui.LauncherCommandRequest
 import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
 import org.jetbrains.compose.resources.painterResource
+import okio.Path.Companion.toPath
+import kotlin.system.exitProcess
 
 private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 
 @OptIn(ExperimentalComposeUiApi::class, FlowPreview::class)
 fun main(arguments: Array<String>) {
+    if (arguments.isNotEmpty()) {
+        if (arguments.first() in setOf("--help", "-h")) {
+            println(CLI_HELP)
+            return
+        }
+        exitProcess(runBlocking { runCli(arguments) })
+    }
     configureSwingGlobalsForCompose()
     configureDesktopProperties()
     val activationBroker = DesktopActivationBroker.acquire(arguments.toList()) ?: return
@@ -314,6 +327,114 @@ fun main(arguments: Array<String>) {
         }
     }
 }
+
+internal suspend fun runCli(
+    args: Array<String>,
+    services: LauncherServices = createDesktopLauncherServices(),
+    output: (String) -> Unit = ::println,
+): Int = try {
+    services.repository.initialize()
+    services.accounts.initialize()
+    when (val command = args.firstOrNull()) {
+        "--help", "-h" -> {
+            output(CLI_HELP)
+            0
+        }
+        "--list" -> {
+            services.repository.instances.value.forEach { instance ->
+                output(
+                    listOf(
+                        instance.id.value,
+                        instance.displayName,
+                        instance.minecraftVersionId,
+                        instance.modLoader.label,
+                        instance.installationState.cliLabel(),
+                    ).joinToString("\t"),
+                )
+            }
+            0
+        }
+        "--install" -> {
+            val instance = services.findCliInstance(args.getOrNull(1), output) ?: return 2
+            services.installer.install(instance) { progress ->
+                output("${progress.completedFiles}/${progress.totalFiles}\t${progress.activeLabel}")
+            }
+            output("Installed ${instance.displayName}.")
+            0
+        }
+        "--launch" -> {
+            val instance = services.findCliInstance(args.getOrNull(1), output) ?: return 2
+            if (instance.installationState !is InstallationState.Installed) {
+                output("${instance.displayName} is not installed. Run --install ${instance.id.value} first.")
+                return 2
+            }
+            val prepared = services.runtime.prepare(instance)
+            if (prepared.missingRequirements.isNotEmpty()) {
+                output("Cannot launch: ${prepared.missingRequirements.joinToString()}.")
+                return 3
+            }
+            var exitCode = 1
+            services.runtime.launch(prepared).collect { event ->
+                when (event) {
+                    is LaunchEvent.Started -> output("Started ${instance.displayName}${event.processId?.let { " (PID $it)" }.orEmpty()}.")
+                    is LaunchEvent.Log -> output(event.line)
+                    is LaunchEvent.Exited -> exitCode = event.exitCode
+                    is LaunchEvent.Failed -> {
+                        output(event.message)
+                        exitCode = 1
+                    }
+                    LaunchEvent.Cancelled -> exitCode = 130
+                }
+            }
+            exitCode
+        }
+        "--export" -> {
+            val instance = services.findCliInstance(args.getOrNull(1), output) ?: return 2
+            val destination = args.getOrNull(2)?.toPath()
+                ?: services.directories.exports / "${instance.id.value}.zip"
+            services.instanceExporter.export(instance, destination)
+            output("Exported ${instance.displayName} to $destination.")
+            0
+        }
+        else -> {
+            output("Unknown command: ${command ?: ""}\n\n$CLI_HELP")
+            2
+        }
+    }
+} catch (error: Exception) {
+    output(error.message ?: "The command failed.")
+    1
+} finally {
+    services.close()
+}
+
+private fun LauncherServices.findCliInstance(reference: String?, output: (String) -> Unit) = when {
+    reference.isNullOrBlank() -> {
+        output("Provide an instance ID or exact name.")
+        null
+    }
+    else -> repository.instances.value.firstOrNull {
+        it.id.value == reference || it.displayName.equals(reference, ignoreCase = true)
+    }.also { if (it == null) output("No instance matches $reference.") }
+}
+
+private fun InstallationState.cliLabel(): String = when (this) {
+    InstallationState.NotInstalled -> "not installed"
+    is InstallationState.Installing -> "installing"
+    is InstallationState.Interrupted -> "paused"
+    is InstallationState.Installed -> "installed"
+    is InstallationState.Failed -> "failed"
+}
+
+private val CLI_HELP = """
+    Trestle command line
+
+      --list                         List instances
+      --install <id-or-name>         Install or repair an instance
+      --launch <id-or-name>          Launch and stream the game console
+      --export <id-or-name> [path]   Export a portable instance archive
+      --help                         Show this help
+""".trimIndent()
 
 private fun configureDesktopProperties() {
     System.setProperty("apple.awt.application.name", "Trestle")

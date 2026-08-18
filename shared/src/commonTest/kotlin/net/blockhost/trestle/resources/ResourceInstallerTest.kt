@@ -45,6 +45,32 @@ class ResourceInstallerTest {
     }
 
     @Test
+    fun discoversAndManagesLocalContent() = runTest {
+        val root = "/instances/local-content".toPath()
+        val fileSystem = FakeFileSystem().apply { createDirectories(root / "game") }
+        val installer = ResourceInstaller(
+            ResourcePlatformRegistry(emptyList()),
+            DownloadPipeline(HttpClient(MockEngine { respond("unused") }), fileSystem),
+            fileSystem,
+        )
+        val instance = instance(root)
+        installer.installLocal(instance, "sodium.jar", byteArrayOf(1), ResourceType.MOD)
+
+        val installed = installer.installedContent(instance).single()
+        assertEquals("sodium.jar", installed.name)
+        assertTrue(installed.enabled)
+        assertFalse(installed.isTracked)
+
+        assertTrue(installer.setEnabled(instance, installed, enabled = false))
+        val disabled = installer.installedContent(instance).single()
+        assertFalse(disabled.enabled)
+        assertTrue(fileSystem.exists(root / "game" / "mods" / "sodium.jar.disabled"))
+
+        assertTrue(installer.uninstall(instance, disabled))
+        assertTrue(installer.installedContent(instance).isEmpty())
+    }
+
+    @Test
     fun rejectsLocalContentWithTheWrongExtension() = runTest {
         val root = "/instances/local-files".toPath()
         val fileSystem = FakeFileSystem().apply { createDirectories(root / "game") }
@@ -91,6 +117,10 @@ class ResourceInstallerTest {
         val summary = installer.install(instance(root), project("root"), rootVersion)
 
         assertEquals(1, summary.dependencyCount)
+        val installed = installer.installedContent(instance(root))
+        assertEquals(listOf("root-version", "dependency-version"), installed.map { it.name })
+        assertTrue(installed.first().direct)
+        assertFalse(installed.last().direct)
         assertTrue(fileSystem.exists(root / "game" / "mods" / "root.jar"))
         assertTrue(fileSystem.exists(root / "game" / "mods" / "dependency.jar"))
         assertTrue(installer.uninstall(instance(root), ResourceProvider.MODRINTH, "root"))

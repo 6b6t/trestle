@@ -10,6 +10,7 @@ data class RuntimeCapabilities(
     val canLaunch: Boolean,
     val supportsManagedJava: Boolean,
     val supportsNativeExtraction: Boolean,
+    val supportsCustomJava: Boolean = false,
     val unavailableReason: String? = null,
     val supportedMinecraftVersions: Set<String>? = null,
     val supportedModLoaders: Set<ModLoader>? = null,

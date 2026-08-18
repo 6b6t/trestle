@@ -7,16 +7,21 @@ Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin an
 Trestle provides:
 
 - Isolated, persisted Minecraft instances with atomic registry writes.
-- Vanilla, Fabric, and NeoForge metadata resolution and installation.
+- Vanilla, Fabric, NeoForge, Forge, and Quilt metadata resolution and installation.
 - Verified Mojang asset, library, native, logging, and client downloads.
 - Managed Mojang Java runtimes for desktop launch.
 - Modrinth and CurseForge search for mods, modpacks, resource packs, and shaders.
-- Compatible version selection, required dependency resolution, and verified resource downloads.
-- Modrinth and CurseForge modpack installation for Vanilla, Fabric, and NeoForge packs.
-- Desktop launch preparation with safe diagnostics and native extraction.
-- An honest Android runtime boundary that does not claim game launch support.
+- Installed-content updates, dependency tracking, enable controls, and removal.
+- Modrinth, CurseForge, Prism Launcher, and MultiMC pack import.
+- Portable instance export with Prism-compatible metadata.
+- Instance cloning, grouping, custom icons, launch statistics, and component changes.
+- World backups, data-pack controls, server bookmarks, screenshots, and crash reports.
+- Microsoft, imported-session, The Altening, and offline account profiles.
+- Desktop launch controls, custom Java paths, environment variables, and live console output.
+- Android launch support for Vanilla Minecraft 26.2 on compatible 64-bit ARM devices.
+- Android touch, keyboard, mouse, and gamepad input.
 
-Microsoft authentication is not implemented. Desktop launch validation stops with a sign-in requirement instead of creating an offline account.
+Android uses a fixed Java 25 and Zink runtime. Android does not support other Minecraft versions or mod loaders yet.
 
 ## Targets
 
@@ -37,6 +42,19 @@ Use the included Gradle wrapper. You do not need a separate Gradle installation.
 ```bash
 ./gradlew :desktopApp:run
 ```
+
+## Use the desktop command line
+
+The packaged desktop application also provides command-line operations:
+
+```bash
+trestle --list
+trestle --install <instance-id>
+trestle --launch <instance-id>
+trestle --export <instance-id> [archive-path]
+```
+
+The launch command writes Minecraft output to the terminal. It returns the game process exit code.
 
 Modrinth works without an access key. CurseForge requires a key that CurseForge issued for Trestle.
 

@@ -15,10 +15,14 @@ import net.blockhost.trestle.install.MinecraftInstaller
 import net.blockhost.trestle.instance.FileInstanceRepository
 import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.instance.InstanceRepository
+import net.blockhost.trestle.instance.InstanceExporter
+import net.blockhost.trestle.instance.GameDataManager
 import net.blockhost.trestle.metadata.FabricMetadataClient
+import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.metadata.QuiltMetadataClient
 import net.blockhost.trestle.logging.BufferedLauncherLogger
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.LogSink
@@ -38,6 +42,8 @@ class LauncherServices private constructor(
     val metadataClient: MinecraftMetadataClient,
     val fabricMetadataClient: FabricMetadataClient,
     val neoForgeMetadataClient: NeoForgeMetadataClient,
+    val forgeMetadataClient: ForgeMetadataClient,
+    val quiltMetadataClient: QuiltMetadataClient,
     val installer: MinecraftInstaller,
     val runtime: MinecraftRuntime,
     val directories: LauncherDirectories,
@@ -49,6 +55,10 @@ class LauncherServices private constructor(
     val skinLibrary: SkinLibrary,
     val logger: LauncherLogger,
     val clock: EpochClock,
+    val instanceExporter: InstanceExporter,
+    val gameDataManager: GameDataManager,
+    val preferences: LauncherPreferencesStore,
+    val updateChecker: UpdateChecker,
     private val httpClient: HttpClient,
     curseForgeApiKey: String,
     archiveExtractor: ArchiveExtractor,
@@ -67,6 +77,8 @@ class LauncherServices private constructor(
         metadataClient = metadataClient,
         fabricMetadataClient = fabricMetadataClient,
         neoForgeMetadataClient = neoForgeMetadataClient,
+        forgeMetadataClient = forgeMetadataClient,
+        quiltMetadataClient = quiltMetadataClient,
         minecraftInstaller = installer,
         downloadPipeline = resourceDownloadPipeline,
         fileSystem = FileSystem.SYSTEM,
@@ -90,6 +102,8 @@ class LauncherServices private constructor(
             authenticator: MinecraftAuthenticator,
             curseForgeApiKey: String,
             archiveExtractor: ArchiveExtractor,
+            instanceExporter: InstanceExporter,
+            gameDataManager: GameDataManager,
             runtimeFactory: (
                 LauncherDirectories,
                 MinecraftInstaller,
@@ -136,12 +150,18 @@ class LauncherServices private constructor(
             val metadataClient = MinecraftMetadataClient(httpClient, logger = logger)
             val fabricMetadataClient = FabricMetadataClient(httpClient)
             val neoForgeMetadataClient = NeoForgeMetadataClient(httpClient, BuildInfo.USER_AGENT)
+            val forgeMetadataClient = ForgeMetadataClient(httpClient, BuildInfo.USER_AGENT)
+            val quiltMetadataClient = QuiltMetadataClient(httpClient)
             val downloadPipeline = DownloadPipeline(httpClient, fileSystem, logger = logger)
+            val preferences = LauncherPreferencesStore(fileSystem, root / "preferences.json")
+            val updateChecker = UpdateChecker(httpClient)
             val installer = MinecraftInstaller(
                 repository,
                 metadataClient,
                 fabricMetadataClient,
                 neoForgeMetadataClient,
+                forgeMetadataClient,
+                quiltMetadataClient,
                 downloadPipeline,
                 fileSystem,
                 directories,
@@ -154,6 +174,8 @@ class LauncherServices private constructor(
                 metadataClient,
                 fabricMetadataClient,
                 neoForgeMetadataClient,
+                forgeMetadataClient,
+                quiltMetadataClient,
                 installer,
                 runtimeFactory(directories, installer, accounts, logger, downloadPipeline),
                 directories,
@@ -165,6 +187,10 @@ class LauncherServices private constructor(
                 SkinLibrary(fileSystem, root / "skins", clock::nowMillis),
                 logger,
                 clock,
+                instanceExporter,
+                gameDataManager,
+                preferences,
+                updateChecker,
                 httpClient,
                 curseForgeApiKey,
                 archiveExtractor,

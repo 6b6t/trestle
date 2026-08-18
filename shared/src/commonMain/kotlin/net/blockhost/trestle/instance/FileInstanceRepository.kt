@@ -137,6 +137,55 @@ class FileInstanceRepository(
         true
     }
 
+    override suspend fun deleteWithFiles(id: InstanceId): Boolean = mutex.withLock {
+        val current = mutableInstances.value
+        val instance = current.firstOrNull { it.id == id } ?: return@withLock false
+        val directory = instance.instanceDirectory.toPath()
+        require(directory.parent == instancesDirectory) { "The instance directory is outside Trestle's instance storage." }
+        deleteTree(directory)
+        persist(current.filterNot { it.id == id })
+        logger.info("instances", "Deleted instance and files", mapOf("id" to id.value))
+        true
+    }
+
+    override suspend fun clone(id: InstanceId, displayName: String): GameInstance = mutex.withLock {
+        val source = mutableInstances.value.firstOrNull { it.id == id }
+            ?: error("Instance ${id.value} does not exist.")
+        require(displayName.isNotBlank()) { "Instance name must not be blank." }
+        val cloneId = generateUniqueId()
+        val sourceDirectory = source.instanceDirectory.toPath()
+        require(sourceDirectory.parent == instancesDirectory) {
+            "The instance directory is outside Trestle's instance storage."
+        }
+        val temporaryDirectory = instancesDirectory / ".${cloneId.value}.clone"
+        val destinationDirectory = instancesDirectory / cloneId.value
+        try {
+            deleteTree(temporaryDirectory)
+            copyTree(sourceDirectory, temporaryDirectory)
+            fileSystem.atomicMove(temporaryDirectory, destinationDirectory)
+            val clone = source.copy(
+                id = cloneId,
+                displayName = displayName.trim(),
+                instanceDirectory = destinationDirectory.toString(),
+                lastLaunchAtEpochMillis = null,
+                pinned = false,
+                launchCount = 0,
+                playTimeMillis = 0,
+            )
+            persist(mutableInstances.value + clone)
+            logger.info(
+                "instances",
+                "Cloned instance",
+                mapOf("sourceId" to id.value, "cloneId" to cloneId.value),
+            )
+            clone
+        } catch (error: Exception) {
+            runCatching { deleteTree(temporaryDirectory) }
+            runCatching { deleteTree(destinationDirectory) }
+            throw LauncherException.FileSystem("The instance could not be cloned.", error)
+        }
+    }
+
     override suspend fun restore(instance: GameInstance): GameInstance = mutex.withLock {
         check(mutableInstances.value.none { it.id == instance.id }) {
             "Instance ${instance.id.value} is already in the library."
@@ -202,6 +251,27 @@ class FileInstanceRepository(
     }
 
     private fun GameInstance.optionsPath(): Path = instanceDirectory.toPath() / "game" / "options.txt"
+
+    private fun copyTree(source: Path, destination: Path) {
+        val metadata = fileSystem.metadataOrNull(source) ?: return
+        when {
+            metadata.isDirectory -> {
+                fileSystem.createDirectories(destination)
+                fileSystem.list(source).forEach { child -> copyTree(child, destination / child.name) }
+            }
+            metadata.isRegularFile -> {
+                fileSystem.createDirectories(requireNotNull(destination.parent))
+                fileSystem.copy(source, destination)
+            }
+            else -> throw LauncherException.FileSystem("The instance contains an unsupported filesystem entry.")
+        }
+    }
+
+    private fun deleteTree(path: Path) {
+        val metadata = fileSystem.metadataOrNull(path) ?: return
+        if (metadata.isDirectory) fileSystem.list(path).forEach(::deleteTree)
+        fileSystem.delete(path, mustExist = false)
+    }
 }
 
 private fun List<GameInstance>.sortedForLibrary(): List<GameInstance> =

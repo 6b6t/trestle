@@ -259,4 +259,51 @@ class FileInstanceRepositoryTest {
         assertTrue(reloaded.instances.value.first().pinned)
         assertEquals(pinned.id, reloaded.instances.value.first().id)
     }
+
+    @Test
+    fun clonesTheCompleteInstanceAndResetsUsageStatistics() = runTest {
+        val fileSystem = FakeFileSystem()
+        val ids = ArrayDeque(listOf(InstanceId("source01"), InstanceId("clone001")))
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { ids.removeFirst() },
+        )
+        repository.initialize()
+        val source = repository.create(CreateInstanceRequest("Source", "1.21.8"))
+        fileSystem.createDirectories("/data/instances/source01/game/mods".toPath())
+        fileSystem.write("/data/instances/source01/game/mods/example.jar".toPath()) { writeUtf8("mod") }
+        repository.update(source.copy(launchCount = 4, playTimeMillis = 12_000, pinned = true))
+
+        val clone = repository.clone(source.id, "Source Copy")
+
+        assertEquals("Source Copy", clone.displayName)
+        assertEquals(0, clone.launchCount)
+        assertEquals(0, clone.playTimeMillis)
+        assertFalse(clone.pinned)
+        assertEquals(
+            "mod",
+            fileSystem.read("/data/instances/clone001/game/mods/example.jar".toPath()) { readUtf8() },
+        )
+    }
+
+    @Test
+    fun permanentlyDeletesTheInstanceDirectory() = runTest {
+        val fileSystem = FakeFileSystem()
+        val repository = FileInstanceRepository(
+            fileSystem,
+            "/data/instances.json".toPath(),
+            "/data/instances".toPath(),
+            InstanceIdFactory { InstanceId("delete01") },
+        )
+        repository.initialize()
+        val instance = repository.create(CreateInstanceRequest("Delete", "1.21.8"))
+        fileSystem.write("/data/instances/delete01/game/keep.txt".toPath()) { writeUtf8("no") }
+
+        assertTrue(repository.deleteWithFiles(instance.id))
+
+        assertTrue(repository.instances.value.isEmpty())
+        assertFalse(fileSystem.exists("/data/instances/delete01".toPath()))
+    }
 }

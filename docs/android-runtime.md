@@ -1,43 +1,63 @@
-# Android runtime boundary
+# Android runtime
 
-This note explains the future Android implementation of `MinecraftRuntime`. It is for contributors who add the native game runtime.
+This reference describes the Android implementation of `MinecraftRuntime`.
 
-The current adapter reports that launch preparation and game launch are unavailable. It does not use `ProcessBuilder` or claim launch support.
+## Support boundary
 
-## Responsibilities
+The Android runtime supports Vanilla Minecraft 26.2 on 64-bit ARM devices. The device must support Vulkan 1.2 or newer.
 
-The adapter will own these platform functions:
+The runtime does not support other Minecraft versions or mod loaders. The launcher hides unsupported choices on Android.
 
-- Select and start a managed JRE that matches the device architecture.
-- Load Minecraft and mod-loader native libraries in an isolated runtime.
-- Connect LWJGL calls to an Android-compatible rendering layer.
-- Translate touch, keyboard, mouse, controller, and pointer-lock input.
-- Connect OpenAL calls to the Android audio system.
-- Stream process state, progress, logs, exit status, and cancellation through `LaunchEvent`.
-- Keep each instance game directory separate from shared immutable assets and libraries.
+## Runtime preparation
 
-Shared code will continue to own metadata, downloads, checksums, instance records, arguments, and launch policy. The adapter must not duplicate that logic.
+Trestle downloads a Java 25 runtime for Android. It validates the archive with SHA-256 before extraction.
 
-## Rendering and native libraries
+Trestle also downloads the Android LWJGL, OpenAL, Zink, and native bridge components. Each component has a fixed source revision and checksum.
 
-The rendering bridge can use proven PojavLauncher or Amethyst concepts. No source from those projects can enter Trestle without a license review.
+The runtime activates a component set only after all required files exist. A partial download cannot replace a complete component set.
 
-The adapter must select libraries by Android ABI. It must reject archives that write outside the native staging directory.
+## Game process
 
-## Managed Java runtimes
+`MinecraftGameActivity` owns the game surface and Java virtual machine. It starts the virtual machine through the Android native bridge.
 
-Each runtime package needs a version, Java major, ABI, source URL, checksum, and license record. Activation must occur after checksum validation.
+The launcher passes these values to the activity:
 
-The runtime manager must keep the previous valid runtime during a failed update. It must not execute a desktop JRE on Android.
+- The Java home directory.
+- The game working directory.
+- The native-library directory.
+- JVM and game arguments.
+- The main class.
+- Environment variables.
+- A result receiver for process events.
 
-## Lifecycle
+The activity sends start, log, exit, and error events to the launcher. The launcher shows these events through `LaunchEvent`.
 
-Android can stop background work or destroy an activity. The adapter must keep process ownership outside Compose and expose observable lifecycle state.
+## Rendering and audio
 
-Cancellation must stop the game process and native threads. A later launch must not reuse stale rendering, input, or audio state.
+The current renderer uses Mesa Zink and Kopper. It translates desktop OpenGL calls to Vulkan.
 
-## Licensing review
+The native component set includes the patched LWJGL bridge and OpenAL Soft. The activity loads these libraries before it starts Minecraft.
 
-Before integration, review the licenses for the runtime, LWJGL bridge, renderers, audio bridge, native libraries, and copied patches. Record each source and license.
+## Input
 
-Trestle must download Minecraft files from official endpoints. It must not redistribute Mojang files or bypass Microsoft account and ownership checks.
+The game activity supports these input sources:
+
+- The touch overlay for movement, camera control, inventory, combat, chat, and hotbar selection.
+- Android text input for chat and command text.
+- Hardware keyboards with GLFW key and modifier translation.
+- Mouse movement, buttons, wheel input, and pointer grab.
+- Gamepads with movement, camera, action buttons, triggers, and hotbar selection.
+
+The activity releases held input when Android destroys the game activity.
+
+## Process errors
+
+The activity writes JVM errors to the instance crash directory. Minecraft can also write reports to `crash-reports`.
+
+If the process stops without an exit event, Trestle reads Android process-exit information. It reports native errors, JVM errors, low-memory termination, and ANR events.
+
+## Licensing
+
+The runtime uses components from Amethyst and Android OpenJDK builds at fixed revisions. The source repository records the required licenses.
+
+Trestle downloads Minecraft files from official endpoints. It does not redistribute Mojang files or bypass ownership checks.

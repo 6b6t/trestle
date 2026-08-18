@@ -18,10 +18,12 @@ import net.blockhost.trestle.instance.FileInstanceRepository
 import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.FabricMetadataClient
+import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.metadata.QuiltMetadataClient
 import okio.Path.Companion.toPath
 import okio.ByteString.Companion.encodeUtf8
 import okio.fakefilesystem.FakeFileSystem
@@ -71,6 +73,8 @@ class MinecraftInstallerTest {
             metadataClient = MinecraftMetadataClient(client),
             fabricMetadataClient = FabricMetadataClient(client),
             neoForgeMetadataClient = NeoForgeMetadataClient(client, "Trestle test"),
+            forgeMetadataClient = ForgeMetadataClient(client, "Trestle test"),
+            quiltMetadataClient = QuiltMetadataClient(client),
             downloadPipeline = DownloadPipeline(client, fileSystem),
             fileSystem = fileSystem,
             directories = LauncherDirectories("/data".toPath()),
@@ -109,6 +113,8 @@ class MinecraftInstallerTest {
             metadataClient = MinecraftMetadataClient(client),
             fabricMetadataClient = FabricMetadataClient(client),
             neoForgeMetadataClient = NeoForgeMetadataClient(client, "Trestle test"),
+            forgeMetadataClient = ForgeMetadataClient(client, "Trestle test"),
+            quiltMetadataClient = QuiltMetadataClient(client),
             downloadPipeline = DownloadPipeline(client, fileSystem),
             fileSystem = fileSystem,
             directories = LauncherDirectories("/data".toPath()),
