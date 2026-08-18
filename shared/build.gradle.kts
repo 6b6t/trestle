@@ -80,6 +80,7 @@ kotlin {
         getByName("desktopMain") {
             dependsOn(jvmMain)
             dependencies {
+                implementation(libs.appdirs)
                 implementation(libs.ktor.client.cio)
                 implementation(libs.slf4j.api)
             }

@@ -22,9 +22,9 @@ import net.blockhost.trestle.instance.JvmGameDataManager
 import net.blockhost.trestle.runtime.DesktopMinecraftRuntime
 import net.blockhost.trestle.runtime.MojangJavaResolver
 import net.blockhost.trestle.runtime.SystemProfile
+import net.harawata.appdirs.AppDirsFactory
 import okio.Path.Companion.toPath
 import java.io.File
-import java.nio.file.Path
 import java.lang.management.ManagementFactory
 import java.util.UUID
 
@@ -107,11 +107,10 @@ private fun desktopEnvironment(): PlatformEnvironment {
 }
 
 private fun desktopDataDirectory(os: OperatingSystem): String {
-    val home = System.getProperty("user.home")
-    return when (os) {
-        OperatingSystem.WINDOWS -> Path.of(System.getenv("APPDATA") ?: home, "Trestle").toString()
-        OperatingSystem.MACOS -> Path.of(home, "Library", "Application Support", "Trestle").toString()
-        else -> Path.of(System.getenv("XDG_DATA_HOME") ?: Path.of(home, ".local", "share").toString(), "trestle")
-            .toString()
+    val appName = when (os) {
+        OperatingSystem.WINDOWS, OperatingSystem.MACOS -> "Trestle"
+        else -> "trestle"
     }
+    // Keep existing data locations while AppDirs resolves the platform-specific base directory.
+    return AppDirsFactory.getInstance().getUserDataDir(appName, null, null, os == OperatingSystem.WINDOWS)
 }
