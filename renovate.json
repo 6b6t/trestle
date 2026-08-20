@@ -1,0 +1,34 @@
+{
+  "extends": [
+    "config:base",
+    "group:allNonMajor",
+    ":semanticCommits"
+  ],
+  "baseBranches": [
+    "main"
+  ],
+  "labels": [
+    "enhancement"
+  ],
+  "reviewers": [
+    "AlexProgrammerDE"
+  ],
+  "packageRules": [
+    {
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "digest"
+      ],
+      "automerge": true,
+      "automergeType": "branch"
+    },
+    {
+      "matchPackageNames": [
+        "**"
+      ],
+      "allowedVersions": "!/\\-SNAPSHOT$/"
+    }
+  ]
+}
