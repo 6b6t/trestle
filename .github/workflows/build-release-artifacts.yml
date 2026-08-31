@@ -272,7 +272,7 @@ jobs:
       - name: Build desktop package
         if: matrix.platform != 'linux'
         shell: bash
-        run: ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
+        run: ./gradlew :desktopApp:createDistributable :desktopApp:packageDistributionForCurrentOS --stacktrace
 
       - name: Smoke test the packaged launcher
         env:
