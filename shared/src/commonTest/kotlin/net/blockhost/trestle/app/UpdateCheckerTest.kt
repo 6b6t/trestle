@@ -4,11 +4,35 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import net.blockhost.trestle.metadata.Architecture
+import net.blockhost.trestle.metadata.OperatingSystem
+import net.blockhost.trestle.metadata.PlatformEnvironment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class UpdateCheckerTest {
+    @Test
+    fun selectsAndroidApkForProcessArchitecture() = runTest {
+        val artifacts = listOf("arm64" to "apk", "x64" to "apk", "universal" to "apk", "universal" to "aab", "x64" to "deb")
+        val manifest = ReleaseManifest(1, "2.0.0", artifacts.map { (arch, format) ->
+            ReleaseArtifact(if (format == "deb") "linux" else "android", arch, format,
+                "https://example.test/$arch.$format", "a".repeat(64), 100, "Android 8.1")
+        })
+        val client = HttpClient(MockEngine { request ->
+            if (request.url.encodedPath.endsWith("manifest")) {
+                respond(Json.encodeToString(ReleaseManifest.serializer(), manifest))
+            } else respond("""{"tag_name":"2.0.0","html_url":"https://example.test/release","assets":[{"name":"release-manifest.json","browser_download_url":"https://example.test/manifest"}]}""")
+        })
+        for ((architecture, expected) in listOf(Architecture.ARM64 to "arm64", Architecture.X86_64 to "x64")) {
+            val checker = UpdateChecker(client, environment = PlatformEnvironment(
+                OperatingSystem.LINUX, architecture), isMobile = true)
+            assertEquals(manifest.artifacts.single { it.architecture == expected && it.format == "apk" },
+                checker.availableUpdate("1.0.0")?.downloads?.single())
+        }
+    }
+
     @Test
     fun treatsUnpublishedReleasesAsNoUpdate() = runTest {
         val checker = UpdateChecker(HttpClient(MockEngine { respond("", io.ktor.http.HttpStatusCode.NotFound) }))
@@ -25,7 +49,7 @@ class UpdateCheckerTest {
                 {"platform":"windows","architecture":"x64","format":"msi","url":"https://example.test/x64.msi","sha256":"${if (valid) hash else "bad"}","size":100,"minimumOS":"Windows 10"},
                 {"platform":"windows","architecture":"arm64","format":"msi","url":"https://example.test/arm64.msi","sha256":"$hash","size":100,"minimumOS":"Windows 10"}
             ]}""") else respond(release)
-        }), environment = net.blockhost.trestle.metadata.PlatformEnvironment(net.blockhost.trestle.metadata.OperatingSystem.WINDOWS, net.blockhost.trestle.metadata.Architecture.ARM64))
+        }), environment = PlatformEnvironment(OperatingSystem.WINDOWS, Architecture.ARM64))
         assertEquals("arm64", checker.availableUpdate("1.0.0")?.downloads?.single()?.architecture)
         valid = false
         kotlin.test.assertFailsWith<IllegalArgumentException> { checker.availableUpdate("1.0.0") }

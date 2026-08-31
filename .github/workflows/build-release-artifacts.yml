@@ -138,39 +138,21 @@ jobs:
         env:
           TRESTLE_VERSION: ${{ inputs.version }}
         shell: bash
-        run: |
-          find_single_file() {
-            local pattern="$1"
-            local matches=()
-            while IFS= read -r match; do
-              matches+=("$match")
-            done < <(find androidApp/build/outputs -type f -name "$pattern" | sort)
-
-            if [[ "${#matches[@]}" -ne 1 ]]; then
-              echo "Expected exactly one $pattern file, found ${#matches[@]}." >&2
-              exit 1
-            fi
-
-            printf '%s' "${matches[0]}"
-          }
-
-          apk="$(find_single_file '*.apk')"
-          bundle="$(find_single_file '*.aab')"
-          mkdir -p release-artifacts
-          cp "$apk" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.apk"
-          cp "$bundle" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.aab"
+        run: python3 scripts/collect-android-packages.py --version "$TRESTLE_VERSION"
 
       - name: Verify Android package signatures
         env:
           TRESTLE_VERSION: ${{ inputs.version }}
           TRESTLE_ANDROID_STORE_PASSWORD: ${{ secrets.TRESTLE_ANDROID_STORE_PASSWORD }}
         run: |
-          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs \
-            "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.apk"
+          for arch in arm64 x64 universal; do
+            "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs \
+              "release-artifacts/Trestle-${TRESTLE_VERSION}-android-${arch}.apk"
+          done
           jarsigner -verify -strict \
             -keystore "$RUNNER_TEMP/trestle-signing/release.p12" \
             -storetype PKCS12 -storepass:env TRESTLE_ANDROID_STORE_PASSWORD \
-            "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.aab"
+            "release-artifacts/Trestle-${TRESTLE_VERSION}-android-universal.aab"
 
       - name: Remove Android signing key
         if: always()

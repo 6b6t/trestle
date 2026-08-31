@@ -61,8 +61,9 @@ class AndroidMinecraftRuntime internal constructor(
         logger,
     )
 
+    private val supportsArchitecture = AndroidRuntimeAbi.entries.any { it.architecture == architecture }
     private val unavailableReason = when {
-        architecture != Architecture.ARM64 -> ARM64_MESSAGE
+        !supportsArchitecture -> "Android game launch requires an ARM64 or x64 process."
         !graphicsCompatibility.isSupported -> graphicsCompatibility.unavailableReason
         else -> null
     }
@@ -70,8 +71,8 @@ class AndroidMinecraftRuntime internal constructor(
     override val capabilities = RuntimeCapabilities(
         canPrepareLaunch = unavailableReason == null,
         canLaunch = unavailableReason == null,
-        supportsManagedJava = architecture == Architecture.ARM64,
-        supportsNativeExtraction = architecture == Architecture.ARM64,
+        supportsManagedJava = supportsArchitecture,
+        supportsNativeExtraction = supportsArchitecture,
         unavailableReason = unavailableReason,
         supportedMinecraftVersions = setOf(MVP_VERSION),
         supportedModLoaders = setOf(ModLoader.VANILLA),
@@ -117,7 +118,7 @@ class AndroidMinecraftRuntime internal constructor(
             val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
                 onProgress(progress.toRuntimeProgress("Downloading Java 25 runtime"))
             }
-            val components = componentManager.resolve { progress ->
+            val components = componentManager.resolve(AndroidRuntimeAbi.forArchitecture(architecture)) { progress ->
                 onProgress(progress.toRuntimeProgress("Downloading Android game components"))
             }
             val gameDirectory = instance.instanceDirectory.toPath() / "game"
@@ -508,7 +509,6 @@ class AndroidMinecraftRuntime internal constructor(
         const val EXIT_DIAGNOSTICS_DELAY_MILLIS = 300L
         const val PROCESS_START_TIMEOUT_MILLIS = 20_000L
         const val MAX_SYSTEM_TRACE_LINES = 80
-        const val ARM64_MESSAGE = "The Android Minecraft MVP requires a 64-bit ARM device."
         val PLACEHOLDER = Regex("\\$\\{([^}]+)\\}")
         val AUTH_PLACEHOLDERS = listOf(
             "\${auth_player_name}",

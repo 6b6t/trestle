@@ -8,7 +8,9 @@ from pathlib import Path
 import re
 
 TARGETS = {
-    ('android', 'arm64'): ('apk', 'aab'),
+    ('android', 'arm64'): ('apk',),
+    ('android', 'x64'): ('apk',),
+    ('android', 'universal'): ('apk', 'aab'),
     ('linux', 'x64'): ('deb', 'rpm', 'tar.gz'),
     ('linux', 'arm64'): ('deb', 'rpm', 'tar.gz'),
     ('macos', 'x64'): ('dmg', 'pkg'),
@@ -52,7 +54,7 @@ def generate(version, artifacts, repository, commit):
 <title>Trestle {version} downloads</title>
 <style>body{{font:16px system-ui;margin:40px auto;padding:0 20px;max-width:1100px;color:#202020}}table{{border-collapse:collapse;width:100%}}th,td{{text-align:left;padding:12px;border-bottom:1px solid #ccc}}code{{overflow-wrap:anywhere;font-size:12px}}a{{color:#1855ad}}.table{{overflow-x:auto}}</style>
 <main><h1>Trestle {version}</h1><p><a href="https://github.com/{repository}/releases/tag/{version}">Release notes and installation guidance</a></p>
-<p>Select the package for your system and processor. ARM64 includes Apple Silicon and Snapdragon; x64 covers Intel and AMD desktops.</p>
+<p>Select the package for your system and processor. ARM64 includes Apple Silicon and Snapdragon. x64 covers 64-bit Intel and AMD devices. Universal Android packages include both architectures.</p>
 <div class="table"><table><thead><tr><th>System</th><th>Architecture</th><th>Download</th><th>Minimum system</th><th>SHA-256</th></tr></thead><tbody>{rows}</tbody></table></div>
 <p>Built from commit <code>{commit}</code>. Game and renderer compatibility can impose additional requirements.</p></main></html>\n''')
     def artifact(platform, arch, extension):

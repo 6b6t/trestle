@@ -31,7 +31,8 @@ import okio.Path.Companion.toPath
 import java.util.UUID
 
 fun createAndroidLauncherServices(context: Context): LauncherServices {
-    val architectureName = Build.SUPPORTED_ABIS.firstOrNull()?.lowercase().orEmpty()
+    // Match the running VM, which can differ from the device's preferred ABI under native translation.
+    val architectureName = System.getProperty("os.arch").orEmpty().lowercase()
     val architecture = Architecture.entries.firstOrNull { architectureName in it.aliases } ?: Architecture.UNKNOWN
     val environment = PlatformEnvironment(
         operatingSystem = OperatingSystem.LINUX,

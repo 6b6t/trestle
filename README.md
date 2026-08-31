@@ -23,15 +23,18 @@ Trestle provides:
 - Microsoft, imported-session, and offline account profiles.
 - Per-instance accounts, custom Java paths, environment variables, and live console output.
 - Desktop pre-launch, wrapper, and post-exit commands.
-- Android launch support for Vanilla Minecraft 26.2 on compatible 64-bit ARM devices.
+- Android launch support for Vanilla Minecraft 26.2 on compatible ARM64 and x64 devices.
 - Android touch, keyboard, mouse, and gamepad input.
 
 Android uses a fixed Java 25 and Zink runtime. Android does not support other Minecraft versions or mod loaders yet.
 
 ## Targets
 
-- Android 8.1 or newer (API 27)
-- Desktop systems that support Java 21
+- Android 8.1 or newer (API 27), ARM64 and x64, with Vulkan 1.2 or newer for game launch.
+- Linux, macOS, and Windows, with x64 and ARM64 packages and a bundled Java 21 launcher runtime.
+
+Android x64 requires device acceptance tests before stable release. The build checks do not establish Minecraft or GPU compatibility.
+32-bit ARM, 32-bit x86, and RISC-V packages are not available.
 
 The shared module contains the interface, product logic, network clients, persistence, installer, and domain model. Platform source sets provide runtime adapters and app storage paths.
 
@@ -78,7 +81,7 @@ The Android build reads the same environment variable and adds it to the applica
 ./gradlew :androidApp:assembleDebug
 ```
 
-The command creates the debug APK under `androidApp/build/outputs/apk/debug`.
+The command creates ARM64, x64, and universal debug APKs under `androidApp/build/outputs/apk/debug`.
 
 Trestle shows CurseForge as unavailable when the key is not set. Modrinth search and installation remain available.
 

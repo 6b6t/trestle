@@ -181,7 +181,9 @@ jobs:
 
             | Platform | Architecture | Packages |
             |---|---|---|
-            | Android | ARM64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.aab) |
+            | Android | ARM64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.apk) |
+            | Android | x86_64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-x64.apk) |
+            | Android | ARM64 + x86_64 | [Universal APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal.aab) |
             | Linux | x86_64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.rpm) |
             | Linux | AArch64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.rpm) |
             | macOS | Intel | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.dmg) · [PKG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.pkg) |

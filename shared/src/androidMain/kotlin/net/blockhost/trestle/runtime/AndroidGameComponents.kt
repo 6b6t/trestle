@@ -10,9 +10,6 @@ import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import okio.FileSystem
 import okio.Path
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
-import java.util.zip.ZipFile
 
 internal data class AndroidGameComponents(
     val classpath: List<Path>,
@@ -27,8 +24,12 @@ internal class AndroidGameComponentManager(
 ) {
     private val remoteComponentInstaller = AndroidRemoteComponentInstaller()
 
-    suspend fun resolve(onProgress: suspend (DownloadProgress) -> Unit = {}): AndroidGameComponents {
-        val root = directories.runtimes / COMPONENT_SET_ID
+    suspend fun resolve(
+        abi: AndroidRuntimeAbi,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ): AndroidGameComponents {
+        val componentSetId = "minecraft-26.2-android-${abi.releaseName}-2"
+        val root = directories.runtimes / componentSetId
         val downloads = root / "downloads"
         val jars = root / "jars"
         val natives = root / "natives"
@@ -39,6 +40,7 @@ internal class AndroidGameComponentManager(
             classpath.all(fileSystem::exists) &&
             REQUIRED_NATIVE_FILES.all { fileSystem.exists(natives / it) }
         ) {
+            verifyLibraries(natives, abi)
             return AndroidGameComponents(classpath, natives)
         }
 
@@ -53,7 +55,7 @@ internal class AndroidGameComponentManager(
                     progressLabel = "Downloading Android game components",
                 )
             },
-            stagingDirectory = directories.staging / "android-game-components",
+            stagingDirectory = directories.staging / "android-game-components-${abi.releaseName}",
             onProgress = onProgress,
         )
 
@@ -69,11 +71,11 @@ internal class AndroidGameComponentManager(
                 }
                 resetDirectory(natives)
                 COMPONENT_ARCHIVES.forEach { artifact ->
-                    extractArm64Libraries(downloads / artifact.name, natives)
+                    AndroidNativeLibraryExtractor.extract(downloads / artifact.name, natives, abi)
                 }
                 remoteComponentInstaller.install(
                     sourceUrl = AMETHYST_APK_URL,
-                    components = REMOTE_NATIVE_COMPONENTS,
+                    components = REMOTE_NATIVE_COMPONENTS.getValue(abi),
                     destination = natives,
                     onProgress = onProgress,
                 )
@@ -83,15 +85,16 @@ internal class AndroidGameComponentManager(
                         "The Android game components are missing ${missing.joinToString()}.",
                     )
                 }
+                verifyLibraries(natives, abi)
                 fileSystem.write(marker) {
-                    writeUtf8("$COMPONENT_SET_ID\n$AMETHYST_REVISION\n")
+                    writeUtf8("$componentSetId\n$AMETHYST_REVISION\n")
                     flush()
                 }
                 runCatching { deleteTree(downloads) }
                 logger.info(
                     "runtime",
                     "Installed Android game components",
-                    mapOf("componentSet" to COMPONENT_SET_ID, "source" to AMETHYST_REVISION),
+                    mapOf("componentSet" to componentSetId, "source" to AMETHYST_REVISION),
                 )
             } catch (error: LauncherException) {
                 throw error
@@ -102,44 +105,8 @@ internal class AndroidGameComponentManager(
         return AndroidGameComponents(classpath, natives)
     }
 
-    private fun extractArm64Libraries(archive: Path, destination: Path) {
-        ZipFile(archive.toString()).use { zip ->
-            val entries = zip.entries()
-            while (entries.hasMoreElements()) {
-                val entry = entries.nextElement()
-                if (!entry.isDirectory && entry.name.startsWith("assets/licenses/")) {
-                    val licenseName = entry.name.removePrefix("assets/licenses/")
-                    val licenseRoot = java.nio.file.Path.of(
-                        (requireNotNull(destination.parent) / "licenses" / archive.name).toString(),
-                    ).normalize()
-                    val licenseTarget = licenseRoot.resolve(licenseName).normalize()
-                    if (!licenseTarget.startsWith(licenseRoot)) {
-                        throw LauncherException.InvalidMetadata("An Android component contains an unsafe license path.")
-                    }
-                    Files.createDirectories(requireNotNull(licenseTarget.parent))
-                    zip.getInputStream(entry).use { input ->
-                        Files.copy(input, licenseTarget, StandardCopyOption.REPLACE_EXISTING)
-                    }
-                }
-                val relative = when {
-                    entry.name.startsWith("jni/arm64-v8a/") -> entry.name.substringAfterLast('/')
-                    entry.name.startsWith("lib/arm64-v8a/") -> entry.name.substringAfterLast('/')
-                    entry.name.startsWith("assets/components/lwjgl-3.4.1-natives/arm64-v8a/") ->
-                        entry.name.substringAfterLast('/')
-                    else -> continue
-                }
-                if (entry.isDirectory || relative.isBlank() || !relative.endsWith(".so")) continue
-                val target = java.nio.file.Path.of((destination / relative).toString()).normalize()
-                val root = java.nio.file.Path.of(destination.toString()).normalize()
-                if (!target.startsWith(root)) {
-                    throw LauncherException.InvalidMetadata("An Android component contains an unsafe path.")
-                }
-                Files.createDirectories(requireNotNull(target.parent))
-                zip.getInputStream(entry).use { input ->
-                    Files.copy(input, target, StandardCopyOption.REPLACE_EXISTING)
-                }
-            }
-        }
+    private fun verifyLibraries(natives: Path, abi: AndroidRuntimeAbi) {
+        fileSystem.list(natives).filter { it.name.endsWith(".so") }.forEach(abi::verifyLibrary)
     }
 
     private fun resetDirectory(path: Path) {
@@ -166,7 +133,6 @@ internal class AndroidGameComponentManager(
 
     private companion object {
         const val AMETHYST_REVISION = "d8a195640a7e0929f2ee532d7784de2b980c6c48"
-        const val COMPONENT_SET_ID = "minecraft-26.2-android-arm64-2"
         const val RAW_AMETHYST_ROOT =
             "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/$AMETHYST_REVISION"
         const val JAR_ROOT = "app_pojavlauncher/src/main/assets/components/lwjgl3/3.4.1"
@@ -193,27 +159,52 @@ internal class AndroidGameComponentManager(
         )
         const val AMETHYST_APK_URL =
             "https://github.com/AngelAuraMC/Amethyst-Android/releases/download/1.1.6/Amethyst.apk"
-        val REMOTE_NATIVE_COMPONENTS = listOf(
-            RemoteDeflatedComponent(
-                "libc++_shared.so",
-                rangeStart = 7_178_448,
-                compressedSize = 406_559,
-                uncompressedSize = 1_292_904,
-                sha256 = "f4e1e97c1943e60311e47e8b024d78f5b3b7229b3ccc65feb33af83d6025a670",
+        val REMOTE_NATIVE_COMPONENTS = mapOf(
+            AndroidRuntimeAbi.ARM64 to listOf(
+                RemoteDeflatedComponent(
+                    "libc++_shared.so",
+                    rangeStart = 7_178_448,
+                    compressedSize = 406_559,
+                    uncompressedSize = 1_292_904,
+                    sha256 = "f4e1e97c1943e60311e47e8b024d78f5b3b7229b3ccc65feb33af83d6025a670",
+                ),
+                RemoteDeflatedComponent(
+                    "libpojavexec.so",
+                    rangeStart = 14_612_714,
+                    compressedSize = 26_875,
+                    uncompressedSize = 67_128,
+                    sha256 = "46025ba51fa0720ddf9449f2686aa36f19837d30179c8052e12311769fa11bd3",
+                ),
+                RemoteDeflatedComponent(
+                    "libspirv-cross-c-shared.so",
+                    rangeStart = 14_644_574,
+                    compressedSize = 1_188_950,
+                    uncompressedSize = 3_463_112,
+                    sha256 = "9f7a21ae51739d8cfe8b3a0ebb8d6e55cfea1cf95effbf991a13ca50436e185a",
+                ),
             ),
-            RemoteDeflatedComponent(
-                "libpojavexec.so",
-                rangeStart = 14_612_714,
-                compressedSize = 26_875,
-                uncompressedSize = 67_128,
-                sha256 = "46025ba51fa0720ddf9449f2686aa36f19837d30179c8052e12311769fa11bd3",
-            ),
-            RemoteDeflatedComponent(
-                "libspirv-cross-c-shared.so",
-                rangeStart = 14_644_574,
-                compressedSize = 1_188_950,
-                uncompressedSize = 3_463_112,
-                sha256 = "9f7a21ae51739d8cfe8b3a0ebb8d6e55cfea1cf95effbf991a13ca50436e185a",
+            AndroidRuntimeAbi.X64 to listOf(
+                RemoteDeflatedComponent(
+                    "libc++_shared.so",
+                    rangeStart = 58_347_020,
+                    compressedSize = 416_045,
+                    uncompressedSize = 1_252_080,
+                    sha256 = "89082b8baa2de544a155be4f05fd1170e89d1a5bbd198f913cdffa7c2a31f44a",
+                ),
+                RemoteDeflatedComponent(
+                    "libpojavexec.so",
+                    rangeStart = 66_256_939,
+                    compressedSize = 24_121,
+                    uncompressedSize = 59_736,
+                    sha256 = "8689682bd6d45745c88c3a6196ae9beb5a2f6795b0e0e8db3c6a0105d4491233",
+                ),
+                RemoteDeflatedComponent(
+                    "libspirv-cross-c-shared.so",
+                    rangeStart = 66_285_747,
+                    compressedSize = 1_252_727,
+                    uncompressedSize = 3_752_936,
+                    sha256 = "e1607e4bf237eb9fd7090e8395c0891dd596616ab70d62a5435f7a7e3f1d5b18",
+                ),
             ),
         )
         val REQUIRED_NATIVE_FILES = listOf(

@@ -33,10 +33,12 @@ internal class AndroidJavaRuntimeManager(
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): AndroidJavaRuntime {
         val artifact = AndroidRuntimeArtifact.forPlatform(requiredMajor, architecture)
+        val abi = AndroidRuntimeAbi.forArchitecture(architecture)
         val runtimeRoot = directories.runtimes / artifact.id
         val marker = runtimeRoot / COMPLETE_MARKER
         val jvmLibrary = runtimeRoot / "lib/server/libjvm.so"
         if (fileSystem.exists(marker) && fileSystem.exists(jvmLibrary)) {
+            abi.verifyLibrary(jvmLibrary)
             return AndroidJavaRuntime(runtimeRoot, jvmLibrary)
         }
 
@@ -71,6 +73,7 @@ internal class AndroidJavaRuntimeManager(
                         "The downloaded Java ${artifact.javaMajor} runtime is incomplete.",
                     )
                 }
+                abi.verifyLibrary(extractedJvm)
                 deleteTree(runtimeRoot)
                 fileSystem.atomicMove(extractionRoot, runtimeRoot)
                 fileSystem.write(marker) {
@@ -133,10 +136,22 @@ internal data class AndroidRuntimeArtifact(
             sourceRevision = "FCL-Team/Android-OpenJDK-Build@7a0266e745d9b4acf400afa189b58e672900f710",
         )
 
+        private val java25X64 = AndroidRuntimeArtifact(
+            id = "java-25-x64-20260814",
+            javaMajor = 25,
+            architecture = Architecture.X86_64,
+            fileName = "jre25-android-x86_64.tar.xz",
+            url = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/" +
+                "download_jre25/jre25-android-x86_64.tar.xz",
+            size = 39_061_384,
+            sha256 = "7fca862ee1b2d5fe23cd9c9c3d9b7ad3c241947ad1a6cc9464ef2e674867105d",
+            sourceRevision = "FCL-Team/Android-OpenJDK-Build@7a0266e745d9b4acf400afa189b58e672900f710",
+        )
+
         fun forPlatform(javaMajor: Int, architecture: Architecture): AndroidRuntimeArtifact =
-            java25Arm64.takeIf { it.javaMajor == javaMajor && it.architecture == architecture }
+            listOf(java25Arm64, java25X64).firstOrNull { it.javaMajor == javaMajor && it.architecture == architecture }
                 ?: throw LauncherException.RuntimeUnavailable(
-                    "The Android MVP supports Java 25 on 64-bit ARM devices only.",
+                    "Android provides Java 25 for ARM64 and x64. Java $javaMajor for ${architecture.name} is unavailable.",
                 )
     }
 }

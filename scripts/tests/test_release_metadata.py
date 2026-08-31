@@ -20,7 +20,7 @@ class ReleaseMetadataTest(unittest.TestCase):
                 for extension in extensions:
                     (root / f'Trestle-1.2.3-{platform}-{arch}.{extension}').write_bytes(bytes(range(256)))
             manifest = module.generate('1.2.3', root, '6b6t/trestle', 'a' * 40)
-            self.assertEqual(16, len(manifest['artifacts']))
+            self.assertEqual(18, len(manifest['artifacts']))
             self.assertEqual({hashlib.sha256(bytes(range(256))).hexdigest()}, {a['sha256'] for a in manifest['artifacts']})
             self.assertEqual(manifest, json.loads((root / 'release-manifest.json').read_text()))
             flatpak = json.loads((root / 'net.blockhost.trestle.json').read_text())

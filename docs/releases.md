@@ -16,7 +16,7 @@ Before the first stable release:
 - Test clean installation, upgrade, file activation, and removal on each supported operating system.
 - Confirm that removal preserves the launcher data directory and Minecraft instances.
 - Test Minecraft launch, game exit, and relaunch on the supported architectures.
-- Test Android 8.1 or newer on a supported ARM64 device. Android currently supports Vanilla Minecraft 26.2 only.
+- Test Android 8.1 or newer on supported ARM64 and x64 devices. Android currently supports Vanilla Minecraft 26.2 only.
 - Back up a test world before testing pack updates across Minecraft versions.
 - Confirm the publisher signatures on downloaded release packages.
 
@@ -56,6 +56,17 @@ The Windows job signs installers with SHA-256 and a trusted timestamp. It verifi
 ## Build without publishing
 
 Run the **Build release artifacts** workflow with a numeric version such as `0.1.0`. This workflow uploads artifacts without creating a release.
+
+Android builds produce ARM64, x64, and universal APKs, plus one universal app bundle.
+Update notices select the APK for the running process architecture. The app bundle is for store distribution, not direct installation.
+
+After a signed Android build, collect and verify its packages:
+
+```bash
+python3 scripts/collect-android-packages.py --version 0.1.0
+```
+
+The collector uses Gradle output metadata and validates native ELF headers. It rejects missing ABIs, mismatched versions, and incomplete universal packages.
 
 For local Linux packages:
 

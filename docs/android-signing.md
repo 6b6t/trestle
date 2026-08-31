@@ -22,7 +22,12 @@ The workflow removes the temporary keystore even when the build fails.
 The signed artifacts use these names:
 
 - `Trestle-<version>-android-arm64.apk`
-- `Trestle-<version>-android-arm64.aab`
+- `Trestle-<version>-android-x64.apk`
+- `Trestle-<version>-android-universal.apk`
+- `Trestle-<version>-android-universal.aab`
+
+The universal packages contain ARM64 and x64 libraries. All APK variants use the same application ID, version code, and signing key.
+The release collector verifies package ABIs against their native library headers before publication.
 
 ## Build a signed release locally
 
@@ -42,7 +47,7 @@ Then run:
 ```
 
 The build fails if a required signing variable is missing.
-The APK is under `androidApp/build/outputs/apk/release`.
+The APKs are under `androidApp/build/outputs/apk/release`.
 The app bundle is under `androidApp/build/outputs/bundle/release`.
 
 ## Back up the key

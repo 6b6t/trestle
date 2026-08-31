@@ -27,7 +27,16 @@ android {
             .orElse(providers.gradleProperty("trestle.curseforge.apiKey"))
             .get()
         ndk {
-            abiFilters += "arm64-v8a"
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+    }
+
+    splits {
+        abi {
+            isEnable = true
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = true
         }
     }
 
