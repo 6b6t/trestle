@@ -57,10 +57,19 @@ def main():
         subprocess.run([
             'hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', str(mount), str(dmg),
         ], input=b'Y\n', check=True)  # Accept the bundled Apache license without a terminal.
+        installed = temporary / 'installed/Trestle.app'
         try:
-            verify_installer_app(one(mount.glob('*.app'), 'application in the DMG'), payload)
+            app = one(mount.glob('*.app'), 'application in the DMG')
+            verify(app, payload)
+            subprocess.run(['ditto', str(app), str(installed)], check=True)
         finally:
-            subprocess.run(['hdiutil', 'detach', str(mount)], check=True)
+            result = subprocess.run(['hdiutil', 'detach', str(mount)])
+            if result.returncode == 16:
+                # Spotlight can hold this temporary read-only volume open.
+                subprocess.run(['hdiutil', 'detach', '-force', str(mount)], check=True)
+            else:
+                result.check_returncode()
+        verify_installer_app(installed, payload)
 
         expanded = temporary / 'expanded'
         subprocess.run(['pkgutil', '--expand-full', str(pkg), str(expanded)], check=True)
