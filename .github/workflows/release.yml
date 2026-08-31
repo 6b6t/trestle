@@ -209,7 +209,7 @@ jobs:
             ${{ steps.github-release.outputs.changelog }}
           tag_name: ${{ inputs.version }}
           target_commitish: ${{ needs.set-version.outputs.commit-sha }}
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELEASE_TOKEN || secrets.GITHUB_TOKEN }}
           name: Trestle ${{ inputs.version }}
           prerelease: ${{ inputs.prerelease }}
           generate_release_notes: false
