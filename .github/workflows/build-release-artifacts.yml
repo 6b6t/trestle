@@ -280,6 +280,18 @@ jobs:
         shell: bash
         run: python3 scripts/smoke-test-package.py --root desktopApp/build/compose/binaries/main/app --platform "$TRESTLE_PLATFORM"
 
+      - name: Verify macOS release and build versions
+        if: matrix.platform == 'macos'
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+        shell: bash
+        run: |
+          plist=desktopApp/build/compose/binaries/main/app/Trestle.app/Contents/Info.plist
+          test "$(plutil -extract TrestleVersion raw "$plist")" = "$TRESTLE_VERSION"
+          build_version="$(plutil -extract CFBundleVersion raw "$plist")"
+          test "$build_version" -gt 0
+          test "$(plutil -extract CFBundleShortVersionString raw "$plist")" = "$build_version"
+
       - name: Sign and verify Windows installers
         if: matrix.platform == 'windows'
         env:

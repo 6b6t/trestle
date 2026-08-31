@@ -105,9 +105,14 @@ compose.desktop {
                 dockName = "Trestle"
                 appCategory = "public.app-category.games"
                 minimumSystemVersion = "11.0"
+                // jpackage rejects zero-major versions on macOS. Native packages use
+                // the increasing build number; the launcher keeps its release version.
+                packageVersion = trestleVersionCode.get()
                 packageBuildVersion = trestleVersionCode.get()
                 infoPlist {
                     extraKeysRawXml = """
+                        <key>TrestleVersion</key>
+                        <string>${trestleVersion.get()}</string>
                         <key>NSHumanReadableCopyright</key>
                         <string>Copyright 2026 Blockhost Network</string>
                         <key>TrestleHomepage</key>

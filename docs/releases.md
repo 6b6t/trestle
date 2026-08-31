@@ -51,6 +51,9 @@ gh secret set TRESTLE_MAC_CERTIFICATE_PASSWORD --repo 6b6t/trestle
 
 The macOS job imports identities into a temporary keychain. It submits installers to Apple, waits for notarization, and staples the result.
 
+macOS native package versions use the numeric build number because `jpackage` rejects zero-major versions. For release `0.1.0`, that number is `1000`.
+The launcher, download filenames, and release tag keep `0.1.0`. The app bundle records that release version in `TrestleVersion`.
+
 The Windows job signs installers with SHA-256 and a trusted timestamp. It verifies each signature before artifact upload.
 
 ## Build without publishing
