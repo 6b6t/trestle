@@ -218,9 +218,12 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.0.0
 
-      - name: Install Linux packaging dependencies
+      - name: Install Linux runtime and packaging dependencies
         if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install --yes fakeroot rpm
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          fakeroot rpm libgl1 libegl1 libfontconfig1 libfreetype6 libasound2
+          libx11-6 libxext6 libxi6 libxrender1 libxtst6
 
       - name: Apply build version
         env:
@@ -231,6 +234,17 @@ jobs:
       - name: Test desktop code
         shell: bash
         run: ./gradlew :shared:desktopTest :desktopApp:test --stacktrace
+
+      - name: Upload desktop test reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-${{ matrix.platform }}-${{ matrix.arch }}
+          path: |
+            shared/build/test-results/desktopTest/
+            desktopApp/build/test-results/test/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: Build Linux application image
         if: matrix.platform == 'linux'
@@ -290,6 +304,14 @@ jobs:
         run: |
           if [[ -n "${TRESTLE_MAC_KEYCHAIN_PATH:-}" ]]; then security delete-keychain "$TRESTLE_MAC_KEYCHAIN_PATH"; fi
           rm -rf "$RUNNER_TEMP/trestle-signing"
+
+      - name: Show packaging errors
+        if: failure()
+        shell: bash
+        run: |
+          if [[ -d desktopApp/build/compose/logs ]]; then
+            find desktopApp/build/compose/logs -type f -name '*-err.txt' -exec cat {} \;
+          fi
 
       - name: Collect desktop package
         if: matrix.platform != 'linux'

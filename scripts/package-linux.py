@@ -72,7 +72,7 @@ Priority: optional
 Architecture: {arch}
 Maintainer: Blockhost Network <40795980+AlexProgrammerDE@users.noreply.github.com>
 Homepage: https://github.com/6b6t/trestle
-Depends: libc6 (>= 2.35), libstdc++6, libx11-6, libxext6, libxi6, libxrender1, libxtst6, libgl1, libfontconfig1, libfreetype6, libasound2
+Depends: libc6 (>= 2.35), libstdc++6, libx11-6, libxext6, libxi6, libxrender1, libxtst6, libgl1, libegl1, libfontconfig1, libfreetype6, libasound2
 Description: Minecraft Java Edition launcher
  Manage isolated instances, mods, modpacks, and worlds.
  The launcher includes Java. Game runtimes are downloaded separately.
@@ -104,7 +104,7 @@ License: Apache-2.0
 URL: https://github.com/6b6t/trestle
 BuildArch: {rpm_arch}
 AutoReqProv: no
-Requires: glibc >= 2.35, libstdc++, libX11, libXext, libXi, libXrender, libXtst, libglvnd-glx, fontconfig, freetype, alsa-lib
+Requires: glibc >= 2.35, libstdc++, libX11, libXext, libXi, libXrender, libXtst, libglvnd-glx, libglvnd-egl, fontconfig, freetype, alsa-lib
 %description
 Manage isolated instances, mods, modpacks, and worlds.
 %install

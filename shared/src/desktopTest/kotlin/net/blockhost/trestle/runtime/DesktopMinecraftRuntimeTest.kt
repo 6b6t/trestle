@@ -273,14 +273,9 @@ class DesktopMinecraftRuntimeTest {
 
         val command = runtime.prepare(instance).safeCommand()
 
-        assertTrue(
-            command.any {
-                it.endsWith(
-                    "net/neoforged/forge/1.20.1-47.1.106/" +
-                        "forge-1.20.1-47.1.106-installer.jar",
-                )
-            },
-        )
+        val installer = root / "libraries" / "net/neoforged/forge/1.20.1-47.1.106" /
+            "forge-1.20.1-47.1.106-installer.jar"
+        assertTrue(command.any { it == "-Dforgewrapper.installer=$installer" })
     }
 
     @Test
