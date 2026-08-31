@@ -43,20 +43,31 @@ if (( version_code < 1 || version_code > 2100000000 )); then
     exit 2
 fi
 
-set_property() {
-    local name="$1"
-    local value="$2"
+python3 - "$version" "$version_code" <<'PY'
+from pathlib import Path
+import re
+import sys
 
-    if grep -q "^${name}=" gradle.properties; then
-        sed -i "s/^${name}=.*/${name}=${value}/" gradle.properties
-    else
-        printf '%s=%s\n' "$name" "$value" >> gradle.properties
-    fi
-}
+version, version_code = sys.argv[1:]
+properties_path = Path('gradle.properties')
+properties = properties_path.read_text()
+for name, value in [('trestle.version', version), ('trestle.versionCode', version_code)]:
+    pattern = rf'^{re.escape(name)}=.*$'
+    if re.search(pattern, properties, flags=re.MULTILINE):
+        properties = re.sub(pattern, f'{name}={value}', properties, flags=re.MULTILINE)
+    else:
+        properties = properties.rstrip('\n') + f'\n{name}={value}\n'
 
-set_property "trestle.version" "$version"
-set_property "trestle.versionCode" "$version_code"
-sed -i -E "s/(const val VERSION = \"?)[0-9]+\.[0-9]+\.[0-9]+(\"?)/\1${version}\2/" \
-    shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt
+build_info_path = Path('shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt')
+build_info, count = re.subn(
+    r'(const val VERSION = ")[0-9]+\.[0-9]+\.[0-9]+(")',
+    lambda match: f'{match[1]}{version}{match[2]}',
+    build_info_path.read_text(),
+)
+if count != 1:
+    raise SystemExit('Expected exactly one version constant in BuildInfo.kt.')
+properties_path.write_text(properties)
+build_info_path.write_text(build_info)
+PY
 
 printf '%s\n' "$version_code"
