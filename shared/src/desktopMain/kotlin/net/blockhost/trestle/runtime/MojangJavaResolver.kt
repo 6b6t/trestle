@@ -28,7 +28,7 @@ import java.nio.file.Path
 import java.nio.file.StandardOpenOption
 
 class MojangJavaResolver(
-    environment: PlatformEnvironment,
+    private val environment: PlatformEnvironment,
     private val directories: LauncherDirectories,
     private val httpClient: HttpClient,
     private val downloadPipeline: DownloadPipeline,
@@ -39,6 +39,9 @@ class MojangJavaResolver(
     private val mutex = Mutex()
 
     override suspend fun resolve(component: String?, requiredMajor: Int): String = mutex.withLock {
+        if (environment.operatingSystem == OperatingSystem.LINUX && environment.architecture == Architecture.ARM64) {
+            return@withLock AdoptiumJavaResolver(directories, httpClient, downloadPipeline).resolve(requiredMajor)
+        }
         val runtimeComponent = component ?: defaultComponent(requiredMajor)
         val platformRoot = directories.runtimes.toNioPath()
             .resolve(runtimeComponent)

@@ -50,7 +50,6 @@ data class FolderPreferences(
 @Serializable
 data class ContentPreferences(
     val scanSubfolders: Boolean = false,
-    val moveBlockedFiles: Boolean = false,
     val trackMetadata: Boolean = true,
     val installDependencies: Boolean = true,
     val detectIncompatibilities: Boolean = true,
@@ -83,12 +82,21 @@ data class ConsolePreferences(
 }
 
 @Serializable
+data class UpdatePreferences(
+    val automaticChecks: Boolean = true,
+    val includePrereleases: Boolean = false,
+    val lastCheckedAtMillis: Long = 0,
+    val remindAfterMillis: Long = 0,
+)
+
+@Serializable
 data class LauncherPreferences(
     val theme: ThemePreference = ThemePreference.SYSTEM,
     val language: String = "System default",
     val instanceSort: InstanceSortMode = InstanceSortMode.NAME,
     val folders: FolderPreferences = FolderPreferences(),
     val content: ContentPreferences = ContentPreferences(),
+    val updates: UpdatePreferences = UpdatePreferences(),
     val network: NetworkPreferences = NetworkPreferences(),
     val console: ConsolePreferences = ConsolePreferences(),
     val proxy: ProxyPreferences = ProxyPreferences(),

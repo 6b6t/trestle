@@ -8,6 +8,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,46 +18,49 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import net.blockhost.trestle.app.LauncherServices
-import net.blockhost.trestle.app.ThemePreference
-import net.blockhost.trestle.app.LauncherPreferences
 import net.blockhost.trestle.app.FolderPreferences
+import net.blockhost.trestle.app.LauncherPreferences
+import net.blockhost.trestle.app.LauncherServices
 import net.blockhost.trestle.app.LauncherUpdate
-import net.blockhost.trestle.auth.ManagedAccount
-import net.blockhost.trestle.auth.SavedSkin
-import net.blockhost.trestle.auth.SkinVariant
-import net.blockhost.trestle.auth.inspectMinecraftSkin
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.AccountLoginRequest
-import net.blockhost.trestle.auth.DeviceAuthorization
 import net.blockhost.trestle.auth.CredentialProtection
+import net.blockhost.trestle.auth.DeviceAuthorization
+import net.blockhost.trestle.auth.ManagedAccount
 import net.blockhost.trestle.auth.MinecraftEdition
+import net.blockhost.trestle.auth.SavedSkin
 import net.blockhost.trestle.auth.SecretValue
+import net.blockhost.trestle.auth.SkinVariant
+import net.blockhost.trestle.auth.inspectMinecraftSkin
 import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
-import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.MemorySettings
-import net.blockhost.trestle.logging.LogEntry
-import net.blockhost.trestle.runtime.JvmArgumentPolicy
-import net.blockhost.trestle.runtime.LaunchEvent
-import net.blockhost.trestle.runtime.LaunchOptions
-import net.blockhost.trestle.runtime.LaunchTuningAdvisor
-import net.blockhost.trestle.runtime.PreparedLaunch
-import net.blockhost.trestle.runtime.RuntimePreparationProgress
+import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.instance.CreateInstanceRequest
-import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.instance.GameDataInventory
+import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.instance.SavedServer
+import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.InstalledContent
+import net.blockhost.trestle.resources.ModpackUpdatePreview
+import net.blockhost.trestle.resources.ReleaseChannel
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceSearchRequest
 import net.blockhost.trestle.resources.ResourceSearchSort
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
-import net.blockhost.trestle.resources.ReleaseChannel
+import net.blockhost.trestle.resources.RestrictedDownload
+import net.blockhost.trestle.resources.RestrictedDownloadRequired
+import net.blockhost.trestle.runtime.JvmArgumentPolicy
+import net.blockhost.trestle.runtime.LaunchEvent
+import net.blockhost.trestle.runtime.LaunchOptions
+import net.blockhost.trestle.runtime.LaunchTuningAdvisor
+import net.blockhost.trestle.runtime.PreparedLaunch
+import net.blockhost.trestle.runtime.RuntimePreparationProgress
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
@@ -331,6 +336,10 @@ data class LauncherUiState(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val launcherPreferences: LauncherPreferences = LauncherPreferences(),
     val defaultFolders: FolderPreferences = FolderPreferences(),
+    val restrictedDownload: RestrictedDownload? = null,
+    val suggestedPackInstances: List<GameInstance> = emptyList(),
+    val modpackUpdatePreview: ModpackUpdatePreview? = null,
+    val canRollbackModpack: Boolean = false,
     val availableUpdate: LauncherUpdate? = null,
     val isCheckingForUpdate: Boolean = false,
     val pendingWorldDeletionKey: String? = null,
@@ -364,6 +373,7 @@ class LauncherViewModel(
             ),
         ),
     )
+    private var updateJob: Job? = null
     private var installJob: Job? = null
     private var resourceJob: Job? = null
     private var resourceSearchJob: Job? = null
@@ -412,6 +422,12 @@ class LauncherViewModel(
             }
         }
         initialize()
+        scope.launch {
+            while (true) {
+                checkLauncherUpdate(automatic = true)
+                kotlinx.coroutines.delay(60 * 60 * 1000L)
+            }
+        }
     }
 
     fun initialize() {
@@ -918,7 +934,7 @@ class LauncherViewModel(
     override fun launchSelected() = launchSelected(LaunchOptions())
 
     private fun launchSelected(options: LaunchOptions) {
-        if (launchJob?.isActive == true) return
+        if (launchJob?.isActive == true || resourceJob?.isActive == true || mutableState.value.modpackUpdatePreview != null) return
         if (!services.runtime.capabilities.canLaunch) return
         val instance = mutableState.value.selectedInstance ?: return
         if (instance.installationState !is InstallationState.Installed) return
@@ -1272,12 +1288,28 @@ class LauncherViewModel(
         )
     }
 
-    override fun installSelectedResource() {
+    override fun installSelectedResource() = installSelectedResource(suggestUpdate = true)
+
+    override fun installSelectedModpackAsNew() {
+        mutableState.update { it.copy(suggestedPackInstances = emptyList()) }
+        installSelectedResource(suggestUpdate = false)
+    }
+
+    private fun installSelectedResource(suggestUpdate: Boolean) {
         if (resourceJob?.isActive == true) return
         val browser = mutableState.value.resourceBrowser
         val project = browser.selectedProject ?: return
         val version = browser.selectedVersion ?: return
         val instance = mutableState.value.selectedInstance
+        if (suggestUpdate && project.type == ResourceType.MODPACK && mutableState.value.launcherPreferences.content.suggestModpackUpdates) {
+            val existing = mutableState.value.instances.filter {
+                it.modpackOrigin?.provider == project.provider.name && it.modpackOrigin.projectId == project.id
+            }
+            if (existing.isNotEmpty()) {
+                mutableState.update { it.copy(suggestedPackInstances = existing) }
+                return
+            }
+        }
         if (project.type != ResourceType.MODPACK && instance?.installationState !is InstallationState.Installed) {
             mutableState.value = mutableState.value.copy(
                 resourceBrowser = browser.copy(error = "Install the selected instance before adding resources."),
@@ -1335,6 +1367,9 @@ class LauncherViewModel(
                     },
                 )
             } catch (error: Exception) {
+                if (error is RestrictedDownloadRequired) {
+                    mutableState.update { it.copy(restrictedDownload = error.download) }
+                }
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
                         isInstalling = false,
@@ -1345,6 +1380,123 @@ class LauncherViewModel(
             } finally {
                 resourceJob = null
             }
+        }
+    }
+
+    override fun dismissRestrictedDownload() {
+        mutableState.update { it.copy(restrictedDownload = null) }
+    }
+
+    override fun acceptRestrictedDownload(bytes: ByteArray) {
+        val download = mutableState.value.restrictedDownload ?: return
+        scope.launch {
+            runCatching { services.restrictedDownloads.accept(download, bytes) }
+                .onSuccess { mutableState.update { it.copy(restrictedDownload = null, error = null, notice = "File verified. Retry the installation to continue.") } }
+                .onFailure(::showError)
+        }
+    }
+
+    override fun previewSelectedModpackUpdate(id: InstanceId) {
+        val state = mutableState.value
+        val instance = state.instances.firstOrNull { it.id == id } ?: return
+        val project = state.resourceBrowser.selectedProject ?: return
+        val version = state.resourceBrowser.selectedVersion ?: return
+        mutableState.update { it.copy(suggestedPackInstances = emptyList()) }
+        preparePackUpdate(instance, project, version)
+    }
+
+    override fun checkModpackUpdate() {
+        if (resourceJob?.isActive == true) return
+        val instance = mutableState.value.selectedInstance ?: return
+        val origin = instance.modpackOrigin ?: return
+        resourceJob = scope.launch {
+            mutableState.update { it.copy(operation = OperationStatus("Checking modpack updates", instanceId = instance.id)) }
+            try {
+                val provider = ResourceProvider.valueOf(origin.provider)
+                val platform = services.resourcePlatforms.platform(provider)
+                val project = ResourceProject(provider, origin.projectId, origin.projectId, origin.name, "", "",
+                    ResourceType.MODPACK, 0, instance.iconReference, origin.websiteUrl, emptyList())
+                val versions = platform.versions(project, null, null)
+                val current = versions.firstOrNull { it.id == origin.versionId }
+                    ?: platform.version(origin.projectId, origin.versionId)
+                val latest = versions.filter { it.channel == ReleaseChannel.RELEASE && it.id != origin.versionId && it.publishedAt > current.publishedAt }
+                    .maxByOrNull { it.publishedAt }
+                if (latest == null) {
+                    mutableState.update { it.copy(notice = "No newer stable version of this pack is available.") }
+                } else {
+                    preparePackUpdateNow(instance, project, latest)
+                }
+            } catch (error: CancellationException) { throw error
+            } catch (error: Exception) { showError(error)
+            } finally { mutableState.update { it.copy(operation = null) } }
+        }
+    }
+
+    private fun preparePackUpdate(instance: GameInstance, project: ResourceProject, version: ResourceVersion) {
+        if (resourceJob?.isActive == true) return
+        resourceJob = scope.launch {
+            try { preparePackUpdateNow(instance, project, version)
+            } catch (error: CancellationException) { throw error
+            } catch (error: Exception) { showError(error)
+            } finally { mutableState.update { it.copy(operation = null) } }
+        }
+    }
+
+    private suspend fun preparePackUpdateNow(instance: GameInstance, project: ResourceProject, version: ResourceVersion) {
+        require(mutableState.value.activeLaunch?.instanceId != instance.id) { "Stop Minecraft before preparing a pack update." }
+        require(instance.installationState is InstallationState.Installed) { "Finish installing this instance first." }
+        mutableState.update { it.copy(operation = OperationStatus("Preparing modpack update", project.name, cancellable = true, instanceId = instance.id)) }
+        val preview = services.modpackInstaller.prepareUpdate(instance, project, version, ::updateResourceProgress)
+        mutableState.update { it.copy(modpackUpdatePreview = preview) }
+    }
+
+    override fun applyModpackUpdate(replaceConflicts: Set<String>) {
+        if (resourceJob?.isActive == true) return
+        val preview = mutableState.value.modpackUpdatePreview ?: return
+        resourceJob = scope.launch {
+            mutableState.update { it.copy(operation = OperationStatus("Applying pack update", instanceId = preview.original.id)) }
+            try {
+                require(mutableState.value.activeLaunch?.instanceId != preview.original.id) { "Stop Minecraft before updating this pack." }
+                val current = services.repository.get(preview.original.id)
+                require(current == preview.original) { "The instance changed after the preview. Prepare the update again." }
+                withContext(NonCancellable) {
+                    val updated = services.modpackUpdates.apply(preview, replaceConflicts)
+                    services.repository.update(updated)
+                    services.modpackUpdates.discardPreview(updated)
+                    cachedLaunch = null
+                    mutableState.update { it.copy(modpackUpdatePreview = null, selectedId = updated.id, canRollbackModpack = true,
+                        notice = "Pack updated. The previous files are backed up for rollback.") }
+                }
+                refreshInstalledContent()
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: Exception) { showError(error)
+            } finally { mutableState.update { it.copy(operation = null) } }
+        }
+    }
+
+    override fun cancelModpackUpdate() {
+        if (resourceJob?.isActive == true) return
+        val preview = mutableState.value.modpackUpdatePreview
+        mutableState.update { it.copy(modpackUpdatePreview = null, suggestedPackInstances = emptyList()) }
+        preview?.let { runCatching { services.modpackUpdates.discardPreview(it.original) }.onFailure(::showError) }
+    }
+
+    override fun rollbackModpackUpdate() {
+        if (resourceJob?.isActive == true) return
+        val instance = mutableState.value.selectedInstance ?: return
+        resourceJob = scope.launch {
+            try {
+                mutableState.update { it.copy(operation = OperationStatus("Restoring pack backup", instanceId = instance.id)) }
+                require(mutableState.value.activeLaunch?.instanceId != instance.id) { "Stop Minecraft before rolling back the pack." }
+                withContext(NonCancellable) {
+                    services.repository.update(services.modpackUpdates.rollback(instance))
+                    cachedLaunch = null
+                    mutableState.update { it.copy(canRollbackModpack = false, notice = "The previous pack version was restored.") }
+                }
+                refreshInstalledContent()
+                checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: Exception) { showError(error)
+            } finally { mutableState.update { it.copy(operation = null) } }
         }
     }
 
@@ -1366,15 +1518,23 @@ class LauncherViewModel(
             mutableState.update { it.copy(isLoadingInstalledContent = true) }
             try {
                 val content = services.resourceInstaller.installedContent(instance)
+                val canRollback = services.modpackUpdates.canRollback(instance)
                 mutableState.update { state ->
                     if (state.selectedId != instance.id) state
                     else state.copy(
                         installedContent = content,
+                        canRollbackModpack = canRollback,
                         installedContentUpdates = state.installedContentUpdates.filterKeys { key ->
                             content.any { it.key == key }
                         },
                         isLoadingInstalledContent = false,
                     )
+                }
+                val identified = services.contentIdentifier.identify(instance, content,
+                    online = mutableState.value.launcherPreferences.content.trackMetadata)
+                currentCoroutineContext().ensureActive()
+                mutableState.update { state ->
+                    if (state.selectedId == instance.id) state.copy(installedContent = identified) else state
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1392,10 +1552,17 @@ class LauncherViewModel(
         installedContentJob = scope.launch {
             mutableState.update { it.copy(isCheckingInstalledContentUpdates = true) }
             try {
+                var failed = 0
                 val updates = buildMap {
                     content.forEach { installed ->
-                        services.resourceInstaller.latestCompatibleVersion(instance, installed)?.let { version ->
-                            put(installed.key, version)
+                        try {
+                            services.resourceInstaller.latestCompatibleVersion(instance, installed)?.let { version ->
+                                put(installed.key, version)
+                            }
+                        } catch (error: CancellationException) {
+                            throw error
+                        } catch (_: Exception) {
+                            failed++
                         }
                     }
                 }
@@ -1404,9 +1571,10 @@ class LauncherViewModel(
                     else state.copy(
                         installedContentUpdates = updates,
                         isCheckingInstalledContentUpdates = false,
-                        notice = when (updates.size) {
-                            0 -> "Installed content is up to date."
-                            1 -> "One content update is available."
+                        notice = when {
+                            failed > 0 -> "${updates.size} updates found; $failed items could not be checked. Try again later."
+                            updates.isEmpty() -> "Installed content is up to date."
+                            updates.size == 1 -> "One content update is available."
                             else -> "${updates.size} content updates are available."
                         },
                     )
@@ -2663,24 +2831,47 @@ class LauncherViewModel(
             .onFailure(::showError)
     }
 
-    override fun checkForLauncherUpdate() {
-        if (mutableState.value.isCheckingForUpdate) return
-        scope.launch {
+    override fun checkForLauncherUpdate() = checkLauncherUpdate(automatic = false)
+
+    override fun remindAboutLauncherUpdateLater() {
+        val preferences = mutableState.value.launcherPreferences
+        val next = preferences.copy(updates = preferences.updates.copy(
+            remindAfterMillis = services.clock.nowMillis() + 24 * 60 * 60 * 1000L,
+        ))
+        runCatching {
+            services.preferences.write(next)
+            mutableState.update { it.copy(launcherPreferences = next, availableUpdate = null) }
+        }.onFailure(::showError)
+    }
+
+    private fun checkLauncherUpdate(automatic: Boolean) {
+        if (updateJob?.isActive == true) return
+        val preferences = mutableState.value.launcherPreferences.updates
+        val now = services.clock.nowMillis()
+        if (automatic && (!preferences.automaticChecks || now < preferences.remindAfterMillis ||
+                (now >= preferences.lastCheckedAtMillis && now - preferences.lastCheckedAtMillis < 24 * 60 * 60 * 1000L))) return
+        updateJob = scope.launch {
             mutableState.update { it.copy(isCheckingForUpdate = true) }
             try {
-                val update = services.updateChecker.availableUpdate()
+                val update = services.updateChecker.availableUpdate(includePrereleases = preferences.includePrereleases)
+                // Merge with current settings so a slow request cannot overwrite edits made during the check.
+                val latest = mutableState.value.launcherPreferences
+                val saved = latest.copy(updates = latest.updates.copy(lastCheckedAtMillis = now))
+                services.preferences.write(saved)
                 mutableState.update {
                     it.copy(
-                        isCheckingForUpdate = false,
-                        availableUpdate = update,
-                        notice = if (update == null) "Trestle is up to date." else "Trestle ${update.version} is available.",
+                        launcherPreferences = saved,
+                        availableUpdate = update.takeIf { !automatic || saved.updates.automaticChecks },
+                        notice = if (automatic) it.notice else if (update == null) "No newer Trestle release is available." else "Trestle ${update.version} is available.",
                     )
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
+                if (!automatic) showError(error)
+                // Offline startup must not interrupt navigation. Retry on the next hourly check.
+            } finally {
                 mutableState.update { it.copy(isCheckingForUpdate = false) }
-                showError(error)
             }
         }
     }
@@ -2986,6 +3177,9 @@ class LauncherViewModel(
     }
 
     private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null) {
+        if (error is RestrictedDownloadRequired) {
+            mutableState.update { it.copy(restrictedDownload = error.download) }
+        }
         mutableState.update {
             it.copy(
                 error = error.message ?: "The operation failed.",

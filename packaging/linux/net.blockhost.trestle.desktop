@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Trestle
+Comment=Manage and play Minecraft Java Edition
+Exec=trestle %U
+Icon=net.blockhost.trestle
+Terminal=false
+Categories=Game;
+MimeType=application/x-modrinth-modpack+zip;x-scheme-handler/trestle;
+Keywords=Minecraft;Modrinth;CurseForge;mods;modpacks;

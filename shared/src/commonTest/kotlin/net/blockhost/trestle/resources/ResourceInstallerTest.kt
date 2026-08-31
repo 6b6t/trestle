@@ -238,6 +238,25 @@ class ResourceInstallerTest {
         assertFalse(fileSystem.exists(root / "game" / "mods" / "shared-v2.jar"))
     }
 
+    @Test
+    fun updatesAnIdentifiedDisabledLocalModWithoutLeavingAnEnabledDuplicate() = runTest {
+        val root = "/instances/identified".toPath()
+        val fs = FakeFileSystem()
+        fs.createDirectories(root / "game/mods")
+        val source = root / "game/mods/renamed.jar.disabled"
+        fs.write(source) { writeByte(1) }
+        val replacement = version("project", "new", "new.jar", "https://example.test/new.jar")
+        val installer = ResourceInstaller(ResourcePlatformRegistry(listOf(FakeResourcePlatform(ResourceProvider.MODRINTH, replacement))),
+            DownloadPipeline(HttpClient(MockEngine { respond(byteArrayOf(2)) }), fs), fs)
+        val content = installer.installedContent(instance(root)).single().copy(provider = ResourceProvider.MODRINTH,
+            projectId = "project", versionId = "old", contentSha1 = fs.sha1(source))
+        installer.update(instance(root), content, replacement)
+        assertFalse(fs.exists(source))
+        assertFalse(fs.exists(root / "game/mods/new.jar"))
+        assertTrue(fs.exists(root / "game/mods/new.jar.disabled"))
+        assertFalse(installer.installedContent(instance(root)).single().enabled)
+    }
+
     private fun instance(root: okio.Path) = GameInstance(
         id = InstanceId("instance-1"),
         displayName = "Instance",

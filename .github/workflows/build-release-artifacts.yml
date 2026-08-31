@@ -9,10 +9,36 @@ on:
         type: string
   workflow_call:
     inputs:
+      require-desktop-signing:
+        description: Fail unless Windows signing and macOS signing and notarization are configured
+        type: boolean
+        default: false
+      ref:
+        description: Immutable source commit to build
+        required: true
+        type: string
       version:
         required: true
         type: string
     secrets:
+      TRESTLE_WINDOWS_CERTIFICATE_BASE64:
+        required: false
+      TRESTLE_WINDOWS_CERTIFICATE_PASSWORD:
+        required: false
+      TRESTLE_MAC_CERTIFICATE_BASE64:
+        required: false
+      TRESTLE_MAC_CERTIFICATE_PASSWORD:
+        required: false
+      TRESTLE_MAC_SIGNING_IDENTITY:
+        required: false
+      TRESTLE_APPLE_ID:
+        required: false
+      TRESTLE_APPLE_PASSWORD:
+        required: false
+      TRESTLE_APPLE_TEAM_ID:
+        required: false
+      TRESTLE_CURSEFORGE_API_KEY:
+        required: false
       TRESTLE_ANDROID_KEYSTORE_BASE64:
         required: true
       TRESTLE_ANDROID_STORE_PASSWORD:
@@ -26,8 +52,33 @@ permissions:
   contents: read
 
 jobs:
+  signing-preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require desktop signing for stable releases
+        if: inputs.require-desktop-signing
+        env:
+          WINDOWS_CERT: ${{ secrets.TRESTLE_WINDOWS_CERTIFICATE_BASE64 }}
+          WINDOWS_PASSWORD: ${{ secrets.TRESTLE_WINDOWS_CERTIFICATE_PASSWORD }}
+          MAC_CERT: ${{ secrets.TRESTLE_MAC_CERTIFICATE_BASE64 }}
+          MAC_PASSWORD: ${{ secrets.TRESTLE_MAC_CERTIFICATE_PASSWORD }}
+          MAC_IDENTITY: ${{ secrets.TRESTLE_MAC_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.TRESTLE_APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.TRESTLE_APPLE_PASSWORD }}
+          APPLE_TEAM: ${{ secrets.TRESTLE_APPLE_TEAM_ID }}
+        run: |
+          for key in WINDOWS_CERT WINDOWS_PASSWORD MAC_CERT MAC_PASSWORD MAC_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM; do
+            if [[ -z "${!key}" ]]; then
+              echo "Missing release signing configuration: $key. See docs/releases.md." >&2
+              exit 1
+            fi
+          done
+
   android:
+    needs: signing-preflight
     name: Build Android
+    env:
+      TRESTLE_CURSEFORGE_API_KEY: ${{ secrets.TRESTLE_CURSEFORGE_API_KEY }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
@@ -35,7 +86,7 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
@@ -69,6 +120,9 @@ jobs:
           umask 077
           mkdir -p "$RUNNER_TEMP/trestle-signing"
           printf '%s' "$TRESTLE_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/trestle-signing/release.p12"
+
+      - name: Test and lint Android code
+        run: ./gradlew :shared:testAndroidHostTest :androidApp:lintDebug --stacktrace
 
       - name: Build signed Android packages
         env:
@@ -131,6 +185,10 @@ jobs:
           retention-days: 14
 
   desktop:
+    needs: signing-preflight
+    env:
+      TRESTLE_MAC_SIGNING_IDENTITY: ${{ secrets.TRESTLE_MAC_SIGNING_IDENTITY }}
+      TRESTLE_CURSEFORGE_API_KEY: ${{ secrets.TRESTLE_CURSEFORGE_API_KEY }}
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -167,7 +225,7 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ inputs.ref || github.sha }}
 
       - name: Set up Java
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.0.0
@@ -188,11 +246,71 @@ jobs:
         shell: bash
         run: ./scripts/set-version.sh "$TRESTLE_VERSION"
 
+      - name: Test desktop code
+        shell: bash
+        run: ./gradlew :shared:desktopTest :desktopApp:test --stacktrace
+
+      - name: Build Linux application image
+        if: matrix.platform == 'linux'
+        shell: bash
+        run: ./gradlew :desktopApp:createDistributable --stacktrace
+
+      - name: Build Linux installers with desktop metadata
+        if: matrix.platform == 'linux'
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+          TRESTLE_ARCH: ${{ matrix.arch }}
+        shell: bash
+        run: >-
+          python3 scripts/package-linux.py --image desktopApp/build/compose/binaries/main/app/Trestle
+          --version "$TRESTLE_VERSION" --arch "$TRESTLE_ARCH"
+          --output release-artifacts
+
+      - name: Restore macOS signing identities
+        if: matrix.platform == 'macos' && env.TRESTLE_MAC_SIGNING_IDENTITY != ''
+        env:
+          TRESTLE_MAC_CERTIFICATE_BASE64: ${{ secrets.TRESTLE_MAC_CERTIFICATE_BASE64 }}
+          TRESTLE_MAC_CERTIFICATE_PASSWORD: ${{ secrets.TRESTLE_MAC_CERTIFICATE_PASSWORD }}
+        run: bash scripts/prepare-macos-signing.sh
+
       - name: Build desktop package
+        if: matrix.platform != 'linux'
         shell: bash
         run: ./gradlew :desktopApp:packageDistributionForCurrentOS --stacktrace
 
+      - name: Smoke test the packaged launcher
+        env:
+          TRESTLE_PLATFORM: ${{ matrix.platform }}
+        shell: bash
+        run: python3 scripts/smoke-test-package.py --root desktopApp/build/compose/binaries/main/app --platform "$TRESTLE_PLATFORM"
+
+      - name: Sign and verify Windows installers
+        if: matrix.platform == 'windows'
+        env:
+          TRESTLE_WINDOWS_CERTIFICATE_BASE64: ${{ secrets.TRESTLE_WINDOWS_CERTIFICATE_BASE64 }}
+          TRESTLE_WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.TRESTLE_WINDOWS_CERTIFICATE_PASSWORD }}
+        shell: pwsh
+        run: |
+          if ($env:TRESTLE_WINDOWS_CERTIFICATE_BASE64) { ./scripts/sign-windows.ps1 }
+          else { Write-Warning 'This preview build has unsigned Windows installers.' }
+
+      - name: Notarize and staple macOS installers
+        if: matrix.platform == 'macos' && env.TRESTLE_MAC_SIGNING_IDENTITY != ''
+        env:
+          TRESTLE_APPLE_ID: ${{ secrets.TRESTLE_APPLE_ID }}
+          TRESTLE_APPLE_PASSWORD: ${{ secrets.TRESTLE_APPLE_PASSWORD }}
+          TRESTLE_APPLE_TEAM_ID: ${{ secrets.TRESTLE_APPLE_TEAM_ID }}
+        run: bash scripts/notarize-macos.sh
+
+      - name: Remove macOS signing keychain
+        if: always() && matrix.platform == 'macos'
+        shell: bash
+        run: |
+          if [[ -n "${TRESTLE_MAC_KEYCHAIN_PATH:-}" ]]; then security delete-keychain "$TRESTLE_MAC_KEYCHAIN_PATH"; fi
+          rm -rf "$RUNNER_TEMP/trestle-signing"
+
       - name: Collect desktop package
+        if: matrix.platform != 'linux'
         env:
           TRESTLE_ARCH: ${{ matrix.arch }}
           TRESTLE_EXTENSIONS: ${{ matrix.extensions }}

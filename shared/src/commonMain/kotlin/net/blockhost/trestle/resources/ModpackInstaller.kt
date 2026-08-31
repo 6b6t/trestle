@@ -8,14 +8,18 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.domain.ModpackOrigin
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.install.MinecraftInstaller
 import net.blockhost.trestle.instance.CreateInstanceRequest
+import net.blockhost.trestle.instance.FileInstanceRepository
+import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.ForgeMetadataClient
@@ -43,6 +47,8 @@ class ModpackInstaller(
     private val archiveExtractor: ArchiveExtractor,
     private val systemProfile: SystemProfile,
 ) {
+    private val restrictedDownloads = RestrictedDownloads(fileSystem, directories.root / "manual-downloads")
+
     suspend fun install(
         project: ResourceProject,
         version: ResourceVersion,
@@ -60,14 +66,14 @@ class ModpackInstaller(
             }
             val plan = resolvedVersion.externalPack
                 ?: throw LauncherException.InvalidMetadata("${version.name} has no installation plan.")
-            return installExternal(project, resolvedVersion, plan, onProgress)
+            return recordOrigin(installExternal(project, resolvedVersion, plan, onProgress), project, resolvedVersion)
         }
         val archiveFile = version.primaryFile
             ?: throw LauncherException.InvalidMetadata("${version.name} has no modpack archive.")
         val archiveUrl = archiveFile.url ?: throw LauncherException.InvalidMetadata(
             "${version.name} blocks downloads from third-party launchers.",
         )
-        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / project.id / version.id
+        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
         resetDirectory(staging)
         val archive = staging / safeFileName(archiveFile.fileName)
         downloadPipeline.download(
@@ -84,7 +90,44 @@ class ModpackInstaller(
             stagingDirectory = staging / "archive-download",
             onProgress = onProgress,
         )
-        return installArchive(archive, staging, project.name, project.iconUrl, onProgress)
+        return recordOrigin(installArchive(archive, staging, project.name, project.iconUrl, onProgress), project, version)
+    }
+
+    private suspend fun recordOrigin(instance: GameInstance, project: ResourceProject, version: ResourceVersion): GameInstance {
+        val updated = instance.copy(modpackOrigin = ModpackOrigin(
+            provider = project.provider.name, projectId = project.id, versionId = version.id,
+            versionName = version.versionNumber, name = project.name, websiteUrl = project.websiteUrl,
+        ))
+        ModpackUpdates(fileSystem).record(updated)
+        return repository.update(updated)
+    }
+
+    suspend fun prepareUpdate(
+        instance: GameInstance,
+        project: ResourceProject,
+        version: ResourceVersion,
+        onProgress: suspend (DownloadProgress) -> Unit = {},
+    ): ModpackUpdatePreview {
+        val origin = requireNotNull(instance.modpackOrigin) { "This instance has no pack origin. Install a tracked pack first." }
+        require(origin.provider == project.provider.name && origin.projectId == project.id) { "Choose a version of the same modpack." }
+        val staging = instance.instanceDirectory.toPath() / ".trestle" / "pack-preview"
+        resetDirectory(staging)
+        val isolatedRepository = FileInstanceRepository(
+            fileSystem, staging / "instances.json", staging / "instances",
+            InstanceIdFactory { InstanceId("pack-candidate") },
+        )
+        isolatedRepository.initialize()
+        val isolatedInstaller = ModpackInstaller(platforms, isolatedRepository, metadataClient, fabricMetadataClient,
+            neoForgeMetadataClient, forgeMetadataClient, quiltMetadataClient,
+            minecraftInstaller.withRepository(isolatedRepository), downloadPipeline, fileSystem,
+            directories.copy(staging = staging / "downloads"), archiveExtractor, systemProfile)
+        try {
+            val candidate = isolatedInstaller.install(project, version, onProgress)
+            return ModpackUpdates(fileSystem).preview(instance, candidate)
+        } catch (error: Exception) {
+            runCatching { deleteTree(staging) }
+            throw error
+        }
     }
 
     private suspend fun installExternal(
@@ -96,7 +139,7 @@ class ModpackInstaller(
         if (external.isUnresolved()) {
             throw LauncherException.InvalidMetadata("${project.name} does not provide downloadable client files.")
         }
-        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / project.id / version.id
+        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
         resetDirectory(staging)
         val resolvedFiles = staging / "resolved-files"
         fileSystem.createDirectories(resolvedFiles)
@@ -323,6 +366,7 @@ class ModpackInstaller(
             DownloadRequest(
                 url = file.url,
                 destination = safePackDestination(resolvedFiles, file.path),
+                localSource = file.localSource,
                 sha1 = file.sha1,
                 size = file.size,
                 progressLabel = file.path.substringAfterLast('/'),
@@ -359,7 +403,8 @@ class ModpackInstaller(
             val restored = if (fileSystem.exists(extracted / "trestle-instance.json")) {
                 val exported = decode<GameInstance>(extracted / "trestle-instance.json", "Trestle instance settings")
                 repository.update(
-                    installed.copy(
+                    ModpackUpdates(fileSystem).restoreOrigin(installed.copy(
+                        modpackOrigin = exported.modpackOrigin,
                         displayName = exported.displayName,
                         jvmArguments = exported.jvmArguments,
                         memory = exported.memory,
@@ -369,11 +414,12 @@ class ModpackInstaller(
                         iconReference = exported.iconReference,
                         pinned = exported.pinned,
                         group = exported.group,
-                    ),
+                    ), extracted / "trestle-metadata" / "modpack.json"),
                 )
             } else {
                 installed
             }
+            restoreResourceMetadata(fileSystem, extracted / "trestle-metadata" / "resources.json", restored)
             runCatching { deleteTree(staging) }
             return restored
         } catch (error: CancellationException) {
@@ -472,14 +518,17 @@ class ModpackInstaller(
                     "CurseForge file ${reference.fileId} has no downloadable artifact.",
                 )
             if (file.url == null && file.sha1 != null) {
-                val alternative = platforms.platform(ResourceProvider.MODRINTH).versionBySha1(file.sha1)?.primaryFile
+                val alternative = try { platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(file.sha1)?.files?.firstOrNull { it.sha1.equals(file.sha1, ignoreCase = true) }
+                } catch (error: CancellationException) { throw error
+                } catch (_: Exception) { null }
                 if (alternative?.url != null && alternative.sha1.equals(file.sha1, ignoreCase = true)) file = alternative
             }
             PackFile(
                 path = "${resourceType.packInstallFolder()}/${file.fileName}",
-                url = file.url ?: throw LauncherException.InvalidMetadata(
-                    "${file.fileName} blocks downloads from third-party launchers.",
-                ),
+                url = file.url.orEmpty(),
+                localSource = if (file.url == null) restrictedDownloads.requireFile(file,
+                    referencedProjects[reference.projectId.toString()]?.websiteUrl?.let { "$it/files/${reference.fileId}" }
+                        ?: "https://www.curseforge.com/minecraft/mc-mods/${reference.projectId}/files/${reference.fileId}") else null,
                 sha1 = file.sha1,
                 size = file.size,
                 sha512 = file.sha512,
@@ -621,6 +670,7 @@ private data class ModpackPlan(
 
 private data class PackFile(
     val path: String,
+    val localSource: Path? = null,
     val url: String,
     val sha1: String?,
     val size: Long?,

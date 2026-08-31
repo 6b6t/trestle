@@ -69,6 +69,8 @@ kotlin {
             dependsOn(commonMain.get())
             dependencies {
                 implementation(libs.minecraft.auth)
+                implementation(libs.tomlj)
+                implementation(libs.checker.qual)
             }
         }
 
@@ -84,6 +86,7 @@ kotlin {
         getByName("desktopMain") {
             dependsOn(jvmMain)
             dependencies {
+                implementation(libs.commons.compress)
                 implementation(libs.appdirs)
                 implementation(libs.ktor.client.cio)
                 implementation(libs.slf4j.api)

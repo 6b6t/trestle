@@ -572,7 +572,7 @@ fun TrestleApp(
             state.serverEditor.visible ||
             state.pendingInstanceRemovalId != null ||
             state.pendingWorldDeletionKey != null ||
-            showShortcuts ||
+            showShortcuts || state.restrictedDownload != null || state.modpackUpdatePreview != null || state.suggestedPackInstances.isNotEmpty() ||
             (
                 state.resourceBrowser.visible &&
                     state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
@@ -634,7 +634,12 @@ fun TrestleApp(
                 .testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
-            topBar = topBar,
+            topBar = {
+                Column {
+                    topBar()
+                    state.availableUpdate?.let { LauncherUpdateBanner(it, actions) }
+                }
+            },
         ) { contentPadding ->
             val destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit = { modifier, layoutMode ->
                 destinationStateHolder.SaveableStateProvider(destination.name) {
@@ -753,6 +758,8 @@ fun TrestleApp(
                     },
                 )
             }
+            RestrictedDownloadDialog(state, actions)
+            ModpackUpdateDialogs(state, actions)
             state.pendingWorldDeletionKey?.let { worldKey ->
                 AlertDialog(
                     onDismissRequest = actions::cancelWorldDeletion,
@@ -4342,6 +4349,9 @@ private fun InstanceContent(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
         ) {
+            item("modpack-origin") {
+                ModpackOriginPanel(instance, state, actions)
+            }
             item("installed-content") {
                 InstalledContentPanel(state, instance, actions)
             }
@@ -4501,6 +4511,9 @@ private fun InstalledContentRow(
                 val details = buildList {
                     add(content.type.label.removeSuffix("s"))
                     content.versionNumber?.let(::add)
+                    if (content.authors.isNotEmpty()) add(content.authors.joinToString())
+                    if (content.dependencies.isNotEmpty()) add("Requires ${content.dependencies.joinToString()}")
+                    if (content.gameVersions.isNotEmpty()) add("Minecraft ${content.gameVersions.joinToString()}")
                     add(role)
                     if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
                     content.lastModifiedEpochMillis?.let { add("Modified ${formatLocalDateTime(it)}") }
@@ -4515,7 +4528,9 @@ private fun InstalledContentRow(
                     modifier = Modifier.size(42.dp),
                 ) {
                     Box(contentAlignment = Alignment.Center) {
-                        Text(content.type.label.take(1), style = MaterialTheme.typography.titleMedium)
+                        if (content.iconUrl != null) {
+                            coil3.compose.AsyncImage(model = content.iconUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
+                        } else Text(content.type.label.take(1), style = MaterialTheme.typography.titleMedium)
                     }
                 }
             },
@@ -5953,9 +5968,6 @@ internal fun ContentSettings(
     SettingsSwitch("Scan subfolders for blocked mods", content.scanSubfolders) {
         actions.setLauncherPreferences(preferences.copy(content = content.copy(scanSubfolders = it)))
     }
-    SettingsSwitch("Move blocked mods instead of copying them", content.moveBlockedFiles) {
-        actions.setLauncherPreferences(preferences.copy(content = content.copy(moveBlockedFiles = it)))
-    }
     SettingsSwitch("Keep track of content metadata", content.trackMetadata) {
         actions.setLauncherPreferences(preferences.copy(content = content.copy(trackMetadata = it)))
     }
@@ -6131,6 +6143,13 @@ internal fun ToolSettings(
 ) = SettingsColumn(Res.string.ui_tools, scrollState, modifier) {
     OutlinedButton(onClick = actions::refreshVersions) {
         Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh Minecraft metadata")
+    }
+    val preferences = state.launcherPreferences
+    SettingsSwitch("Check for Trestle updates automatically", preferences.updates.automaticChecks) {
+        actions.setLauncherPreferences(preferences.copy(updates = preferences.updates.copy(automaticChecks = it)))
+    }
+    SettingsSwitch("Include preview releases", preferences.updates.includePrereleases) {
+        actions.setLauncherPreferences(preferences.copy(updates = preferences.updates.copy(includePrereleases = it, lastCheckedAtMillis = 0)))
     }
     OutlinedButton(onClick = actions::checkForLauncherUpdate, enabled = !state.isCheckingForUpdate) {
         Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates")

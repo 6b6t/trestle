@@ -4,11 +4,11 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.request.get
 import io.ktor.http.isSuccess
-import net.blockhost.trestle.auth.AccountManager
 import net.blockhost.trestle.auth.AccountCredentialStore
+import net.blockhost.trestle.auth.AccountManager
 import net.blockhost.trestle.auth.FileAccountManager
-import net.blockhost.trestle.auth.MinecraftProfileClient
 import net.blockhost.trestle.auth.MinecraftAuthenticator
+import net.blockhost.trestle.auth.MinecraftProfileClient
 import net.blockhost.trestle.auth.SessionProvider
 import net.blockhost.trestle.auth.SkinLibrary
 import net.blockhost.trestle.download.DownloadPipeline
@@ -16,28 +16,31 @@ import net.blockhost.trestle.install.EpochClock
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.install.MinecraftInstaller
 import net.blockhost.trestle.instance.FileInstanceRepository
+import net.blockhost.trestle.instance.GameDataManager
+import net.blockhost.trestle.instance.InstanceExporter
 import net.blockhost.trestle.instance.InstanceIdFactory
 import net.blockhost.trestle.instance.InstanceRepository
-import net.blockhost.trestle.instance.InstanceExporter
-import net.blockhost.trestle.instance.GameDataManager
+import net.blockhost.trestle.logging.BufferedLauncherLogger
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.LogSink
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.QuiltMetadataClient
-import net.blockhost.trestle.logging.BufferedLauncherLogger
-import net.blockhost.trestle.logging.LauncherLogger
-import net.blockhost.trestle.logging.LogSink
 import net.blockhost.trestle.resources.ArchiveExtractor
 import net.blockhost.trestle.resources.AtLauncherResourcePlatform
+import net.blockhost.trestle.resources.ContentIdentifier
 import net.blockhost.trestle.resources.CurseForgeResourcePlatform
 import net.blockhost.trestle.resources.FtbResourcePlatform
 import net.blockhost.trestle.resources.LegacyFtbResourcePlatform
 import net.blockhost.trestle.resources.ModpackInstaller
+import net.blockhost.trestle.resources.ModpackUpdates
 import net.blockhost.trestle.resources.ModrinthResourcePlatform
 import net.blockhost.trestle.resources.ResourceInstaller
 import net.blockhost.trestle.resources.ResourcePlatformRegistry
+import net.blockhost.trestle.resources.RestrictedDownloads
 import net.blockhost.trestle.resources.TechnicResourcePlatform
 import net.blockhost.trestle.runtime.MinecraftRuntime
 import net.blockhost.trestle.runtime.SystemProfile
@@ -93,7 +96,10 @@ class LauncherServices private constructor(
             technicResources,
         ),
     )
-    val resourceInstaller = ResourceInstaller(resourcePlatforms, resourceDownloadPipeline, FileSystem.SYSTEM)
+    val contentIdentifier = ContentIdentifier(resourcePlatforms, FileSystem.SYSTEM, clock::nowMillis)
+    val restrictedDownloads = RestrictedDownloads(FileSystem.SYSTEM, directories.root / "manual-downloads")
+    val resourceInstaller = ResourceInstaller(resourcePlatforms, resourceDownloadPipeline, FileSystem.SYSTEM, restrictedDownloads)
+    val modpackUpdates = ModpackUpdates(FileSystem.SYSTEM)
     val modpackInstaller = ModpackInstaller(
         platforms = resourcePlatforms,
         repository = repository,
@@ -123,7 +129,6 @@ class LauncherServices private constructor(
             scanSubfolders = preferences.content.scanSubfolders,
             installDependencies = preferences.content.installDependencies,
             detectIncompatibilities = preferences.content.detectIncompatibilities,
-            trackMetadata = preferences.content.trackMetadata,
         )
     }
 
@@ -222,7 +227,7 @@ class LauncherServices private constructor(
                 logger = logger,
             )
             logger.configure(savedPreferences.console.historyLimit, savedPreferences.console.stopLoggingOnOverflow)
-            val updateChecker = UpdateChecker(httpClient)
+            val updateChecker = UpdateChecker(httpClient, environment = environment, isMobile = systemProfile.isMobile)
             val installer = MinecraftInstaller(
                 repository,
                 metadataClient,

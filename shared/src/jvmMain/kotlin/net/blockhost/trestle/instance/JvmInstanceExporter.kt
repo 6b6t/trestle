@@ -27,6 +27,14 @@ class JvmInstanceExporter : InstanceExporter {
                 zip.writeTextEntry("mmc-pack.json", prismManifest(instance))
                 zip.writeTextEntry("instance.cfg", "name=${instance.displayName.replace('\n', ' ')}\n")
                 zip.writeTextEntry("trestle-instance.json", exportJson.encodeToString(instance))
+                listOf("modpack.json", "resources.json").forEach { name ->
+                    val metadata = source.resolve(".trestle").resolve(name)
+                    if (Files.isRegularFile(metadata) && !Files.isSymbolicLink(metadata)) {
+                        zip.putNextEntry(ZipEntry("trestle-metadata/$name"))
+                        Files.copy(metadata, zip)
+                        zip.closeEntry()
+                    }
+                }
                 val gameDirectory = source.resolve("game")
                 Files.walk(gameDirectory).use { paths ->
                     paths.filter { Files.isRegularFile(it) }.forEach { file ->

@@ -58,6 +58,11 @@ class MinecraftInstaller(
     private val clock: EpochClock,
     private val logger: LauncherLogger = NoopLauncherLogger,
 ) {
+    internal fun withRepository(repository: InstanceRepository) = MinecraftInstaller(
+        repository, metadataClient, fabricMetadataClient, neoForgeMetadataClient, forgeMetadataClient,
+        quiltMetadataClient, downloadPipeline, fileSystem, directories, environment, clock, logger,
+    )
+
     suspend fun install(instance: GameInstance, onProgress: suspend (DownloadProgress) -> Unit = {}): GameInstance {
         val previousProgress = instance.installationState as? InstallationState.Interrupted
         var working = instance.copy(

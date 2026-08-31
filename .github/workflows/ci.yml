@@ -44,5 +44,9 @@ jobs:
           :shared:allTests
           :androidApp:lintDebug
           :androidApp:assembleDebug
+          :desktopApp:test
           :desktopApp:classes
           --stacktrace
+
+      - name: Test release metadata generation
+        run: python3 -m unittest discover -s scripts/tests

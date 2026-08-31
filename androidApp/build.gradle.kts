@@ -79,3 +79,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.kotlinx.coroutines.core)
 }
+
+androidComponents.onVariants { variant ->
+    variant.sources.assets?.addStaticSourceDirectory(rootProject.file("licenses").absolutePath)
+}

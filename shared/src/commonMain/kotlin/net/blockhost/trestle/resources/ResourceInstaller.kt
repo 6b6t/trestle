@@ -29,6 +29,12 @@ data class InstalledContent(
     val versionId: String? = null,
     val versionNumber: String? = null,
     val websiteUrl: String? = null,
+    val iconUrl: String? = null,
+    val authors: List<String> = emptyList(),
+    val dependencies: List<String> = emptyList(),
+    val gameVersions: List<String> = emptyList(),
+    val loaders: List<String> = emptyList(),
+    val contentSha1: String? = null,
     val requiredByCount: Int = 0,
     val sizeBytes: Long = 0,
     val lastModifiedEpochMillis: Long? = null,
@@ -41,6 +47,7 @@ class ResourceInstaller(
     private val platforms: ResourcePlatformRegistry,
     private val downloadPipeline: DownloadPipeline,
     private val fileSystem: FileSystem,
+    private val restrictedDownloads: RestrictedDownloads? = null,
 ) {
     @Volatile
     private var scanSubfolders = false
@@ -51,23 +58,19 @@ class ResourceInstaller(
     @Volatile
     private var detectIncompatibilities = true
 
-    @Volatile
-    private var trackMetadata = true
-
     fun configure(
         scanSubfolders: Boolean,
         installDependencies: Boolean,
         detectIncompatibilities: Boolean,
-        trackMetadata: Boolean,
     ) {
         this.scanSubfolders = scanSubfolders
         this.installDependencies = installDependencies
         this.detectIncompatibilities = detectIncompatibilities
-        this.trackMetadata = trackMetadata
     }
 
     fun installedContent(instance: GameInstance): List<InstalledContent> {
         val root = instance.instanceDirectory.toPath()
+        ContentTransaction(fileSystem, root, root / ".trestle" / "resource-backup").recover()
         val manifest = readManifest(root / ".trestle" / "resources.json")
         val trackedFiles = manifest.resources.flatMapTo(mutableSetOf()) { it.files }
         val tracked = manifest.resources.map { resource ->
@@ -86,6 +89,10 @@ class ResourceInstaller(
                 versionId = resource.versionId,
                 versionNumber = resource.versionNumber,
                 websiteUrl = resource.websiteUrl,
+                iconUrl = resource.iconUrl,
+                authors = resource.authors,
+                gameVersions = resource.gameVersions,
+                loaders = resource.loaders,
                 requiredByCount = resource.requiredBy.size,
                 sizeBytes = fileMetadata.sumOf { it.size ?: 0L },
                 lastModifiedEpochMillis = fileMetadata.mapNotNull { it.lastModifiedAtMillis }.maxOrNull(),
@@ -141,8 +148,16 @@ class ResourceInstaller(
             categories = emptyList(),
         )
         return platform.versions(project, instance.minecraftVersionId, instance.modLoader)
-            .firstOrNull()
-            ?.takeIf { it.id != content.versionId }
+            .filter { it.channel == ReleaseChannel.RELEASE }
+            .sortedByDescending { it.publishedAt }
+            .let { versions ->
+                val latest = versions.firstOrNull() ?: return@let null
+                if (latest.id == content.versionId) return@let null
+                // An absent current version may be a preview build: do not offer a downgrade.
+                val current = versions.firstOrNull { it.id == content.versionId }
+                    ?: content.versionId?.let { platform.version(projectId, it) }
+                latest.takeIf { current == null || latest.publishedAt > current.publishedAt }
+            }
     }
 
     suspend fun update(
@@ -162,11 +177,11 @@ class ResourceInstaller(
             author = "",
             type = content.type,
             downloads = 0,
-            iconUrl = null,
-            websiteUrl = null,
+            iconUrl = content.iconUrl,
+            websiteUrl = content.websiteUrl,
             categories = emptyList(),
         )
-        return install(instance, project, version, onProgress = onProgress)
+        return install(instance, project, version, onProgress = onProgress, replacing = content)
     }
 
     suspend fun installLocal(
@@ -210,6 +225,7 @@ class ResourceInstaller(
         version: ResourceVersion,
         optionalDependencies: Set<String> = emptySet(),
         onProgress: suspend (DownloadProgress) -> Unit = {},
+        replacing: InstalledContent? = null,
     ): ResourceInstallSummary {
         require(project.provider == version.provider && project.id == version.projectId) {
             "The selected resource and version do not match."
@@ -222,7 +238,14 @@ class ResourceInstaller(
         val plannedFiles = buildList {
             resolved.forEach { resolvedVersion ->
                 val file = downloadableFile(resolvedVersion.version)
-                val url = requireNotNull(file.url)
+                val localSource = if (file.url == null) {
+                    val publisher = if (resolvedVersion.isRoot) project else platforms.platform(resolvedVersion.version.provider)
+                        .projectsByIds(listOf(resolvedVersion.version.projectId))[resolvedVersion.version.projectId]
+                    val page = publisher?.websiteUrl?.let { "$it/files/${resolvedVersion.version.id}" }
+                        ?: "https://www.curseforge.com/minecraft"
+                    restrictedDownloads?.requireFile(file, page)
+                } else null
+                val url = file.url.orEmpty()
                 val type = if (resolvedVersion.isRoot) project.type else ResourceType.MOD
                 val folder = type.installFolder()
                 add(
@@ -230,6 +253,7 @@ class ResourceInstaller(
                         owner = resolvedVersion,
                         file = file,
                         url = url,
+                        localSource = localSource,
                         relativePath = "$folder/${file.fileName}",
                         destination = root / "game" / folder / file.fileName,
                     ),
@@ -240,22 +264,49 @@ class ResourceInstaller(
 
         val rootKey = resourceKey(project.provider, project.id)
         val manifestPath = root / ".trestle" / "resources.json"
-        val currentManifest = readManifest(manifestPath)
+        var currentManifest = readManifest(manifestPath)
+        if (replacing?.key?.startsWith("local:") == true) {
+            val relative = replacing.key.removePrefix("local:")
+            val source = checkedContentPath(fileSystem, root / "game", relative)
+            require(replacing.contentSha1 != null && fileSystem.sha1(source) == replacing.contentSha1) {
+                "The local file changed since identification. Refresh installed content first."
+            }
+            currentManifest = currentManifest.copy(resources = currentManifest.resources + InstalledResource(
+                provider = project.provider, projectId = project.id, versionId = requireNotNull(replacing.versionId),
+                type = project.type, name = replacing.name, files = listOf(relative), enabled = replacing.enabled,
+            ))
+        }
         if (detectIncompatibilities) rejectDeclaredIncompatibilities(currentManifest, resolved)
         rejectInstalledVersionConflicts(currentManifest, resolved, rootKey)
+        val stageRoot = root / ".trestle" / "resource-staging"
+        if (fileSystem.exists(stageRoot)) fileSystem.deleteRecursively(stageRoot)
+        val stage = stageRoot / "prepared"
+        val oldPaths = currentManifest.resources.flatMap { it.files }.toSet()
+        plannedFiles.forEach { planned ->
+            val target = checkedContentPath(fileSystem, root / "game", planned.relativePath)
+            require(!fileSystem.exists(target) || planned.relativePath in oldPaths) {
+                "${planned.file.fileName} belongs to a local file. Remove or rename it before installing."
+            }
+        }
+        val expected = (oldPaths + plannedFiles.map { it.relativePath }).associate { name ->
+            val path = checkedContentPath(fileSystem, root / "game", name)
+            "game/$name" to if (fileSystem.exists(path)) fileSystem.sha256(path) else null
+        }.toMutableMap()
+        expected[".trestle/resources.json"] = if (fileSystem.exists(manifestPath)) fileSystem.sha256(manifestPath) else null
         val requests = plannedFiles.map {
             DownloadRequest(
                 url = it.url,
-                destination = it.destination,
+                destination = checkedContentPath(fileSystem, stage, it.relativePath),
                 sha1 = it.file.sha1,
                 size = it.file.size,
                 progressLabel = it.file.fileName,
                 sha512 = it.file.sha512,
+                localSource = it.localSource,
             )
         }
         downloadPipeline.download(
             requests = requests,
-            stagingDirectory = root / ".trestle" / "resource-staging" / version.id,
+            stagingDirectory = stageRoot / "downloads",
             onProgress = onProgress,
         )
 
@@ -270,15 +321,36 @@ class ResourceInstaller(
                 versionNumber = resolvedVersion.version.versionNumber,
                 websiteUrl = if (resolvedVersion.isRoot) project.websiteUrl else null,
                 files = ownedFiles,
+                iconUrl = if (resolvedVersion.isRoot) project.iconUrl else null,
+                authors = if (resolvedVersion.isRoot && project.author.isNotBlank()) listOf(project.author) else emptyList(),
+                gameVersions = resolvedVersion.version.gameVersions,
+                loaders = resolvedVersion.version.loaders,
                 direct = resolvedVersion.isRoot,
                 requiredBy = if (resolvedVersion.isRoot) emptyList() else listOf(rootKey),
             )
         }
-        if (trackMetadata) {
-            val nextManifest = mergeManifest(currentManifest, installedEntries, rootKey)
-            removeReplacedFiles(currentManifest, nextManifest, root)
-            writeManifest(manifestPath, nextManifest)
-        }
+        val nextManifest = mergeManifest(currentManifest, installedEntries, rootKey)
+        val replacements = plannedFiles.associate { planned ->
+            val entry = nextManifest.resources.first { planned.relativePath in it.files }
+            val relative = planned.relativePath + if (replacing?.enabled == false && entry.direct) DISABLED_SUFFIX else ""
+            val key = "game/$relative"
+            if (key !in expected) {
+                val target = checkedContentPath(fileSystem, root, key)
+                require(!fileSystem.exists(target)) { "$relative already exists." }
+                expected[key] = null
+            }
+            key to (checkedContentPath(fileSystem, stage, planned.relativePath) as Path?)
+        }.toMutableMap()
+        val finalManifest = if (replacing?.enabled == false) nextManifest.copy(resources = nextManifest.resources.map {
+            if (resourceKey(it.provider, it.projectId) == rootKey) it.copy(enabled = false, files = it.files.map { path -> "$path$DISABLED_SUFFIX" }) else it
+        }) else nextManifest
+        val retained = finalManifest.resources.flatMap { it.files }.toSet()
+        (oldPaths - retained).forEach { replacements["game/$it"] = null }
+        // Ownership must always be recorded, even when online metadata lookup is disabled.
+        val stagedManifest = stage / "resources.json"
+        writeManifest(stagedManifest, finalManifest)
+        replacements[".trestle/resources.json"] = stagedManifest
+        ContentTransaction(fileSystem, root, root / ".trestle" / "resource-backup").apply(replacements, expected)
         return ResourceInstallSummary(
             installedFiles = plannedFiles.size,
             dependencyCount = resolved.count { !it.isRoot },
@@ -291,10 +363,13 @@ class ResourceInstaller(
         if (file.url != null) return file
         val sha1 = file.sha1
         if (sha1 != null) {
-            val modrinthVersion = platforms.platform(ResourceProvider.MODRINTH).versionBySha1(sha1)
-            val alternative = modrinthVersion?.primaryFile
+            val modrinthVersion = try { platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(sha1)
+            } catch (error: CancellationException) { throw error
+            } catch (_: Exception) { null }
+            val alternative = modrinthVersion?.files?.firstOrNull { it.sha1.equals(sha1, ignoreCase = true) }
             if (alternative?.url != null && alternative.sha1.equals(sha1, ignoreCase = true)) return alternative
         }
+        if (restrictedDownloads != null) return file
         throw LauncherException.InvalidMetadata(
             "${version.name} blocks downloads from third-party launchers and has no verified Modrinth alternative.",
         )
@@ -324,7 +399,7 @@ class ResourceInstaller(
     suspend fun uninstall(instance: GameInstance, content: InstalledContent): Boolean {
         val provider = content.provider
         val projectId = content.projectId
-        if (provider != null && projectId != null) return uninstall(instance, provider, projectId)
+        if (!content.key.startsWith("local:") && provider != null && projectId != null) return uninstall(instance, provider, projectId)
         if (!content.key.startsWith("local:")) return false
         val relativePath = content.key.removePrefix("local:")
         val path = safeOwnedPath(instance.instanceDirectory.toPath(), relativePath) ?: return false
@@ -335,7 +410,7 @@ class ResourceInstaller(
     suspend fun setEnabled(instance: GameInstance, content: InstalledContent, enabled: Boolean): Boolean {
         if (!content.canManage || content.enabled == enabled) return false
         val root = instance.instanceDirectory.toPath()
-        if (!content.isTracked) {
+        if (content.key.startsWith("local:")) {
             if (!content.key.startsWith("local:")) return false
             val relativePath = content.key.removePrefix("local:")
             val source = safeOwnedPath(root, relativePath) ?: return false
@@ -588,6 +663,7 @@ private data class PlannedResourceFile(
     val owner: ResolvedResourceVersion,
     val file: ResourceFile,
     val url: String,
+    val localSource: Path? = null,
     val relativePath: String,
     val destination: Path,
 )
@@ -608,6 +684,10 @@ private data class InstalledResource(
     val versionNumber: String? = null,
     val websiteUrl: String? = null,
     val files: List<String>,
+    val iconUrl: String? = null,
+    val authors: List<String> = emptyList(),
+    val gameVersions: List<String> = emptyList(),
+    val loaders: List<String> = emptyList(),
     val direct: Boolean = true,
     val requiredBy: List<String> = emptyList(),
     val enabled: Boolean = true,
@@ -652,4 +732,15 @@ private val installJson = Json {
     prettyPrint = true
     encodeDefaults = true
     ignoreUnknownKeys = true
+}
+
+internal fun restoreResourceMetadata(fileSystem: FileSystem, source: Path, instance: GameInstance) {
+    if (!fileSystem.exists(source)) return
+    val manifest = installJson.decodeFromString<ResourceManifest>(fileSystem.read(source) { readUtf8() })
+    require(manifest.schemaVersion == 1) { "Unsupported exported resource manifest." }
+    val root = instance.instanceDirectory.toPath()
+    manifest.resources.forEach { resource -> resource.files.forEach { checkedContentPath(fileSystem, root / "game", it) } }
+    val target = root / ".trestle" / "resources.json"
+    fileSystem.createDirectories(requireNotNull(target.parent))
+    fileSystem.write(target) { writeUtf8(installJson.encodeToString(ResourceManifest.serializer(), manifest)) }
 }

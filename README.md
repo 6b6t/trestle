@@ -9,9 +9,11 @@ Trestle provides:
 - Isolated, persisted Minecraft instances with atomic registry writes.
 - Vanilla, Fabric, NeoForge, Forge, and Quilt metadata resolution and installation.
 - Verified Mojang asset, library, native, logging, and client downloads.
-- Managed Mojang Java runtimes for desktop launch.
-- Modrinth and CurseForge search for mods, modpacks, resource packs, and shaders.
-- Installed-content updates, dependency tracking, enable controls, and removal.
+- Managed Mojang Java runtimes, with Eclipse Temurin for Linux ARM64.
+- Modrinth, CurseForge, ATLauncher, FTB, FTB Legacy, and Technic catalogs.
+- Installed-content updates, hash-based identification, dependency tracking, enable controls, and removal.
+- Launcher update notices with release notes and platform-specific downloads.
+- Tracked modpack updates with previews, file backups, and rollback.
 - Modrinth, CurseForge, Prism Launcher, and MultiMC pack import.
 - Portable instance export with Prism-compatible metadata.
 - Instance cloning, grouping, custom icons, launch statistics, and component changes.
@@ -126,3 +128,8 @@ Trestle source code uses the [Apache License 2.0](LICENSE).
 The bundled Roboto font uses the SIL Open Font License 1.1. See [`licenses/OFL-Roboto.txt`](licenses/OFL-Roboto.txt).
 
 The vendored PlatformTools accent readers use the MIT License. See [`licenses/MIT-PlatformTools.txt`](licenses/MIT-PlatformTools.txt).
+
+## Release and update guides
+
+- [Prepare and sign a release](docs/releases.md)
+- [Update the launcher, imported content, and modpacks](docs/content-updates.md)

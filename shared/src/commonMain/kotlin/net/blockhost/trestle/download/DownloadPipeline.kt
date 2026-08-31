@@ -34,6 +34,7 @@ data class DownloadRequest(
     val sha256: String? = null,
     val sha512: String? = null,
     val md5: String? = null,
+    val localSource: Path? = null,
 )
 
 data class DownloadProgress(
@@ -207,6 +208,13 @@ class DownloadPipeline(
         rangeSupport: HostRangeSupport,
         onBytes: suspend (Long) -> Unit,
     ) {
+        request.localSource?.let { source ->
+            require(request.sha1 != null || request.sha256 != null || request.sha512 != null) { "Local download substitutions need a checksum." }
+            fileSystem.copy(source, stagedPath)
+            validateCompleted(stagedPath, request)
+            onBytes(fileSize(stagedPath))
+            return
+        }
         var lastError: Throwable? = null
         val host = Url(request.url).host
         if (isValid(stagedPath, request, allowUnverified = false)) {

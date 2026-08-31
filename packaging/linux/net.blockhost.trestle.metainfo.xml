@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.blockhost.trestle</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Apache-2.0</project_license>
+  <name>Trestle</name>
+  <summary>Manage and play Minecraft Java Edition</summary>
+  <description>
+    <p>Create isolated Minecraft instances, install mods and modpacks, and manage worlds with Trestle.</p>
+    <p>Browse Modrinth and other catalogs, link imported mods to their source, and preview pack updates before applying them.</p>
+  </description>
+  <developer id="net.blockhost"><name>Blockhost Network</name></developer>
+  <url type="homepage">https://github.com/6b6t/trestle</url>
+  <url type="bugtracker">https://github.com/6b6t/trestle/issues</url>
+  <url type="help">https://github.com/6b6t/trestle/blob/main/README.md</url>
+  <url type="vcs-browser">https://github.com/6b6t/trestle</url>
+  <launchable type="desktop-id">net.blockhost.trestle.desktop</launchable>
+  <provides><binary>trestle</binary><mediatype>application/x-modrinth-modpack+zip</mediatype></provides>
+  <categories><category>Game</category></categories>
+  <screenshots>
+    <screenshot type="default">
+      <caption>Manage separate Minecraft instances in the library</caption>
+      <image type="source" width="1024" height="768">https://raw.githubusercontent.com/6b6t/trestle/main/docs/assets/launcher-library.png</image>
+    </screenshot>
+  </screenshots>
+  <content_rating type="oars-1.1"/>
+  <supports><control>keyboard</control><control>pointing</control></supports>
+</component>

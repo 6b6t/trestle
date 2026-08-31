@@ -6,13 +6,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.MANAGED_INSTANCE_ICON_PREFIX
 import net.blockhost.trestle.domain.MAX_INSTANCE_ICON_BYTES
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.ModpackUpdates
 import okio.ByteString.Companion.toByteString
 import okio.FileSystem
 import okio.Path
@@ -49,7 +50,9 @@ class FileInstanceRepository(
                 )
             }
             val recoveredCount = registry.instances.count { it.installationState is InstallationState.Installing }
-            val recoveredInstances = registry.instances.map { instance ->
+            val packUpdates = ModpackUpdates(fileSystem)
+            val recoveredInstances = registry.instances.map { saved ->
+                val instance = packUpdates.recover(saved)
                 val installing = instance.installationState as? InstallationState.Installing
                     ?: return@map instance
                 instance.copy(

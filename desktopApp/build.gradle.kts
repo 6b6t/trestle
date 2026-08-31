@@ -8,7 +8,9 @@ plugins {
 
 val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
 val trestleVersionCode = providers.gradleProperty("trestle.versionCode").orElse("1")
-val curseForgeApiKey = providers.gradleProperty("trestle.curseforge.apiKey").orElse("")
+val curseForgeApiKey = providers.environmentVariable("TRESTLE_CURSEFORGE_API_KEY")
+    .orElse(providers.gradleProperty("trestle.curseforge.apiKey")).orElse("")
+val broadFileAssociations = providers.gradleProperty("trestle.broadFileAssociations").map(String::toBoolean).orElse(false)
 
 dependencies {
     implementation(project(":shared"))
@@ -40,7 +42,7 @@ kotlin {
 compose.desktop {
     application {
         mainClass = "net.blockhost.trestle.desktop.MainKt"
-        jvmArgs += "-Djava.desktop.appName=trestle-Trestle.desktop"
+        jvmArgs += "-Djava.desktop.appName=net.blockhost.trestle.desktop"
         jvmArgs += "-Dtrestle.curseforge.apiKey=${curseForgeApiKey.get()}"
 
         nativeDistributions {
@@ -71,8 +73,10 @@ compose.desktop {
 
             linux {
                 iconFile.set(project.file("src/main/resources/trestle.png"))
-                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
-                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                if (broadFileAssociations.get()) {
+                    fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                    fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                }
                 fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
                 packageName = "trestle"
                 shortcut = true
@@ -85,9 +89,18 @@ compose.desktop {
 
             macOS {
                 iconFile.set(project.file("src/main/resources/trestle.icns"))
-                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
-                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                if (broadFileAssociations.get()) {
+                    fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                    fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                }
                 fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
+                signing {
+                    sign.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY").map { it.isNotBlank() }.orElse(false))
+                    identity.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY"))
+                    keychain.set(providers.environmentVariable("TRESTLE_MAC_KEYCHAIN_PATH"))
+                }
+                entitlementsFile.set(rootProject.file("packaging/macos/entitlements.plist"))
+                runtimeEntitlementsFile.set(rootProject.file("packaging/macos/entitlements.plist"))
                 bundleID = "net.blockhost.trestle"
                 dockName = "Trestle"
                 appCategory = "public.app-category.games"
@@ -95,6 +108,12 @@ compose.desktop {
                 packageBuildVersion = trestleVersionCode.get()
                 infoPlist {
                     extraKeysRawXml = """
+                        <key>NSHumanReadableCopyright</key>
+                        <string>Copyright 2026 Blockhost Network</string>
+                        <key>TrestleHomepage</key>
+                        <string>https://github.com/6b6t/trestle</string>
+                        <key>TrestleSupportURL</key>
+                        <string>https://github.com/6b6t/trestle/issues</string>
                         <key>LSMultipleInstancesProhibited</key>
                         <true/>
                         <key>NSHighResolutionCapable</key>
@@ -118,8 +137,10 @@ compose.desktop {
 
             windows {
                 iconFile.set(project.file("src/main/resources/trestle.ico"))
-                fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
-                fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                if (broadFileAssociations.get()) {
+                    fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
+                    fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                }
                 fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
                 dirChooser = true
                 perUserInstall = true
@@ -135,5 +156,16 @@ compose.desktop {
 tasks.configureEach {
     if (name == "run") {
         outputs.upToDateWhen { false }
+    }
+}
+
+// jpackage exposes installer URLs outside the Compose platform-specific DSL.
+tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask>().configureEach {
+    if (targetFormat != TargetFormat.AppImage) {
+        freeArgs.addAll("--about-url", "https://github.com/6b6t/trestle")
+    }
+    if (targetFormat == TargetFormat.Msi || targetFormat == TargetFormat.Exe) {
+        freeArgs.addAll("--win-help-url", "https://github.com/6b6t/trestle/issues",
+            "--win-update-url", "https://github.com/6b6t/trestle/releases/latest")
     }
 }

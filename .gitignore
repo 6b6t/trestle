@@ -41,3 +41,6 @@ replay_pid*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Python release tooling
+__pycache__/

@@ -61,6 +61,16 @@ sealed interface InstallationState {
 }
 
 @Serializable
+data class ModpackOrigin(
+    val provider: String,
+    val projectId: String,
+    val versionId: String,
+    val versionName: String,
+    val name: String,
+    val websiteUrl: String? = null,
+)
+
+@Serializable
 data class GameInstance(
     val id: InstanceId,
     val displayName: String,
@@ -86,6 +96,7 @@ data class GameInstance(
     val group: String? = null,
     val launchCount: Int = 0,
     val playTimeMillis: Long = 0,
+    val modpackOrigin: ModpackOrigin? = null,
 ) {
     init {
         require(displayName.isNotBlank()) { "Instance name must not be blank." }

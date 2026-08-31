@@ -206,11 +206,15 @@ interface ResourcePlatform {
 
     suspend fun versionBySha1(sha1: String): ResourceVersion? = null
 
+    suspend fun versionByFingerprint(fingerprint: Long, sha1: String): ResourceVersion? = null
+
     suspend fun projectsByIds(projectIds: List<String>): Map<String, ResourceProject> = emptyMap()
 }
 
 class ResourcePlatformRegistry(platforms: List<ResourcePlatform>) {
     private val byProvider = platforms.associateBy(ResourcePlatform::provider)
+
+    fun find(provider: ResourceProvider): ResourcePlatform? = byProvider[provider]
 
     fun platform(provider: ResourceProvider): ResourcePlatform =
         requireNotNull(byProvider[provider]) { "${provider.label} is not registered." }
@@ -277,6 +281,14 @@ private data class ModrinthDependency(
 
 @Serializable
 private data class ModrinthProjectDetails(
+    val id: String = "",
+    val slug: String = "",
+    val title: String = "",
+    val description: String = "",
+    @SerialName("project_type") val projectType: String = "mod",
+    @SerialName("icon_url") val iconUrl: String? = null,
+    val categories: List<String> = emptyList(),
+    val downloads: Long = 0,
     val body: String = "",
     val gallery: List<ModrinthGalleryImage> = emptyList(),
     @SerialName("issues_url") val issuesUrl: String? = null,
@@ -386,6 +398,20 @@ class ModrinthResourcePlatform(
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion =
         request<ModrinthVersion>("$baseUrl/version/$versionId") {}.toResourceVersion()
+
+    override suspend fun projectsByIds(projectIds: List<String>): Map<String, ResourceProject> =
+        projectIds.distinct().chunked(50).flatMap { ids ->
+            request<List<ModrinthProjectDetails>>("$baseUrl/projects") { parameter("ids", resourceJson.encodeToString(ids)) }
+        }.associate { project ->
+            val type = when (project.projectType) {
+                "modpack" -> ResourceType.MODPACK
+                "resourcepack" -> ResourceType.RESOURCE_PACK
+                "shader" -> ResourceType.SHADER_PACK
+                else -> ResourceType.MOD
+            }
+            project.id to ResourceProject(provider, project.id, project.slug, project.title, project.description,
+                "", type, project.downloads, project.iconUrl, "https://modrinth.com/${type.modrinthPath()}/${project.slug}", project.categories)
+        }
 
     override suspend fun versionBySha1(sha1: String): ResourceVersion? {
         val response = httpClient.get("$baseUrl/version_file/$sha1") {
@@ -626,6 +652,19 @@ class CurseForgeResourcePlatform(
         }
     }
 
+    override suspend fun versionByFingerprint(fingerprint: Long, sha1: String): ResourceVersion? {
+        ensureAvailable()
+        val matches = resourceApiRequest<CurseForgeFingerprintResponse>(provider) {
+            httpClient.post("$baseUrl/fingerprints/432") {
+                header("x-api-key", apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(resourceJson.encodeToString(CurseForgeFingerprintRequest(listOf(fingerprint))))
+            }
+        }
+        return matches.data.exactMatches.map { it.file.toResourceVersion() }
+            .firstOrNull { version -> version.files.any { it.sha1.equals(sha1, ignoreCase = true) } }
+    }
+
     override suspend fun projectsByIds(projectIds: List<String>): Map<String, ResourceProject> {
         ensureAvailable()
         return projectIds.distinct().map(String::toLong).chunked(50).flatMap { modIds ->
@@ -824,3 +863,12 @@ private fun String.toEnvironmentSupport(): ResourceEnvironmentSupport = when (lo
 private val loaderFilteredTypes = setOf(ResourceType.MOD, ResourceType.MODPACK)
 private val knownLoaderNames = setOf("forge", "fabric", "quilt", "neoforge", "cauldron", "liteloader")
 private val resourceJson = Json { ignoreUnknownKeys = true }
+
+@Serializable
+private data class CurseForgeFingerprintRequest(val fingerprints: List<Long>)
+@Serializable
+private data class CurseForgeFingerprintResponse(val data: CurseForgeFingerprintMatches)
+@Serializable
+private data class CurseForgeFingerprintMatches(val exactMatches: List<CurseForgeFingerprintMatch> = emptyList())
+@Serializable
+private data class CurseForgeFingerprintMatch(val file: CurseForgeFile)

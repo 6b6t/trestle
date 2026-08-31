@@ -167,7 +167,16 @@ interface LauncherUiActions {
     fun clearLogs() {}
     fun setThemePreference(value: ThemePreference) {}
     fun setLauncherPreferences(value: LauncherPreferences) {}
+    fun acceptRestrictedDownload(bytes: ByteArray) {}
+    fun dismissRestrictedDownload() {}
+    fun installSelectedModpackAsNew() {}
+    fun previewSelectedModpackUpdate(id: InstanceId) {}
+    fun checkModpackUpdate() {}
+    fun applyModpackUpdate(replaceConflicts: Set<String>) {}
+    fun cancelModpackUpdate() {}
+    fun rollbackModpackUpdate() {}
     fun checkForLauncherUpdate() {}
+    fun remindAboutLauncherUpdateLater() {}
 }
 
 object NoopLauncherUiActions : LauncherUiActions

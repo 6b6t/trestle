@@ -64,11 +64,13 @@ jobs:
     uses: ./.github/workflows/build-release-artifacts.yml
     with:
       version: ${{ inputs.version }}
+      ref: ${{ needs.set-version.outputs.commit-sha }}
+      require-desktop-signing: ${{ !inputs.prerelease }}
     secrets: inherit
 
   publish-release:
     name: Publish GitHub release
-    needs: build
+    needs: [build, set-version]
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -76,7 +78,7 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          ref: ${{ github.ref }}
+          ref: ${{ needs.set-version.outputs.commit-sha }}
           fetch-depth: 0
 
       - name: Download release artifacts
@@ -86,46 +88,21 @@ jobs:
           path: release-artifacts
           merge-multiple: true
 
-      - name: Verify release artifacts
+      - name: Verify artifacts and generate release metadata
         env:
           TRESTLE_VERSION: ${{ inputs.version }}
-        run: |
-          expected=(
-            "Trestle-${TRESTLE_VERSION}-android-arm64.apk"
-            "Trestle-${TRESTLE_VERSION}-android-arm64.aab"
-            "Trestle-${TRESTLE_VERSION}-linux-x64.deb"
-            "Trestle-${TRESTLE_VERSION}-linux-x64.rpm"
-            "Trestle-${TRESTLE_VERSION}-linux-arm64.deb"
-            "Trestle-${TRESTLE_VERSION}-linux-arm64.rpm"
-            "Trestle-${TRESTLE_VERSION}-macos-x64.dmg"
-            "Trestle-${TRESTLE_VERSION}-macos-x64.pkg"
-            "Trestle-${TRESTLE_VERSION}-macos-arm64.dmg"
-            "Trestle-${TRESTLE_VERSION}-macos-arm64.pkg"
-            "Trestle-${TRESTLE_VERSION}-windows-x64.msi"
-            "Trestle-${TRESTLE_VERSION}-windows-x64.exe"
-            "Trestle-${TRESTLE_VERSION}-windows-arm64.msi"
-            "Trestle-${TRESTLE_VERSION}-windows-arm64.exe"
-          )
-
-          for file in "${expected[@]}"; do
-            if [[ ! -f "release-artifacts/$file" ]]; then
-              echo "Missing release artifact: $file" >&2
-              exit 1
-            fi
-          done
-
-          artifact_count="$(find release-artifacts -maxdepth 1 -type f | wc -l)"
-          if [[ "$artifact_count" -ne "${#expected[@]}" ]]; then
-            echo "Expected ${#expected[@]} release artifacts, found $artifact_count." >&2
-            exit 1
-          fi
+          TRESTLE_REPOSITORY: ${{ github.repository }}
+          TRESTLE_COMMIT: ${{ needs.set-version.outputs.commit-sha }}
+        run: >-
+          python3 scripts/generate-release-metadata.py --version "$TRESTLE_VERSION"
+          --artifacts release-artifacts --repository "$TRESTLE_REPOSITORY" --commit "$TRESTLE_COMMIT"
 
       - name: Build changelog
         id: github-release
         uses: mikepenz/release-changelog-builder-action@bcae7115752d4ed746ff92feb666574428a79415 # v6.2.1
         with:
           mode: COMMIT
-          toTag: ${{ github.ref }}
+          toTag: ${{ needs.set-version.outputs.commit-sha }}
           configurationJson: |
             {
               "template": "#{{CHANGELOG}}",
@@ -200,6 +177,8 @@ jobs:
           body: |
             ## Downloads
 
+            [Download details and checksums](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/downloads.html) · [SHA-256 checksums](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/SHA256SUMS)
+
             | Platform | Architecture | Packages |
             |---|---|---|
             | Android | ARM64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.aab) |
@@ -211,14 +190,14 @@ jobs:
             | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.exe) |
 
             > [!IMPORTANT]
-            > Android packages are signed. macOS and Windows packages are unsigned, and macOS packages are not notarized.
+            > ${{ inputs.prerelease && 'Preview release: Android packages are signed. Desktop signing depends on configured credentials; verify OS signature prompts before installation.' || 'Android and Windows installers are signed. macOS installers are signed and notarized.' }}
 
             > [!TIP]
             > x86_64 is for Intel and AMD processors. AArch64 is for ARM processors, including Apple Silicon and Snapdragon.
 
             ${{ steps.github-release.outputs.changelog }}
           tag_name: ${{ inputs.version }}
-          target_commitish: ${{ github.ref_name }}
+          target_commitish: ${{ needs.set-version.outputs.commit-sha }}
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Trestle ${{ inputs.version }}
           prerelease: ${{ inputs.prerelease }}
