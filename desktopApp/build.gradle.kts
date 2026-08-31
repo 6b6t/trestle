@@ -94,11 +94,9 @@ compose.desktop {
                     fileAssociation("application/zip", "zip", "Minecraft content pack")
                 }
                 fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack")
-                signing {
-                    sign.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY").map { it.isNotBlank() }.orElse(false))
-                    identity.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY"))
-                    keychain.set(providers.environmentVariable("TRESTLE_MAC_KEYCHAIN_PATH"))
-                }
+                // Publisher certificates are not required. The packaging task below
+                // applies ad hoc signatures on both Intel and Apple Silicon.
+                signing { sign.set(false) }
                 entitlementsFile.set(rootProject.file("packaging/macos/entitlements.plist"))
                 runtimeEntitlementsFile.set(rootProject.file("packaging/macos/entitlements.plist"))
                 bundleID = "net.blockhost.trestle"
@@ -172,5 +170,20 @@ tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageT
     if (targetFormat == TargetFormat.Msi || targetFormat == TargetFormat.Exe) {
         freeArgs.addAll("--win-help-url", "https://github.com/6b6t/trestle/issues",
             "--win-update-url", "https://github.com/6b6t/trestle/releases/latest")
+    }
+}
+
+if (System.getProperty("os.name") == "Mac OS X") {
+    val signMacosApplication by tasks.registering(Exec::class) {
+        dependsOn("createDistributable")
+        commandLine(
+            "python3",
+            rootProject.file("scripts/sign-macos.py"),
+            "--app", layout.buildDirectory.dir("compose/binaries/main/app/Trestle.app").get().asFile,
+            "--entitlements", rootProject.file("packaging/macos/entitlements.plist"),
+        )
+    }
+    tasks.matching { it.name == "packageDmg" || it.name == "packagePkg" }.configureEach {
+        dependsOn(signMacosApplication)
     }
 }

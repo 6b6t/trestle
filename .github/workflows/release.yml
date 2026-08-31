@@ -65,7 +65,6 @@ jobs:
     with:
       version: ${{ inputs.version }}
       ref: ${{ needs.set-version.outputs.commit-sha }}
-      require-desktop-signing: ${{ !inputs.prerelease }}
     secrets: inherit
 
   publish-release:
@@ -192,10 +191,20 @@ jobs:
             | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.exe) |
 
             > [!IMPORTANT]
-            > ${{ inputs.prerelease && 'Preview release: Android packages are signed. Desktop signing depends on configured credentials; verify OS signature prompts before installation.' || 'Android and Windows installers are signed. macOS installers are signed and notarized.' }}
+            > Android packages use the Trestle release key. Windows installers are unsigned. macOS apps use ad hoc signatures and are not notarized.
+            > Windows and macOS can show security warnings. See [Apple’s guidance for opening an unnotarized app](https://support.apple.com/en-us/102445).
 
             > [!TIP]
             > x86_64 is for Intel and AMD processors. AArch64 is for ARM processors, including Apple Silicon and Snapdragon.
+
+            ## Compatibility
+
+            - Android requires Android 8.1 or newer and Vulkan 1.2. It supports Vanilla Minecraft 26.2 only.
+            - Android x64 still needs game testing on compatible hardware.
+            - Package and CLI checks do not guarantee game compatibility for every architecture or Minecraft version.
+            - CurseForge requires a Trestle API key and is unavailable when that key is not configured.
+            - Package-manager manifests are included for validation and submission. They are not catalog listings.
+            - Back up your instances and worlds before updating modpacks.
 
             ${{ steps.github-release.outputs.changelog }}
           tag_name: ${{ inputs.version }}
