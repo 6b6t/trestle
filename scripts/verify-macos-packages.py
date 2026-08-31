@@ -41,7 +41,7 @@ def main():
         mount = temporary / 'mounted'
         subprocess.run([
             'hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', str(mount), str(dmg),
-        ], check=True)
+        ], input=b'Y\n', check=True)  # Accept the bundled Apache license without a terminal.
         try:
             verify(one(mount.glob('*.app'), 'application in the DMG'), digest)
         finally:
