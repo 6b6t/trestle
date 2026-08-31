@@ -90,10 +90,10 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("src/main/resources/trestle.icns"))
                 if (broadFileAssociations.get()) {
-                    fileAssociation("application/java-archive", "jar", "Minecraft mod", iconFile.get().asFile)
-                    fileAssociation("application/zip", "zip", "Minecraft content pack", iconFile.get().asFile)
+                    fileAssociation("application/java-archive", "jar", "Minecraft mod")
+                    fileAssociation("application/zip", "zip", "Minecraft content pack")
                 }
-                fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack", iconFile.get().asFile)
+                fileAssociation("application/x-modrinth-modpack+zip", "mrpack", "Modrinth modpack")
                 signing {
                     sign.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY").map { it.isNotBlank() }.orElse(false))
                     identity.set(providers.environmentVariable("TRESTLE_MAC_SIGNING_IDENTITY"))
