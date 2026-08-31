@@ -339,7 +339,7 @@ jobs:
             matches=()
             while IFS= read -r match; do
               matches+=("$match")
-            done < <(find desktopApp/build/compose/binaries -type f -name "*.${extension}" | sort)
+            done < <(find "desktopApp/build/compose/binaries/main/${extension}" -type f -name "*.${extension}" | sort)
 
             if [[ "${#matches[@]}" -ne 1 ]]; then
               echo "Expected exactly one .${extension} package, found ${#matches[@]}." >&2
