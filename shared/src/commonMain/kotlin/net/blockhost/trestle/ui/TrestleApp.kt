@@ -5073,8 +5073,7 @@ private fun AccountDetail(
 private val ManagedAccount.canManageOfficialProfile: Boolean
     get() = isActive &&
         isAuthenticated &&
-        profile.edition == MinecraftEdition.JAVA &&
-        profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
+        profile.edition == MinecraftEdition.JAVA
 
 @Composable
 private fun AccountOverflowMenu(
@@ -5099,12 +5098,7 @@ private fun AccountOverflowMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
         ) {
-            if (
-                account.isActive &&
-                account.isAuthenticated &&
-                account.profile.edition == MinecraftEdition.JAVA &&
-                account.profile.authenticationMethod != AccountAuthenticationMethod.THE_ALTENING
-            ) {
+            if (account.canManageOfficialProfile) {
                 DropdownMenuItem(
                     text = { Text("Refresh profile") },
                     onClick = {
@@ -5812,15 +5806,13 @@ private fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiAction
 private val AccountAuthenticationMethod.requiresImportedSecret: Boolean
     get() = this == AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN ||
         this == AccountAuthenticationMethod.MICROSOFT_COOKIES ||
-        this == AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN ||
-        this == AccountAuthenticationMethod.THE_ALTENING
+        this == AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN
 
 private val AccountAuthenticationMethod.secretInputLabel: String
     get() = when (this) {
         AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> "Microsoft refresh token"
         AccountAuthenticationMethod.MICROSOFT_COOKIES -> "login.live.com cookies or cookie export"
         AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> "Minecraft access token"
-        AccountAuthenticationMethod.THE_ALTENING -> "TheAltening account token"
         else -> "Imported secret"
     }
 
@@ -5832,8 +5824,6 @@ private val AccountAuthenticationMethod.importWarning: String
             "Cookies grant access to your Microsoft session. Trestle exchanges them once, then stores only encrypted token state."
         AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN ->
             "Raw Minecraft access tokens cannot be renewed. Trestle validates the profile and stores the token encrypted until it expires."
-        AccountAuthenticationMethod.THE_ALTENING ->
-            "This third-party provider uses an unencrypted HTTP authentication and session endpoint. Do not reuse this token elsewhere."
         else -> ""
     }
 
@@ -5847,7 +5837,6 @@ private val AccountLoginState.canSubmit: Boolean
         AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
         AccountAuthenticationMethod.MICROSOFT_COOKIES,
         AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
-        AccountAuthenticationMethod.THE_ALTENING,
         -> !importedSecret.isBlank()
         AccountAuthenticationMethod.OFFLINE -> offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$"))
     }

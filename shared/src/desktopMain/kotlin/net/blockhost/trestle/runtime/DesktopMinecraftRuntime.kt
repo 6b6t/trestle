@@ -90,9 +90,6 @@ class DesktopMinecraftRuntime(
                 addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted)
                 addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted)
                 addAll(loaderBootstrapArguments(instance, installed, clientJar))
-                if (session?.authenticationMethod == net.blockhost.trestle.auth.AccountAuthenticationMethod.THE_ALTENING) {
-                    addAll(THE_ALTENING_ENVIRONMENT_ARGUMENTS)
-                }
             }
             val gameArguments = installed.gameArguments + instance.gameArguments + options.additionalGameArguments
             val commandArguments = buildList {
@@ -352,13 +349,6 @@ class DesktopMinecraftRuntime(
             "\${user_type}",
             "\${clientid}",
             "\${auth_xuid}",
-        )
-        val THE_ALTENING_ENVIRONMENT_ARGUMENTS = listOf(
-            "-Dminecraft.api.auth.host=http://authserver.thealtening.com",
-            "-Dminecraft.api.account.host=http://authserver.thealtening.com",
-            "-Dminecraft.api.session.host=http://sessionserver.thealtening.com",
-            "-Dminecraft.api.services.host=https://api.minecraftservices.com",
-            "-Dminecraft.api.profiles.host=https://api.minecraftservices.com",
         )
     }
 }

@@ -17,7 +17,6 @@ data class AuthSession(
     val userType: String = "msa",
     val clientId: String = "",
     val xuid: String = "",
-    val authenticationMethod: AccountAuthenticationMethod = AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
 )
 
 interface SessionProvider {

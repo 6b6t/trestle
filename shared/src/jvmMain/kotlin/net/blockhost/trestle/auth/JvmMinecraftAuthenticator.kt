@@ -18,8 +18,6 @@ import net.raphimc.minecraftauth.msa.service.util.ParamMsaAuthServiceSupplier
 import net.raphimc.minecraftauth.java.model.MinecraftToken
 import net.raphimc.minecraftauth.java.request.MinecraftProfileRequest
 import net.raphimc.minecraftauth.util.jwt.Jwt
-import java.net.HttpURLConnection
-import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.util.UUID
 import java.util.function.Consumer
@@ -84,7 +82,6 @@ class JvmMinecraftAuthenticator(
                         .login(cookieService(), request.secret.reveal()),
                 )
                 AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(request.secret)
-                AccountAuthenticationMethod.THE_ALTENING -> theAlteningResult(request.secret)
                 else -> error("${request.method.label} is not a secret-import method.")
             }
             is AccountLoginRequest.Offline -> offlineResult(request.username)
@@ -98,7 +95,6 @@ class JvmMinecraftAuthenticator(
         when (profile.authenticationMethod) {
             AccountAuthenticationMethod.OFFLINE -> return@execute offlineResult(profile.playerName)
             AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> return@execute accessTokenResult(serializedState)
-            AccountAuthenticationMethod.THE_ALTENING -> return@execute theAlteningResult(serializedState)
             else -> Unit
         }
         val json = com.google.gson.JsonParser.parseString(serializedState.reveal()).asJsonObject
@@ -138,7 +134,6 @@ class JvmMinecraftAuthenticator(
                 accessToken = SecretValue(minecraftToken.token),
                 clientId = OfficialMinecraftApplications.java.clientId,
                 xuid = xboxProfile.id,
-                authenticationMethod = method,
             ),
             serializedState = SecretValue(JavaAuthManager.toJson(manager).toString()),
         )
@@ -184,7 +179,6 @@ class JvmMinecraftAuthenticator(
                 playerName = profile.name,
                 profileId = profileId,
                 accessToken = secret,
-                authenticationMethod = AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
             ),
             serializedState = secret,
         )
@@ -211,64 +205,8 @@ class JvmMinecraftAuthenticator(
                 profileId = profileId,
                 accessToken = null,
                 userType = "legacy",
-                authenticationMethod = AccountAuthenticationMethod.OFFLINE,
             ),
             serializedState = SecretValue("offline:$profileId"),
-        )
-    }
-
-    private fun theAlteningResult(accountToken: SecretValue): AuthenticatedMinecraftAccount {
-        val clientToken = UUID.randomUUID().toString()
-        val connection = URI(THE_ALTENING_AUTH_URL).toURL().openConnection() as HttpURLConnection
-        val request = com.google.gson.JsonObject().apply {
-            add("agent", com.google.gson.JsonObject().apply {
-                addProperty("name", "Minecraft")
-                addProperty("version", 1)
-            })
-            addProperty("username", accountToken.reveal().trim())
-            addProperty("password", "Trestle")
-            addProperty("clientToken", clientToken)
-            addProperty("requestUser", true)
-        }
-        connection.requestMethod = "POST"
-        connection.connectTimeout = 15_000
-        connection.readTimeout = 30_000
-        connection.doOutput = true
-        connection.setRequestProperty("Content-Type", "application/json")
-        connection.setRequestProperty("Accept", "application/json")
-        connection.setRequestProperty("User-Agent", BuildInfo.USER_AGENT)
-        connection.outputStream.use { it.write(request.toString().toByteArray(StandardCharsets.UTF_8)) }
-        val responseCode = connection.responseCode
-        require(responseCode in 200..299) { "TheAltening authentication failed with HTTP $responseCode." }
-        val response = connection.inputStream.bufferedReader().use { com.google.gson.JsonParser.parseReader(it).asJsonObject }
-        require(response.get("clientToken")?.asString == clientToken) {
-            "TheAltening returned a mismatched client token."
-        }
-        val accessToken = response.get("accessToken")?.asString?.takeIf(String::isNotBlank)
-            ?: error("TheAltening returned no access token.")
-        val selectedProfile = response.getAsJsonObject("selectedProfile")
-            ?: error("TheAltening returned no selected profile.")
-        val profileId = selectedProfile.get("id")?.asString?.replace("-", "")
-            ?: error("TheAltening returned no profile ID.")
-        val playerName = selectedProfile.get("name")?.asString?.takeIf(String::isNotBlank)
-            ?: error("TheAltening returned no profile name.")
-        return AuthenticatedMinecraftAccount(
-            edition = MinecraftEdition.JAVA,
-            profile = LauncherAccount(
-                profileId = profileId,
-                playerName = playerName,
-                edition = MinecraftEdition.JAVA,
-                authenticationMethod = AccountAuthenticationMethod.THE_ALTENING,
-                lastAuthenticatedAtEpochMillis = nowMillis(),
-            ),
-            javaSession = AuthSession(
-                playerName = playerName,
-                profileId = profileId,
-                accessToken = SecretValue(accessToken),
-                userType = "legacy",
-                authenticationMethod = AccountAuthenticationMethod.THE_ALTENING,
-            ),
-            serializedState = accountToken,
         )
     }
 
@@ -336,6 +274,5 @@ class JvmMinecraftAuthenticator(
 
     private companion object {
         val OFFLINE_USERNAME = Regex("^[A-Za-z0-9_]{1,16}$")
-        const val THE_ALTENING_AUTH_URL = "http://authserver.thealtening.com/authenticate"
     }
 }

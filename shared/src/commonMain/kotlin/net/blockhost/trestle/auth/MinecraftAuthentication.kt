@@ -19,7 +19,6 @@ enum class AccountAuthenticationMethod(val label: String, val edition: Minecraft
     MICROSOFT_REFRESH_TOKEN("Java · Microsoft refresh token", MinecraftEdition.JAVA),
     MICROSOFT_COOKIES("Java · Microsoft cookies", MinecraftEdition.JAVA),
     MICROSOFT_ACCESS_TOKEN("Java · Minecraft access token", MinecraftEdition.JAVA),
-    THE_ALTENING("TheAltening token", MinecraftEdition.JAVA),
     OFFLINE("Offline username", MinecraftEdition.JAVA),
 }
 
@@ -61,8 +60,7 @@ sealed interface AccountLoginRequest {
             require(
                 method == AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN ||
                     method == AccountAuthenticationMethod.MICROSOFT_COOKIES ||
-                    method == AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN ||
-                    method == AccountAuthenticationMethod.THE_ALTENING,
+                    method == AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
             )
         }
     }

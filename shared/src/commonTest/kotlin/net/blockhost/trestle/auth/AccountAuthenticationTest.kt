@@ -111,7 +111,6 @@ private class FakeAuthenticator : MinecraftAuthenticator {
                 request.username,
                 "offline-profile",
                 null,
-                authenticationMethod = AccountAuthenticationMethod.OFFLINE,
             ),
             serializedState = SecretValue("offline-state"),
         )
@@ -134,7 +133,6 @@ private class FakeAuthenticator : MinecraftAuthenticator {
             "Alex",
             "profile-a",
             SecretValue("minecraft-token"),
-            authenticationMethod = method,
         ),
         serializedState = SecretValue("serialized-auth-state"),
     )

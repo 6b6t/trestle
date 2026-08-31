@@ -2998,8 +2998,7 @@ class LauncherViewModel(
 
 private val AccountAuthenticationMethod.usesOfficialJavaProfile: Boolean
     get() = edition == MinecraftEdition.JAVA &&
-        this != AccountAuthenticationMethod.OFFLINE &&
-        this != AccountAuthenticationMethod.THE_ALTENING
+        this != AccountAuthenticationMethod.OFFLINE
 
 private const val MAX_GAME_LOG_LINES = 1_000
 
@@ -3088,7 +3087,6 @@ private fun AccountLoginState.toLoginRequest(): AccountLoginRequest? = when (met
     AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
     AccountAuthenticationMethod.MICROSOFT_COOKIES,
     AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
-    AccountAuthenticationMethod.THE_ALTENING,
     -> if (importedSecret.isBlank()) null else AccountLoginRequest.SecretImport(
         method,
         SecretValue(importedSecret.reveal()),

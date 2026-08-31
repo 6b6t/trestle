@@ -10,6 +10,12 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
@@ -95,7 +101,7 @@ class FileAccountManager(
                     persist()
                     return@withLock
                 }
-                val registry = accountJson.decodeFromString<AccountRegistry>(fileSystem.read(registryPath) { readUtf8() })
+                val registry = readRegistry()
                 if (registry.schemaVersion != 1) {
                     throw LauncherException.FileSystem(
                         "Account registry schema ${registry.schemaVersion} is not supported.",
@@ -175,6 +181,25 @@ class FileAccountManager(
 
     override suspend fun currentSession(profileId: String?): AuthSession? = mutex.withLock {
         (profileId ?: activeProfileId)?.let(sessions::get)
+    }
+
+    private fun readRegistry(): AccountRegistry {
+        val document = accountJson.parseToJsonElement(fileSystem.read(registryPath) { readUtf8() }).jsonObject
+        val accounts = document["accounts"]?.jsonArray ?: JsonArray(emptyList())
+        val supportedAccounts = accounts.filter { account ->
+            val method = account.jsonObject["authenticationMethod"]?.jsonPrimitive
+            method == null || !method.isString || AccountAuthenticationMethod.entries.any { it.name == method.content }
+        }
+        if (supportedAccounts.size != accounts.size) {
+            logger.warn(
+                "accounts",
+                "Skipped accounts with unsupported authentication methods",
+                details = mapOf("count" to accounts.size - supportedAccounts.size),
+            )
+        }
+        return accountJson.decodeFromJsonElement(
+            JsonObject(document + ("accounts" to JsonArray(supportedAccounts))),
+        )
     }
 
     private fun persist() {
