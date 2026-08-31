@@ -91,8 +91,8 @@ jobs:
           TRESTLE_VERSION: ${{ inputs.version }}
         run: |
           expected=(
-            "Trestle-${TRESTLE_VERSION}-android-universal-unsigned.apk"
-            "Trestle-${TRESTLE_VERSION}-android-universal-unsigned.aab"
+            "Trestle-${TRESTLE_VERSION}-android-arm64.apk"
+            "Trestle-${TRESTLE_VERSION}-android-arm64.aab"
             "Trestle-${TRESTLE_VERSION}-linux-x64.deb"
             "Trestle-${TRESTLE_VERSION}-linux-x64.rpm"
             "Trestle-${TRESTLE_VERSION}-linux-arm64.deb"
@@ -202,7 +202,7 @@ jobs:
 
             | Platform | Architecture | Packages |
             |---|---|---|
-            | Android | Universal | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal-unsigned.aab) |
+            | Android | ARM64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.aab) |
             | Linux | x86_64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.rpm) |
             | Linux | AArch64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.rpm) |
             | macOS | Intel | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.dmg) · [PKG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.pkg) |
@@ -211,7 +211,7 @@ jobs:
             | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.exe) |
 
             > [!IMPORTANT]
-            > Android, macOS, and Windows packages are unsigned. macOS packages are not notarized. Signing can be added without changing the build matrix.
+            > Android packages are signed. macOS and Windows packages are unsigned, and macOS packages are not notarized.
 
             > [!TIP]
             > x86_64 is for Intel and AMD processors. AArch64 is for ARM processors, including Apple Silicon and Snapdragon.

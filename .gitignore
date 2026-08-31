@@ -17,6 +17,7 @@ captures/
 # Signing credentials and local environment files
 *.jks
 *.keystore
+*.p12
 keystore.properties
 signing.properties
 .env

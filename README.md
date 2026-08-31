@@ -80,6 +80,8 @@ The command creates the debug APK under `androidApp/build/outputs/apk/debug`.
 
 Trestle shows CurseForge as unavailable when the key is not set. Modrinth search and installation remain available.
 
+Release APKs and app bundles use a dedicated signing key. See [Android release signing](docs/android-signing.md) for configuration and backup instructions.
+
 ## Validate changes
 
 Run the shared tests:

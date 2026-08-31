@@ -12,6 +12,15 @@ on:
       version:
         required: true
         type: string
+    secrets:
+      TRESTLE_ANDROID_KEYSTORE_BASE64:
+        required: true
+      TRESTLE_ANDROID_STORE_PASSWORD:
+        required: true
+      TRESTLE_ANDROID_KEY_ALIAS:
+        required: true
+      TRESTLE_ANDROID_KEY_PASSWORD:
+        required: true
 
 permissions:
   contents: read
@@ -41,15 +50,35 @@ jobs:
         uses: android-actions/setup-android@40fd30fb8d7440372e1316f5d1809ec01dcd3699 # v4.0.0
 
       - name: Install Android SDK packages
-        run: sdkmanager "platforms;android-37" "build-tools;37.0.0"
+        run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
 
       - name: Apply build version
         env:
           TRESTLE_VERSION: ${{ inputs.version }}
         run: ./scripts/set-version.sh "$TRESTLE_VERSION"
 
-      - name: Build unsigned Android packages
-        run: ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease --stacktrace
+      - name: Restore Android signing key
+        env:
+          TRESTLE_ANDROID_KEYSTORE_BASE64: ${{ secrets.TRESTLE_ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TRESTLE_ANDROID_KEYSTORE_BASE64" ]]; then
+            echo "The Android release signing key is not configured." >&2
+            exit 1
+          fi
+          umask 077
+          mkdir -p "$RUNNER_TEMP/trestle-signing"
+          printf '%s' "$TRESTLE_ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/trestle-signing/release.p12"
+
+      - name: Build signed Android packages
+        env:
+          TRESTLE_ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/trestle-signing/release.p12
+          TRESTLE_ANDROID_STORE_PASSWORD: ${{ secrets.TRESTLE_ANDROID_STORE_PASSWORD }}
+          TRESTLE_ANDROID_KEY_ALIAS: ${{ secrets.TRESTLE_ANDROID_KEY_ALIAS }}
+          TRESTLE_ANDROID_KEY_PASSWORD: ${{ secrets.TRESTLE_ANDROID_KEY_PASSWORD }}
+        run: >-
+          ./gradlew :androidApp:assembleRelease :androidApp:bundleRelease
+          --no-configuration-cache --no-build-cache --no-daemon --stacktrace
 
       - name: Collect Android packages
         env:
@@ -74,8 +103,24 @@ jobs:
           apk="$(find_single_file '*.apk')"
           bundle="$(find_single_file '*.aab')"
           mkdir -p release-artifacts
-          cp "$apk" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-universal-unsigned.apk"
-          cp "$bundle" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-universal-unsigned.aab"
+          cp "$apk" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.apk"
+          cp "$bundle" "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.aab"
+
+      - name: Verify Android package signatures
+        env:
+          TRESTLE_VERSION: ${{ inputs.version }}
+          TRESTLE_ANDROID_STORE_PASSWORD: ${{ secrets.TRESTLE_ANDROID_STORE_PASSWORD }}
+        run: |
+          "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --verbose --print-certs \
+            "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.apk"
+          jarsigner -verify -strict \
+            -keystore "$RUNNER_TEMP/trestle-signing/release.p12" \
+            -storetype PKCS12 -storepass:env TRESTLE_ANDROID_STORE_PASSWORD \
+            "release-artifacts/Trestle-${TRESTLE_VERSION}-android-arm64.aab"
+
+      - name: Remove Android signing key
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/trestle-signing"
 
       - name: Upload Android packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

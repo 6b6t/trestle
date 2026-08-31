@@ -5,6 +5,12 @@ plugins {
 
 val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
 val trestleVersionCode = providers.gradleProperty("trestle.versionCode").map(String::toInt).orElse(1)
+val releaseSigningEnvironment = listOf(
+    "TRESTLE_ANDROID_KEYSTORE_PATH",
+    "TRESTLE_ANDROID_STORE_PASSWORD",
+    "TRESTLE_ANDROID_KEY_ALIAS",
+    "TRESTLE_ANDROID_KEY_PASSWORD",
+).associateWith(providers::environmentVariable)
 
 android {
     namespace = "net.blockhost.trestle"
@@ -25,12 +31,42 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = releaseSigningEnvironment.getValue("TRESTLE_ANDROID_KEYSTORE_PATH").orNull?.let(::file)
+            storeType = "PKCS12"
+            storePassword = releaseSigningEnvironment.getValue("TRESTLE_ANDROID_STORE_PASSWORD").orNull
+            keyAlias = releaseSigningEnvironment.getValue("TRESTLE_ANDROID_KEY_ALIAS").orNull
+            keyPassword = releaseSigningEnvironment.getValue("TRESTLE_ANDROID_KEY_PASSWORD").orNull
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
     externalNativeBuild {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
             version = "3.22.1"
         }
     }
+}
+
+val validateReleaseSigning = tasks.register("validateReleaseSigning") {
+    val signingEnvironment = releaseSigningEnvironment
+    doLast {
+        val missing = signingEnvironment.filterValues { it.orNull.isNullOrBlank() }.keys
+        check(missing.isEmpty()) {
+            "Release signing requires these environment variables: ${missing.joinToString()}."
+        }
+    }
+}
+
+tasks.matching { it.name == "preReleaseBuild" }.configureEach {
+    dependsOn(validateReleaseSigning)
 }
 
 dependencies {
