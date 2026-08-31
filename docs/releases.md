@@ -75,12 +75,6 @@ Run the **Release** workflow from the intended branch. Supply a numeric version 
 
 Publication stops if package builds, Android signing, macOS ad hoc signature checks, or artifact validation fail. Desktop publisher certificates are not required.
 
-If workflow files on `main` change during a build, GitHub can reject publication of the earlier commit with the default workflow token.
-For this case, create a fine-grained token restricted to this repository with **Contents: Read and write** and **Workflows: Read and write**.
-Store it as the `RELEASE_TOKEN` Actions secret. The publishing step uses that secret when available; other steps keep the default token.
-If organization policy requires approval, approve the token before running the release.
-See [GitHub’s release permission requirements](https://docs.github.com/en/rest/releases/releases#create-a-release).
-
 The release includes:
 
 - `release-manifest.json`: version, source commit, platform, architecture, download URL, checksum, size, and minimum operating system.
