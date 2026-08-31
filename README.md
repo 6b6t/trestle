@@ -28,7 +28,7 @@ Android uses a fixed Java 25 and Zink runtime. Android does not support other Mi
 
 ## Targets
 
-- Android 8.0 or newer (API 26)
+- Android 8.1 or newer (API 27)
 - Desktop systems that support Java 21
 
 The shared module contains the interface, product logic, network clients, persistence, installer, and domain model. Platform source sets provide runtime adapters and app storage paths.
