@@ -30,7 +30,7 @@ internal class AndroidGameComponentManager(
         abi: AndroidRuntimeAbi,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): AndroidGameComponents {
-        val componentSetId = "minecraft-26.2-android-${abi.releaseName}-2"
+        val componentSetId = "minecraft-26.2-android-${abi.releaseName}-3"
         val root = directories.runtimes / componentSetId
         val downloads = root / "downloads"
         val jars = root / "jars"
@@ -130,15 +130,17 @@ internal class AndroidGameComponentManager(
         val relativePath: String,
         val size: Long,
         val sha256: String,
+        val sourceRoot: String = RAW_AMETHYST_ROOT,
     ) {
         val url: String
-            get() = "$RAW_AMETHYST_ROOT/$relativePath"
+            get() = "$sourceRoot/$relativePath"
     }
 
     private companion object {
         const val AMETHYST_REVISION = "d8a195640a7e0929f2ee532d7784de2b980c6c48"
         const val RAW_AMETHYST_ROOT =
             "https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/$AMETHYST_REVISION"
+        const val MAVEN_CENTRAL_ROOT = "https://repo1.maven.org/maven2"
         const val JAR_ROOT = "app_pojavlauncher/src/main/assets/components/lwjgl3/3.4.1"
         const val AAR_ROOT = "app_pojavlauncher/libs"
 
@@ -160,6 +162,13 @@ internal class AndroidGameComponentManager(
             ComponentArtifact("lwjgl-3.4.1-natives-release.aar", "$AAR_ROOT/lwjgl-3.4.1-natives-release.aar", 16_567_622, "ccb9c7abe942cd40a0490637ca70756a259a40ec1257a515d3343c2f536503c0"),
             ComponentArtifact("openal-soft-release.aar", "$AAR_ROOT/openal-soft-release.aar", 2_895_870, "45e630695b6b4c6506704330bf4da80a605b445ea5d187d7b71a370aab5494ea"),
             ComponentArtifact("kopper-zink-release.aar", "$AAR_ROOT/kopper-zink-release.aar", 16_002_238, "bf816fc9dc2047edff0284369b6433260ec462b7b26a3e3b544550c721ca26fe"),
+            ComponentArtifact(
+                name = "jna-5.17.0.aar",
+                relativePath = "net/java/dev/jna/jna/5.17.0/jna-5.17.0.aar",
+                size = 522_249,
+                sha256 = "4dbeffffa665d97ad5aa7eee297531d3c841a86716ab7f774fd6956422b3cf38",
+                sourceRoot = MAVEN_CENTRAL_ROOT,
+            ),
         )
         const val AMETHYST_APK_URL =
             "https://github.com/AngelAuraMC/Amethyst-Android/releases/download/1.1.6/Amethyst.apk"
@@ -218,6 +227,7 @@ internal class AndroidGameComponentManager(
             "liblwjgl_stb.so",
             "libfreetype.so",
             "libopenal.so",
+            "libjnidispatch.so",
             "libpojavexec.so",
             "libspirv-cross-c-shared.so",
             "libEGL_mesa.so",

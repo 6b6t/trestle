@@ -157,6 +157,7 @@ class AndroidMinecraftRuntime internal constructor(
                 add(CommandArgument.Public("-Dos.name=Linux"))
                 add(CommandArgument.Public("-Dos.version=Android-${android.os.Build.VERSION.RELEASE}"))
                 add(CommandArgument.Public("-Djna.boot.library.path=${components.nativeDirectory}"))
+                add(CommandArgument.Public("-Doshi.os.linux.allowudev=false"))
                 add(CommandArgument.Public("-Dorg.lwjgl.vulkan.libname=libvulkan.so"))
                 add(CommandArgument.Public("-Dorg.lwjgl.opengl.libname=libglxshim.so"))
                 add(CommandArgument.Public("-Dorg.lwjgl.freetype.libname=${components.nativeDirectory}/libfreetype.so"))
