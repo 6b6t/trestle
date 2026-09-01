@@ -17,8 +17,6 @@ on:
         required: true
         type: string
     secrets:
-      TRESTLE_CURSEFORGE_API_KEY:
-        required: false
       TRESTLE_ANDROID_KEYSTORE_BASE64:
         required: true
       TRESTLE_ANDROID_STORE_PASSWORD:
@@ -34,8 +32,6 @@ permissions:
 jobs:
   android:
     name: Build Android
-    env:
-      TRESTLE_CURSEFORGE_API_KEY: ${{ secrets.TRESTLE_CURSEFORGE_API_KEY }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
 
@@ -124,8 +120,6 @@ jobs:
           retention-days: 14
 
   desktop:
-    env:
-      TRESTLE_CURSEFORGE_API_KEY: ${{ secrets.TRESTLE_CURSEFORGE_API_KEY }}
     name: Build ${{ matrix.platform }} (${{ matrix.arch }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60

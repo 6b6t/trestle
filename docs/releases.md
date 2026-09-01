@@ -32,7 +32,7 @@ The build verifies signatures in both the DMG and PKG before upload. Installer c
 Ad hoc signing does not establish a trusted publisher or pass Apple notarization.
 See [Apple’s instructions for opening an unnotarized app](https://support.apple.com/en-us/102445). Do not disable Gatekeeper globally.
 
-The optional `TRESTLE_CURSEFORGE_API_KEY` repository secret enables CurseForge. Use a key issued for Trestle.
+Release builds use the CurseForge API key configured in `gradle.properties`. Use a key issued for Trestle.
 
 macOS native package versions use the numeric build number because `jpackage` rejects zero-major versions. For release `0.1.0`, that number is `1000`.
 The launcher, download filenames, and release tag keep `0.1.0`. The app bundle records that release version in `TrestleVersion`.
