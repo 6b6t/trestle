@@ -458,6 +458,8 @@ internal object LauncherTestTags {
     const val PRIMARY_INSTANCE_ACTION = "primary-instance-action"
     const val INSTANCE_WORKSPACE = "instance-workspace"
     const val INSTANCE_BACK = "instance-back"
+    const val VERSION_COMPONENTS_CHANGE = "version-components-change"
+    const val INSTANCE_CONFIGURATION = "instance-configuration"
     const val DISCOVER = "discover"
     const val ACCOUNTS = "accounts"
     const val SETTINGS = "settings"
@@ -1704,21 +1706,40 @@ private fun InstanceSettingsContent(
 
                 HorizontalDivider()
                 Text(stringResource(Res.string.ui_game_components), style = MaterialTheme.typography.titleMedium)
-                Selector(
-                    label = "Minecraft version",
-                    value = form.minecraftVersionId,
-                    values = availableVersions,
-                    enabled = !state.isLoadingVersions,
-                    onSelect = actions::setInstanceVersion,
-                )
-                Selector(
-                    label = "Mod loader",
-                    value = form.modLoader.label,
-                    values = availableLoaders.map { it.label },
-                    onSelect = { selected ->
-                        availableLoaders.firstOrNull { it.label == selected }?.let(actions::setInstanceLoader)
-                    },
-                )
+                if (state.supportedMinecraftVersions != null && availableVersions.size == 1) {
+                    FixedOption(
+                        label = stringResource(Res.string.ui_minecraft_version),
+                        value = availableVersions.single(),
+                        supportingText = stringResource(
+                            Res.string.ui_only_minecraft_version_is_supported_on_android,
+                            availableVersions.single(),
+                        ),
+                    )
+                } else {
+                    Selector(
+                        label = "Minecraft version",
+                        value = form.minecraftVersionId,
+                        values = availableVersions,
+                        enabled = !state.isLoadingVersions,
+                        onSelect = actions::setInstanceVersion,
+                    )
+                }
+                if (state.supportedModLoaders != null && availableLoaders.size == 1) {
+                    FixedOption(
+                        label = stringResource(Res.string.ui_loader),
+                        value = availableLoaders.single().label,
+                        supportingText = stringResource(Res.string.ui_only_vanilla_is_supported_on_android),
+                    )
+                } else {
+                    Selector(
+                        label = "Mod loader",
+                        value = form.modLoader.label,
+                        values = availableLoaders.map { it.label },
+                        onSelect = { selected ->
+                            availableLoaders.firstOrNull { it.label == selected }?.let(actions::setInstanceLoader)
+                        },
+                    )
+                }
                 if (componentsChanged) {
                     Text(
                         "Changing the game version or loader requires another installation. Trestle keeps worlds and content files in place.",
@@ -3562,6 +3583,7 @@ private fun InstanceWorkspace(
                                 overviewListState,
                                 contentModifier,
                                 layoutMode == TrestleLayoutMode.COMPACT,
+                                onChangeComponents = { selectSection(InstanceSection.SETTINGS) },
                             )
                             InstanceSection.CONTENT -> InstanceContent(
                                 state,
@@ -4244,6 +4266,7 @@ private fun InstanceOverview(
     listState: LazyListState,
     modifier: Modifier,
     compact: Boolean,
+    onChangeComponents: () -> Unit,
 ) {
     val openPath = rememberOpenPath()
     LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(24.dp)) {
@@ -4293,7 +4316,10 @@ private fun InstanceOverview(
                 Spacer(Modifier.height(24.dp))
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(Res.string.ui_version_components), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                    TextButton(onClick = actions::openInstanceSettings) { Text(stringResource(Res.string.ui_change)) }
+                    TextButton(
+                        onClick = onChangeComponents,
+                        modifier = Modifier.testTag(LauncherTestTags.VERSION_COMPONENTS_CHANGE),
+                    ) { Text(stringResource(Res.string.ui_change)) }
                 }
                 PropertyRow("Minecraft", instance.minecraftVersionId)
                 if (instance.modLoader == ModLoader.VANILLA) {
@@ -4625,7 +4651,12 @@ private fun InstanceConfiguration(
     scrollState: ScrollState,
     modifier: Modifier,
 ) {
-    Column(modifier.verticalScroll(scrollState).padding(24.dp)) {
+    Column(
+        modifier
+            .verticalScroll(scrollState)
+            .padding(24.dp)
+            .testTag(LauncherTestTags.INSTANCE_CONFIGURATION),
+    ) {
         Column(
             Modifier.widthIn(max = 820.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),

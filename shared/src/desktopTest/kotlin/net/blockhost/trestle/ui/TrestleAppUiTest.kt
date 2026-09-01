@@ -20,6 +20,7 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
@@ -542,6 +543,31 @@ class TrestleAppUiTest {
             .forEach { section ->
             onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
         }
+    }
+
+    @Test
+    fun changingVersionComponentsOpensTheInstanceSettingsSection() = runComposeUiTest {
+        var settingsRequests = 0
+        val actions = object : LauncherUiActions {
+            override fun openInstanceSettings() {
+                settingsRequests += 1
+            }
+        }
+        setContent {
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state = LauncherPreviewFixtures.loaded,
+                    actions = actions,
+                    initialDestination = LauncherDestination.INSTANCE,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.VERSION_COMPONENTS_CHANGE).performScrollTo().performClick()
+
+        assertEquals(1, settingsRequests)
+        onNodeWithTag(LauncherTestTags.INSTANCE_CONFIGURATION).assertIsDisplayed()
     }
 
     @Test
