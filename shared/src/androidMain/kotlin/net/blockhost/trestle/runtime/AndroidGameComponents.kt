@@ -10,6 +10,8 @@ import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import okio.FileSystem
 import okio.Path
+import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermission
 
 internal data class AndroidGameComponents(
     val classpath: List<Path>,
@@ -40,7 +42,7 @@ internal class AndroidGameComponentManager(
             classpath.all(fileSystem::exists) &&
             REQUIRED_NATIVE_FILES.all { fileSystem.exists(natives / it) }
         ) {
-            verifyLibraries(natives, abi)
+            prepareLibrariesForLoading(natives, abi)
             return AndroidGameComponents(classpath, natives)
         }
 
@@ -85,7 +87,7 @@ internal class AndroidGameComponentManager(
                         "The Android game components are missing ${missing.joinToString()}.",
                     )
                 }
-                verifyLibraries(natives, abi)
+                prepareLibrariesForLoading(natives, abi)
                 fileSystem.write(marker) {
                     writeUtf8("$componentSetId\n$AMETHYST_REVISION\n")
                     flush()
@@ -105,8 +107,10 @@ internal class AndroidGameComponentManager(
         return AndroidGameComponents(classpath, natives)
     }
 
-    private fun verifyLibraries(natives: Path, abi: AndroidRuntimeAbi) {
-        fileSystem.list(natives).filter { it.name.endsWith(".so") }.forEach(abi::verifyLibrary)
+    private fun prepareLibrariesForLoading(natives: Path, abi: AndroidRuntimeAbi) {
+        val libraries = fileSystem.list(natives).filter { it.name.endsWith(".so") }
+        libraries.forEach(abi::verifyLibrary)
+        libraries.forEach(AndroidNativeLibraryPermissions::makeReadOnly)
     }
 
     private fun resetDirectory(path: Path) {
@@ -220,6 +224,22 @@ internal class AndroidGameComponentManager(
             "libglapi.so",
             "libglxshim.so",
             "libzink_dri.so",
+        )
+    }
+}
+
+internal object AndroidNativeLibraryPermissions {
+    private val WRITE_PERMISSIONS = setOf(
+        PosixFilePermission.OWNER_WRITE,
+        PosixFilePermission.GROUP_WRITE,
+        PosixFilePermission.OTHERS_WRITE,
+    )
+
+    fun makeReadOnly(library: Path) {
+        val path = java.nio.file.Path.of(library.toString())
+        Files.setPosixFilePermissions(
+            path,
+            Files.getPosixFilePermissions(path) - WRITE_PERMISSIONS,
         )
     }
 }

@@ -4,6 +4,7 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.metadata.Architecture
 import okio.Path.Companion.toPath
 import java.nio.file.Files
+import java.nio.file.attribute.PosixFilePermissions
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.test.Test
@@ -60,6 +61,20 @@ class AndroidNativeLibraryExtractorTest {
             Files.write(library, header)
             assertFailsWith<LauncherException.InvalidMetadata> { AndroidRuntimeAbi.X64.verifyLibrary(library.toString().toPath()) }
         }
+    }
+
+    @Test
+    fun removesWritePermissionsBeforeNativeLibrariesAreLoaded() = withTempDirectory { root ->
+        val library = root.resolve("libtest.so")
+        Files.write(library, elfHeader(62))
+        Files.setPosixFilePermissions(library, PosixFilePermissions.fromString("rwxrwxrwx"))
+
+        AndroidNativeLibraryPermissions.makeReadOnly(library.toString().toPath())
+
+        assertEquals(
+            PosixFilePermissions.fromString("r-xr-xr-x"),
+            Files.getPosixFilePermissions(library),
+        )
     }
 
     @Test
