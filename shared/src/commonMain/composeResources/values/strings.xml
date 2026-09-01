@@ -244,4 +244,23 @@
     <string name="ui_tools">Tools</string>
     <string name="ui_undo">Undo</string>
     <string name="ui_tasks_and_downloads">Tasks and downloads</string>
+    <string name="ui_discard">Discard</string>
+    <string name="ui_discard_file_changes">Discard changes to this file?</string>
+    <string name="ui_discard_file_changes_detail">Your unsaved changes will be lost.</string>
+    <string name="ui_file_browser">Game files</string>
+    <string name="ui_file_browser_empty">This folder is empty.</string>
+    <string name="ui_file_browser_filter">Filter this folder</string>
+    <string name="ui_file_browser_no_results">No files match this filter.</string>
+    <string name="ui_file_browser_read_error">Trestle could not read this folder.</string>
+    <string name="ui_file_browser_read_only">This file is read-only.</string>
+    <string name="ui_file_browser_truncated">Showing the last %1$s of this file.</string>
+    <string name="ui_file_browser_unsaved">Unsaved changes</string>
+    <string name="ui_archive">Archive</string>
+    <string name="ui_file">File</string>
+    <string name="ui_folder">Folder</string>
+    <string name="ui_instance_root">Instance</string>
+    <string name="ui_keep_editing">Keep editing</string>
+    <string name="ui_open_with">Open with…</string>
+    <string name="ui_reload_file">Reload file</string>
+    <string name="ui_text_file">Text file</string>
 </resources>
