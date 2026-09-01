@@ -2473,21 +2473,26 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
 
 @Composable
 private fun ResourceProjectLogo(project: ResourceProject, modifier: Modifier) {
+    val iconUrl = project.iconUrl
+    var iconLoaded by remember(iconUrl) { mutableStateOf(false) }
     Box(
         modifier.aspectRatio(1f).clip(MaterialTheme.shapes.medium)
             .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            project.name.firstOrNull()?.uppercase() ?: "?",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.titleLarge,
-        )
-        project.iconUrl?.let { iconUrl ->
+        if (!iconLoaded) {
+            Text(
+                project.name.firstOrNull()?.uppercase() ?: "?",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleLarge,
+            )
+        }
+        iconUrl?.let {
             AsyncImage(
                 model = iconUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Fit,
+                onSuccess = { iconLoaded = true },
                 modifier = Modifier.fillMaxSize().padding(8.dp),
             )
         }
