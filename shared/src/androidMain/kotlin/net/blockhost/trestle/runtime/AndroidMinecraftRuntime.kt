@@ -8,7 +8,6 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.os.ParcelFileDescriptor
 import android.os.ResultReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -235,43 +234,37 @@ class AndroidMinecraftRuntime internal constructor(
             close(error)
             return@callbackFlow
         }
-        val outputPipe = runCatching { ParcelFileDescriptor.createPipe() }.getOrElse { error ->
-            val message = "The Minecraft output pipe could not be created: ${error.message.orEmpty()}"
+        val outputTailer = runCatching { outputLog.tailer() }.getOrElse { error ->
+            val message = "The Minecraft output log could not be monitored: ${error.message.orEmpty()}"
             logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
             trySend(LaunchEvent.Failed(message))
             close(error)
             return@callbackFlow
         }
-        val outputReader = outputPipe[0]
-        val outputWriter = outputPipe[1]
         fun recordGameOutput(line: String) {
             val streamedLine = line.take(MAX_STREAMED_LOG_LINE)
-            runCatching { outputLog.append(line) }
-                .onFailure { error ->
-                    logger.warn(
-                        "runtime",
-                        "Could not append Minecraft output",
-                        error,
-                        mapOf("instanceId" to preparedLaunch.instanceId),
-                    )
-                }
             logger.debug("minecraft", streamedLine, mapOf("instanceId" to preparedLaunch.instanceId))
             trySend(LaunchEvent.Log(streamedLine))
         }
-        launch(Dispatchers.IO) {
-            runCatching {
-                ParcelFileDescriptor.AutoCloseInputStream(outputReader).bufferedReader().useLines { lines ->
-                    lines.forEach(::recordGameOutput)
+        fun streamAvailableOutput(includePartialLine: Boolean = false) {
+            outputTailer.readAvailableLines(includePartialLine).forEach(::recordGameOutput)
+        }
+        val outputTailJob = launch(Dispatchers.IO) {
+            while (isActive) {
+                try {
+                    streamAvailableOutput()
+                } catch (error: Exception) {
+                    if (isActive) {
+                        logger.warn(
+                            "runtime",
+                            "Minecraft output capture stopped unexpectedly",
+                            error,
+                            mapOf("instanceId" to preparedLaunch.instanceId),
+                        )
+                    }
+                    break
                 }
-            }.onFailure { error ->
-                if (isActive) {
-                    logger.warn(
-                        "runtime",
-                        "Minecraft output capture stopped unexpectedly",
-                        error,
-                        mapOf("instanceId" to preparedLaunch.instanceId),
-                    )
-                }
+                delay(OUTPUT_POLL_MILLIS)
             }
         }
         fun monitorProcess(processId: Long) {
@@ -281,6 +274,7 @@ class AndroidMinecraftRuntime internal constructor(
                 val processDirectory = File("/proc/$processId")
                 while (isActive && processDirectory.exists()) delay(PROCESS_POLL_MILLIS)
                 if (isActive && terminalReceived.compareAndSet(false, true)) {
+                    runCatching { streamAvailableOutput(includePartialLine = true) }
                     val message = unexpectedProcessDeath(
                         preparedLaunch,
                         launchId,
@@ -313,19 +307,16 @@ class AndroidMinecraftRuntime internal constructor(
                             ?.getLong(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID)
                             ?.let(::monitorProcess)
                     }
-                    AndroidGameLaunchProtocol.RESULT_LOG -> {
-                        resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.let { line ->
-                            recordGameOutput(line)
-                        }
-                    }
                     AndroidGameLaunchProtocol.RESULT_EXITED -> {
                         if (!terminalReceived.compareAndSet(false, true)) return
+                        runCatching { streamAvailableOutput(includePartialLine = true) }
                         val exitCode = resultData?.getInt(AndroidGameLaunchProtocol.EXTRA_EXIT_CODE, 1) ?: 1
                         trySend(LaunchEvent.Exited(exitCode))
                         close()
                     }
                     AndroidGameLaunchProtocol.RESULT_FAILED -> {
                         if (!terminalReceived.compareAndSet(false, true)) return
+                        runCatching { streamAvailableOutput(includePartialLine = true) }
                         val message = resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)
                             ?: "Minecraft could not start."
                         trySend(LaunchEvent.Failed(message))
@@ -339,7 +330,6 @@ class AndroidMinecraftRuntime internal constructor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(AndroidGameLaunchProtocol.EXTRA_LAUNCH_ID, launchId)
             putExtra(AndroidGameLaunchProtocol.EXTRA_RECEIVER, receiver)
-            putExtra(AndroidGameLaunchProtocol.EXTRA_OUTPUT_PIPE, outputWriter)
             putExtra(AndroidGameLaunchProtocol.EXTRA_RUNTIME_HOME, preparedLaunch.executable)
             putExtra(AndroidGameLaunchProtocol.EXTRA_WORKING_DIRECTORY, preparedLaunch.workingDirectory)
             putExtra(AndroidGameLaunchProtocol.EXTRA_NATIVE_DIRECTORY, preparedLaunch.nativeDirectory)
@@ -359,7 +349,6 @@ class AndroidMinecraftRuntime internal constructor(
         }
         try {
             applicationContext.startActivity(intent)
-            outputWriter.close()
             launch {
                 delay(PROCESS_START_TIMEOUT_MILLIS)
                 if (!processAnnounced.get() && terminalReceived.compareAndSet(false, true)) {
@@ -370,12 +359,13 @@ class AndroidMinecraftRuntime internal constructor(
                 }
             }
         } catch (error: Exception) {
-            runCatching { outputWriter.close() }
             logger.error("runtime", "Android game activity could not start", error)
             trySend(LaunchEvent.Failed(error.message ?: "The Android game activity could not start."))
             close(error)
         }
         awaitClose {
+            outputTailJob.cancel()
+            runCatching { outputTailer.close() }
             applicationContext.sendBroadcast(
                 Intent(AndroidGameLaunchProtocol.ACTION_STOP).apply {
                     setPackage(applicationContext.packageName)
@@ -627,6 +617,7 @@ class AndroidMinecraftRuntime internal constructor(
         const val REQUIRED_JAVA_MAJOR = 25
         const val ANDROID_CLASSPATH_SEPARATOR = ":"
         const val PROCESS_POLL_MILLIS = 500L
+        const val OUTPUT_POLL_MILLIS = 100L
         const val EXIT_INFO_ATTEMPTS = 10
         const val EXIT_INFO_RETRY_MILLIS = 400L
         const val EXIT_TIMESTAMP_TOLERANCE_MILLIS = 1_000L
@@ -650,7 +641,6 @@ object AndroidGameLaunchProtocol {
 
     const val EXTRA_LAUNCH_ID = "launch_id"
     const val EXTRA_RECEIVER = "receiver"
-    const val EXTRA_OUTPUT_PIPE = "output_pipe"
     const val EXTRA_RUNTIME_HOME = "runtime_home"
     const val EXTRA_WORKING_DIRECTORY = "working_directory"
     const val EXTRA_NATIVE_DIRECTORY = "native_directory"
@@ -663,7 +653,6 @@ object AndroidGameLaunchProtocol {
     const val EXTRA_MESSAGE = "message"
 
     const val RESULT_STARTED = 1
-    const val RESULT_LOG = 2
     const val RESULT_EXITED = 3
     const val RESULT_FAILED = 4
     const val RESULT_PROCESS_CREATED = 5

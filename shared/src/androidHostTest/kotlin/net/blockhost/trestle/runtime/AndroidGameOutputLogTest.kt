@@ -1,12 +1,13 @@
 package net.blockhost.trestle.runtime
 
+import java.io.FileOutputStream
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class AndroidGameOutputLogTest {
     @Test
-    fun resetsThePreviousLaunchAndPersistsEveryLine() {
+    fun resetsThePreviousLaunchAndStreamsAppendedOutput() {
         val root = Files.createTempDirectory("trestle-game-output-test").toFile()
         try {
             val logFile = root.resolve("game/.trestle/logs/latest.log").apply {
@@ -15,13 +16,18 @@ class AndroidGameOutputLogTest {
             }
 
             val outputLog = AndroidGameOutputLog(logFile)
-            outputLog.append("Starting Minecraft")
-            outputLog.append("Native bootstrap failed")
+            outputLog.tailer().use { tailer ->
+                FileOutputStream(logFile, true).use { output ->
+                    output.write("Starting Minecraft\nNative boot".encodeToByteArray())
+                }
+                assertEquals(listOf("Starting Minecraft"), tailer.readAvailableLines())
 
-            assertEquals(
-                "Starting Minecraft\nNative bootstrap failed\n",
-                logFile.readText().replace("\r\n", "\n"),
-            )
+                FileOutputStream(logFile, true).use { output ->
+                    output.write("strap failed\r\nNo newline".encodeToByteArray())
+                }
+                assertEquals(listOf("Native bootstrap failed"), tailer.readAvailableLines())
+                assertEquals(listOf("No newline"), tailer.readAvailableLines(includePartialLine = true))
+            }
         } finally {
             root.deleteRecursively()
         }
