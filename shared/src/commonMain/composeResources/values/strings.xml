@@ -2,6 +2,7 @@
 <resources>
     <string name="ui_active">Active</string>
     <string name="ui_add_account">Add account</string>
+    <string name="ui_add_an_account_to_launch">Add an account in Accounts to launch.</string>
     <string name="ui_add_file">Add file</string>
     <string name="ui_add_server">Add server</string>
     <string name="ui_additional_game_arguments">Additional game arguments</string>

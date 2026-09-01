@@ -75,6 +75,30 @@ class TrestleAppUiTest {
     }
 
     @Test
+    fun disabledLaunchExplainsWhenAnAccountMustBeAdded() = runComposeUiTest {
+        val state = LauncherPreviewFixtures.loaded.copy(
+            accounts = emptyList(),
+            launch = InstanceLaunchState(
+                LauncherPreviewFixtures.installed.id,
+                LaunchStatus.Blocked(listOf("Java account")),
+            ),
+        )
+        setContent {
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state,
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.INSTANCE,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.LAUNCH_ACCOUNT_REQUIREMENT).assertIsDisplayed()
+    }
+
+    @Test
     fun compactBreakpointUsesCompactChromeAt599Dp() = runComposeUiTest {
         setContent {
             Box(Modifier.size(599.dp, 720.dp)) {

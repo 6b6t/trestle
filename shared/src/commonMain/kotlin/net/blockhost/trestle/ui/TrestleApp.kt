@@ -195,6 +195,7 @@ import net.blockhost.trestle.resources.ic_visibility_off
 import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_active
 import net.blockhost.trestle.resources.ui_add_account
+import net.blockhost.trestle.resources.ui_add_an_account_to_launch
 import net.blockhost.trestle.resources.ui_add_file
 import net.blockhost.trestle.resources.ui_add_server
 import net.blockhost.trestle.resources.ui_additional_game_arguments
@@ -456,6 +457,7 @@ internal object LauncherTestTags {
     const val NEW_INSTANCE = "new-instance"
     const val SELECTED_INSTANCE = "selected-instance"
     const val PRIMARY_INSTANCE_ACTION = "primary-instance-action"
+    const val LAUNCH_ACCOUNT_REQUIREMENT = "launch-account-requirement"
     const val INSTANCE_WORKSPACE = "instance-workspace"
     const val INSTANCE_BACK = "instance-back"
     const val VERSION_COMPONENTS_CHANGE = "version-components-change"
@@ -1190,7 +1192,7 @@ private fun SelectedInstancePanel(
             LaunchContext(state = installationState, activeAccount = activeAccount)
             LaunchReadiness(state, instance)
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
+            PrimaryInstanceAction(instance, state, actions, Modifier.fillMaxWidth())
             FilledTonalButton(
                 onClick = onDiscover,
                 enabled = installationState is InstallationState.Installed,
@@ -1208,7 +1210,11 @@ private fun SelectedInstancePanel(
 private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: return
     val message = when (status) {
-        is LaunchStatus.Blocked -> "Required before launch: ${status.missingRequirements.joinToString()}"
+        is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
+            null
+        } else {
+            "Required before launch: ${status.missingRequirements.joinToString()}"
+        }
         is LaunchStatus.Failed -> status.message
         is LaunchStatus.Unavailable -> status.reason
         LaunchStatus.Checking -> "Checking launch requirements"
@@ -1238,6 +1244,34 @@ private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccoun
             MaterialTheme.colorScheme.onSurfaceVariant
         },
     )
+}
+
+@Composable
+private fun PrimaryInstanceAction(
+    instance: GameInstance,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
+        if (requiresImportedAccount(state, instance)) {
+            Text(
+                stringResource(Res.string.ui_add_an_account_to_launch),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag(LauncherTestTags.LAUNCH_ACCOUNT_REQUIREMENT),
+            )
+        }
+    }
+}
+
+private fun requiresImportedAccount(state: LauncherUiState, instance: GameInstance): Boolean {
+    if (state.accounts.isNotEmpty()) return false
+    val status = state.launch.takeIf { it.instanceId == instance.id }?.status
+    return status is LaunchStatus.Blocked && "Java account" in status.missingRequirements
 }
 
 @Composable
@@ -4253,7 +4287,7 @@ private fun InstanceWorkspaceHeader(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-            PrimaryInstanceButton(instance, state, actions, Modifier.widthIn(min = 132.dp))
+            PrimaryInstanceAction(instance, state, actions, Modifier.widthIn(min = 132.dp, max = 196.dp))
         }
     }
 }
@@ -4288,7 +4322,7 @@ private fun InstanceOverview(
                             Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
                         }
                     }
-                    PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
+                    PrimaryInstanceAction(instance, state, actions, Modifier.fillMaxWidth())
                 }
                 Spacer(Modifier.height(24.dp))
             }
