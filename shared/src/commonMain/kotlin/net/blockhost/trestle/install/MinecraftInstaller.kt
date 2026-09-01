@@ -1,5 +1,7 @@
 package net.blockhost.trestle.install
 
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -11,6 +13,7 @@ import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
+import net.blockhost.trestle.download.ProgressUpdateThrottle
 import net.blockhost.trestle.instance.InstanceRepository
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.ForgeMetadataClient
@@ -220,31 +223,38 @@ class MinecraftInstaller(
             var lastPersistedBytes = 0L
             var lastPersistedFiles = -1
             var latestProgress: DownloadProgress? = null
+            val progressUpdateThrottle = ProgressUpdateThrottle(PROGRESS_UPDATE_INTERVAL)
+            val persistenceThrottle = ProgressUpdateThrottle(PROGRESS_PERSIST_INTERVAL)
             downloadPipeline.download(
                 requests,
                 directories.staging / instance.id.value,
             ) { progress ->
                 latestProgress = progress
-                if (
+                working = working.copy(
+                    requiredJavaMajor = resolved.requiredJavaMajor,
+                    installationState = InstallationState.Installing(
+                        progress.completedBytes,
+                        progress.totalBytes,
+                        progress.completedFiles,
+                        progress.totalFiles,
+                    ),
+                )
+                val downloadComplete = progress.completedFiles == progress.totalFiles
+                val persistenceThresholdReached =
                     lastPersistedFiles < 0 ||
                     progress.completedFiles - lastPersistedFiles >= PROGRESS_PERSIST_INTERVAL_FILES ||
-                    progress.completedFiles == progress.totalFiles ||
                     progress.completedBytes - lastPersistedBytes >= PROGRESS_PERSIST_INTERVAL_BYTES
+                if (
+                    downloadComplete ||
+                    (persistenceThresholdReached && persistenceThrottle.shouldUpdate())
                 ) {
-                    working = working.copy(
-                        requiredJavaMajor = resolved.requiredJavaMajor,
-                        installationState = InstallationState.Installing(
-                            progress.completedBytes,
-                            progress.totalBytes,
-                            progress.completedFiles,
-                            progress.totalFiles,
-                        ),
-                    )
                     repository.update(working)
                     lastPersistedBytes = progress.completedBytes
                     lastPersistedFiles = progress.completedFiles
                 }
-                onProgress(progress)
+                if (progressUpdateThrottle.shouldUpdate(force = downloadComplete)) {
+                    onProgress(progress)
+                }
             }
 
             latestProgress?.let { progress ->
@@ -326,6 +336,8 @@ class MinecraftInstaller(
     private companion object {
         const val PROGRESS_PERSIST_INTERVAL_FILES = 25
         const val PROGRESS_PERSIST_INTERVAL_BYTES = 1024L * 1024L
+        val PROGRESS_UPDATE_INTERVAL = 250.milliseconds
+        val PROGRESS_PERSIST_INTERVAL = 1.seconds
         val installationJson = Json {
             prettyPrint = true
             prettyPrintIndent = "  "
