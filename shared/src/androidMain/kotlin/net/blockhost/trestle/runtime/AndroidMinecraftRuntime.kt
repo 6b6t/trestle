@@ -162,6 +162,7 @@ class AndroidMinecraftRuntime internal constructor(
                 add(CommandArgument.Public("-Dorg.lwjgl.freetype.libname=${components.nativeDirectory}/libfreetype.so"))
                 add(CommandArgument.Public("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared"))
                 add(CommandArgument.Public("-Dorg.lwjgl.system.allocator=system"))
+                add(CommandArgument.Public("-Dorg.lwjgl.util.NoHashChecks=true"))
                 add(CommandArgument.Public("-Dglfwstub.initEgl=false"))
                 add(CommandArgument.Public("-Djdk.lang.Process.launchMechanism=FORK"))
                 add(CommandArgument.Public("-XX:ActiveProcessorCount=${Runtime.getRuntime().availableProcessors()}"))
