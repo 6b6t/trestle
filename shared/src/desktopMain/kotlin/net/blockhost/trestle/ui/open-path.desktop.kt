@@ -5,6 +5,9 @@ import androidx.compose.runtime.remember
 import java.awt.Desktop
 import java.io.File
 
+internal actual val supportsOpenPath: Boolean
+    get() = Desktop.isDesktopSupported() && Desktop.getDesktop().isSupported(Desktop.Action.OPEN)
+
 @Composable
 internal actual fun rememberOpenPath(): (String) -> Unit = remember {
     { path ->

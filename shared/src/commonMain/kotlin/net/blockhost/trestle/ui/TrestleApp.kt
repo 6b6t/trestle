@@ -275,6 +275,7 @@ import net.blockhost.trestle.resources.ui_forget_account_2
 import net.blockhost.trestle.resources.ui_ftb_app_instances_folder
 import net.blockhost.trestle.resources.ui_game_components
 import net.blockhost.trestle.resources.ui_game_console
+import net.blockhost.trestle.resources.ui_game_files
 import net.blockhost.trestle.resources.ui_general
 import net.blockhost.trestle.resources.ui_group
 import net.blockhost.trestle.resources.ui_homepage
@@ -308,6 +309,7 @@ import net.blockhost.trestle.resources.ui_leave_blank_to_group_this_instance_by_
 import net.blockhost.trestle.resources.ui_leave_blank_to_use_trestles_managed_mojang_runtime
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_loader
+import net.blockhost.trestle.resources.ui_logs_crash_reports_screenshots_and_more
 import net.blockhost.trestle.resources.ui_loading_client_settings
 import net.blockhost.trestle.resources.ui_logs
 import net.blockhost.trestle.resources.ui_manage
@@ -339,6 +341,7 @@ import net.blockhost.trestle.resources.ui_offline_username
 import net.blockhost.trestle.resources.ui_only_minecraft_version_is_supported_on_android
 import net.blockhost.trestle.resources.ui_only_vanilla_is_supported_on_android
 import net.blockhost.trestle.resources.ui_open
+import net.blockhost.trestle.resources.ui_open_log_file
 import net.blockhost.trestle.resources.ui_open_manual_download
 import net.blockhost.trestle.resources.ui_open_operation_details
 import net.blockhost.trestle.resources.ui_open_microsoft_sign_in
@@ -1566,7 +1569,7 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
         add(ContextAction(if (instance.pinned) "Unpin from top" else "Pin to top") {
             selectedAction(actions::toggleSelectedInstancePinned)
         })
-        if (currentPlatform == "Desktop") {
+        if (supportsOpenPath) {
             add(ContextAction("Open instance folder", separatorBefore = true) { openPath(instance.instanceDirectory) })
             if (state is InstallationState.Installed) {
                 add(ContextAction("Open game folder") { openPath("${instance.instanceDirectory}/game") })
@@ -3903,7 +3906,7 @@ private fun InstanceGameData(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 TextButton(
                                     onClick = { openPath(screenshot.path) },
-                                    enabled = currentPlatform == "Desktop",
+                                    enabled = supportsOpenPath,
                                 ) { Text(stringResource(Res.string.ui_open)) }
                                 InstanceItemActions(
                                     listOf(
@@ -4046,8 +4049,11 @@ private fun InstanceLogs(
     var wrapLines by rememberSaveable(instance.id) { mutableStateOf(true) }
     var colorLines by rememberSaveable(instance.id) { mutableStateOf(true) }
     val copyText = rememberCopyText()
+    val openPath = rememberOpenPath()
     val outputScroll = rememberScrollState()
     val selectedKey = state.selectedInstanceLogKey
+    val selectedLogPath = state.gameData.logs.firstOrNull { it.key == selectedKey }?.path
+    val openLogFileLabel = stringResource(Res.string.ui_open_log_file)
     val launchActive = state.activeLaunch?.status.let { it == LaunchStatus.Starting || it is LaunchStatus.Running }
     LaunchedEffect(state.gameData.logs, selectedKey) {
         if (selectedKey == null) state.gameData.logs.firstOrNull()?.let { actions.selectInstanceLog(it.key) }
@@ -4095,6 +4101,9 @@ private fun InstanceLogs(
                 ) { Text(stringResource(Res.string.ui_reload)) }
                 InstanceItemActions(
                     buildList {
+                        if (supportsOpenPath && selectedLogPath != null) {
+                            add(openLogFileLabel to { openPath(selectedLogPath) })
+                        }
                         if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
                         if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
                         if (selectedKey != null && !launchActive) {
@@ -4336,13 +4345,23 @@ private fun InstanceOverview(
                 instance.group?.let { PropertyRow("Group", it) }
                 PropertyRow("Launches", instance.launchCount.toString())
                 PropertyRow("Play time", formatPlayTime(instance.playTimeMillis))
-                PropertyRow(
-                    "Directory",
-                    instance.instanceDirectory,
-                    actionLabel = "Open",
-                    onClick = { openPath(instance.instanceDirectory) },
-                    actionEnabled = currentPlatform == "Desktop",
-                )
+                if (currentPlatform == "Android") {
+                    PropertyRow(
+                        stringResource(Res.string.ui_game_files),
+                        stringResource(Res.string.ui_logs_crash_reports_screenshots_and_more),
+                        actionLabel = stringResource(Res.string.ui_open),
+                        onClick = { openPath("${instance.instanceDirectory}/game") },
+                        actionEnabled = supportsOpenPath,
+                    )
+                } else {
+                    PropertyRow(
+                        "Directory",
+                        instance.instanceDirectory,
+                        actionLabel = "Open",
+                        onClick = { openPath(instance.instanceDirectory) },
+                        actionEnabled = supportsOpenPath,
+                    )
+                }
                 PropertyRow(
                     "Last launch",
                     instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never",
@@ -4423,7 +4442,7 @@ private fun InstanceOverview(
                             )
                             TextButton(
                                 onClick = { openPath(report) },
-                                enabled = currentPlatform == "Desktop",
+                                enabled = supportsOpenPath,
                             ) { Text(stringResource(Res.string.ui_open)) }
                         }
                     }
@@ -4539,7 +4558,7 @@ private fun InstalledContentPanel(
                                 },
                         )
                     })
-                    if (currentPlatform == "Desktop") {
+                    if (supportsOpenPath) {
                         add("Open game folder" to { openPath("${instance.instanceDirectory}/game") })
                         add("Open config folder" to { openPath("${instance.instanceDirectory}/game/config") })
                     }

@@ -83,6 +83,7 @@
     <string name="ui_ftb_app_instances_folder">FTB App instances folder</string>
     <string name="ui_game_components">Game components</string>
     <string name="ui_game_console">Game console</string>
+    <string name="ui_game_files">Game files</string>
     <string name="ui_worlds">Worlds</string>
     <string name="ui_servers">Servers</string>
     <string name="ui_screenshots">Screenshots</string>
@@ -117,6 +118,7 @@
     <string name="ui_leave_blank_to_use_trestles_managed_mojang_runtime">Leave blank to use Trestle&#39;s managed Mojang runtime.</string>
     <string name="ui_library">Library</string>
     <string name="ui_loader">Loader</string>
+    <string name="ui_logs_crash_reports_screenshots_and_more">Logs, crash reports, screenshots, and more</string>
     <string name="ui_loading_client_settings">Loading client settings…</string>
     <string name="ui_manage">Manage</string>
     <string name="ui_manage_content">Manage content</string>
@@ -145,6 +147,7 @@
     <string name="ui_only_minecraft_version_is_supported_on_android">Only Minecraft %1$s is supported on Android</string>
     <string name="ui_only_vanilla_is_supported_on_android">Only vanilla is supported on Android</string>
     <string name="ui_open">Open</string>
+    <string name="ui_open_log_file">Open log file</string>
     <string name="ui_open_manual_download">Open manual download</string>
     <string name="ui_open_operation_details">Open operation details</string>
     <string name="ui_open_microsoft_sign_in">Open Microsoft sign-in</string>
