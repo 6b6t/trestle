@@ -9,6 +9,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
@@ -29,6 +30,7 @@ import net.blockhost.trestle.auth.SavedSkin
 import net.blockhost.trestle.auth.SkinProfile
 import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.domain.ModLoader
 
 @OptIn(ExperimentalTestApi::class)
 class TrestleAppUiTest {
@@ -551,6 +553,31 @@ class TrestleAppUiTest {
         }
         onNodeWithTag(LauncherTestTags.CREATE_DIALOG).assertIsDisplayed()
         onNodeWithText("Create instance").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun restrictedRuntimePresentsFixedCreateOptionsWithoutDeadFilters() = runComposeUiTest {
+        val state = LauncherPreviewFixtures.createDialog.copy(
+            supportedMinecraftVersions = setOf(LauncherPreviewFixtures.release.id),
+            supportedModLoaders = setOf(ModLoader.VANILLA),
+        )
+        setContent {
+            Box(Modifier.size(480.dp, 720.dp)) {
+                TrestleApp(
+                    state,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(480, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.FIXED_CREATE_VERSION)
+            .assertIsDisplayed()
+            .assertHasNoClickAction()
+        onNodeWithTag(LauncherTestTags.FIXED_CREATE_LOADER)
+            .assertIsDisplayed()
+            .assertHasNoClickAction()
+        onAllNodesWithTag(LauncherTestTags.CREATE_RELEASE_FILTERS).assertCountEquals(0)
     }
 
     @Test

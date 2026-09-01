@@ -30,8 +30,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -333,6 +335,7 @@ import net.blockhost.trestle.resources.ui_no_results
 import net.blockhost.trestle.resources.ui_no_saved_skins
 import net.blockhost.trestle.resources.ui_notes
 import net.blockhost.trestle.resources.ui_offline_username
+import net.blockhost.trestle.resources.ui_only_minecraft_version_is_supported_on_android
 import net.blockhost.trestle.resources.ui_only_vanilla_is_supported_on_android
 import net.blockhost.trestle.resources.ui_open
 import net.blockhost.trestle.resources.ui_open_manual_download
@@ -464,6 +467,9 @@ internal object LauncherTestTags {
     const val RESOURCE_RESULTS = "resource-results"
     const val RESOURCE_DETAIL = "resource-detail"
     const val CREATE_DIALOG = "create-dialog"
+    const val FIXED_CREATE_VERSION = "fixed-create-version"
+    const val FIXED_CREATE_LOADER = "fixed-create-loader"
+    const val CREATE_RELEASE_FILTERS = "create-release-filters"
     const val INSTANCE_SETTINGS_DIALOG = "instance-settings-dialog"
     const val INSTANCE_ICON_EDIT = "instance-icon-edit"
     const val INSTANCE_ICON_DIALOG = "instance-icon-dialog"
@@ -635,7 +641,7 @@ fun TrestleApp(
             containerColor = MaterialTheme.colorScheme.background,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Column {
+                Column(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
                     topBar()
                     state.availableUpdate?.let { LauncherUpdateBanner(it, actions) }
                 }
@@ -2923,7 +2929,17 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                         ?.let(versionLabels::get)
                         ?: form.versionId
                     val versionChoices = visibleVersions.map { it.id }
-                    if (versionChoices.size == 1) {
+                    if (restrictedRuntime && versionChoices.size == 1) {
+                        FixedOption(
+                            label = stringResource(Res.string.ui_minecraft_version),
+                            value = versionChoices.single(),
+                            supportingText = stringResource(
+                                Res.string.ui_only_minecraft_version_is_supported_on_android,
+                                versionChoices.single(),
+                            ),
+                            modifier = Modifier.testTag(LauncherTestTags.FIXED_CREATE_VERSION),
+                        )
+                    } else if (versionChoices.size == 1) {
                         OutlinedTextField(
                             value = versionChoices.single(),
                             onValueChange = {},
@@ -2945,28 +2961,37 @@ private fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiActi
                             },
                         )
                     }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FilterChip(
-                            selected = showSnapshots,
-                            onClick = { showSnapshots = !showSnapshots },
-                            label = { Text("Snapshots") },
-                        )
-                        FilterChip(
-                            selected = showBetas,
-                            onClick = { showBetas = !showBetas },
-                            label = { Text("Betas") },
-                        )
-                        FilterChip(
-                            selected = showAlphas,
-                            onClick = { showAlphas = !showAlphas },
-                            label = { Text("Alphas") },
-                        )
+                    if (!restrictedRuntime) {
+                        Row(
+                            Modifier.fillMaxWidth().testTag(LauncherTestTags.CREATE_RELEASE_FILTERS),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FilterChip(
+                                selected = showSnapshots,
+                                onClick = { showSnapshots = !showSnapshots },
+                                label = { Text("Snapshots") },
+                            )
+                            FilterChip(
+                                selected = showBetas,
+                                onClick = { showBetas = !showBetas },
+                                label = { Text("Betas") },
+                            )
+                            FilterChip(
+                                selected = showAlphas,
+                                onClick = { showAlphas = !showAlphas },
+                                label = { Text("Alphas") },
+                            )
+                        }
                     }
-                    if (loaderChoices.size == 1) {
+                    if (restrictedRuntime && loaderChoices.size == 1) {
+                        FixedOption(
+                            label = stringResource(Res.string.ui_loader),
+                            value = loaderChoices.single().label,
+                            supportingText = stringResource(Res.string.ui_only_vanilla_is_supported_on_android),
+                            modifier = Modifier.testTag(LauncherTestTags.FIXED_CREATE_LOADER),
+                        )
+                    } else if (loaderChoices.size == 1) {
                         OutlinedTextField(
                             value = loaderChoices.single().label,
                             onValueChange = {},
@@ -3253,6 +3278,31 @@ private fun ClientSettingSwitch(label: String, checked: Boolean, onCheckedChange
         modifier = Modifier.fillMaxWidth(),
         onCheckedChange = onCheckedChange,
     )
+}
+
+@Composable
+private fun FixedOption(
+    label: String,
+    value: String,
+    supportingText: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
+        )
+        Text(value, style = MaterialTheme.typography.bodyLarge)
+        Text(
+            supportingText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

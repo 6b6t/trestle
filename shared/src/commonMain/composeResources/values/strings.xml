@@ -141,6 +141,7 @@
     <string name="ui_no_saved_skins">No saved skins</string>
     <string name="ui_notes">Notes</string>
     <string name="ui_offline_username">Offline username</string>
+    <string name="ui_only_minecraft_version_is_supported_on_android">Only Minecraft %1$s is supported on Android</string>
     <string name="ui_only_vanilla_is_supported_on_android">Only vanilla is supported on Android</string>
     <string name="ui_open">Open</string>
     <string name="ui_open_manual_download">Open manual download</string>
