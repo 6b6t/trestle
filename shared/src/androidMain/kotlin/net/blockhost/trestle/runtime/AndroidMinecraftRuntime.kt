@@ -8,6 +8,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelFileDescriptor
 import android.os.ResultReceiver
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,6 +32,7 @@ import net.blockhost.trestle.metadata.InstalledVersion
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import java.io.File
+import java.io.FileOutputStream
 import java.util.Locale
 import java.util.TimeZone
 import java.util.UUID
@@ -224,6 +226,54 @@ class AndroidMinecraftRuntime internal constructor(
         val terminalReceived = AtomicBoolean(false)
         val monitorStarted = AtomicBoolean(false)
         val processAnnounced = AtomicBoolean(false)
+        val outputLog = runCatching {
+            AndroidGameOutputLog(File(preparedLaunch.workingDirectory, ".trestle/logs/latest.log"))
+        }.getOrElse { error ->
+            val message = "The Minecraft output log could not be created: ${error.message.orEmpty()}"
+            logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
+            trySend(LaunchEvent.Failed(message))
+            close(error)
+            return@callbackFlow
+        }
+        val outputPipe = runCatching { ParcelFileDescriptor.createPipe() }.getOrElse { error ->
+            val message = "The Minecraft output pipe could not be created: ${error.message.orEmpty()}"
+            logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
+            trySend(LaunchEvent.Failed(message))
+            close(error)
+            return@callbackFlow
+        }
+        val outputReader = outputPipe[0]
+        val outputWriter = outputPipe[1]
+        fun recordGameOutput(line: String) {
+            val streamedLine = line.take(MAX_STREAMED_LOG_LINE)
+            runCatching { outputLog.append(line) }
+                .onFailure { error ->
+                    logger.warn(
+                        "runtime",
+                        "Could not append Minecraft output",
+                        error,
+                        mapOf("instanceId" to preparedLaunch.instanceId),
+                    )
+                }
+            logger.debug("minecraft", streamedLine, mapOf("instanceId" to preparedLaunch.instanceId))
+            trySend(LaunchEvent.Log(streamedLine))
+        }
+        launch(Dispatchers.IO) {
+            runCatching {
+                ParcelFileDescriptor.AutoCloseInputStream(outputReader).bufferedReader().useLines { lines ->
+                    lines.forEach(::recordGameOutput)
+                }
+            }.onFailure { error ->
+                if (isActive) {
+                    logger.warn(
+                        "runtime",
+                        "Minecraft output capture stopped unexpectedly",
+                        error,
+                        mapOf("instanceId" to preparedLaunch.instanceId),
+                    )
+                }
+            }
+        }
         fun monitorProcess(processId: Long) {
             processAnnounced.set(true)
             if (processId <= 0 || !monitorStarted.compareAndSet(false, true)) return
@@ -231,7 +281,6 @@ class AndroidMinecraftRuntime internal constructor(
                 val processDirectory = File("/proc/$processId")
                 while (isActive && processDirectory.exists()) delay(PROCESS_POLL_MILLIS)
                 if (isActive && terminalReceived.compareAndSet(false, true)) {
-                    delay(EXIT_DIAGNOSTICS_DELAY_MILLIS)
                     val message = unexpectedProcessDeath(
                         preparedLaunch,
                         launchId,
@@ -266,8 +315,7 @@ class AndroidMinecraftRuntime internal constructor(
                     }
                     AndroidGameLaunchProtocol.RESULT_LOG -> {
                         resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.let { line ->
-                            logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
-                            trySend(LaunchEvent.Log(line))
+                            recordGameOutput(line)
                         }
                     }
                     AndroidGameLaunchProtocol.RESULT_EXITED -> {
@@ -291,6 +339,7 @@ class AndroidMinecraftRuntime internal constructor(
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(AndroidGameLaunchProtocol.EXTRA_LAUNCH_ID, launchId)
             putExtra(AndroidGameLaunchProtocol.EXTRA_RECEIVER, receiver)
+            putExtra(AndroidGameLaunchProtocol.EXTRA_OUTPUT_PIPE, outputWriter)
             putExtra(AndroidGameLaunchProtocol.EXTRA_RUNTIME_HOME, preparedLaunch.executable)
             putExtra(AndroidGameLaunchProtocol.EXTRA_WORKING_DIRECTORY, preparedLaunch.workingDirectory)
             putExtra(AndroidGameLaunchProtocol.EXTRA_NATIVE_DIRECTORY, preparedLaunch.nativeDirectory)
@@ -310,6 +359,7 @@ class AndroidMinecraftRuntime internal constructor(
         }
         try {
             applicationContext.startActivity(intent)
+            outputWriter.close()
             launch {
                 delay(PROCESS_START_TIMEOUT_MILLIS)
                 if (!processAnnounced.get() && terminalReceived.compareAndSet(false, true)) {
@@ -320,6 +370,7 @@ class AndroidMinecraftRuntime internal constructor(
                 }
             }
         } catch (error: Exception) {
+            runCatching { outputWriter.close() }
             logger.error("runtime", "Android game activity could not start", error)
             trySend(LaunchEvent.Failed(error.message ?: "The Android game activity could not start."))
             close(error)
@@ -353,7 +404,7 @@ class AndroidMinecraftRuntime internal constructor(
         totalItems = totalFiles,
     )
 
-    private fun unexpectedProcessDeath(
+    private suspend fun unexpectedProcessDeath(
         preparedLaunch: PreparedLaunch,
         launchId: String,
         processId: Int,
@@ -372,41 +423,111 @@ class AndroidMinecraftRuntime internal constructor(
         val diagnostics = (launchDiagnostics + gameCrashReports)
             .filter(File::isFile)
             .maxByOrNull(File::lastModified)
-        val systemExit = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                applicationContext.getSystemService(ActivityManager::class.java)
-                    .getHistoricalProcessExitReasons(applicationContext.packageName, processId, 4)
-                    .firstOrNull { it.pid == processId }
-            } else {
-                null
-            }
-        }.getOrNull()
-        runCatching {
-            systemExit?.traceInputStream?.bufferedReader()?.useLines { lines ->
-                lines.take(MAX_SYSTEM_TRACE_LINES).forEach { line ->
-                    logger.error(
-                        "minecraft-native",
-                        line,
-                        details = mapOf("instanceId" to preparedLaunch.instanceId),
-                    )
-                }
-            }
-        }
+        val systemExit = awaitSystemExit(processId, launchStartedAt)
         return if (diagnostics != null) {
             "Minecraft stopped unexpectedly. Crash details were saved to ${diagnostics.absolutePath}."
         } else if (systemExit != null) {
-            val reason = when (systemExit.reason) {
-                ApplicationExitInfo.REASON_CRASH_NATIVE -> "a native crash"
-                ApplicationExitInfo.REASON_CRASH -> "a JVM crash"
-                ApplicationExitInfo.REASON_ANR -> "an application-not-responding event"
-                ApplicationExitInfo.REASON_LOW_MEMORY -> "Android low-memory termination"
-                else -> "Android exit reason ${systemExit.reason}"
-            }
-            "Minecraft stopped because of $reason${systemExit.description?.let { ": $it" }.orEmpty()}. " +
-                "Review the launcher log for captured exit details."
+            val reason = systemExitReason(systemExit.reason)
+            val savedDiagnostics = persistSystemExit(
+                gameDirectory = gameDirectory,
+                launchId = launchId,
+                systemExit = systemExit,
+            )
+            logger.error(
+                "minecraft-native",
+                "Minecraft stopped because of $reason.",
+                details = mapOf(
+                    "instanceId" to preparedLaunch.instanceId,
+                    "processId" to processId,
+                    "reason" to systemExit.reason,
+                    "status" to systemExit.status,
+                    "diagnostics" to savedDiagnostics?.absolutePath,
+                ),
+            )
+            "Minecraft stopped because of $reason${systemExit.description?.let { ": $it" }.orEmpty()}." +
+                savedDiagnostics?.let { " Exit details were saved to ${it.absolutePath}." }.orEmpty()
         } else {
-            "Minecraft stopped unexpectedly. Review the streamed launcher log for the last JVM or native message."
+            val outputLog = File(gameDirectory, ".trestle/logs/latest.log")
+            if (outputLog.length() > 0L) {
+                "Minecraft stopped unexpectedly. Review ${outputLog.absolutePath} for the last JVM or native message."
+            } else {
+                "Android ended the Minecraft process before it produced JVM output, and no system crash record " +
+                    "became available. Capture Android logcat while retrying the launch."
+            }
         }
+    }
+
+    private suspend fun awaitSystemExit(processId: Int, launchStartedAt: Long): ApplicationExitInfo? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
+        val activityManager = applicationContext.getSystemService(ActivityManager::class.java)
+        repeat(EXIT_INFO_ATTEMPTS) { attempt ->
+            val systemExit = runCatching {
+                activityManager.getHistoricalProcessExitReasons(null, processId, 0)
+                    .firstOrNull { exit ->
+                        exit.pid == processId && exit.timestamp >= launchStartedAt - EXIT_TIMESTAMP_TOLERANCE_MILLIS
+                    }
+            }.onFailure { error ->
+                logger.warn("runtime", "Could not inspect the Android process exit", error)
+            }.getOrNull()
+            if (systemExit != null) return systemExit
+            if (attempt < EXIT_INFO_ATTEMPTS - 1) delay(EXIT_INFO_RETRY_MILLIS)
+        }
+        return null
+    }
+
+    private fun persistSystemExit(
+        gameDirectory: File,
+        launchId: String,
+        systemExit: ApplicationExitInfo,
+    ): File? = runCatching {
+        val directory = File(gameDirectory, ".trestle/crashes/$launchId").apply { mkdirs() }
+        val traceFile = runCatching {
+            systemExit.traceInputStream?.use { input ->
+                val fileName = if (
+                    systemExit.reason == ApplicationExitInfo.REASON_CRASH_NATIVE &&
+                    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                ) {
+                    "native-tombstone.pb"
+                } else {
+                    "android-trace.txt"
+                }
+                File(directory, fileName).also { trace ->
+                    FileOutputStream(trace).use(input::copyTo)
+                }
+            }
+        }.onFailure { error ->
+            logger.warn("runtime", "Could not save the Android process trace", error)
+        }.getOrNull()
+        File(directory, "android-exit.txt").apply {
+            writeText(
+                buildString {
+                    appendLine("Android process exit")
+                    appendLine("Reason: ${systemExitReason(systemExit.reason)} (${systemExit.reason})")
+                    appendLine("Status or signal: ${systemExit.status}")
+                    appendLine("Process: ${systemExit.processName}")
+                    appendLine("PID: ${systemExit.pid}")
+                    appendLine("Timestamp: ${systemExit.timestamp}")
+                    appendLine("PSS: ${systemExit.pss} KiB")
+                    appendLine("RSS: ${systemExit.rss} KiB")
+                    systemExit.description?.takeIf(String::isNotBlank)?.let { appendLine("Description: $it") }
+                    traceFile?.let { appendLine("System trace: ${it.name}") }
+                },
+            )
+        }
+    }.onFailure { error ->
+        logger.warn("runtime", "Could not save Android process exit diagnostics", error)
+    }.getOrNull()
+
+    private fun systemExitReason(reason: Int): String = when (reason) {
+        ApplicationExitInfo.REASON_CRASH_NATIVE -> "a native crash"
+        ApplicationExitInfo.REASON_CRASH -> "a JVM crash"
+        ApplicationExitInfo.REASON_ANR -> "an application-not-responding event"
+        ApplicationExitInfo.REASON_LOW_MEMORY -> "Android low-memory termination"
+        ApplicationExitInfo.REASON_SIGNALED -> "signal termination"
+        ApplicationExitInfo.REASON_INITIALIZATION_FAILURE -> "Android process initialization failure"
+        ApplicationExitInfo.REASON_EXCESSIVE_RESOURCE_USAGE -> "excessive resource usage"
+        ApplicationExitInfo.REASON_EXIT_SELF -> "process exit"
+        else -> "Android exit reason $reason"
     }
 
     private fun launchValues(
@@ -506,9 +627,11 @@ class AndroidMinecraftRuntime internal constructor(
         const val REQUIRED_JAVA_MAJOR = 25
         const val ANDROID_CLASSPATH_SEPARATOR = ":"
         const val PROCESS_POLL_MILLIS = 500L
-        const val EXIT_DIAGNOSTICS_DELAY_MILLIS = 300L
+        const val EXIT_INFO_ATTEMPTS = 10
+        const val EXIT_INFO_RETRY_MILLIS = 400L
+        const val EXIT_TIMESTAMP_TOLERANCE_MILLIS = 1_000L
         const val PROCESS_START_TIMEOUT_MILLIS = 20_000L
-        const val MAX_SYSTEM_TRACE_LINES = 80
+        const val MAX_STREAMED_LOG_LINE = 8_000
         val PLACEHOLDER = Regex("\\$\\{([^}]+)\\}")
         val AUTH_PLACEHOLDERS = listOf(
             "\${auth_player_name}",
@@ -527,6 +650,7 @@ object AndroidGameLaunchProtocol {
 
     const val EXTRA_LAUNCH_ID = "launch_id"
     const val EXTRA_RECEIVER = "receiver"
+    const val EXTRA_OUTPUT_PIPE = "output_pipe"
     const val EXTRA_RUNTIME_HOME = "runtime_home"
     const val EXTRA_WORKING_DIRECTORY = "working_directory"
     const val EXTRA_NATIVE_DIRECTORY = "native_directory"

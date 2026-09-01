@@ -9,6 +9,7 @@ import android.content.IntentFilter
 import android.graphics.SurfaceTexture
 import android.annotation.SuppressLint
 import android.os.Bundle
+import android.os.ParcelFileDescriptor
 import android.os.Process
 import android.os.ResultReceiver
 import android.system.Os
@@ -31,8 +32,6 @@ import net.blockhost.trestle.runtime.AndroidGameLaunchProtocol
 import net.kdt.pojavlaunch.utils.JREUtils
 import org.lwjgl.glfw.CallbackBridge
 import java.io.File
-import java.io.FileInputStream
-import java.io.FileOutputStream
 import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.concurrent.atomic.AtomicBoolean
@@ -42,6 +41,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
     private lateinit var textInput: MinecraftTextInputView
     private lateinit var textureView: TextureView
     private var receiver: ResultReceiver? = null
+    private var outputPipe: ParcelFileDescriptor? = null
     private var launchId: String? = null
     private var surface: Surface? = null
     private var launchRequest: GameLaunchRequest? = null
@@ -68,6 +68,13 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
         launchId = intent.getStringExtra(AndroidGameLaunchProtocol.EXTRA_LAUNCH_ID)
         @Suppress("DEPRECATION")
         run { receiver = intent.getParcelableExtra(AndroidGameLaunchProtocol.EXTRA_RECEIVER) }
+        @Suppress("DEPRECATION")
+        run { outputPipe = intent.getParcelableExtra(AndroidGameLaunchProtocol.EXTRA_OUTPUT_PIPE) }
+        if (outputPipe == null) {
+            reportFailure("The game output pipe is missing.")
+            finish()
+            return
+        }
         launchRequest = runCatching { GameLaunchRequest.from(intent) }
             .getOrElse { error ->
                 reportFailure(error.message ?: "The game launch request is incomplete.")
@@ -164,10 +171,12 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
     }
 
     override fun onDestroy() {
+        runCatching { outputPipe?.close() }
+        outputPipe = null
         CallbackBridge.clear(this)
         runCatching { unregisterReceiver(stopReceiver) }
         detachSurface()
-        controls.releaseAllInputs()
+        if (::controls.isInitialized) controls.releaseAllInputs()
         releaseGamepadInputs()
         super.onDestroy()
     }
@@ -368,7 +377,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
             {
                 try {
                     installCrashHandler(request)
-                    redirectProcessOutput(request)
+                    redirectProcessOutput()
                     request.environment.forEach { (key, value) -> Os.setenv(key, value, true) }
                     System.load(File(request.nativeDirectory, "libpojavexec.so").absolutePath)
                     JREUtils.setLdLibraryPath(requireNotNull(request.environment["LD_LIBRARY_PATH"]))
@@ -454,28 +463,12 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
         }
     }
 
-    private fun redirectProcessOutput(request: GameLaunchRequest) {
-        val logFile = File(request.workingDirectory, ".trestle/logs/latest.log")
-        logFile.parentFile?.mkdirs()
-        FileOutputStream(logFile, false).close()
-        val pipe = Os.pipe()
-        Os.dup2(pipe[1], OsConstants.STDOUT_FILENO)
-        Os.dup2(pipe[1], OsConstants.STDERR_FILENO)
-        Os.close(pipe[1])
-        Thread(
-            {
-                FileInputStream(pipe[0]).bufferedReader().useLines { lines ->
-                    FileOutputStream(logFile, true).bufferedWriter().use { writer ->
-                        lines.forEach { line ->
-                            writer.appendLine(line)
-                            writer.flush()
-                            reportLog(line.take(MAX_STREAMED_LOG_LINE))
-                        }
-                    }
-                }
-            },
-            "Minecraft output",
-        ).apply { isDaemon = true }.start()
+    private fun redirectProcessOutput() {
+        val pipe = requireNotNull(outputPipe) { "The game output pipe is unavailable." }
+        Os.dup2(pipe.fileDescriptor, OsConstants.STDOUT_FILENO)
+        Os.dup2(pipe.fileDescriptor, OsConstants.STDERR_FILENO)
+        pipe.close()
+        outputPipe = null
     }
 
     private fun writeCrashDetails(request: GameLaunchRequest, error: Throwable) {
@@ -569,7 +562,6 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
     }
 
     private companion object {
-        const val MAX_STREAMED_LOG_LINE = 8_000
         const val GAMEPAD_MOVE_DEAD_ZONE = 0.28f
         const val GAMEPAD_LOOK_DEAD_ZONE = 0.12f
         const val GAMEPAD_LOOK_SPEED = 18f
