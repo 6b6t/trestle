@@ -17,6 +17,8 @@ import zipfile
 AMETHYST_REVISION = "d8a195640a7e0929f2ee532d7784de2b980c6c48"
 AMETHYST_VERSION = "1.1.6"
 RAW_ROOT = f"https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/{AMETHYST_REVISION}"
+MOBILE_GLUES_REVISION = "91e097bcaa16ef83ad5bad6c096e2486b578bee3"
+MOBILE_GLUES_ROOT = f"https://raw.githubusercontent.com/AngelAuraMC/Amethyst-Android/{MOBILE_GLUES_REVISION}"
 MAVEN_ROOT = "https://repo1.maven.org/maven2"
 APK = {
     "url": f"https://github.com/AngelAuraMC/Amethyst-Android/releases/download/{AMETHYST_VERSION}/Amethyst.apk",
@@ -54,6 +56,10 @@ AARS = {
     "lwjgl": (f"{RAW_ROOT}/app_pojavlauncher/libs/lwjgl-3.4.1-natives-release.aar", "ccb9c7abe942cd40a0490637ca70756a259a40ec1257a515d3343c2f536503c0"),
     "openal": (f"{RAW_ROOT}/app_pojavlauncher/libs/openal-soft-release.aar", "45e630695b6b4c6506704330bf4da80a605b445ea5d187d7b71a370aab5494ea"),
     "kopper": (f"{RAW_ROOT}/app_pojavlauncher/libs/kopper-zink-release.aar", "bf816fc9dc2047edff0284369b6433260ec462b7b26a3e3b544550c721ca26fe"),
+    "mobileglues": (
+        f"{MOBILE_GLUES_ROOT}/app_pojavlauncher/libs/MobileGlues-release.aar",
+        "fb3f6fd3f9d92326dceff0c08856225920321d43854b2d08cb7036bcede977ae",
+    ),
     "jna": (f"{MAVEN_ROOT}/net/java/dev/jna/jna/5.17.0/jna-5.17.0.aar", "4dbeffffa665d97ad5aa7eee297531d3c841a86716ab7f774fd6956422b3cf38"),
 }
 ABIS = {"arm64": "arm64-v8a", "x64": "x86_64"}
@@ -114,6 +120,14 @@ def assemble(output: Path, cache: Path) -> None:
         shutil.copy2(license_source, license_destination)
         entries.append(file_entry(asset_root, license_destination, "common", "license"))
 
+        mobile_glues_license = asset_root / "common" / "licenses" / "MobileGlues-LGPL-2.1.txt"
+        extract_member(
+            aar_files["mobileglues"],
+            "assets/licenses/mobileglues-lgplv2.1-license.txt",
+            mobile_glues_license,
+        )
+        entries.append(file_entry(asset_root, mobile_glues_license, "common", "license"))
+
         jars_root = asset_root / "common" / "jars"
         for name, (relative_url, digest) in JARS.items():
             source = fetch(f"{RAW_ROOT}/{relative_url}", digest, cache)
@@ -151,6 +165,7 @@ def assemble(output: Path, cache: Path) -> None:
             "format": 1,
             "amethystRevision": AMETHYST_REVISION,
             "amethystVersion": AMETHYST_VERSION,
+            "mobileGluesRevision": MOBILE_GLUES_REVISION,
             "files": sorted(entries, key=lambda item: str(item["path"])),
         }
         (asset_root / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

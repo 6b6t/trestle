@@ -386,7 +386,10 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
                             putLong(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID, Process.myPid().toLong())
                         },
                     )
-                    reportLog("Starting Minecraft 26.2 with Java 25 and Kopper Zink.")
+                    reportLog(
+                        "Starting Minecraft 26.2 with Java 25 and " +
+                            requireNotNull(request.environment["AMETHYST_RENDERER"]) + ".",
+                    )
                     val arguments = buildList {
                         add("java")
                         addAll(request.jvmArguments)
@@ -480,13 +483,17 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
 
     private fun preloadNativeLibraries(request: GameLaunchRequest) {
         val nativeRoot = File(request.nativeDirectory)
-        listOf(
-            "libc++_shared.so",
-            "libglapi.so",
-            "libEGL_mesa.so",
-            "libglxshim.so",
-            "libopenal.so",
-            "libspirv-cross-c-shared.so",
+        val graphicsLibraries = if (request.environment["AMETHYST_RENDERER"] == "opengles_mobileglues") {
+            listOf("libmobileglues.so")
+        } else {
+            listOf("libglapi.so", "libEGL_mesa.so", "libglxshim.so")
+        }
+        (
+            listOf(
+                "libc++_shared.so",
+                "libopenal.so",
+                "libspirv-cross-c-shared.so",
+            ) + graphicsLibraries
         ).forEach { name ->
             File(nativeRoot, name).takeIf(File::isFile)?.let { library -> JREUtils.dlopen(library.absolutePath) }
         }

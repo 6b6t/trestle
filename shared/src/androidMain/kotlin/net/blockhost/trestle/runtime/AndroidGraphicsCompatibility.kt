@@ -18,6 +18,9 @@ internal data class AndroidGraphicsCompatibility(
     val vendor: String?,
     val vulkanVersion: Int?,
 ) {
+    val prefersMobileGlues: Boolean
+        get() = gpuFamily == AndroidGpuFamily.ADRENO && adrenoModel?.let { it >= 800 } == true
+
     val isSupported: Boolean
         get() = vulkanVersion != null && vulkanVersion >= MINIMUM_VULKAN_VERSION
 
@@ -38,8 +41,16 @@ internal data class AndroidGraphicsCompatibility(
 
     private fun deviceLabel(): String = renderer?.takeIf(String::isNotBlank) ?: gpuFamily.label
 
+    private val adrenoModel: Int?
+        get() = renderer
+            ?.let { ADRENO_MODEL.find(it) }
+            ?.groupValues
+            ?.get(1)
+            ?.toIntOrNull()
+
     companion object {
         const val MINIMUM_VULKAN_VERSION = (1 shl 22) or (2 shl 12)
+        private val ADRENO_MODEL = Regex("""(?i)Adreno(?:\s*\(TM\))?\s*(\d{3})""")
 
         fun gpuFamily(renderer: String?, vendor: String?): AndroidGpuFamily {
             val description = listOfNotNull(renderer, vendor).joinToString(" ").lowercase()

@@ -26,7 +26,7 @@ internal class AndroidGameComponentManager(
         abi: AndroidRuntimeAbi,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): AndroidGameComponents {
-        val componentSetId = "minecraft-26.2-android-${abi.releaseName}-4"
+        val componentSetId = "minecraft-26.2-android-${abi.releaseName}-5"
         val root = directories.runtimes / componentSetId
         val jars = root / "jars"
         val natives = root / "natives"
@@ -117,6 +117,7 @@ internal class AndroidGameComponentManager(
             "libEGL_mesa.so",
             "libglapi.so",
             "libglxshim.so",
+            "libmobileglues.so",
             "libzink_dri.so",
         )
     }

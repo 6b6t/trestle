@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.auth.AuthSession
 import net.blockhost.trestle.auth.SessionProvider
@@ -564,33 +565,50 @@ class AndroidMinecraftRuntime internal constructor(
         }
     }
 
-    private fun androidEnvironment(runtimeHome: String, nativeDirectory: String): Map<String, String> = mapOf(
-        "AMETHYST_RENDERER" to "opengles3_desktopgl_zink_kopper",
-        "FORCE_VSYNC" to "true",
-        "GALLIUM_DRIVER" to "zink",
-        "HOME" to applicationContext.filesDir.absolutePath,
-        "JAVA_HOME" to runtimeHome,
-        "LIBGL_DRIVERS_PATH" to nativeDirectory,
-        "LIBGL_ES" to "3",
-        "LIBGL_MIPMAP" to "3",
-        "LIBGL_NOERROR" to "1",
-        "LIBGL_NOINTOVLHACK" to "1",
-        "LIBGL_NORMALIZE" to "1",
-        "LD_LIBRARY_PATH" to "$runtimeHome/lib/server:$runtimeHome/lib:$nativeDirectory",
-        "MESA_ANDROID_NO_KMS_SWRAST" to "1",
-        "MESA_GL_VERSION_OVERRIDE" to "4.6COMPAT",
-        "MESA_GLSL_CACHE_DIR" to applicationContext.cacheDir.absolutePath,
-        "MESA_GLSL_VERSION_OVERRIDE" to "460",
-        "MESA_LOADER_DRIVER_OVERRIDE" to "zink",
-        "PATH" to "$runtimeHome/bin:${System.getenv("PATH").orEmpty()}",
-        "POJAVEXEC_EGL" to "libEGL_mesa.so",
-        "POJAV_NATIVEDIR" to nativeDirectory,
-        "POJAV_VSYNC_IN_ZINK" to "1",
-        "TMPDIR" to applicationContext.cacheDir.absolutePath,
-        "allow_glsl_extension_directive_midshader" to "true",
-        "allow_higher_compat_version" to "true",
-        "force_glsl_extensions_warn" to "true",
-    )
+    private fun androidEnvironment(runtimeHome: String, nativeDirectory: String): Map<String, String> = buildMap {
+        putAll(
+            mapOf(
+                "FORCE_VSYNC" to "true",
+                "HOME" to applicationContext.filesDir.absolutePath,
+                "JAVA_HOME" to runtimeHome,
+                "LIBGL_ES" to "3",
+                "LIBGL_MIPMAP" to "3",
+                "LIBGL_NOERROR" to "1",
+                "LIBGL_NOINTOVLHACK" to "1",
+                "LIBGL_NORMALIZE" to "1",
+                "LD_LIBRARY_PATH" to "$runtimeHome/lib/server:$runtimeHome/lib:$nativeDirectory",
+                "PATH" to "$runtimeHome/bin:${System.getenv("PATH").orEmpty()}",
+                "POJAV_NATIVEDIR" to nativeDirectory,
+                "TMPDIR" to applicationContext.cacheDir.absolutePath,
+                "allow_glsl_extension_directive_midshader" to "true",
+                "allow_higher_compat_version" to "true",
+                "force_glsl_extensions_warn" to "true",
+            ),
+        )
+        if (graphicsCompatibility.prefersMobileGlues) {
+            val settingsDirectory = prepareMobileGluesSettings()
+            put("AMETHYST_RENDERER", "opengles_mobileglues")
+            put("MG_DIR_PATH", settingsDirectory.absolutePath)
+            put("POJAVEXEC_EGL", "libmobileglues.so")
+        } else {
+            put("AMETHYST_RENDERER", "opengles3_desktopgl_zink_kopper")
+            put("GALLIUM_DRIVER", "zink")
+            put("LIBGL_DRIVERS_PATH", nativeDirectory)
+            put("MESA_ANDROID_NO_KMS_SWRAST", "1")
+            put("MESA_GL_VERSION_OVERRIDE", "4.6COMPAT")
+            put("MESA_GLSL_CACHE_DIR", applicationContext.cacheDir.absolutePath)
+            put("MESA_GLSL_VERSION_OVERRIDE", "460")
+            put("MESA_LOADER_DRIVER_OVERRIDE", "zink")
+            put("POJAVEXEC_EGL", "libEGL_mesa.so")
+            put("POJAV_VSYNC_IN_ZINK", "1")
+        }
+    }
+
+    private fun prepareMobileGluesSettings(): File =
+        applicationContext.filesDir.resolve("trestle/mobileglues").apply {
+            mkdirs()
+            resolve("config.json").takeUnless(File::exists)?.writeText(Json.encodeToString(MOBILE_GLUES_DEFAULTS))
+        }
 
     private fun isDesktopOnlyJvmArgument(argument: String): Boolean =
         argument == "-cp" ||
@@ -635,6 +653,17 @@ class AndroidMinecraftRuntime internal constructor(
         const val EXIT_TIMESTAMP_TOLERANCE_MILLIS = 1_000L
         const val PROCESS_START_TIMEOUT_MILLIS = 20_000L
         const val MAX_STREAMED_LOG_LINE = 8_000
+        val MOBILE_GLUES_DEFAULTS = mapOf(
+            "angleDepthClearFixMode" to 0,
+            "enableANGLE" to 0,
+            "enableExtComputeShader" to 0,
+            "enableExtDirectStateAccess" to 0,
+            "enableExtTimerQuery" to 0,
+            "enableNoError" to 0,
+            "fsr1Setting" to 0,
+            "maxGlslCacheSize" to 128,
+            "multidrawMode" to 0,
+        )
         val PLACEHOLDER = Regex("\\$\\{([^}]+)\\}")
         val AUTH_PLACEHOLDERS = listOf(
             "\${auth_player_name}",

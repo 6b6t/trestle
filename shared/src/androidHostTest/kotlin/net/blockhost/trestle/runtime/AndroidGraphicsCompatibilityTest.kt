@@ -37,4 +37,22 @@ class AndroidGraphicsCompatibilityTest {
         )
         assertEquals("Vulkan 1.2.0", AndroidGraphicsCompatibility.formatVulkanVersion(vulkan12))
     }
+
+    @Test
+    fun selectsMobileGluesForAdreno8xxDevices() {
+        val vulkan13 = (1 shl 22) or (3 shl 12)
+
+        assertTrue(
+            AndroidGraphicsCompatibility(AndroidGpuFamily.ADRENO, "Adreno (TM) 830", "Qualcomm", vulkan13)
+                .prefersMobileGlues,
+        )
+        assertFalse(
+            AndroidGraphicsCompatibility(AndroidGpuFamily.ADRENO, "Adreno (TM) 740", "Qualcomm", vulkan13)
+                .prefersMobileGlues,
+        )
+        assertFalse(
+            AndroidGraphicsCompatibility(AndroidGpuFamily.MALI, "Mali-G925", "ARM", vulkan13)
+                .prefersMobileGlues,
+        )
+    }
 }
