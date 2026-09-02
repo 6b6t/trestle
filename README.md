@@ -45,7 +45,7 @@ The shared module contains the interface, product logic, network clients, persis
 
 - JDK 21
 - Android SDK 37 for Android builds
-- Xcode 16 or newer for iOS builds
+- Xcode 15.4 or newer for iOS builds
 
 Use the included Gradle wrapper. You do not need a separate Gradle installation.
 
