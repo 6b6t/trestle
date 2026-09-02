@@ -26,14 +26,14 @@ Trestle provides:
 - Android launch support for Vanilla Minecraft 26.2 on compatible ARM64 and x64 devices.
 - Android touch, keyboard, mouse, and gamepad input.
 - An iPhone and iPad launcher target with Microsoft authentication and instance management.
-- An iOS runtime bridge for JIT-enabled, in-process Java hosts.
+- A bundled iOS Java 25 and Amethyst-derived runtime bridge for JIT-enabled ARM64 devices.
 
 Android uses a fixed Java 25 and Zink runtime. Android does not support other Minecraft versions or mod loaders yet.
 
 ## Targets
 
 - Android 8.1 or newer (API 27), ARM64 and x64, with Vulkan 1.2 or newer for game launch.
-- iOS 16 or newer on ARM64 devices. Game launch needs an external compatible runtime bridge and JIT.
+- iOS 16 or newer on ARM64 devices. Game launch needs a compatible JIT or jailbreak environment.
 - Linux, macOS, and Windows, with x64 and ARM64 packages and a bundled Java 21 launcher runtime.
 
 Android x64 requires device acceptance tests before stable release. The build checks do not establish Minecraft or GPU compatibility.
@@ -101,7 +101,7 @@ You can compile the shared iOS target from Gradle:
 ./gradlew :shared:compileKotlinIosSimulatorArm64
 ```
 
-The included app supports launcher workflows. Minecraft launch needs a compatible `IosRuntimeBridge` implementation and a JIT-enabled runtime bundle.
+Device builds include the iOS runtime payload. The simulator supports launcher workflows but cannot start the ARM64 device runtime.
 
 See [iOS launcher target](docs/ios.md) for the build, signing, and runtime requirements.
 

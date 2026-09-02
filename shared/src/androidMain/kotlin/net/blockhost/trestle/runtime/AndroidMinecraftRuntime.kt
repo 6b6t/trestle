@@ -23,7 +23,6 @@ import net.blockhost.trestle.auth.SessionProvider
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
-import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.Architecture
@@ -44,20 +43,20 @@ class AndroidMinecraftRuntime internal constructor(
     private val directories: LauncherDirectories,
     private val sessionProvider: SessionProvider,
     private val installedVersionReader: (GameInstance) -> InstalledVersion,
-    downloadPipeline: DownloadPipeline,
     fileSystem: FileSystem,
     private val logger: LauncherLogger,
 ) : MinecraftRuntime {
     private val applicationContext = context.applicationContext
+    private val bundledAssets = AndroidBundledRuntimeAssets(applicationContext.assets, fileSystem)
     private val javaRuntimeManager = AndroidJavaRuntimeManager(
         directories,
-        downloadPipeline,
+        bundledAssets,
         fileSystem,
         logger,
     )
     private val componentManager = AndroidGameComponentManager(
         directories,
-        downloadPipeline,
+        bundledAssets,
         fileSystem,
         logger,
     )
@@ -117,10 +116,10 @@ class AndroidMinecraftRuntime internal constructor(
                     missingRequirements = listOf("Java account"),
                 )
             val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
-                onProgress(progress.toRuntimeProgress("Downloading Java 25 runtime"))
+                onProgress(progress.toRuntimeProgress("Installing Java 25 runtime"))
             }
             val components = componentManager.resolve(AndroidRuntimeAbi.forArchitecture(architecture)) { progress ->
-                onProgress(progress.toRuntimeProgress("Downloading Android game components"))
+                onProgress(progress.toRuntimeProgress("Installing Android game components"))
             }
             val gameDirectory = instance.instanceDirectory.toPath() / "game"
             FileSystem.SYSTEM.createDirectories(gameDirectory)

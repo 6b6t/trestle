@@ -72,3 +72,28 @@ class IosPackageTest(unittest.TestCase):
             (app / 'Trestle').write_bytes(module.MACHO_64_LITTLE_ENDIAN + (0x01000007).to_bytes(4, 'little'))
             with self.assertRaises(ValueError):
                 module.package(app, '1.2.3', root / 'output')
+
+    def test_packages_a_jailbreak_archive_after_signing_the_bundle_and_executable(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            app = self.make_app(root)
+            entitlements = root / 'entitlements.plist'
+            entitlements.write_text('<plist/>')
+            calls = root / 'ldid-calls.txt'
+            signer = root / 'ldid'
+            signer.write_text(f'#!/bin/sh\nprintf "%s\\n" "$*" >> "{calls}"\n')
+            signer.chmod(0o755)
+
+            tipa = module.package_jailbreak(
+                app,
+                '1.2.3',
+                root / 'output',
+                entitlements,
+                str(signer),
+            )
+
+            self.assertEqual('Trestle-1.2.3-ios-arm64.tipa', tipa.name)
+            invocations = calls.read_text().splitlines()
+            self.assertEqual(2, len(invocations))
+            self.assertTrue(invocations[0].startswith('-S '))
+            self.assertTrue(invocations[1].startswith(f'-S{entitlements} '))

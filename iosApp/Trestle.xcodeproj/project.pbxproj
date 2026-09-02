@@ -6,6 +6,8 @@
 	objects = {
 
 		A10000000000000000000001 /* TrestleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* TrestleApp.swift */; };
+		A10000000000000000000006 /* AmethystRuntimeBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* AmethystRuntimeBridge.swift */; };
+		A10000000000000000000007 /* TrestleNativeRuntime.m in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* TrestleNativeRuntime.m */; };
 		A10000000000000000000005 /* licenses in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* licenses */; };
 
 		A10000000000000000000002 /* Products */ = {
@@ -23,8 +25,13 @@
 			isa = PBXGroup;
 			children = (
 				A10000000000000000000011 /* TrestleApp.swift */,
+				A10000000000000000000016 /* AmethystRuntimeBridge.swift */,
+				A10000000000000000000017 /* TrestleNativeRuntime.m */,
+				A10000000000000000000018 /* TrestleNativeRuntime.h */,
+				A10000000000000000000019 /* Trestle-Bridging-Header.h */,
 				A10000000000000000000013 /* Info.plist */,
 				A10000000000000000000014 /* Trestle.entitlements */,
+				A1000000000000000000001A /* Trestle.jailbreak.entitlements */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -35,8 +42,13 @@
 		A10000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000014 /* Trestle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Trestle.entitlements; sourceTree = "<group>"; };
 		A10000000000000000000015 /* licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = licenses; path = ../licenses; sourceTree = "<group>"; };
+		A10000000000000000000016 /* AmethystRuntimeBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmethystRuntimeBridge.swift; sourceTree = "<group>"; };
+		A10000000000000000000017 /* TrestleNativeRuntime.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = TrestleNativeRuntime.m; sourceTree = "<group>"; };
+		A10000000000000000000018 /* TrestleNativeRuntime.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = TrestleNativeRuntime.h; sourceTree = "<group>"; };
+		A10000000000000000000019 /* Trestle-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Trestle-Bridging-Header.h"; sourceTree = "<group>"; };
+		A1000000000000000000001A /* Trestle.jailbreak.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Trestle.jailbreak.entitlements; sourceTree = "<group>"; };
 
-		A10000000000000000000021 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* TrestleApp.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000021 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* TrestleApp.swift in Sources */, A10000000000000000000006 /* AmethystRuntimeBridge.swift in Sources */, A10000000000000000000007 /* TrestleNativeRuntime.m in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000022 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000023 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000005 /* licenses in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000024 /* Build shared framework */ = {
@@ -51,6 +63,18 @@
 			shellPath = /bin/sh;
 			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
+		A10000000000000000000025 /* Bundle iOS runtime */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ("$(SRCROOT)/../scripts/prepare-ios-runtime.py",);
+			name = "Bundle iOS runtime";
+			outputPaths = ("$(TARGET_BUILD_DIR)/$(WRAPPER_NAME)/amethyst-runtime.json",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\nif [ \"$PLATFORM_NAME\" != \"iphoneos\" ]; then\n  exit 0\nfi\nruntime_dir=\"$DERIVED_FILE_DIR/amethyst-runtime\"\ncache_dir=\"$PROJECT_TEMP_DIR/amethyst-cache\"\npython3 \"$SRCROOT/../scripts/prepare-ios-runtime.py\" --output \"$runtime_dir\" --cache \"$cache_dir\" --platform \"$PLATFORM_NAME\"\nrsync -a \"$runtime_dir/\" \"$TARGET_BUILD_DIR/$WRAPPER_NAME/\"\n";
+		};
 
 		A10000000000000000000031 /* Trestle */ = {
 			isa = PBXNativeTarget;
@@ -60,6 +84,7 @@
 				A10000000000000000000021 /* Sources */,
 				A10000000000000000000022 /* Frameworks */,
 				A10000000000000000000023 /* Resources */,
+				A10000000000000000000025 /* Bundle iOS runtime */,
 			);
 			buildRules = ();
 			dependencies = ();
@@ -107,12 +132,13 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
-				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared";
+				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared -Wl,-export_dynamic";
 				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "iosApp/Trestle-Bridging-Header.h";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -131,12 +157,13 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 0.1.0;
-				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared";
+				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared -Wl,-export_dynamic";
 				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "iosApp/Trestle-Bridging-Header.h";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;

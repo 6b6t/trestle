@@ -3,8 +3,6 @@ package net.blockhost.trestle.runtime
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.LauncherException
-import net.blockhost.trestle.download.DownloadPipeline
-import net.blockhost.trestle.download.DownloadRequest
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
@@ -23,7 +21,7 @@ internal data class AndroidJavaRuntime(
 
 internal class AndroidJavaRuntimeManager(
     private val directories: LauncherDirectories,
-    private val downloadPipeline: DownloadPipeline,
+    private val bundledAssets: AndroidBundledRuntimeAssets,
     private val fileSystem: FileSystem,
     private val logger: LauncherLogger,
 ) {
@@ -42,20 +40,8 @@ internal class AndroidJavaRuntimeManager(
             return AndroidJavaRuntime(runtimeRoot, jvmLibrary)
         }
 
-        val archive = directories.runtimes / "downloads" / artifact.fileName
-        downloadPipeline.download(
-            requests = listOf(
-                DownloadRequest(
-                    url = artifact.url,
-                    destination = archive,
-                    size = artifact.size,
-                    progressLabel = "Downloading Java ${artifact.javaMajor} for Android",
-                    sha256 = artifact.sha256,
-                ),
-            ),
-            stagingDirectory = directories.staging / "runtime-download-${artifact.id}",
-            onProgress = onProgress,
-        )
+        val archive = directories.staging / "runtime-install-${artifact.id}" / artifact.fileName
+        bundledAssets.copyRuntime(abi.releaseName, archive, onProgress)
 
         withContext(Dispatchers.IO) {
             val extractionRoot = directories.runtimes / ".${artifact.id}.installing"
@@ -70,7 +56,7 @@ internal class AndroidJavaRuntimeManager(
                 val releaseFile = extractionRoot / "release"
                 if (!fileSystem.exists(extractedJvm) || !fileSystem.exists(releaseFile)) {
                     throw LauncherException.RuntimeUnavailable(
-                        "The downloaded Java ${artifact.javaMajor} runtime is incomplete.",
+                        "The bundled Java ${artifact.javaMajor} runtime is incomplete.",
                     )
                 }
                 abi.verifyLibrary(extractedJvm)
@@ -118,8 +104,6 @@ internal data class AndroidRuntimeArtifact(
     val javaMajor: Int,
     val architecture: Architecture,
     val fileName: String,
-    val url: String,
-    val size: Long,
     val sha256: String,
     val sourceRevision: String,
 ) {
@@ -129,9 +113,6 @@ internal data class AndroidRuntimeArtifact(
             javaMajor = 25,
             architecture = Architecture.ARM64,
             fileName = "jre25-android-arm64.tar.xz",
-            url = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/" +
-                "download_jre25/jre25-android-arm64.tar.xz",
-            size = 38_031_580,
             sha256 = "d3eb7afe2240c26728a1bb440502c5f18ac3883e932d202dd7f0c9bcbbce4c37",
             sourceRevision = "FCL-Team/Android-OpenJDK-Build@7a0266e745d9b4acf400afa189b58e672900f710",
         )
@@ -141,9 +122,6 @@ internal data class AndroidRuntimeArtifact(
             javaMajor = 25,
             architecture = Architecture.X86_64,
             fileName = "jre25-android-x86_64.tar.xz",
-            url = "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/" +
-                "download_jre25/jre25-android-x86_64.tar.xz",
-            size = 39_061_384,
             sha256 = "7fca862ee1b2d5fe23cd9c9c3d9b7ad3c241947ad1a6cc9464ef2e674867105d",
             sourceRevision = "FCL-Team/Android-OpenJDK-Build@7a0266e745d9b4acf400afa189b58e672900f710",
         )

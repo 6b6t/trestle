@@ -11,7 +11,7 @@ TARGETS = {
     ('android', 'arm64'): ('apk',),
     ('android', 'x64'): ('apk',),
     ('android', 'universal'): ('apk', 'aab'),
-    ('ios', 'arm64'): ('ipa',),
+    ('ios', 'arm64'): ('ipa', 'tipa'),
     ('linux', 'x64'): ('deb', 'rpm', 'tar.gz'),
     ('linux', 'arm64'): ('deb', 'rpm', 'tar.gz'),
     ('macos', 'x64'): ('dmg', 'pkg'),

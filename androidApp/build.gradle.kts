@@ -5,6 +5,8 @@ plugins {
 
 val trestleVersion = providers.gradleProperty("trestle.version").orElse("0.1.0")
 val trestleVersionCode = providers.gradleProperty("trestle.versionCode").map(String::toInt).orElse(1)
+val androidRuntimeAssets = layout.buildDirectory.dir("generated/amethystAssets")
+val androidRuntimeCache = rootProject.layout.buildDirectory.dir("runtime-cache/android")
 val releaseSigningEnvironment = listOf(
     "TRESTLE_ANDROID_KEYSTORE_PATH",
     "TRESTLE_ANDROID_STORE_PASSWORD",
@@ -78,6 +80,25 @@ tasks.matching { it.name == "preReleaseBuild" }.configureEach {
     dependsOn(validateReleaseSigning)
 }
 
+val prepareAndroidRuntime = tasks.register<Exec>("prepareAndroidRuntime") {
+    group = "build"
+    description = "Assembles the pinned Amethyst-derived Android runtime assets."
+    inputs.file(rootProject.file("scripts/prepare-android-runtime.py"))
+    outputs.dir(androidRuntimeAssets)
+    commandLine(
+        "python3",
+        rootProject.file("scripts/prepare-android-runtime.py"),
+        "--output",
+        androidRuntimeAssets.get().asFile,
+        "--cache",
+        androidRuntimeCache.get().asFile,
+    )
+}
+
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(prepareAndroidRuntime)
+}
+
 dependencies {
     implementation(project(":shared"))
     implementation(libs.androidx.activity.compose)
@@ -91,4 +112,5 @@ dependencies {
 
 androidComponents.onVariants { variant ->
     variant.sources.assets?.addStaticSourceDirectory(rootProject.file("licenses").absolutePath)
+    variant.sources.assets?.addStaticSourceDirectory(androidRuntimeAssets.get().asFile.absolutePath)
 }

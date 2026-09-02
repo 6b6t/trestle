@@ -11,18 +11,18 @@ The iOS target provides these launcher features:
 - Microsoft device-code authentication and offline profiles.
 - Keychain-backed credential storage.
 - iOS file, ZIP extraction, clipboard, and long-press adapters.
-- An `IosRuntimeBridge` interface for an in-process Java runtime.
+- An `IosRuntimeBridge` implementation for the bundled, in-process Java runtime.
 
-The default Xcode app uses `UnavailableIosRuntimeBridge`. The app can manage instances, but it cannot start Minecraft with this bridge.
+Physical-device builds include pinned Java 25, LWJGL, audio, and graphics runtime files. The Xcode host loads these files at runtime. Trestle owns the launcher interface, instance data, authentication, and launch arguments.
+The native host creates Trestle's game surface and translates direct touch input to GLFW cursor and mouse events.
+The Xcode target does not link to the bundled Amethyst libraries. It loads them from the app at runtime.
 
-Game launch needs a separate runtime bundle. This bundle must contain patched Java, LWJGL, GLFW, audio, and graphics libraries.
-
-Trestle does not include this bundle. The projects below show the required native architecture:
+The implementation follows the native runtime architecture from these projects:
 
 - [PojavLauncher for iOS](https://github.com/PojavLauncherTeam/PojavLauncher_iOS)
 - [Amethyst for iOS](https://github.com/AngelAuraMC/Amethyst-iOS)
 
-These projects use GPL-licensed source. Keep their copyright notices and license terms when you adapt their source.
+Trestle pins Amethyst iOS commit `9212a1894865e7ac0466029e25ddb0d895544c76`. The build verifies the source archive and Java archive before it copies files into the app. The app also contains Amethyst's GPL license text.
 
 ## Build the launcher
 
@@ -66,20 +66,21 @@ xcodebuild \
   build
 ```
 
-Then package the application:
+Then package the application. Install `ldid` if you also need the jailbreak package:
 
 ```bash
 python3 scripts/package-ios.py \
   --app build/ios/Build/Products/Release-iphoneos/Trestle.app \
   --version 0.1.0 \
-  --output build/release-artifacts
+  --output build/release-artifacts \
+  --jailbreak-entitlements iosApp/iosApp/Trestle.jailbreak.entitlements
 ```
 
-The generated IPA has no signature. Sign it with your Apple account and provisioning profile before installation.
+The command creates an unsigned IPA and an `ldid`-signed `.tipa`. The IPA needs an Apple account and provisioning profile before normal installation. The `.tipa` is for a compatible jailbroken or TrollStore device.
 
-## Connect a game runtime
+## Runtime bridge
 
-Implement `IosRuntimeBridge` in an iOS host library. Pass the implementation to `TrestleViewController` from `TrestleApp.swift`.
+`AmethystRuntimeBridge.swift` implements `IosRuntimeBridge`. `TrestleApp.swift` passes it to `TrestleViewController`.
 
 The bridge must provide these operations:
 
@@ -90,7 +91,7 @@ The bridge must provide these operations:
 - Send start, output, exit, and error events to `IosJvmLaunchObserver`.
 - Stop the active runtime when Trestle cancels the launch.
 
-The bridge owns the game surface, input, audio, renderer, and Java lifecycle. Trestle owns installation, authentication, and launch arguments.
+The bridge owns the native runtime and Java lifecycle. Trestle owns the interface, installation, authentication, and launch arguments.
 
 The runtime descriptor must exclude normal desktop LWJGL files. It must provide patched iOS LWJGL files instead.
 
@@ -105,9 +106,9 @@ The Xcode target contains these public memory entitlements:
 
 Your Apple account and provisioning profile must permit these entitlements. Remove an entitlement if your profile rejects it.
 
-The project does not contain private Apple entitlements, sandbox bypasses, or automatic JIT exploits. A runtime bridge must report a clear error when JIT is unavailable.
+The normal Xcode entitlement file contains only public memory entitlements. The separate jailbreak entitlement file follows Amethyst's unrestricted runtime package. Do not use that file for App Store or normal development signing.
 
-For development, Xcode can attach LLDB to the application. Other installation methods need their own legal JIT activation process.
+For development, Xcode can attach LLDB to the application. Other installation methods need a compatible JIT or jailbreak environment.
 
 ## Platform notes
 

@@ -19,9 +19,11 @@ ARM32 requires separate game, memory, and graphics compatibility work.
 Trestle selects native components from the running Android process architecture, rather than the device's preferred ABI.
 The universal APK contains both ARM64 and x64 launcher libraries. Each process installs only its matching native game libraries.
 
-Trestle downloads a Java 25 runtime for Android. It validates the archive with SHA-256 before extraction.
+The build packages Java 25 for Android. Trestle validates the bundled archive with SHA-256 before extraction.
 
-Trestle also downloads the Android LWJGL, OpenAL, Zink, and native bridge components. Each component has a fixed source revision and checksum.
+The build also packages Android LWJGL, OpenAL, Zink, and native bridge components. Each component has a fixed source revision and checksum.
+The app does not download these runtime components during launch. Minecraft assets and libraries still use their normal verified download sources.
+Gradle stores the component files as app assets. Trestle does not link its launcher code to those files.
 The runtime verifies the ELF class, byte order, and machine type before it uses a native library.
 ARM64 and x64 use separate runtime and component caches.
 
@@ -69,6 +71,6 @@ If the process stops without an exit event, Trestle reads Android process-exit i
 
 ## Licensing
 
-The runtime uses components from Amethyst and Android OpenJDK builds at fixed revisions. The source repository records the required licenses.
+The runtime uses components from Amethyst Android 1.1.6 and Android OpenJDK builds at fixed revisions. The APK contains the Amethyst LGPL license text.
 
 Trestle downloads Minecraft files from official endpoints. It does not redistribute Mojang files or bypass ownership checks.

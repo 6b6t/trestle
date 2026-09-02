@@ -8,6 +8,7 @@ import net.blockhost.trestle.auth.AuthSession
 import net.blockhost.trestle.auth.SessionProvider
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.InstalledVersion
@@ -75,6 +76,8 @@ internal class IosMinecraftRuntime(
         supportsManagedJava = bridge.availability.available,
         supportsNativeExtraction = bridge.availability.available,
         unavailableReason = bridge.availability.reason,
+        supportedMinecraftVersions = setOf(SUPPORTED_MINECRAFT_VERSION),
+        supportedModLoaders = setOf(ModLoader.VANILLA),
     )
 
     override suspend fun prepare(
@@ -105,6 +108,7 @@ internal class IosMinecraftRuntime(
         val jvmArguments = buildList {
             add(CommandArgument.Public("-Xms${instance.memory.minimumMiB}M"))
             add(CommandArgument.Public("-Xmx${instance.memory.maximumMiB}M"))
+            add(CommandArgument.Public("-XstartOnFirstThread"))
             installed.jvmArguments
                 .filterNot(::isDesktopOnlyJvmArgument)
                 .mapTo(this) { CommandArgument.Public(substitutePublic(it, values)) }
@@ -116,6 +120,9 @@ internal class IosMinecraftRuntime(
             add(CommandArgument.Public("-Dos.name=iOS"))
             add(CommandArgument.Public("-Dorg.lwjgl.glfw.checkThread0=false"))
             add(CommandArgument.Public("-Dorg.lwjgl.system.allocator=system"))
+            add(CommandArgument.Public("-Dorg.lwjgl.opengl.libname=${runtime.nativeDirectory}/libgl4es_114.dylib"))
+            add(CommandArgument.Public("-Dglfw.windowSize=1280x720"))
+            add(CommandArgument.Public("-DUIScreen.maximumFramesPerSecond=60"))
             add(CommandArgument.Public("-Dfml.earlyprogresswindow=false"))
             addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted.map(CommandArgument::Public))
             addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted.map(CommandArgument::Public))
@@ -134,6 +141,7 @@ internal class IosMinecraftRuntime(
             environment = mapOf(
                 "HOME" to directories.root.toString(),
                 "JAVA_HOME" to runtime.javaHome,
+                "BUNDLE_PATH" to platform.Foundation.NSBundle.mainBundle.bundlePath,
                 "POJAV_HOME" to directories.root.toString(),
                 "POJAV_GAME_DIR" to gameDirectory.toString(),
                 "TMPDIR" to (directories.root / "tmp").toString(),
@@ -244,6 +252,7 @@ internal class IosMinecraftRuntime(
 
     private companion object {
         const val MAX_LOG_LINE = 8_000
+        const val SUPPORTED_MINECRAFT_VERSION = "26.2"
         val PLACEHOLDER = Regex("\\$\\{([^}]+)\\}")
         val AUTH_PLACEHOLDERS = listOf(
             "\${auth_player_name}",

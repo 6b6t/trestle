@@ -4,7 +4,7 @@ This guide is for maintainers who build and publish Trestle packages.
 
 ## Release requirements
 
-Android packages use the Trestle release key. The iOS IPA and Windows installers are unsigned. macOS apps use ad hoc signatures.
+Android packages use the Trestle release key. The iOS IPA and Windows installers are unsigned. The iOS `.tipa` uses an `ldid` signature for jailbreak installation. macOS apps use ad hoc signatures.
 
 This signing policy applies to stable and preview releases. macOS apps are not notarized, and desktop systems can show security warnings.
 
@@ -19,7 +19,7 @@ Before the first stable release:
 - Confirm that removal preserves the launcher data directory and Minecraft instances.
 - Test Minecraft launch, game exit, and relaunch on the supported architectures.
 - Test Android 8.1 or newer on supported ARM64 and x64 devices. Android currently supports Vanilla Minecraft 26.2 only.
-- Sign the iOS IPA locally. Test installation and launcher workflows on an ARM64 device with iOS 16 or newer.
+- Sign the iOS IPA locally, or install the `.tipa` on a compatible jailbreak. Test game launch on an ARM64 device with iOS 16 or newer.
 - Back up a test world before testing pack updates across Minecraft versions.
 - Verify Android release signatures, macOS ad hoc signatures, and package checksums.
 
@@ -27,7 +27,7 @@ Before the first stable release:
 
 Android signing uses the existing dedicated key. Follow [Android signing](android-signing.md) for backup and recovery instructions.
 
-The release workflow packages the iOS application without a signature. It does not use an Apple certificate or provisioning profile.
+The release workflow does not use an Apple certificate or provisioning profile. It creates an unsigned IPA and a jailbreak `.tipa` with `ldid`.
 
 Users must sign the IPA before installation. The signing profile must permit each entitlement in `iosApp/iosApp/Trestle.entitlements`.
 
@@ -49,9 +49,7 @@ Run the **Build release artifacts** workflow with a numeric version such as `0.1
 Android builds produce ARM64, x64, and universal APKs, plus one universal app bundle.
 Update notices select the APK for the running process architecture. The app bundle is for store distribution, not direct installation.
 
-The iOS build produces `Trestle-<version>-ios-arm64.ipa`. This IPA is unsigned and contains the launcher application.
-
-The default iOS application does not include the Java runtime bridge. It cannot start Minecraft until a compatible bridge is added.
+The iOS build produces `Trestle-<version>-ios-arm64.ipa` and `Trestle-<version>-ios-arm64.tipa`. Both contain the pinned Java 25 and Amethyst-derived runtime payload.
 
 After a signed Android build, collect and verify its packages:
 
@@ -89,7 +87,7 @@ The release includes:
 - `release-manifest.json`: version, source commit, platform, architecture, download URL, checksum, size, and minimum operating system.
 - `SHA256SUMS`: checksums for the binary packages.
 - `downloads.html`: a download table generated from the same package metadata.
-- An unsigned ARM64 IPA for local signing and sideloading.
+- An unsigned ARM64 IPA for local signing and a jailbreak `.tipa`.
 - A Homebrew cask, WinGet manifests, and a Flatpak manifest with actual package checksums.
 
 GitHub downloads HTML as an asset. Hosting that page as a website is a separate publishing step.

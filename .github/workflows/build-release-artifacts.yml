@@ -144,6 +144,9 @@ jobs:
           TRESTLE_VERSION: ${{ inputs.version }}
         run: ./scripts/set-version.sh "$TRESTLE_VERSION"
 
+      - name: Install jailbreak package signer
+        run: brew install ldid
+
       - name: Build unsigned iOS application
         run: >-
           xcodebuild
@@ -165,6 +168,7 @@ jobs:
           --app "$RUNNER_TEMP/trestle-ios/Build/Products/Release-iphoneos/Trestle.app"
           --version "$TRESTLE_VERSION"
           --output release-artifacts
+          --jailbreak-entitlements iosApp/iosApp/Trestle.jailbreak.entitlements
 
       - name: Upload iOS package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

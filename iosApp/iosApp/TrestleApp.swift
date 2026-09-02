@@ -13,7 +13,7 @@ struct TrestleIosApp: App {
 
 private struct TrestleRootView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> UIViewController {
-        MainViewControllerKt.MainViewController()
+        MainViewControllerKt.TrestleViewController(runtimeBridge: AmethystRuntimeBridge())
     }
 
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}

@@ -82,7 +82,7 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
         archiveExtractor = JvmArchiveExtractor(),
         instanceExporter = JvmInstanceExporter(),
         gameDataManager = JvmGameDataManager(),
-    ) { directories, installer, sessionProvider, logger, downloadPipeline ->
+    ) { directories, installer, sessionProvider, logger, _ ->
         AndroidMinecraftRuntime(
             context = context,
             architecture = architecture,
@@ -90,7 +90,6 @@ fun createAndroidLauncherServices(context: Context): LauncherServices {
             directories = directories,
             sessionProvider = sessionProvider,
             installedVersionReader = installer::readInstalledVersion,
-            downloadPipeline = downloadPipeline,
             fileSystem = FileSystem.SYSTEM,
             logger = logger,
         )
