@@ -100,7 +100,7 @@ Name: trestle
 Version: {args.version}
 Release: 1
 Summary: Minecraft Java Edition launcher
-License: Apache-2.0
+License: GPL-3.0-only
 URL: https://github.com/6b6t/trestle
 BuildArch: {rpm_arch}
 AutoReqProv: no

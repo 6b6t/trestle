@@ -56,7 +56,7 @@ def main():
         mount = temporary / 'mounted'
         subprocess.run([
             'hdiutil', 'attach', '-readonly', '-nobrowse', '-mountpoint', str(mount), str(dmg),
-        ], input=b'Y\n', check=True)  # Accept the bundled Apache license without a terminal.
+        ], input=b'Y\n', check=True)  # Accept the bundled project license without a terminal.
         installed = temporary / 'installed/Trestle.app'
         try:
             app = one(mount.glob('*.app'), 'application in the DMG')

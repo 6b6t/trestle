@@ -6,6 +6,7 @@
 	objects = {
 
 		A10000000000000000000001 /* TrestleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* TrestleApp.swift */; };
+		A10000000000000000000005 /* licenses in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* licenses */; };
 
 		A10000000000000000000002 /* Products */ = {
 			isa = PBXGroup;
@@ -15,7 +16,7 @@
 		};
 		A10000000000000000000003 = {
 			isa = PBXGroup;
-			children = (A10000000000000000000004 /* iosApp */, A10000000000000000000002 /* Products */,);
+			children = (A10000000000000000000004 /* iosApp */, A10000000000000000000015 /* licenses */, A10000000000000000000002 /* Products */,);
 			sourceTree = "<group>";
 		};
 		A10000000000000000000004 /* iosApp */ = {
@@ -33,10 +34,11 @@
 		A10000000000000000000012 /* Trestle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Trestle.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000014 /* Trestle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Trestle.entitlements; sourceTree = "<group>"; };
+		A10000000000000000000015 /* licenses */ = {isa = PBXFileReference; lastKnownFileType = folder; name = licenses; path = ../licenses; sourceTree = "<group>"; };
 
 		A10000000000000000000021 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* TrestleApp.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000022 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-		A10000000000000000000023 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000023 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000005 /* licenses in Resources */,); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000024 /* Build shared framework */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;

@@ -84,7 +84,7 @@ compose.desktop {
                 appCategory = "Game"
                 appRelease = "1"
                 debMaintainer = "40795980+AlexProgrammerDE@users.noreply.github.com"
-                rpmLicenseType = "Apache-2.0"
+                rpmLicenseType = "GPL-3.0-only"
             }
 
             macOS {

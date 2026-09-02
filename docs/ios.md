@@ -22,7 +22,7 @@ Trestle does not include this bundle. The projects below show the required nativ
 - [PojavLauncher for iOS](https://github.com/PojavLauncherTeam/PojavLauncher_iOS)
 - [Amethyst for iOS](https://github.com/AngelAuraMC/Amethyst-iOS)
 
-These projects use GPL-licensed source. Do not copy their source into Trestle without a compatible licensing decision.
+These projects use GPL-licensed source. Keep their copyright notices and license terms when you adapt their source.
 
 ## Build the launcher
 

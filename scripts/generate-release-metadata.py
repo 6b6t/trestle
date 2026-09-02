@@ -92,7 +92,7 @@ PublisherUrl: https://github.com/{repository}
 PublisherSupportUrl: https://github.com/{repository}/issues
 PackageName: Trestle
 PackageUrl: https://github.com/{repository}
-License: Apache-2.0
+License: GPL-3.0-only
 LicenseUrl: https://github.com/{repository}/blob/{commit}/LICENSE
 ShortDescription: Minecraft Java Edition launcher
 ReleaseNotesUrl: https://github.com/{repository}/releases/tag/{version}

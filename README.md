@@ -146,7 +146,9 @@ licenses/     Licenses for bundled third-party assets
 
 ## License
 
-Trestle source code uses the [Apache License 2.0](LICENSE).
+Trestle source code uses the [GNU General Public License version 3 only](LICENSE).
+
+Some third-party code uses the Apache License 2.0. See [`licenses/Apache-2.0.txt`](licenses/Apache-2.0.txt).
 
 The bundled Roboto font uses the SIL Open Font License 1.1. See [`licenses/OFL-Roboto.txt`](licenses/OFL-Roboto.txt).
 
