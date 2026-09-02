@@ -122,7 +122,7 @@
 				ARCHS = arm64;
 				CODE_SIGN_ENTITLEMENTS = iosApp/Trestle.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1009;
+				CURRENT_PROJECT_VERSION = 1010;
 				DEVELOPMENT_ASSET_PATHS = "";
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
@@ -131,7 +131,7 @@
 				INFOPLIST_FILE = iosApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared -Wl,-export_dynamic";
 				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -149,14 +149,14 @@
 				ARCHS = arm64;
 				CODE_SIGN_ENTITLEMENTS = iosApp/Trestle.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1009;
+				CURRENT_PROJECT_VERSION = 1010;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = iosApp/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
-				MARKETING_VERSION = 0.1.9;
+				MARKETING_VERSION = 0.1.10;
 				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared -Wl,-export_dynamic";
 				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
 				PRODUCT_NAME = "$(TARGET_NAME)";
