@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import net.blockhost.trestle.platform.useOkio
 import okio.GzipSink
 import okio.Path.Companion.toPath
 import okio.buffer
@@ -69,7 +70,7 @@ class GameFileBrowserFilesTest {
         val root = "/instances/demo".toPath()
         val log = root / "game/logs/latest.log.gz"
         fileSystem.createDirectories(requireNotNull(log.parent))
-        GzipSink(fileSystem.sink(log)).buffer().use { sink ->
+        GzipSink(fileSystem.sink(log)).buffer().useOkio { sink ->
             sink.writeUtf8("first line\nsecond line\nlast line\n")
         }
         val browser = GameFileBrowserFiles(root.toString(), fileSystem)

@@ -26,7 +26,7 @@ These projects use GPL-licensed source. Do not copy their source into Trestle wi
 
 ## Build the launcher
 
-Use a Mac with Xcode 15.4 or newer and JDK 21.
+Use a Mac with Xcode 16.4 or newer and JDK 21.
 
 1. Open `iosApp/Trestle.xcodeproj` in Xcode.
 2. Select the `Trestle` target.
