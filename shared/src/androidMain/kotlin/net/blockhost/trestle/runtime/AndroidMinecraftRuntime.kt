@@ -270,10 +270,17 @@ class AndroidMinecraftRuntime internal constructor(
         }
         fun monitorProcess(processId: Long) {
             processAnnounced.set(true)
-            if (processId <= 0 || !monitorStarted.compareAndSet(false, true)) return
+            if (
+                processId <= 0 ||
+                Build.VERSION.SDK_INT < Build.VERSION_CODES.R ||
+                !monitorStarted.compareAndSet(false, true)
+            ) {
+                return
+            }
             this@callbackFlow.launch(Dispatchers.IO) {
-                val processDirectory = File("/proc/$processId")
-                while (isActive && processDirectory.exists()) delay(PROCESS_POLL_MILLIS)
+                while (isActive && findSystemExit(processId.toInt(), launchStartedAt) == null) {
+                    delay(PROCESS_POLL_MILLIS)
+                }
                 if (isActive && terminalReceived.compareAndSet(false, true)) {
                     runCatching { streamAvailableOutput(includePartialLine = true) }
                     val message = unexpectedProcessDeath(
@@ -450,20 +457,24 @@ class AndroidMinecraftRuntime internal constructor(
 
     private suspend fun awaitSystemExit(processId: Int, launchStartedAt: Long): ApplicationExitInfo? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return null
-        val activityManager = applicationContext.getSystemService(ActivityManager::class.java)
         repeat(EXIT_INFO_ATTEMPTS) { attempt ->
-            val systemExit = runCatching {
-                activityManager.getHistoricalProcessExitReasons(null, processId, 0)
-                    .firstOrNull { exit ->
-                        exit.pid == processId && exit.timestamp >= launchStartedAt - EXIT_TIMESTAMP_TOLERANCE_MILLIS
-                    }
-            }.onFailure { error ->
-                logger.warn("runtime", "Could not inspect the Android process exit", error)
-            }.getOrNull()
+            val systemExit = findSystemExit(processId, launchStartedAt)
             if (systemExit != null) return systemExit
             if (attempt < EXIT_INFO_ATTEMPTS - 1) delay(EXIT_INFO_RETRY_MILLIS)
         }
         return null
+    }
+
+    private fun findSystemExit(processId: Int, launchStartedAt: Long): ApplicationExitInfo? {
+        val activityManager = applicationContext.getSystemService(ActivityManager::class.java)
+        return runCatching {
+            activityManager.getHistoricalProcessExitReasons(null, processId, 0)
+                .firstOrNull { exit ->
+                    exit.pid == processId && exit.timestamp >= launchStartedAt - EXIT_TIMESTAMP_TOLERANCE_MILLIS
+                }
+        }.onFailure { error ->
+            logger.warn("runtime", "Could not inspect the Android process exit", error)
+        }.getOrNull()
     }
 
     private fun persistSystemExit(
