@@ -18,9 +18,11 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
+import kotlin.concurrent.Volatile
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.platform.useOkio
 import okio.FileSystem
 import okio.Path
 import okio.buffer
@@ -268,7 +270,7 @@ class DownloadPipeline(
                 }
                 fileSystem.createDirectories(requireNotNull(stagedPath.parent))
                 val rawSink = if (appending) fileSystem.appendingSink(stagedPath) else fileSystem.sink(stagedPath)
-                rawSink.buffer().use { sink ->
+                rawSink.buffer().useOkio { sink ->
                     val channel = response.bodyAsChannel()
                     val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
                     while (true) {

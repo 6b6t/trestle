@@ -1,5 +1,6 @@
 package net.blockhost.trestle.ui
 
+import net.blockhost.trestle.platform.useOkio
 import okio.Buffer
 import okio.FileSystem
 import okio.GzipSource
@@ -164,8 +165,8 @@ internal class GameFileBrowserFiles(
     private fun readPlainTail(file: Path, size: Long): Pair<String, Boolean> {
         val truncated = size > MAX_TEXT_PREVIEW_BYTES
         val offset = if (truncated) size - MAX_TEXT_PREVIEW_BYTES else 0L
-        val text = fileSystem.openReadOnly(file).use { handle ->
-            handle.source(offset).buffer().use { source -> source.readUtf8() }
+        val text = fileSystem.openReadOnly(file).useOkio { handle ->
+            handle.source(offset).buffer().useOkio { source -> source.readUtf8() }
         }
         return trimPartialFirstLine(text, truncated) to truncated
     }
@@ -173,7 +174,7 @@ internal class GameFileBrowserFiles(
     private fun readCompressedTail(file: Path): Pair<String, Boolean> {
         val tail = Buffer()
         var truncated = false
-        GzipSource(fileSystem.source(file)).buffer().use { source ->
+        GzipSource(fileSystem.source(file)).buffer().useOkio { source ->
             while (true) {
                 val read = source.read(tail, READ_CHUNK_BYTES)
                 if (read == -1L) break

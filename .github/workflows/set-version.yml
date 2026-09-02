@@ -61,7 +61,7 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@4a55954c782fc1ea30b9056cd3e7a2b40ca8887d # v7.2.0
         with:
           commit_message: "chore(release): bump version to ${{ inputs.version }}"
-          file_pattern: gradle.properties shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt
+          file_pattern: gradle.properties shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt iosApp/Trestle.xcodeproj/project.pbxproj
 
       - name: Record source commit
         id: commit

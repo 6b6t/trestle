@@ -12,6 +12,16 @@ kotlin {
     jvmToolchain(21)
     applyDefaultHierarchyTemplate()
 
+    listOf(
+        iosArm64(),
+        iosSimulatorArm64(),
+    ).forEach { iosTarget ->
+        iosTarget.binaries.framework {
+            baseName = "TrestleShared"
+            isStatic = true
+        }
+    }
+
     android {
         namespace = "net.blockhost.trestle.shared"
         compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -91,6 +101,10 @@ kotlin {
                 implementation(libs.ktor.client.cio)
                 implementation(libs.slf4j.api)
             }
+        }
+
+        getByName("iosMain").dependencies {
+            implementation(libs.ktor.client.darwin)
         }
 
         getByName("desktopTest").dependencies {

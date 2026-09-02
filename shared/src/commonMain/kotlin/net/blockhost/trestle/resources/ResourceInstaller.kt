@@ -1,5 +1,6 @@
 package net.blockhost.trestle.resources
 
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json

@@ -29,7 +29,7 @@ object LaunchTuningAdvisor {
                 add("The configured memory leaves too little RAM for the operating system.")
             }
             if (system.isMobile && instance.memory.maximumMiB > system.totalMemoryMiB / 2) {
-                add("High Android memory allocation can cause the system to stop Minecraft.")
+                add("High mobile memory allocation can cause the system to stop Minecraft.")
             }
             if (instance.memory.maximumMiB < 1_024 && instance.modLoader != ModLoader.VANILLA) {
                 add("Modded instances usually need at least 1 GiB of memory.")

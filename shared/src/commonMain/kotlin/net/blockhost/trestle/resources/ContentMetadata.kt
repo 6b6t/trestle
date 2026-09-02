@@ -6,6 +6,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.platform.useOkio
 import okio.FileSystem
 import okio.HashingSource
 import okio.Path
@@ -32,13 +33,13 @@ data class ContentMetadata(
 internal expect fun readEmbeddedMetadata(fileSystem: FileSystem, path: Path): ContentMetadata
 internal expect fun curseForgeFingerprint(fileSystem: FileSystem, path: Path): Long
 
-internal fun FileSystem.sha1(path: Path): String = HashingSource.sha1(source(path)).use { source ->
-    blackholeSink().buffer().use { it.writeAll(source) }
+internal fun FileSystem.sha1(path: Path): String = HashingSource.sha1(source(path)).useOkio { source ->
+    blackholeSink().buffer().useOkio { it.writeAll(source) }
     source.hash.hex()
 }
 
-internal fun FileSystem.sha256(path: Path): String = HashingSource.sha256(source(path)).use { source ->
-    blackholeSink().buffer().use { it.writeAll(source) }
+internal fun FileSystem.sha256(path: Path): String = HashingSource.sha256(source(path)).useOkio { source ->
+    blackholeSink().buffer().useOkio { it.writeAll(source) }
     source.hash.hex()
 }
 

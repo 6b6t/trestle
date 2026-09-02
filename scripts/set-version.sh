@@ -68,6 +68,23 @@ if count != 1:
     raise SystemExit('Expected exactly one version constant in BuildInfo.kt.')
 properties_path.write_text(properties)
 build_info_path.write_text(build_info)
+
+xcode_project_path = Path('iosApp/Trestle.xcodeproj/project.pbxproj')
+if xcode_project_path.exists():
+    xcode_project = xcode_project_path.read_text()
+    xcode_project, marketing_count = re.subn(
+        r'(MARKETING_VERSION = )[0-9]+\.[0-9]+\.[0-9]+(;)',
+        lambda match: f'{match[1]}{version}{match[2]}',
+        xcode_project,
+    )
+    xcode_project, build_count = re.subn(
+        r'(CURRENT_PROJECT_VERSION = )[0-9]+(;)',
+        lambda match: f'{match[1]}{version_code}{match[2]}',
+        xcode_project,
+    )
+    if marketing_count != 2 or build_count != 2:
+        raise SystemExit('Expected iOS version settings in both build configurations.')
+    xcode_project_path.write_text(xcode_project)
 PY
 
 printf '%s\n' "$version_code"

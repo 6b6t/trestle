@@ -77,7 +77,10 @@ class UpdateChecker(
                 }
             }
         }
-        val platform = if (isMobile) "android" else when (environment?.operatingSystem) {
+        val platform = if (isMobile) when (environment?.operatingSystem) {
+            OperatingSystem.IOS -> "ios"
+            else -> "android"
+        } else when (environment?.operatingSystem) {
             OperatingSystem.MACOS -> "macos"
             OperatingSystem.WINDOWS -> "windows"
             OperatingSystem.LINUX -> "linux"

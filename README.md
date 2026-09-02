@@ -25,12 +25,15 @@ Trestle provides:
 - Desktop pre-launch, wrapper, and post-exit commands.
 - Android launch support for Vanilla Minecraft 26.2 on compatible ARM64 and x64 devices.
 - Android touch, keyboard, mouse, and gamepad input.
+- An iPhone and iPad launcher target with Microsoft authentication and instance management.
+- An iOS runtime bridge for JIT-enabled, in-process Java hosts.
 
 Android uses a fixed Java 25 and Zink runtime. Android does not support other Minecraft versions or mod loaders yet.
 
 ## Targets
 
 - Android 8.1 or newer (API 27), ARM64 and x64, with Vulkan 1.2 or newer for game launch.
+- iOS 16 or newer on ARM64 devices. Game launch needs an external compatible runtime bridge and JIT.
 - Linux, macOS, and Windows, with x64 and ARM64 packages and a bundled Java 21 launcher runtime.
 
 Android x64 requires device acceptance tests before stable release. The build checks do not establish Minecraft or GPU compatibility.
@@ -42,6 +45,7 @@ The shared module contains the interface, product logic, network clients, persis
 
 - JDK 21
 - Android SDK 37 for Android builds
+- Xcode 16 or newer for iOS builds
 
 Use the included Gradle wrapper. You do not need a separate Gradle installation.
 
@@ -87,6 +91,20 @@ Trestle shows CurseForge as unavailable when the key is not set. Modrinth search
 
 Release APKs and app bundles use a dedicated signing key. See [Android release signing](docs/android-signing.md) for configuration and backup instructions.
 
+## Build the iOS app
+
+Open `iosApp/Trestle.xcodeproj` on a Mac. Select a development team, then build the `Trestle` scheme.
+
+You can compile the shared iOS target from Gradle:
+
+```bash
+./gradlew :shared:compileKotlinIosSimulatorArm64
+```
+
+The included app supports launcher workflows. Minecraft launch needs a compatible `IosRuntimeBridge` implementation and a JIT-enabled runtime bundle.
+
+See [iOS launcher target](docs/ios.md) for the build, signing, and runtime requirements.
+
 ## Validate changes
 
 Run the shared tests:
@@ -112,6 +130,7 @@ GitHub Actions runs these checks for each pull request and each push to `main`.
 ## Architecture references
 
 - [Android runtime boundary](docs/android-runtime.md)
+- [iOS launcher and runtime boundary](docs/ios.md)
 - [Launcher service endpoints](docs/service-endpoints.md)
 
 ## Project structure
@@ -119,6 +138,7 @@ GitHub Actions runs these checks for each pull request and each push to `main`.
 ```text
 androidApp/   Android application and entry point
 desktopApp/   Desktop application and entry point
+iosApp/       iOS application and Xcode project
 shared/       Shared UI, resources, domain model, and tests
 gradle/       Version catalog and Gradle wrapper files
 licenses/     Licenses for bundled third-party assets

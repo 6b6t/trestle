@@ -14,6 +14,28 @@ import kotlin.test.assertNull
 
 class UpdateCheckerTest {
     @Test
+    fun selectsIosArtifactForIosDevices() = runTest {
+        val hash = "a".repeat(64)
+        val release = """{"tag_name":"v2.0.0","html_url":"https://example.test/release","assets":[{"name":"release-manifest.json","browser_download_url":"https://example.test/manifest"}]}"""
+        val checker = UpdateChecker(
+            HttpClient(MockEngine { request ->
+                if (request.url.encodedPath.endsWith("manifest")) {
+                    respond("""{"schemaVersion":1,"version":"2.0.0","artifacts":[
+                        {"platform":"ios","architecture":"arm64","format":"ipa","url":"https://example.test/trestle.ipa","sha256":"$hash","size":100,"minimumOS":"iOS 16"},
+                        {"platform":"android","architecture":"arm64","format":"apk","url":"https://example.test/trestle.apk","sha256":"$hash","size":100,"minimumOS":"Android 8.1"}
+                    ]}""")
+                } else {
+                    respond(release)
+                }
+            }),
+            environment = PlatformEnvironment(OperatingSystem.IOS, Architecture.ARM64),
+            isMobile = true,
+        )
+
+        assertEquals("ipa", checker.availableUpdate("1.0.0")?.downloads?.single()?.format)
+    }
+
+    @Test
     fun selectsAndroidApkForProcessArchitecture() = runTest {
         val artifacts = listOf("arm64" to "apk", "x64" to "apk", "universal" to "apk", "universal" to "aab", "x64" to "deb")
         val manifest = ReleaseManifest(1, "2.0.0", artifacts.map { (arch, format) ->

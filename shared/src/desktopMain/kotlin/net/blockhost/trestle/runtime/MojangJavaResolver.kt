@@ -257,6 +257,9 @@ internal fun mojangRuntimePlatform(environment: PlatformEnvironment): String = w
         Architecture.X86_64 -> "mac-os"
         else -> unsupportedPlatform("macOS", environment.architecture)
     }
+    OperatingSystem.IOS -> throw LauncherException.RuntimeUnavailable(
+        "iOS runtimes are provided by the iOS application host.",
+    )
     OperatingSystem.WINDOWS -> when (environment.architecture) {
         Architecture.ARM64 -> "windows-arm64"
         Architecture.X86_64 -> "windows-x64"

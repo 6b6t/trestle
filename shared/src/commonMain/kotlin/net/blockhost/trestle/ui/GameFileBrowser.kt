@@ -157,7 +157,7 @@ internal fun GameFileBrowserDialog(
     }
 
     LaunchedEffect(files, initialPath) {
-        runCatching { withContext(Dispatchers.IO) { files.locate(initialPath) } }
+        runCatching { withContext(Dispatchers.Default) { files.locate(initialPath) } }
             .onSuccess { location ->
                 currentDirectoryPath = location.directoryPath
                 when (location.fileType) {
@@ -173,7 +173,7 @@ internal fun GameFileBrowserDialog(
         filter = ""
         directoryContent = DirectoryContent.Loading
         directoryContent = runCatching {
-            withContext(Dispatchers.IO) { files.list(currentDirectoryPath) }
+            withContext(Dispatchers.Default) { files.list(currentDirectoryPath) }
         }.fold(
             onSuccess = DirectoryContent::Ready,
             onFailure = { error -> DirectoryContent.Failed(error.message.orEmpty()) },
@@ -186,7 +186,7 @@ internal fun GameFileBrowserDialog(
         document = null
         documentDirty = false
         message = null
-        runCatching { withContext(Dispatchers.IO) { files.readText(path) } }
+        runCatching { withContext(Dispatchers.Default) { files.readText(path) } }
             .onSuccess { document = it }
             .onFailure { error -> message = error.message ?: "Trestle could not read this file." }
         documentLoading = false
@@ -217,7 +217,7 @@ internal fun GameFileBrowserDialog(
                     saving = true
                     message = null
                     scope.launch {
-                        runCatching { withContext(Dispatchers.IO) { files.saveText(currentDocument, text) } }
+                        runCatching { withContext(Dispatchers.Default) { files.saveText(currentDocument, text) } }
                             .onSuccess { saved ->
                                 document = saved
                                 documentDirty = false

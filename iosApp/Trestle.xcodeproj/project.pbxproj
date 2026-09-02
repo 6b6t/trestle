@@ -1,0 +1,147 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+		A10000000000000000000001 /* TrestleApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* TrestleApp.swift */; };
+
+		A10000000000000000000002 /* Products */ = {
+			isa = PBXGroup;
+			children = (A10000000000000000000012 /* Trestle.app */,);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000003 = {
+			isa = PBXGroup;
+			children = (A10000000000000000000004 /* iosApp */, A10000000000000000000002 /* Products */,);
+			sourceTree = "<group>";
+		};
+		A10000000000000000000004 /* iosApp */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000011 /* TrestleApp.swift */,
+				A10000000000000000000013 /* Info.plist */,
+				A10000000000000000000014 /* Trestle.entitlements */,
+			);
+			path = iosApp;
+			sourceTree = "<group>";
+		};
+
+		A10000000000000000000011 /* TrestleApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrestleApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000012 /* Trestle.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Trestle.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000013 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A10000000000000000000014 /* Trestle.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Trestle.entitlements; sourceTree = "<group>"; };
+
+		A10000000000000000000021 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000001 /* TrestleApp.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000022 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000023 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000024 /* Build shared framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Build shared framework";
+			outputPaths = ("$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)/TrestleShared.framework",);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
+
+		A10000000000000000000031 /* Trestle */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000041 /* Build configuration list for PBXNativeTarget \"Trestle\" */;
+			buildPhases = (
+				A10000000000000000000024 /* Build shared framework */,
+				A10000000000000000000021 /* Sources */,
+				A10000000000000000000022 /* Frameworks */,
+				A10000000000000000000023 /* Resources */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = Trestle;
+			productName = Trestle;
+			productReference = A10000000000000000000012 /* Trestle.app */;
+			productType = "com.apple.product-type.application";
+		};
+
+		A10000000000000000000032 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = { A10000000000000000000031 = {CreatedOnToolsVersion = 16.0; }; };
+			};
+			buildConfigurationList = A10000000000000000000042 /* Build configuration list for PBXProject \"Trestle\" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base,);
+			mainGroup = A10000000000000000000003;
+			productRefGroup = A10000000000000000000002 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A10000000000000000000031 /* Trestle */,);
+		};
+
+		A10000000000000000000051 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; }; name = Debug; };
+		A10000000000000000000052 /* Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; CLANG_ENABLE_MODULES = YES; IPHONEOS_DEPLOYMENT_TARGET = 16.0; SDKROOT = iphoneos; SWIFT_COMPILATION_MODE = wholemodule; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 6.0; }; name = Release; };
+		A10000000000000000000053 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Trestle.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_ASSET_PATHS = "";
+				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iosApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared";
+				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A10000000000000000000054 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				CODE_SIGN_ENTITLEMENTS = iosApp/Trestle.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = iosApp/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				MARKETING_VERSION = 0.1.0;
+				OTHER_LDFLAGS = "$(inherited) -framework TrestleShared";
+				PRODUCT_BUNDLE_IDENTIFIER = net.blockhost.trestle;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+
+		A10000000000000000000041 /* Build configuration list for PBXNativeTarget \"Trestle\" */ = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000053 /* Debug */, A10000000000000000000054 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A10000000000000000000042 /* Build configuration list for PBXProject \"Trestle\" */ = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000051 /* Debug */, A10000000000000000000052 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+	};
+	rootObject = A10000000000000000000032 /* Project object */;
+}

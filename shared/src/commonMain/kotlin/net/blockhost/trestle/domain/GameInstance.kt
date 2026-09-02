@@ -2,6 +2,7 @@ package net.blockhost.trestle.domain
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.jvm.JvmInline
 
 @Serializable
 @JvmInline

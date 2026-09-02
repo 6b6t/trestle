@@ -18,6 +18,12 @@ class SetVersionTest(unittest.TestCase):
         self.build_info = self.root / 'shared/src/commonMain/kotlin/net/blockhost/trestle/app/BuildInfo.kt'
         self.build_info.parent.mkdir(parents=True)
         self.build_info.write_text('object BuildInfo { const val VERSION = "0.1.0" }\n')
+        self.xcode_project = self.root / 'iosApp/Trestle.xcodeproj/project.pbxproj'
+        self.xcode_project.parent.mkdir(parents=True)
+        self.xcode_project.write_text(
+            'MARKETING_VERSION = 0.1.0;\nCURRENT_PROJECT_VERSION = 1;\n'
+            'MARKETING_VERSION = 0.1.0;\nCURRENT_PROJECT_VERSION = 1;\n'
+        )
 
     def run_script(self, version):
         return subprocess.run(['bash', str(self.script), version], cwd=self.root.parent, text=True, capture_output=True)
@@ -31,17 +37,22 @@ class SetVersionTest(unittest.TestCase):
         self.assertEqual('2.3.4', values['trestle.version'])
         self.assertEqual(int(first.stdout), int(values['trestle.versionCode']))
         self.assertEqual('2.3.4', self.build_info.read_text().split('"')[1])
-        contents = self.properties.read_bytes(), self.build_info.read_bytes()
+        self.assertEqual(2, self.xcode_project.read_text().count('MARKETING_VERSION = 2.3.4;'))
+        self.assertEqual(2, self.xcode_project.read_text().count('CURRENT_PROJECT_VERSION = 2003004;'))
+        contents = self.properties.read_bytes(), self.build_info.read_bytes(), self.xcode_project.read_bytes()
         second = self.run_script('2.3.4')
         self.assertEqual(0, second.returncode, second.stderr)
-        self.assertEqual(contents, (self.properties.read_bytes(), self.build_info.read_bytes()))
+        self.assertEqual(contents, (self.properties.read_bytes(), self.build_info.read_bytes(), self.xcode_project.read_bytes()))
 
     def test_rejects_invalid_versions_without_mutating_sources(self):
-        original = self.properties.read_bytes(), self.build_info.read_bytes()
+        original = self.properties.read_bytes(), self.build_info.read_bytes(), self.xcode_project.read_bytes()
         for version in ['0.0.0', '01.2.3', '1.1000.0', '2101.0.0', '1.2.3-beta', '1.2.3/../x']:
             with self.subTest(version=version):
                 self.assertNotEqual(0, self.run_script(version).returncode)
-                self.assertEqual(original, (self.properties.read_bytes(), self.build_info.read_bytes()))
+                self.assertEqual(
+                    original,
+                    (self.properties.read_bytes(), self.build_info.read_bytes(), self.xcode_project.read_bytes()),
+                )
 
     def test_leaves_properties_unchanged_when_version_constant_is_missing(self):
         self.build_info.write_text('object BuildInfo {}\n')

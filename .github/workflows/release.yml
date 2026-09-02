@@ -183,6 +183,7 @@ jobs:
             | Android | ARM64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-arm64.apk) |
             | Android | x86_64 | [APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-x64.apk) |
             | Android | ARM64 + x86_64 | [Universal APK](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal.apk) · [App Bundle](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-android-universal.aab) |
+            | iOS | ARM64 | [Unsigned IPA](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-ios-arm64.ipa) |
             | Linux | x86_64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-x64.rpm) |
             | Linux | AArch64 | [DEB](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.deb) · [RPM](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-linux-arm64.rpm) |
             | macOS | Intel | [DMG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.dmg) · [PKG](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-macos-x64.pkg) |
@@ -191,7 +192,7 @@ jobs:
             | Windows | AArch64 | [MSI](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.msi) · [EXE](https://github.com/${{ github.repository }}/releases/download/${{ inputs.version }}/Trestle-${{ inputs.version }}-windows-arm64.exe) |
 
             > [!IMPORTANT]
-            > Android packages use the Trestle release key. Windows installers are unsigned. macOS apps use ad hoc signatures and are not notarized.
+            > Android packages use the Trestle release key. The iOS IPA and Windows installers are unsigned. macOS apps use ad hoc signatures and are not notarized.
             > Windows and macOS can show security warnings. See [Apple’s guidance for opening an unnotarized app](https://support.apple.com/en-us/102445).
 
             > [!TIP]
@@ -201,6 +202,7 @@ jobs:
 
             - Android requires Android 8.1 or newer and Vulkan 1.2. It supports Vanilla Minecraft 26.2 only.
             - Android x64 still needs game testing on compatible hardware.
+            - iOS requires iOS 16, local code signing, and ARM64 hardware. Minecraft launch also requires a compatible JIT-enabled runtime bridge.
             - Package and CLI checks do not guarantee game compatibility for every architecture or Minecraft version.
             - CurseForge requires a Trestle API key and is unavailable when that key is not configured.
             - Package-manager manifests are included for validation and submission. They are not catalog listings.

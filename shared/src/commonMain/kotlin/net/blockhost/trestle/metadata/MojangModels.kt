@@ -141,6 +141,7 @@ data class RuleOs(
 enum class OperatingSystem(val ruleName: String) {
     WINDOWS("windows"),
     MACOS("osx"),
+    IOS("osx"),
     LINUX("linux"),
     UNKNOWN("unknown"),
 }

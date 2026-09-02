@@ -11,6 +11,7 @@ TARGETS = {
     ('android', 'arm64'): ('apk',),
     ('android', 'x64'): ('apk',),
     ('android', 'universal'): ('apk', 'aab'),
+    ('ios', 'arm64'): ('ipa',),
     ('linux', 'x64'): ('deb', 'rpm', 'tar.gz'),
     ('linux', 'arm64'): ('deb', 'rpm', 'tar.gz'),
     ('macos', 'x64'): ('dmg', 'pkg'),
@@ -18,7 +19,13 @@ TARGETS = {
     ('windows', 'x64'): ('msi', 'exe'),
     ('windows', 'arm64'): ('msi', 'exe'),
 }
-MINIMUM = {'android': 'Android 8.1 (API 27)', 'linux': 'glibc 2.35', 'macos': 'macOS 11', 'windows': 'Windows 10'}
+MINIMUM = {
+    'android': 'Android 8.1 (API 27)',
+    'ios': 'iOS 16',
+    'linux': 'glibc 2.35',
+    'macos': 'macOS 11',
+    'windows': 'Windows 10',
+}
 
 
 def generate(version, artifacts, repository, commit):
