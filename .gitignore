@@ -44,3 +44,8 @@ Desktop.ini
 
 # Python release tooling
 __pycache__/
+
+# Share the project icon while keeping local IDE settings private.
+!/.idea/
+/.idea/*
+!/.idea/icon.svg
