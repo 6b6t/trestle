@@ -1,0 +1,15 @@
+title: Trestle
+repository: 6b6t/trestle
+theme: jekyll-theme-primer
+description: Cross-platform Minecraft Java Edition launcher with isolated instances and modpack support.
+url: https://trestle.6b6t.org
+plugins:
+  - jekyll-seo-tag
+  - jekyll-readme-index
+  - jekyll-default-layout
+  - jekyll-sitemap
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /docs/assets/trestle-banner.png
