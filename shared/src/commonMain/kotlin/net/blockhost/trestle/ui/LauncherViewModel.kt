@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -210,7 +212,10 @@ import net.blockhost.trestle.resources.msg_updating_s
 import net.blockhost.trestle.resources.msg_vanilla_cannot_load_mods
 import net.blockhost.trestle.resources.msg_versions_could_not_be_loaded
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_instance_copy_name
 import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_player_skin_name
+import net.blockhost.trestle.resources.ui_set_the_ftb_app_instances_folder_in
 import net.blockhost.trestle.resources.ui_sign_in_required
 import net.blockhost.trestle.resources.ui_trestle_could_not_read_that_image
 import net.blockhost.trestle.runtime.JvmArgumentPolicy
@@ -220,13 +225,16 @@ import net.blockhost.trestle.runtime.LaunchRequirement
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.PreparedLaunch
 import net.blockhost.trestle.runtime.RuntimePreparationProgress
+import net.blockhost.trestle.text.UserFacingArgumentException
 import net.blockhost.trestle.text.UserText
 import net.blockhost.trestle.text.asUserText
 import net.blockhost.trestle.text.checkUser
+import net.blockhost.trestle.text.load
 import net.blockhost.trestle.text.phraseResource
 import net.blockhost.trestle.text.pluralText
 import net.blockhost.trestle.text.requireUser
 import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.singularResource
 import net.blockhost.trestle.text.text
 import net.blockhost.trestle.text.userError
 import net.blockhost.trestle.text.userText
@@ -599,10 +607,15 @@ class LauncherViewModel(
     private var resourceVersionsJob: Job? = null
     private var installedContentJob: Job? = null
     private var contentWriteJob: Job? = null
+    private var contentUpdateCheckJob: Job? = null
+    private var runtimePreparationOperation: OperationStatus? = null
     private var gameDataJob: Job? = null
     private var gameDataWriteJob: Job? = null
     private var accountLoginJob: Job? = null
     private var launchCheckJob: Job? = null
+
+    /** The instance whose worlds, content and launch check are loaded. */
+    private var loadedSelectionId: InstanceId? = null
     private var launchJob: Job? = null
     private val initialInitialization = CompletableDeferred<Unit>()
     private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
@@ -645,6 +658,13 @@ class LauncherViewModel(
                 mutableState.update { it.copy(logs = logs) }
             }
         }
+        // Removing, creating, cloning or restoring an instance changes the selection without selectInstance.
+        // Reload the per-instance data then, so actions never run against the previous instance's lists.
+        scope.launch {
+            mutableState.map { it.selectedInstance?.id }.distinctUntilChanged().collect { id ->
+                if (initialInitialization.isCompleted && id != loadedSelectionId) reloadSelection(id)
+            }
+        }
         initialize()
         scope.launch {
             while (true) {
@@ -681,6 +701,7 @@ class LauncherViewModel(
                 state.copy(instances = instances, selectedId = selected)
             }
             mutableState.update { it.copy(isInitializing = false, operation = null) }
+            loadedSelectionId = mutableState.value.selectedInstance?.id
             initialInitialization.complete(Unit)
             if (initialized.isSuccess) {
                 checkLaunchReadiness(mutableState.value.selectedInstance)
@@ -730,19 +751,33 @@ class LauncherViewModel(
     }
 
     override fun selectInstance(id: InstanceId) {
-        launchCheckJob?.cancel()
-        cachedLaunch = null
         mutableState.update {
             it.copy(
                 selectedId = id,
                 notice = null,
                 removedInstanceUndo = null,
                 instanceSettings = InstanceSettingsState(),
+            )
+        }
+        reloadSelection(mutableState.value.selectedInstance?.id)
+    }
+
+    private fun reloadSelection(id: InstanceId?) {
+        loadedSelectionId = id
+        launchCheckJob?.cancel()
+        contentUpdateCheckJob?.cancel()
+        cachedLaunch = null
+        mutableState.update {
+            it.copy(
                 launchPlan = null,
-                launch = it.activeLaunch?.takeIf { active -> active.instanceId == id } ?: InstanceLaunchState(id),
+                launch = id?.let { selected ->
+                    it.activeLaunch?.takeIf { active -> active.instanceId == selected } ?: InstanceLaunchState(selected)
+                } ?: it.launch,
                 installedContent = emptyList(),
                 installedContentUpdates = emptyMap(),
+                isCheckingInstalledContentUpdates = false,
                 gameData = GameDataInventory(),
+                pendingWorldDeletionKey = null,
                 selectedInstanceLogKey = null,
                 selectedInstanceLogText = "",
                 isLoadingInstanceLog = false,
@@ -780,7 +815,7 @@ class LauncherViewModel(
                 it.copy(operation = OperationStatus(text(Res.string.msg_cloning_instance), instance.displayName.asUserText()))
             }
             runCatching {
-                services.repository.clone(instance.id, "${instance.displayName} Copy")
+                services.repository.clone(instance.id, text(Res.string.ui_instance_copy_name, instance.displayName).load())
             }.onSuccess { clone ->
                 mutableState.update {
                     it.copy(
@@ -1014,7 +1049,7 @@ class LauncherViewModel(
         if (resourceJob?.isActive == true) return
         val path = mutableState.value.launcherPreferences.ftbAppInstancesPath.trim()
         if (path.isBlank()) {
-            showError(IllegalArgumentException("Set the FTB App instances folder in Settings > Folders first."))
+            showError(UserFacingArgumentException(text(Res.string.ui_set_the_ftb_app_instances_folder_in)))
             return
         }
         mutableState.update {
@@ -1318,7 +1353,7 @@ class LauncherViewModel(
                     activeEvent = true,
                 )
             } finally {
-                mutableState.update { it.copy(operation = null) }
+                clearRuntimePreparation()
                 refreshGameData()
                 launchJob = null
             }
@@ -1378,6 +1413,13 @@ class LauncherViewModel(
             error = null,
         )
         searchResources()
+    }
+
+    override fun ensureResourceBrowserPage() {
+        val browser = mutableState.value.resourceBrowser
+        if (!browser.visible || browser.presentation != ResourceBrowserPresentation.PAGE) {
+            openResourceBrowser(ResourceType.MOD, ResourceBrowserPresentation.PAGE)
+        }
     }
 
     override fun closeResourceBrowser() {
@@ -1619,14 +1661,16 @@ class LauncherViewModel(
             mutableState.value = mutableState.value.copy(
                 resourceBrowser = mutableState.value.resourceBrowser.copy(isInstalling = true, error = null),
                 operation = OperationStatus(
-                    title = if (project.type ==
-                        ResourceType.MODPACK
-                    ) {
+                    title = if (project.type == ResourceType.MODPACK) {
                         text(Res.string.msg_installing_modpack)
                     } else {
-                        text(Res.string.msg_installing_s, project.type.label.lowercase())
+                        text(Res.string.msg_installing_s, project.name)
                     },
-                    detail = project.name.asUserText(),
+                    detail = if (project.type == ResourceType.MODPACK) {
+                        project.name.asUserText()
+                    } else {
+                        text(project.type.singularResource)
+                    },
                     cancellable = true,
                     cancelLabel = text(Res.string.ui_cancel),
                     instanceId = instance?.id,
@@ -1950,10 +1994,10 @@ class LauncherViewModel(
     }
 
     override fun checkInstalledContentUpdates() {
-        if (installedContentJob?.isActive == true) return
+        if (contentUpdateCheckJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
         val content = mutableState.value.installedContent.filter { it.direct && it.isTracked }
-        installedContentJob = scope.launch {
+        contentUpdateCheckJob = scope.launch {
             mutableState.update { it.copy(isCheckingInstalledContentUpdates = true) }
             try {
                 var failed = 0
@@ -1989,8 +2033,10 @@ class LauncherViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                mutableState.update { it.copy(isCheckingInstalledContentUpdates = false) }
                 showError(error)
+            } finally {
+                // Also clears the flag when a refresh, a content change or a new selection cancels the check.
+                mutableState.update { it.copy(isCheckingInstalledContentUpdates = false) }
             }
         }
     }
@@ -2006,8 +2052,7 @@ class LauncherViewModel(
                     mutableState.update {
                         it.copy(notice = text(if (enabled) Res.string.msg_s_was_enabled else Res.string.msg_s_was_disabled, content.name))
                     }
-                    val refreshed = services.resourceInstaller.installedContent(instance)
-                    mutableState.update { it.copy(installedContent = refreshed, isLoadingInstalledContent = false) }
+                    reloadInstalledContentIfSelected(instance)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -2036,15 +2081,20 @@ class LauncherViewModel(
             }
             try {
                 services.resourceInstaller.update(instance, content, version, ::updateResourceProgress)
-                val refreshed = services.resourceInstaller.installedContent(instance)
                 mutableState.update {
                     it.copy(
-                        installedContent = refreshed,
-                        installedContentUpdates = it.installedContentUpdates - key,
+                        installedContentUpdates = if (it.selectedId ==
+                            instance.id
+                        ) {
+                            it.installedContentUpdates - key
+                        } else {
+                            it.installedContentUpdates
+                        },
                         operation = null,
                         notice = text(Res.string.msg_s_was_updated_to_s, content.name, version.versionNumber),
                     )
                 }
+                reloadInstalledContentIfSelected(instance)
             } catch (_: CancellationException) {
                 mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_content_update_cancelled)) }
             } catch (error: Exception) {
@@ -2063,15 +2113,8 @@ class LauncherViewModel(
         contentWriteJob = scope.launch {
             try {
                 if (services.resourceInstaller.uninstall(instance, content)) {
-                    val refreshed = services.resourceInstaller.installedContent(instance)
-                    mutableState.update {
-                        it.copy(
-                            installedContent = refreshed,
-                            installedContentUpdates = it.installedContentUpdates - key,
-                            isLoadingInstalledContent = false,
-                            notice = text(Res.string.msg_s_was_removed, content.name),
-                        )
-                    }
+                    mutableState.update { it.copy(notice = text(Res.string.msg_s_was_removed, content.name)) }
+                    reloadInstalledContentIfSelected(instance)
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -2091,8 +2134,16 @@ class LauncherViewModel(
             return false
         }
         installedContentJob?.cancel()
-        mutableState.update { it.copy(isCheckingInstalledContentUpdates = false) }
+        contentUpdateCheckJob?.cancel()
         return true
+    }
+
+    /**
+     * Reloads the content list after a change, with project names and tracking, unless the player has since
+     * selected another instance. That instance's list must not be replaced with this one.
+     */
+    private fun reloadInstalledContentIfSelected(instance: GameInstance) {
+        if (mutableState.value.selectedId == instance.id) refreshInstalledContent()
     }
 
     override fun refreshGameData() {
@@ -2171,6 +2222,7 @@ class LauncherViewModel(
     override fun confirmWorldDeletion() {
         val worldKey = mutableState.value.pendingWorldDeletionKey ?: return
         mutableState.update { it.copy(pendingWorldDeletionKey = null) }
+        if (mutableState.value.gameData.worlds.none { it.key == worldKey }) return
         runGameDataOperation(text(Res.string.msg_deleting_world)) { instance ->
             services.gameDataManager.deleteWorld(instance, worldKey)
             text(Res.string.msg_deleted_s_existing_backups_were_kept, worldKey)
@@ -2228,12 +2280,7 @@ class LauncherViewModel(
         mutableState.update { it.copy(serverEditor = it.serverEditor.copy(address = value)) }
     }
 
-    override fun setServerResourcePacks(value: String) {
-        val acceptTextures = when (value) {
-            "Always" -> true
-            "Never" -> false
-            else -> null
-        }
+    override fun setServerResourcePacks(acceptTextures: Boolean?) {
         mutableState.update { it.copy(serverEditor = it.serverEditor.copy(acceptTextures = acceptTextures)) }
     }
 
@@ -2257,9 +2304,8 @@ class LauncherViewModel(
                 )
                 val inventory = services.gameDataManager.inventory(instance)
                 mutableState.update {
-                    it.copy(
-                        gameData = inventory,
-                        isLoadingGameData = false,
+                    val current = if (it.selectedId == instance.id) it.copy(gameData = inventory, isLoadingGameData = false) else it
+                    current.copy(
                         serverEditor = ServerEditorState(),
                         notice = text(Res.string.msg_saved_s_to_the_minecraft_server_list, editor.name.trim()),
                     )
@@ -2353,7 +2399,8 @@ class LauncherViewModel(
                 val notice = operation(instance)
                 val inventory = services.gameDataManager.inventory(instance)
                 mutableState.update {
-                    it.copy(gameData = inventory, isLoadingGameData = false, operation = null, notice = notice)
+                    val current = if (it.selectedId == instance.id) it.copy(gameData = inventory, isLoadingGameData = false) else it
+                    current.copy(operation = null, notice = notice)
                 }
             } catch (error: CancellationException) {
                 mutableState.update { it.copy(operation = null) }
@@ -2929,9 +2976,13 @@ class LauncherViewModel(
     }
 
     override fun closeAccountLogin() {
+        // Only a running sign-in owns the operation bar. Otherwise it belongs to another task, such as an install.
+        val signInRunning = accountLoginJob?.isActive == true
         accountLoginJob?.cancel()
         accountLoginJob = null
-        mutableState.update { it.copy(accountLogin = AccountLoginState(), operation = null) }
+        mutableState.update {
+            it.copy(accountLogin = AccountLoginState(), operation = if (signInRunning) null else it.operation)
+        }
     }
 
     override fun setAccountLoginMethod(method: AccountAuthenticationMethod) {
@@ -3146,12 +3197,19 @@ class LauncherViewModel(
     override fun saveCurrentSkinToLibrary() {
         val account = mutableState.value.accounts.firstOrNull { it.isActive } ?: return
         val texture = mutableState.value.accountSkinTextures[account.profile.profileId] ?: return
+        scope.launch {
+            val name = text(Res.string.ui_player_skin_name, account.profile.playerName).load()
+            openSkinEditorForCurrentSkin(account, texture, name)
+        }
+    }
+
+    private fun openSkinEditorForCurrentSkin(account: ManagedAccount, texture: ByteArray, name: String) {
         mutableState.update {
             it.copy(
                 skinStudio = it.skinStudio.copy(
                     editor = SkinEditorState(
                         visible = true,
-                        name = "${account.profile.playerName}'s skin",
+                        name = name,
                         variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
                         texture = texture.copyOf(),
                         sourceFileName = "current-skin.png",
@@ -3630,7 +3688,7 @@ class LauncherViewModel(
                     LaunchStatus.Failed(error.userText(text(Res.string.msg_the_launch_check_failed))),
                 )
             } finally {
-                mutableState.update { it.copy(operation = null) }
+                clearRuntimePreparation()
                 launchCheckJob = null
             }
         }
@@ -3648,19 +3706,31 @@ class LauncherViewModel(
 
     private fun supportedLoaders(): Set<ModLoader> = services.runtime.capabilities.supportedModLoaders ?: ModLoader.entries.toSet()
 
+    /**
+     * Shows runtime preparation in the operation bar only when the bar is free, so a background launch check never
+     * hides another task's progress and Cancel button.
+     */
     private fun updateRuntimePreparation(progress: RuntimePreparationProgress) {
         mutableState.update {
-            it.copy(
-                operation = OperationStatus(
-                    title = text(Res.string.msg_preparing_android_runtime),
-                    detail = progress.stage,
-                    completed = progress.completedBytes,
-                    total = progress.totalBytes,
-                    completedItems = progress.completedItems,
-                    totalItems = progress.totalItems,
-                ),
+            val current = it.operation
+            if (current != null && current !== runtimePreparationOperation) return@update it
+            val next = OperationStatus(
+                title = text(Res.string.msg_preparing_android_runtime),
+                detail = progress.stage,
+                completed = progress.completedBytes,
+                total = progress.totalBytes,
+                completedItems = progress.completedItems,
+                totalItems = progress.totalItems,
             )
+            runtimePreparationOperation = next
+            it.copy(operation = next)
         }
+    }
+
+    private fun clearRuntimePreparation() {
+        val owned = runtimePreparationOperation ?: return
+        runtimePreparationOperation = null
+        mutableState.update { if (it.operation === owned) it.copy(operation = null) else it }
     }
 
     private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: UserText? = null, activeEvent: Boolean = false) {

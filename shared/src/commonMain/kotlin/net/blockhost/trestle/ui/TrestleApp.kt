@@ -168,7 +168,9 @@ fun TrestleApp(
     var librarySearchFocusRequest by rememberSaveable { mutableStateOf(0) }
     var libraryImportRequest by rememberSaveable { mutableStateOf(0) }
     var resourceSearchFocusRequest by rememberSaveable { mutableStateOf(0) }
-    val changeDestination: (LauncherDestination) -> Unit = { target ->
+    var pendingDestination by remember { mutableStateOf<Pair<LauncherDestination, ResourceType?>?>(null) }
+    // Opens the target right away. A Discover target opens the browser on discoverType, or keeps the open page.
+    val navigateNow: (LauncherDestination, ResourceType?) -> Unit = { target, discoverType ->
         if (
             destination == LauncherDestination.DISCOVER &&
             target != LauncherDestination.DISCOVER &&
@@ -178,13 +180,25 @@ fun TrestleApp(
         }
         destinationName = target.name
         onDestinationChanged(target)
-        if (
-            target == LauncherDestination.DISCOVER &&
-            (!state.resourceBrowser.visible || state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE)
-        ) {
-            actions.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
+        if (target == LauncherDestination.DISCOVER) {
+            if (discoverType != null) {
+                actions.openResourceBrowser(discoverType, ResourceBrowserPresentation.PAGE)
+            } else {
+                actions.ensureResourceBrowserPage()
+            }
         }
     }
+    // Leaving the Instance page with unsaved inline settings asks before the changes are discarded.
+    val navigate: (LauncherDestination, ResourceType?) -> Unit = { target, discoverType ->
+        val settings = state.instanceSettings
+        val unsavedInlineSettings = settings.visible && settings.inline && settings.hasChanges
+        if (destination == LauncherDestination.INSTANCE && target != LauncherDestination.INSTANCE && unsavedInlineSettings) {
+            pendingDestination = target to discoverType
+        } else {
+            navigateNow(target, discoverType)
+        }
+    }
+    val changeDestination: (LauncherDestination) -> Unit = { target -> navigate(target, null) }
     val handleCommand: (LauncherCommand) -> Boolean = { command ->
         when (command) {
             LauncherCommand.NEW_INSTANCE -> actions.openCreate()
@@ -210,6 +224,8 @@ fun TrestleApp(
             LauncherCommand.TOGGLE_SELECTED_PIN -> actions.toggleSelectedInstancePinned()
 
             LauncherCommand.SHOW_LIBRARY -> changeDestination(LauncherDestination.LIBRARY)
+
+            LauncherCommand.SHOW_INSTANCE -> changeDestination(LauncherDestination.INSTANCE)
 
             LauncherCommand.SHOW_DISCOVER -> changeDestination(LauncherDestination.DISCOVER)
 
@@ -337,10 +353,7 @@ fun TrestleApp(
                                 actions,
                                 compact = layoutMode != TrestleLayoutMode.EXPANDED,
                                 onManage = { changeDestination(LauncherDestination.INSTANCE) },
-                                onDiscover = { type ->
-                                    actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
-                                    changeDestination(LauncherDestination.DISCOVER)
-                                },
+                                onDiscover = { type -> navigate(LauncherDestination.DISCOVER, type) },
                                 onOpenAccounts = { changeDestination(LauncherDestination.ACCOUNTS) },
                                 searchFocusRequest = librarySearchFocusRequest,
                                 importRequest = libraryImportRequest,
@@ -350,11 +363,9 @@ fun TrestleApp(
                                 state,
                                 modifier,
                                 actions,
-                                onBack = { changeDestination(LauncherDestination.LIBRARY) },
-                                onDiscover = { type ->
-                                    actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
-                                    changeDestination(LauncherDestination.DISCOVER)
-                                },
+                                // The workspace already asked about unsaved settings before calling these.
+                                onBack = { navigateNow(LauncherDestination.LIBRARY, null) },
+                                onDiscover = { type -> navigateNow(LauncherDestination.DISCOVER, type) },
                                 layoutMode = layoutMode,
                             )
 
@@ -400,6 +411,16 @@ fun TrestleApp(
                 if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
                 if (state.serverEditor.visible) ServerEditorDialog(state, actions)
                 if (showShortcuts) ShortcutsDialog { showShortcuts = false }
+                pendingDestination?.let { (target, discoverType) ->
+                    DiscardChangesDialog(
+                        onKeepEditing = { pendingDestination = null },
+                        onDiscard = {
+                            pendingDestination = null
+                            actions.closeInstanceSettings()
+                            navigateNow(target, discoverType)
+                        },
+                    )
+                }
                 state.pendingInstanceRemovalId?.let { pendingId ->
                     val instance = state.instances.firstOrNull { it.id == pendingId }
                     InstanceRemovalDialog(

@@ -55,7 +55,18 @@ class LauncherOperationService : Service() {
             }
             .build()
         startForeground(NOTIFICATION_ID, notification)
+        running = true
         return START_NOT_STICKY
+    }
+
+    // Android 15 limits dataSync services to six hours a day. Stop cleanly instead of being killed.
+    override fun onTimeout(startId: Int, fgsType: Int) {
+        stopSelf()
+    }
+
+    override fun onDestroy() {
+        running = false
+        super.onDestroy()
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -68,17 +79,26 @@ class LauncherOperationService : Service() {
         private const val EXTRA_COMPLETED = "completed"
         private const val EXTRA_TOTAL = "total"
 
+        @Volatile
+        private var running = false
+
         suspend fun update(context: Context, operation: OperationStatus) {
             val title = operation.title.load()
             val detail = operation.detail?.load()
-            context.startForegroundService(
-                Intent(context, LauncherOperationService::class.java).apply {
-                    putExtra(EXTRA_TITLE, title)
-                    putExtra(EXTRA_DETAIL, detail)
-                    putExtra(EXTRA_COMPLETED, operation.completed ?: -1L)
-                    putExtra(EXTRA_TOTAL, operation.total ?: -1L)
-                },
-            )
+            val intent = Intent(context, LauncherOperationService::class.java).apply {
+                putExtra(EXTRA_TITLE, title)
+                putExtra(EXTRA_DETAIL, detail)
+                putExtra(EXTRA_COMPLETED, operation.completed ?: -1L)
+                putExtra(EXTRA_TOTAL, operation.total ?: -1L)
+            }
+            // A running foreground service keeps the app in the foreground, so updates can use startService.
+            // Starting a new foreground service from the background is not allowed. The operation then runs
+            // without a notification instead of crashing the app.
+            try {
+                if (running) context.startService(intent) else context.startForegroundService(intent)
+            } catch (_: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException and BackgroundServiceStartNotAllowedException.
+            }
         }
 
         fun stop(context: Context) {

@@ -389,8 +389,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">基岩版的登录信息已保存，以备将来使用。Trestle 目前还无法启动基岩版。</string>
     <string name="ui_hide_password">隐藏密码</string>
     <string name="ui_show_password">显示密码</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft 不建议直接使用密码登录，且此方式不支持两步验证。</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">本次尝试后 Trestle 会丢弃密码，只保存加密的令牌。</string>
+    <string name="ui_password_sign_in_warning">Microsoft 不建议直接使用密码登录，且此方式不支持两步验证。本次尝试后 Trestle 会丢弃密码，只保存加密的令牌。</string>
     <string name="ui_hide_secret">隐藏密钥</string>
     <string name="ui_show_secret">显示密钥</string>
     <string name="ui_use_to_letters_numbers_or_underscores">使用 1 到 16 个字母、数字或下划线。</string>
@@ -1289,4 +1288,6 @@
     <string name="label_sort_newest">最新</string>
     <string name="msg_adding_local_file">正在添加本地文件</string>
     <string name="msg_s_files_must_use_s">%1$s 文件必须使用 %2$s 扩展名。</string>
+    <string name="ui_instance_copy_name">%1$s 副本</string>
+    <string name="ui_player_skin_name">%1$s 的皮肤</string>
 </resources>

@@ -49,6 +49,9 @@ interface LauncherUiActions {
         type: ResourceType = ResourceType.MOD,
         presentation: ResourceBrowserPresentation = ResourceBrowserPresentation.DIALOG,
     ) {}
+
+    /** Opens the browser as a page unless it already is one, keeping the current type and search. */
+    fun ensureResourceBrowserPage() {}
     fun closeResourceBrowser() {}
     fun setResourceProvider(provider: ResourceProvider) {}
     fun setResourceType(type: ResourceType) {}
@@ -88,7 +91,7 @@ interface LauncherUiActions {
     fun closeServerEditor() {}
     fun setServerName(value: String) {}
     fun setServerAddress(value: String) {}
-    fun setServerResourcePacks(value: String) {}
+    fun setServerResourcePacks(acceptTextures: Boolean?) {}
     fun saveServer() {}
     fun removeServer(serverKey: String) {}
     fun moveServer(serverKey: String, offset: Int) {}

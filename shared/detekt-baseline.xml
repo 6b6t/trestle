@@ -369,8 +369,8 @@
     <ID>ReturnCount:FileInstanceRepository.kt:FileInstanceRepository$private fun GameInstance.managedIconPath: Path?</ID>
     <ID>ReturnCount:InstanceIconEditor.kt:private fun resolveInstanceIconModel: String</ID>
     <ID>ReturnCount:IosMinecraftRuntime.kt:IosMinecraftRuntime$private fun substituteArgument: CommandArgument</ID>
-    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readRootCompound: List&lt;SavedServer&gt;</ID>
-    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readServers: List&lt;SavedServer&gt;</ID>
+    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readRootCompound: List&lt;ServerEntry&gt;</ID>
+    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readServerEntries: List&lt;ServerEntry&gt;</ID>
     <ID>ReturnCount:JvmGameDataManager.kt:private fun String.toServerEndpoint: ServerEndpoint</ID>
     <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun cancelInstall</ID>
     <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun checkModpackUpdate</ID>

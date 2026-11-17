@@ -390,8 +390,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">L’authentification Bedrock est gardée pour un futur adaptateur. Trestle ne peut pas encore lancer Bedrock.</string>
     <string name="ui_hide_password">Masquer le mot de passe</string>
     <string name="ui_show_password">Afficher le mot de passe</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft déconseille la connexion directe par mot de passe, et elle ne gère pas la validation en deux étapes.</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Trestle oublie le mot de passe après cette tentative et ne garde que des jetons chiffrés.</string>
+    <string name="ui_password_sign_in_warning">Microsoft déconseille la connexion directe par mot de passe, et elle ne gère pas la validation en deux étapes. Trestle oublie le mot de passe après cette tentative et ne garde que des jetons chiffrés.</string>
     <string name="ui_hide_secret">Masquer le secret</string>
     <string name="ui_show_secret">Afficher le secret</string>
     <string name="ui_use_to_letters_numbers_or_underscores">Utilise de 1 à 16 lettres, chiffres ou tirets bas.</string>
@@ -1295,4 +1294,6 @@
     <string name="label_sort_newest">Plus récents</string>
     <string name="msg_adding_local_file">Ajout du fichier local</string>
     <string name="msg_s_files_must_use_s">Les fichiers de type %1$s doivent utiliser %2$s.</string>
+    <string name="ui_instance_copy_name">%1$s (copie)</string>
+    <string name="ui_player_skin_name">Skin de %1$s</string>
 </resources>

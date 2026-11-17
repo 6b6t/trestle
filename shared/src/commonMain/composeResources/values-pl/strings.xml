@@ -392,8 +392,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Logowanie Bedrock jest zapisane na przyszłość. Trestle nie uruchamia jeszcze Bedrock.</string>
     <string name="ui_hide_password">Ukryj hasło</string>
     <string name="ui_show_password">Pokaż hasło</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft odradza bezpośrednie logowanie hasłem i nie działa ono z weryfikacją dwuetapową.</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Po tej próbie Trestle zapomni hasło i zachowa tylko zaszyfrowane tokeny.</string>
+    <string name="ui_password_sign_in_warning">Microsoft odradza bezpośrednie logowanie hasłem i nie działa ono z weryfikacją dwuetapową. Po tej próbie Trestle zapomni hasło i zachowa tylko zaszyfrowane tokeny.</string>
     <string name="ui_hide_secret">Ukryj sekret</string>
     <string name="ui_show_secret">Pokaż sekret</string>
     <string name="ui_use_to_letters_numbers_or_underscores">Od 1 do 16 liter, cyfr lub podkreśleń.</string>
@@ -1307,4 +1306,6 @@
     <string name="label_sort_newest">Najnowsze</string>
     <string name="msg_adding_local_file">Dodawanie pliku lokalnego</string>
     <string name="msg_s_files_must_use_s">Pliki typu %1$s muszą mieć rozszerzenie %2$s.</string>
+    <string name="ui_instance_copy_name">%1$s (kopia)</string>
+    <string name="ui_player_skin_name">Skin gracza %1$s</string>
 </resources>

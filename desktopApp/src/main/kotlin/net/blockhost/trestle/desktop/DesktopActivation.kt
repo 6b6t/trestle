@@ -1,5 +1,6 @@
 package net.blockhost.trestle.desktop
 
+import net.blockhost.trestle.app.desktopLauncherDataDirectory
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetAddress
@@ -25,6 +26,9 @@ internal sealed interface DesktopActivation {
     data object OpenSettings : DesktopActivation
     data class ImportFiles(val paths: List<Path>) : DesktopActivation
     data class LaunchInstance(val id: String) : DesktopActivation
+
+    /** Opens an instance page. Web links use this, so a page can never start the game by itself. */
+    data class ShowInstance(val id: String) : DesktopActivation
 }
 
 internal object DesktopActivationParser {
@@ -74,7 +78,7 @@ internal object DesktopActivationParser {
         }
         return when (route.firstOrNull()?.lowercase()) {
             "settings" -> DesktopActivation.OpenSettings
-            "launch" -> route.getOrNull(1)?.let(DesktopActivation::LaunchInstance)
+            "launch" -> route.getOrNull(1)?.let(DesktopActivation::ShowInstance)
             else -> DesktopActivation.Show
         }
     }
@@ -174,10 +178,11 @@ internal class DesktopActivationBroker private constructor(
             }
         }
 
-        private fun activationDirectory(): Path {
-            val user = System.getProperty("user.name", "user").hashCode().toUInt().toString(16)
-            return Path.of(System.getProperty("java.io.tmpdir"), "trestle-$user")
-        }
+        /**
+         * Lives in the user's own data folder. A folder in the shared temp directory would let another local user
+         * hold the lock or replace the endpoint and capture this user's file and link activations.
+         */
+        private fun activationDirectory(): Path = Path.of(desktopLauncherDataDirectory(), "activation")
 
         private fun forwardWithRetry(directory: Path, arguments: List<String>) {
             val deadline = System.currentTimeMillis() + FORWARD_TIMEOUT_MILLIS

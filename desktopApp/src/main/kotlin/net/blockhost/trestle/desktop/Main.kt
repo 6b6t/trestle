@@ -4,6 +4,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,7 +61,7 @@ private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 
 @OptIn(ExperimentalComposeUiApi::class, FlowPreview::class)
 fun main(arguments: Array<String>) {
-    if (arguments.isNotEmpty()) {
+    if (isCliInvocation(arguments)) {
         if (arguments.first() in setOf("--help", "-h")) {
             println(CLI_HELP)
             return
@@ -89,6 +90,8 @@ fun main(arguments: Array<String>) {
         var commandSequence by remember { mutableLongStateOf(0L) }
         var pendingCommand by remember { mutableStateOf<LauncherCommandRequest?>(null) }
         var activationQueue by remember { mutableStateOf(emptyList<DesktopActivation>()) }
+        // Counts handled activations so two equal activations in a row still restart the effect below.
+        var handledActivations by remember { mutableIntStateOf(0) }
         val desktopIntegration = remember { DesktopIntegration() }
         val systemAccent = remember { SystemAccent() }
         val systemDarkMode = remember { SystemDarkMode() }
@@ -139,7 +142,7 @@ fun main(arguments: Array<String>) {
             val applicationHandlers = DesktopApplicationHandlers.install(enqueueActivation)
             onDispose { applicationHandlers?.close() }
         }
-        LaunchedEffect(activationQueue.firstOrNull(), state.localFileImport.visible) {
+        LaunchedEffect(handledActivations, activationQueue.firstOrNull(), state.localFileImport.visible) {
             val activation = activationQueue.firstOrNull() ?: return@LaunchedEffect
             when (activation) {
                 DesktopActivation.Show -> showWindow()
@@ -152,6 +155,12 @@ fun main(arguments: Array<String>) {
                 is DesktopActivation.LaunchInstance -> {
                     showWindow()
                     viewModel.launchInstance(InstanceId(activation.id))
+                }
+
+                is DesktopActivation.ShowInstance -> {
+                    showWindow()
+                    viewModel.selectInstance(InstanceId(activation.id))
+                    sendCommand(LauncherCommand.SHOW_INSTANCE)
                 }
 
                 is DesktopActivation.ImportFiles -> {
@@ -184,6 +193,7 @@ fun main(arguments: Array<String>) {
                 }
             }
             activationQueue = activationQueue.drop(1)
+            handledActivations += 1
         }
         LaunchedEffect(windowState) {
             snapshotFlow { Triple(windowState.position, windowState.size, windowState.placement) }
@@ -348,6 +358,17 @@ fun main(arguments: Array<String>) {
             )
         }
     }
+}
+
+private val guiArguments = setOf("--settings", "--launch-instance")
+
+/**
+ * File paths, `trestle:` links and the window flags open the launcher window. Operating systems pass these when a
+ * user opens a file or link, so only other options run as command-line commands.
+ */
+internal fun isCliInvocation(arguments: Array<String>): Boolean {
+    val first = arguments.firstOrNull() ?: return false
+    return first.startsWith("-") && first !in guiArguments
 }
 
 internal suspend fun runCli(

@@ -37,6 +37,9 @@ class JvmGameDataManagerTest {
                 listOf("play.example.net", "backup.example.net"),
                 manager.inventory(instance).servers.map(SavedServer::address),
             )
+            val written = String(Files.readAllBytes(serversFile), Charsets.ISO_8859_1)
+            assertTrue(SERVER_ICON in written, "The server icon was dropped")
+            assertTrue("hidden" in written, "The hidden flag was dropped")
         } finally {
             deleteTree(root)
         }
@@ -159,6 +162,12 @@ class JvmGameDataManagerTest {
             data.writeByte(8)
             data.writeUTF("ip")
             data.writeUTF("play.example.net")
+            data.writeByte(8)
+            data.writeUTF("icon")
+            data.writeUTF(SERVER_ICON)
+            data.writeByte(1)
+            data.writeUTF("hidden")
+            data.writeByte(1)
             data.writeByte(0)
             data.writeByte(0)
         }
@@ -175,5 +184,9 @@ class JvmGameDataManagerTest {
         Files.walk(root).sorted(Comparator.reverseOrder()).use { paths ->
             paths.forEach { Files.deleteIfExists(it) }
         }
+    }
+
+    private companion object {
+        const val SERVER_ICON = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
     }
 }

@@ -390,8 +390,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Die Bedrock-Anmeldung wird für einen späteren Laufzeitadapter gespeichert. Trestle kann Bedrock noch nicht starten.</string>
     <string name="ui_hide_password">Passwort verbergen</string>
     <string name="ui_show_password">Passwort anzeigen</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft rät von der direkten Anmeldung mit Passwort ab, und sie unterstützt keine Mehrstufige Authentifizierung.</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Trestle verwirft das Passwort nach diesem Versuch und speichert nur verschlüsselte Token-Daten.</string>
+    <string name="ui_password_sign_in_warning">Microsoft rät von der direkten Anmeldung mit Passwort ab, und sie unterstützt keine mehrstufige Authentifizierung. Trestle verwirft das Passwort nach diesem Versuch und speichert nur verschlüsselte Token-Daten.</string>
     <string name="ui_hide_secret">Geheimnis verbergen</string>
     <string name="ui_show_secret">Geheimnis anzeigen</string>
     <string name="ui_use_to_letters_numbers_or_underscores">Verwende 1 bis 16 Buchstaben, Ziffern oder Unterstriche.</string>
@@ -1295,4 +1294,6 @@
     <string name="label_sort_newest">Neueste</string>
     <string name="msg_adding_local_file">Lokale Datei wird hinzugefügt</string>
     <string name="msg_s_files_must_use_s">Dateien vom Typ %1$s müssen %2$s verwenden.</string>
+    <string name="ui_instance_copy_name">%1$s (Kopie)</string>
+    <string name="ui_player_skin_name">Skin von %1$s</string>
 </resources>

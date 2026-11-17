@@ -390,8 +390,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Bedrock girişi ileride kullanılmak üzere saklanır. Trestle henüz Bedrock\'u başlatamıyor.</string>
     <string name="ui_hide_password">Parolayı gizle</string>
     <string name="ui_show_password">Parolayı göster</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft doğrudan parolayla girişi önermez ve bu yöntem iki adımlı doğrulamayla çalışmaz.</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Trestle bu denemeden sonra parolayı unutur ve yalnızca şifrelenmiş tokenları saklar.</string>
+    <string name="ui_password_sign_in_warning">Microsoft doğrudan parolayla girişi önermez ve bu yöntem iki adımlı doğrulamayla çalışmaz. Trestle bu denemeden sonra parolayı unutur ve yalnızca şifrelenmiş tokenları saklar.</string>
     <string name="ui_hide_secret">Gizli bilgiyi gizle</string>
     <string name="ui_show_secret">Gizli bilgiyi göster</string>
     <string name="ui_use_to_letters_numbers_or_underscores">1–16 harf, rakam veya alt çizgi kullanın.</string>
@@ -1295,4 +1294,6 @@
     <string name="label_sort_newest">En yeniler</string>
     <string name="msg_adding_local_file">Yerel dosya ekleniyor</string>
     <string name="msg_s_files_must_use_s">%1$s dosyaları %2$s uzantısını kullanmalıdır.</string>
+    <string name="ui_instance_copy_name">%1$s (kopya)</string>
+    <string name="ui_player_skin_name">%1$s adlı oyuncunun skini</string>
 </resources>

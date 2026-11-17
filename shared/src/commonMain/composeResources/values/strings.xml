@@ -390,8 +390,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Bedrock authentication is stored for the future runtime adapter. Trestle cannot launch Bedrock yet.</string>
     <string name="ui_hide_password">Hide password</string>
     <string name="ui_show_password">Show password</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft discourages direct password login and it cannot complete MFA. </string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Trestle discards the password after this attempt and stores only encrypted token state.</string>
+    <string name="ui_password_sign_in_warning">Microsoft discourages direct password login and it cannot complete MFA. Trestle discards the password after this attempt and stores only encrypted token state.</string>
     <string name="ui_hide_secret">Hide secret</string>
     <string name="ui_show_secret">Show secret</string>
     <string name="ui_use_to_letters_numbers_or_underscores">Use 1 to 16 letters, numbers, or underscores.</string>
@@ -1297,4 +1296,6 @@ SHA-256: %3$s</string>
     <string name="label_sort_newest">Newest</string>
     <string name="msg_adding_local_file">Adding local file</string>
     <string name="msg_s_files_must_use_s">%1$s files must use %2$s.</string>
+    <string name="ui_instance_copy_name">%1$s Copy</string>
+    <string name="ui_player_skin_name">%1$s\'s skin</string>
 </resources>

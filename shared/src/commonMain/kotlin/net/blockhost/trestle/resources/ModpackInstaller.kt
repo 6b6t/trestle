@@ -72,7 +72,7 @@ class ModpackInstaller(
             }
             val plan = resolvedVersion.externalPack
                 ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_installation_plan, version.name))
-            return recordOrigin(installExternal(project, resolvedVersion, plan, onProgress), project, resolvedVersion)
+            return installExternal(project, resolvedVersion, plan, onProgress) { recordOrigin(it, project, resolvedVersion) }
         }
         val archiveFile = version.primaryFile
             ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_modpack_archive, version.name))
@@ -97,7 +97,7 @@ class ModpackInstaller(
             stagingDirectory = staging / "archive-download",
             onProgress = onProgress,
         )
-        return recordOrigin(installArchive(archive, staging, project.name, project.iconUrl, onProgress), project, version)
+        return installArchive(archive, staging, project.name, project.iconUrl, onProgress) { recordOrigin(it, project, version) }
     }
 
     private suspend fun recordOrigin(instance: GameInstance, project: ResourceProject, version: ResourceVersion): GameInstance {
@@ -154,6 +154,7 @@ class ModpackInstaller(
         version: ResourceVersion,
         external: ExternalModpackPlan,
         onProgress: suspend (DownloadProgress) -> Unit,
+        beforeGameInstall: suspend (GameInstance) -> GameInstance,
     ): GameInstance {
         if (external.isUnresolved()) {
             throw LauncherException.InvalidMetadata(text(Res.string.msg_s_does_not_provide_downloadable_client_files, project.name))
@@ -245,8 +246,10 @@ class ModpackInstaller(
             ),
         )
         try {
-            val installed = minecraftInstaller.install(instance, onProgress)
-            copyDirectory(resolvedFiles, installed.instanceDirectory.toPath() / "game")
+            // Pack files and the origin are saved before the game install. If the install fails, Retry then
+            // only has to install the game files and the instance still has the whole pack.
+            copyDirectory(resolvedFiles, instance.instanceDirectory.toPath() / "game")
+            val installed = minecraftInstaller.install(beforeGameInstall(instance), onProgress)
             runCatching { deleteTree(staging) }
             return installed
         } catch (error: CancellationException) {
@@ -256,8 +259,9 @@ class ModpackInstaller(
             }
             throw error
         } catch (error: Exception) {
+            // Keep what was saved before the failure, such as the pack origin and restored settings.
             repository.update(
-                instance.copy(
+                (repository.get(instance.id) ?: instance).copy(
                     installationState = InstallationState.Failed(
                         error.message ?: "The modpack could not be installed.",
                     ),
@@ -364,6 +368,7 @@ class ModpackInstaller(
         fallbackName: String,
         iconReference: String?,
         onProgress: suspend (DownloadProgress) -> Unit,
+        beforeGameInstall: suspend (GameInstance) -> GameInstance = { it },
     ): GameInstance {
         val extracted = staging / "extracted"
         archiveExtractor.extract(archive, extracted)
@@ -412,8 +417,9 @@ class ModpackInstaller(
             ),
         )
         try {
-            val installed = minecraftInstaller.install(instance, onProgress)
-            val gameDirectory = installed.instanceDirectory.toPath() / "game"
+            // Pack files, settings and the origin are saved before the game install. If the install fails, Retry
+            // then only has to install the game files and the instance still has the whole pack.
+            val gameDirectory = instance.instanceDirectory.toPath() / "game"
             copyDirectory(resolvedFiles, gameDirectory)
             plan.overrideDirectories.forEach { directory ->
                 val source = extracted / directory
@@ -423,13 +429,13 @@ class ModpackInstaller(
                 val exported = decode<GameInstance>(extracted / "trestle-instance.json", "Trestle instance settings")
                 repository.update(
                     ModpackUpdates(fileSystem).restoreOrigin(
-                        installed.copy(
+                        instance.copy(
                             modpackOrigin = exported.modpackOrigin,
                             displayName = exported.displayName,
                             jvmArguments = exported.jvmArguments,
                             memory = exported.memory,
                             gameArguments = exported.gameArguments,
-                            javaExecutable = exported.javaExecutable,
+                            // The Java path belongs to the exporting computer, so the importer keeps its own default.
                             environmentVariables = exported.environmentVariables,
                             iconReference = exported.iconReference,
                             pinned = exported.pinned,
@@ -439,11 +445,12 @@ class ModpackInstaller(
                     ),
                 )
             } else {
-                installed
+                instance
             }
             restoreResourceMetadata(fileSystem, extracted / "trestle-metadata" / "resources.json", restored)
+            val installed = minecraftInstaller.install(beforeGameInstall(restored), onProgress)
             runCatching { deleteTree(staging) }
-            return restored
+            return installed
         } catch (error: CancellationException) {
             withContext(NonCancellable) {
                 runCatching { repository.delete(instance.id) }
@@ -451,8 +458,9 @@ class ModpackInstaller(
             }
             throw error
         } catch (error: Exception) {
+            // Keep what was saved before the failure, such as the pack origin and restored settings.
             repository.update(
-                instance.copy(
+                (repository.get(instance.id) ?: instance).copy(
                     installationState = InstallationState.Failed(
                         error.message ?: "The modpack could not be installed.",
                     ),

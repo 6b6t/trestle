@@ -208,7 +208,9 @@ class DownloadPipelineTest {
         val fileSystem = FakeFileSystem()
         val staging = "/staging".toPath()
         fileSystem.createDirectories(staging)
-        fileSystem.write(staging / "0.part") { writeUtf8("cached") }
+        val destination = "/downloads/cached.jar".toPath()
+        val request = DownloadRequest("https://example.test/cached", destination, size = 6)
+        fileSystem.write(staging / stagedFileName(request)) { writeUtf8("cached") }
         var requestCount = 0
         val client = HttpClient(
             MockEngine {
@@ -216,13 +218,10 @@ class DownloadPipelineTest {
                 respond("unexpected")
             },
         )
-        val destination = "/downloads/cached.jar".toPath()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
 
         pipeline.download(
-            requests = listOf(
-                DownloadRequest("https://example.test/cached", destination, size = 6),
-            ),
+            requests = listOf(request),
             stagingDirectory = staging,
         )
 
@@ -236,7 +235,9 @@ class DownloadPipelineTest {
         val fileSystem = FakeFileSystem()
         val staging = "/staging".toPath()
         fileSystem.createDirectories(staging)
-        fileSystem.write(staging / "0.part") { writeUtf8("part") }
+        val destination = "/downloads/partial.jar".toPath()
+        val request = DownloadRequest("https://example.test/partial", destination, size = 7)
+        fileSystem.write(staging / stagedFileName(request)) { writeUtf8("part") }
         val requestedRanges = mutableListOf<String?>()
         val client = HttpClient(
             MockEngine { request ->
@@ -248,14 +249,11 @@ class DownloadPipelineTest {
                 )
             },
         )
-        val destination = "/downloads/partial.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
 
         pipeline.download(
-            requests = listOf(
-                DownloadRequest("https://example.test/partial", destination, size = 7),
-            ),
+            requests = listOf(request),
             stagingDirectory = staging,
             onProgress = progress::add,
         )
@@ -267,11 +265,38 @@ class DownloadPipelineTest {
     }
 
     @Test
+    fun neverResumesAnotherDownloadsPartialFile() = runTest {
+        val fileSystem = FakeFileSystem()
+        val staging = "/staging".toPath()
+        fileSystem.createDirectories(staging)
+        val other = DownloadRequest("https://example.test/other", "/downloads/other.jar".toPath(), size = 5)
+        fileSystem.write(staging / stagedFileName(other)) { writeUtf8("wrong") }
+        val requestedRanges = mutableListOf<String?>()
+        val client = HttpClient(
+            MockEngine { request ->
+                requestedRanges += request.headers[HttpHeaders.Range]
+                respond("fresh")
+            },
+        )
+        val destination = "/downloads/fresh.jar".toPath()
+
+        DownloadPipeline(client, fileSystem, maxConcurrency = 1).download(
+            requests = listOf(DownloadRequest("https://example.test/fresh", destination)),
+            stagingDirectory = staging,
+        )
+
+        assertEquals(listOf<String?>(null), requestedRanges)
+        assertEquals("fresh", fileSystem.read(destination) { readUtf8() })
+    }
+
+    @Test
     fun restartsTheArtifactWhenTheServerIgnoresAByteRange() = runTest {
         val fileSystem = FakeFileSystem()
         val staging = "/staging".toPath()
         fileSystem.createDirectories(staging)
-        fileSystem.write(staging / "0.part") { writeUtf8("old") }
+        val destination = "/downloads/replacement.jar".toPath()
+        val request = DownloadRequest("https://example.test/replacement", destination, size = 11)
+        fileSystem.write(staging / stagedFileName(request)) { writeUtf8("old") }
         val requestedRanges = mutableListOf<String?>()
         val client = HttpClient(
             MockEngine { request ->
@@ -279,14 +304,11 @@ class DownloadPipelineTest {
                 respond("replacement")
             },
         )
-        val destination = "/downloads/replacement.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
 
         pipeline.download(
-            requests = listOf(
-                DownloadRequest("https://example.test/replacement", destination, size = 11),
-            ),
+            requests = listOf(request),
             stagingDirectory = staging,
             onProgress = progress::add,
         )
@@ -301,8 +323,13 @@ class DownloadPipelineTest {
         val fileSystem = FakeFileSystem()
         val staging = "/staging".toPath()
         fileSystem.createDirectories(staging)
-        fileSystem.write(staging / "0.part") { writeUtf8("old") }
-        fileSystem.write(staging / "1.part") { writeUtf8("old") }
+        val first = "/downloads/replacement.jar".toPath()
+        val second = "/downloads/second.jar".toPath()
+        val requests = listOf(
+            DownloadRequest("https://example.test/first", first, size = 11),
+            DownloadRequest("https://example.test/second", second, size = 11),
+        )
+        requests.forEach { request -> fileSystem.write(staging / stagedFileName(request)) { writeUtf8("old") } }
         val requestedRanges = mutableListOf<String?>()
         val client = HttpClient(
             MockEngine { request ->
@@ -314,8 +341,6 @@ class DownloadPipelineTest {
                 }
             },
         )
-        val first = "/downloads/replacement.jar".toPath()
-        val second = "/downloads/second.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
         val logEntries = mutableListOf<LogEntry>()
         val logger = BufferedLauncherLogger(
@@ -325,10 +350,7 @@ class DownloadPipelineTest {
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1, logger = logger)
 
         pipeline.download(
-            requests = listOf(
-                DownloadRequest("https://example.test/first", first, size = 11),
-                DownloadRequest("https://example.test/second", second, size = 11),
-            ),
+            requests = requests,
             stagingDirectory = staging,
             onProgress = progress::add,
         )

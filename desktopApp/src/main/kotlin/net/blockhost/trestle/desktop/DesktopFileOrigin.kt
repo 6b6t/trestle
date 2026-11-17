@@ -1,6 +1,7 @@
 package net.blockhost.trestle.desktop
 
 import com.sun.jna.Platform
+import java.io.File
 import java.net.URI
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
@@ -21,8 +22,9 @@ internal object DesktopFileOrigin {
         else -> readExtendedAttribute(path)
     }
 
+    // NIO paths reject the ':' of an alternate data stream name, but java.io.File passes it through to Windows.
     private fun readWindowsZone(path: Path): String? = runCatching {
-        Files.readAllLines(Path.of("$path:Zone.Identifier"))
+        File("$path:Zone.Identifier").readLines()
             .firstNotNullOfOrNull { line ->
                 line.substringAfter('=', "").takeIf {
                     line.startsWith("HostUrl=", ignoreCase = true) && it.isNotBlank()

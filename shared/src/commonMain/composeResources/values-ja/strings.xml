@@ -389,8 +389,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Bedrock の認証は将来の対応に備えて保存されています。Trestle はまだ Bedrock を起動できません。</string>
     <string name="ui_hide_password">パスワードを隠す</string>
     <string name="ui_show_password">パスワードを表示</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft はパスワードでの直接サインインを推奨しておらず、2 段階認証にも対応していません。</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">Trestle はこの試行後にパスワードを破棄し、暗号化したトークンだけを保存します。</string>
+    <string name="ui_password_sign_in_warning">Microsoft はパスワードでの直接サインインを推奨しておらず、2 段階認証にも対応していません。Trestle はこの試行後にパスワードを破棄し、暗号化したトークンだけを保存します。</string>
     <string name="ui_hide_secret">シークレットを隠す</string>
     <string name="ui_show_secret">シークレットを表示</string>
     <string name="ui_use_to_letters_numbers_or_underscores">英数字かアンダースコアを 1～16 文字で入力してください。</string>
@@ -1289,4 +1288,6 @@
     <string name="label_sort_newest">新着</string>
     <string name="msg_adding_local_file">ローカルファイルを追加中</string>
     <string name="msg_s_files_must_use_s">%1$s のファイルは拡張子 %2$s にしてください。</string>
+    <string name="ui_instance_copy_name">%1$s のコピー</string>
+    <string name="ui_player_skin_name">%1$s のスキン</string>
 </resources>

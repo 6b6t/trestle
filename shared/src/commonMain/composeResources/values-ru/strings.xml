@@ -392,8 +392,7 @@
     <string name="ui_bedrock_authentication_is_stored_for_the_future">Вход в Bedrock сохранён для будущей поддержки. Запускать Bedrock Trestle пока не умеет.</string>
     <string name="ui_hide_password">Скрыть пароль</string>
     <string name="ui_show_password">Показать пароль</string>
-    <string name="ui_microsoft_discourages_direct_password_login_and_it">Microsoft не рекомендует вход по паролю напрямую, и он не работает с двухэтапной проверкой.</string>
-    <string name="ui_trestle_discards_the_password_after_this_attempt">После этой попытки Trestle забудет пароль и сохранит только зашифрованные токены.</string>
+    <string name="ui_password_sign_in_warning">Microsoft не рекомендует вход по паролю напрямую, и он не работает с двухэтапной проверкой. После этой попытки Trestle забудет пароль и сохранит только зашифрованные токены.</string>
     <string name="ui_hide_secret">Скрыть секрет</string>
     <string name="ui_show_secret">Показать секрет</string>
     <string name="ui_use_to_letters_numbers_or_underscores">От 1 до 16 букв, цифр или подчёркиваний.</string>
@@ -1307,4 +1306,6 @@
     <string name="label_sort_newest">Новые</string>
     <string name="msg_adding_local_file">Добавление локального файла</string>
     <string name="msg_s_files_must_use_s">Файлы типа «%1$s» должны иметь расширение %2$s.</string>
+    <string name="ui_instance_copy_name">%1$s (копия)</string>
+    <string name="ui_player_skin_name">Скин %1$s</string>
 </resources>

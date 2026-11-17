@@ -69,7 +69,18 @@ class FileInstanceRepository(
             val recoveredCount = registry.instances.count { it.installationState is InstallationState.Installing }
             val packUpdates = ModpackUpdates(fileSystem)
             val recoveredInstances = registry.instances.map { saved ->
-                val instance = packUpdates.recover(saved)
+                // A damaged update journal or backup affects only its own instance, never the whole library.
+                val instance = try {
+                    packUpdates.recover(saved)
+                } catch (error: Exception) {
+                    logger.warn(
+                        "instances",
+                        "Could not recover an interrupted modpack update",
+                        error,
+                        mapOf("instanceId" to saved.id.value),
+                    )
+                    saved
+                }
                 val installing = instance.installationState as? InstallationState.Installing
                     ?: return@map instance
                 instance.copy(

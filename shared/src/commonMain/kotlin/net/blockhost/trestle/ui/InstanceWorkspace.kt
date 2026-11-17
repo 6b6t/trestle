@@ -1250,19 +1250,20 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                Selector(
-                    label = stringResource(Res.string.ui_server_resource_packs),
-                    value = when (editor.acceptTextures) {
+                val resourcePackChoices = listOf<Boolean?>(null, true, false).associateWith { choice ->
+                    when (choice) {
                         true -> stringResource(Res.string.ui_always)
                         false -> stringResource(Res.string.ui_never)
                         null -> stringResource(Res.string.ui_ask)
+                    }
+                }
+                Selector(
+                    label = stringResource(Res.string.ui_server_resource_packs),
+                    value = resourcePackChoices.getValue(editor.acceptTextures),
+                    values = resourcePackChoices.values.toList(),
+                    onSelect = { label ->
+                        actions.setServerResourcePacks(resourcePackChoices.entries.first { it.value == label }.key)
                     },
-                    values = listOf(
-                        stringResource(Res.string.ui_ask),
-                        stringResource(Res.string.ui_always),
-                        stringResource(Res.string.ui_never),
-                    ),
-                    onSelect = actions::setServerResourcePacks,
                 )
             }
         },
@@ -2134,7 +2135,7 @@ private fun InstanceCommandRows(instance: GameInstance) {
 }
 
 @Composable
-private fun DiscardChangesDialog(onKeepEditing: () -> Unit, onDiscard: () -> Unit) {
+internal fun DiscardChangesDialog(onKeepEditing: () -> Unit, onDiscard: () -> Unit) {
     AlertDialog(
         onDismissRequest = onKeepEditing,
         title = { Text(stringResource(Res.string.ui_discard_changes_title)) },

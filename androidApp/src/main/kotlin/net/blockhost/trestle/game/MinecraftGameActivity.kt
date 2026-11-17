@@ -64,6 +64,13 @@ class MinecraftGameActivity :
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // This activity handles every configuration change, so saved state means Android killed the game process
+        // and is restoring it from Recents. The old launch is gone, and starting it again would reuse a stale token.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState != null || fromHistory) {
+            finishAndRemoveTask()
+            return
+        }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemUi()
         launchId = intent.getStringExtra(AndroidGameLaunchProtocol.EXTRA_LAUNCH_ID)
@@ -414,15 +421,40 @@ class MinecraftGameActivity :
                         AndroidGameLaunchProtocol.RESULT_EXITED,
                         Bundle().apply { putInt(AndroidGameLaunchProtocol.EXTRA_EXIT_CODE, exitCode) },
                     )
-                    runOnUiThread { finish() }
+                    runOnUiThread(::endGameProcess)
                 } catch (error: Throwable) {
                     writeCrashDetails(request, error)
                     reportFailure(error.message ?: error.javaClass.simpleName)
-                    runOnUiThread { finish() }
+                    runOnUiThread(::endGameProcess)
                 }
             },
             "Minecraft JVM",
         ).start()
+    }
+
+    /**
+     * One process can host only one JVM, so the game process ends with the game. Waiting for the launcher's stop
+     * broadcast could leave the process alive with a used JVM, which would break the next launch.
+     */
+    private fun endGameProcess() {
+        finishAndRemoveTask()
+        Process.killProcess(Process.myPid())
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // A second launch while the game runs cannot start another JVM here. Answer it now instead of letting
+        // the launcher wait for its start timeout.
+        @Suppress("DEPRECATION")
+        val newReceiver = intent.getParcelableExtra<ResultReceiver>(AndroidGameLaunchProtocol.EXTRA_RECEIVER)
+        if (newReceiver != null && newReceiver != receiver) {
+            runCatching {
+                newReceiver.send(
+                    AndroidGameLaunchProtocol.RESULT_FAILED,
+                    Bundle().apply { putString(AndroidGameLaunchProtocol.EXTRA_MESSAGE, "Minecraft is already running.") },
+                )
+            }
+        }
     }
 
     private fun showTextInput() {

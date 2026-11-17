@@ -32,6 +32,7 @@ import net.blockhost.trestle.text.UserText
 import net.blockhost.trestle.text.asUserText
 import net.blockhost.trestle.text.requireUser
 import net.blockhost.trestle.text.text
+import okio.ByteString.Companion.encodeUtf8
 import okio.FileSystem
 import okio.Path
 import okio.buffer
@@ -100,7 +101,7 @@ class DownloadPipeline(
 
         try {
             coroutineScope {
-                required.mapIndexed { index, request ->
+                required.map { request ->
                     async {
                         semaphore.withPermit {
                             if (isValid(request.destination, request, allowUnverified = true)) {
@@ -123,7 +124,7 @@ class DownloadPipeline(
                                 return@withPermit
                             }
 
-                            val staged = stagingDirectory / "$index.part"
+                            val staged = stagingDirectory / stagedFileName(request)
                             downloadWithRetry(request, staged, rangeSupport) { delta ->
                                 lock.lock()
                                 try {
@@ -431,3 +432,10 @@ class DownloadPipeline(
         const val DEFAULT_BUFFER_SIZE = 32 * 1024
     }
 }
+
+/**
+ * Names a partial download by its URL and destination. A shared staging folder can then never resume one file
+ * with another file's bytes, as position-based names could when two downloads used the folder.
+ */
+internal fun stagedFileName(request: DownloadRequest): String =
+    "${"${request.url}\n${request.destination}".encodeUtf8().sha256().hex()}.part"

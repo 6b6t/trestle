@@ -4,11 +4,27 @@ import java.nio.file.Files
 import kotlin.io.path.createTempDirectory
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class DesktopActivationTest {
     @Test
     fun `empty arguments activate the existing window`() {
         assertEquals(listOf(DesktopActivation.Show), DesktopActivationParser.parse(emptyList()))
+    }
+
+    @Test
+    fun `files, links and window flags open the window instead of the command line`() {
+        listOf(
+            arrayOf("/home/player/Downloads/pack.mrpack"),
+            arrayOf("trestle://launch/example-id"),
+            arrayOf("--settings"),
+            arrayOf("--launch-instance", "example-id"),
+        ).forEach { arguments -> assertFalse(isCliInvocation(arguments), arguments.joinToString(" ")) }
+        listOf(arrayOf("--list"), arrayOf("--install", "example-id"), arrayOf("--unknown")).forEach { arguments ->
+            assertTrue(isCliInvocation(arguments), arguments.joinToString(" "))
+        }
+        assertFalse(isCliInvocation(emptyArray()))
     }
 
     @Test
@@ -26,7 +42,7 @@ class DesktopActivationTest {
             listOf(
                 DesktopActivation.ImportFiles(listOf(mod, pack)),
                 DesktopActivation.OpenSettings,
-                DesktopActivation.LaunchInstance("example-id"),
+                DesktopActivation.ShowInstance("example-id"),
             ),
             activations,
         )

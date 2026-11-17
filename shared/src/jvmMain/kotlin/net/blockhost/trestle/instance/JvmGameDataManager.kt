@@ -409,23 +409,23 @@ class JvmGameDataManager(
         requireUser(server.name.isNotBlank()) { text(Res.string.msg_server_name_must_not_be_blank) }
         requireUser(server.address.isNotBlank()) { text(Res.string.msg_server_address_must_not_be_blank) }
         val path = gameDirectory(instance).resolve("servers.dat")
-        val servers = readServers(path).toMutableList()
-        val index = servers.indexOfFirst { it.key == server.key }
+        val servers = readServerEntries(path).toMutableList()
+        val index = servers.indexOfFirst { it.server.key == server.key }
         val normalized = server.copy(key = server.key.ifBlank { serverKey(server.name, server.address) })
-        if (index >= 0) servers[index] = normalized else servers += normalized
+        if (index >= 0) servers[index] = servers[index].copy(server = normalized) else servers += ServerEntry(normalized)
         writeServers(path, servers)
     }
 
     override suspend fun removeServer(instance: GameInstance, serverKey: String) = withContext(Dispatchers.IO) {
         val path = gameDirectory(instance).resolve("servers.dat")
-        writeServers(path, readServers(path).filterNot { it.key == serverKey })
+        writeServers(path, readServerEntries(path).filterNot { it.server.key == serverKey })
     }
 
     override suspend fun moveServer(instance: GameInstance, serverKey: String, offset: Int) = withContext(Dispatchers.IO) {
         if (offset == 0) return@withContext
         val path = gameDirectory(instance).resolve("servers.dat")
-        val servers = readServers(path).toMutableList()
-        val sourceIndex = servers.indexOfFirst { it.key == serverKey }
+        val servers = readServerEntries(path).toMutableList()
+        val sourceIndex = servers.indexOfFirst { it.server.key == serverKey }
         if (sourceIndex < 0) return@withContext
         val targetIndex = (sourceIndex + offset).coerceIn(0, servers.lastIndex)
         if (sourceIndex == targetIndex) return@withContext
@@ -456,7 +456,9 @@ class JvmGameDataManager(
         Unit
     }
 
-    private fun readServers(path: Path): List<SavedServer> {
+    private fun readServers(path: Path): List<SavedServer> = readServerEntries(path).map(ServerEntry::server)
+
+    private fun readServerEntries(path: Path): List<ServerEntry> {
         if (!Files.isRegularFile(path)) return emptyList()
         return runCatching {
             BufferedInputStream(Files.newInputStream(path)).use { source ->
@@ -464,16 +466,17 @@ class JvmGameDataManager(
                 val isGzip = source.read() == GZIP_MAGIC_FIRST && source.read() == GZIP_MAGIC_SECOND
                 source.reset()
                 val decoded = if (isGzip) GZIPInputStream(source) else source
-                DataInputStream(decoded).use { input ->
+                val recorder = RecordingInputStream(decoded)
+                DataInputStream(recorder).use { input ->
                     if (input.readUnsignedByte() != TAG_COMPOUND) return emptyList()
                     input.readUTF()
-                    readRootCompound(input)
+                    readRootCompound(input, recorder)
                 }
             }
         }.getOrElse { throw LauncherException.FileSystem(text(Res.string.msg_servers_dat_could_not_be_read), it) }
     }
 
-    private fun readRootCompound(input: DataInputStream): List<SavedServer> {
+    private fun readRootCompound(input: DataInputStream, recorder: RecordingInputStream): List<ServerEntry> {
         while (true) {
             val type = input.readUnsignedByte()
             if (type == TAG_END) return emptyList()
@@ -485,30 +488,42 @@ class JvmGameDataManager(
                     repeat(count) { skipPayload(input, elementType) }
                     return emptyList()
                 }
-                return List(count) { readServerCompound(input) }
+                return List(count) { readServerCompound(input, recorder) }
             }
             skipPayload(input, type)
         }
     }
 
-    private fun readServerCompound(input: DataInputStream): SavedServer {
+    /** Reads one server. Fields Trestle does not edit, such as the icon and hidden flag, are kept as raw NBT. */
+    private fun readServerCompound(input: DataInputStream, recorder: RecordingInputStream): ServerEntry {
         var name = ""
         var address = ""
         var textures: Boolean? = null
+        val extras = ByteArrayOutputStream()
+        val extrasOutput = DataOutputStream(extras)
         while (true) {
             val type = input.readUnsignedByte()
             if (type == TAG_END) break
             when (val key = input.readUTF()) {
                 "name" -> if (type == TAG_STRING) name = input.readUTF() else skipPayload(input, type)
+
                 "ip" -> if (type == TAG_STRING) address = input.readUTF() else skipPayload(input, type)
+
                 "acceptTextures" -> if (type == TAG_BYTE) textures = input.readByte().toInt() != 0 else skipPayload(input, type)
-                else -> skipPayload(input, type)
+
+                else -> {
+                    recorder.startRecording()
+                    skipPayload(input, type)
+                    extrasOutput.writeByte(type)
+                    extrasOutput.writeUTF(key)
+                    extrasOutput.write(recorder.stopRecording())
+                }
             }
         }
-        return SavedServer(serverKey(name, address), name, address, textures)
+        return ServerEntry(SavedServer(serverKey(name, address), name, address, textures), extras.toByteArray())
     }
 
-    private fun writeServers(path: Path, servers: List<SavedServer>) {
+    private fun writeServers(path: Path, servers: List<ServerEntry>) {
         Files.createDirectories(path.parent)
         val temporary = path.resolveSibling(".${path.fileName}.tmp")
         DataOutputStream(Files.newOutputStream(temporary, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING)).use { output ->
@@ -518,7 +533,7 @@ class JvmGameDataManager(
             output.writeUTF("servers")
             output.writeByte(TAG_COMPOUND)
             output.writeInt(servers.size)
-            servers.forEach { server ->
+            servers.forEach { (server, extras) ->
                 writeString(output, "name", server.name)
                 writeString(output, "ip", server.address)
                 server.acceptTextures?.let {
@@ -526,6 +541,7 @@ class JvmGameDataManager(
                     output.writeUTF("acceptTextures")
                     output.writeByte(if (it) 1 else 0)
                 }
+                output.write(extras)
                 output.writeByte(TAG_END)
             }
             output.writeByte(TAG_END)

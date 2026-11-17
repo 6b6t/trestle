@@ -8,6 +8,7 @@ enum class LauncherCommand {
     REMOVE_SELECTED,
     TOGGLE_SELECTED_PIN,
     SHOW_LIBRARY,
+    SHOW_INSTANCE,
     SHOW_DISCOVER,
     SHOW_ACCOUNTS,
     SHOW_SETTINGS,

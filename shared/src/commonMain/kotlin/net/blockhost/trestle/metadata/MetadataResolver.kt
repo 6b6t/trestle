@@ -125,11 +125,20 @@ object MinecraftMetadataResolver {
         return base.copy(
             id = overlay.id,
             mainClass = overlay.mainClass,
-            libraries = (overlay.libraries + base.libraries).distinctBy(::libraryModuleKey),
+            libraries = mergeLibraries(base.libraries, overlay.libraries),
             arguments = mergeArguments(base.arguments, overlay.arguments),
             minecraftArguments = overlay.minecraftArguments ?: base.minecraftArguments,
             javaVersion = overlay.javaVersion ?: base.javaVersion,
         )
+    }
+
+    /**
+     * Overlay libraries replace base libraries of the same module. Base libraries are kept as they are, because
+     * Mojang lists some modules twice with opposite OS rules, and both entries must survive until rule evaluation.
+     */
+    private fun mergeLibraries(base: List<MojangLibrary>, overlay: List<MojangLibrary>): List<MojangLibrary> {
+        val overridden = overlay.mapTo(HashSet(), ::libraryModuleKey)
+        return overlay + base.filterNot { libraryModuleKey(it) in overridden }
     }
 
     private fun mergeArguments(base: ModernArguments?, overlay: ModernArguments?): ModernArguments? {

@@ -54,12 +54,7 @@ import org.jetbrains.compose.resources.stringResource
 @Composable
 internal fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions, searchFocusRequest: Int) {
     LaunchedEffect(state.resourceBrowser.visible, state.resourceBrowser.presentation) {
-        if (
-            !state.resourceBrowser.visible ||
-            state.resourceBrowser.presentation != ResourceBrowserPresentation.PAGE
-        ) {
-            actions.openResourceBrowser(presentation = ResourceBrowserPresentation.PAGE)
-        }
+        actions.ensureResourceBrowserPage()
     }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
         PageHero(

@@ -133,7 +133,6 @@ import net.blockhost.trestle.resources.ui_login_live_com_cookies_or_cookie_expor
 import net.blockhost.trestle.resources.ui_manage_skins
 import net.blockhost.trestle.resources.ui_microsoft_account_email
 import net.blockhost.trestle.resources.ui_microsoft_account_password
-import net.blockhost.trestle.resources.ui_microsoft_discourages_direct_password_login_and_it
 import net.blockhost.trestle.resources.ui_microsoft_refresh_token
 import net.blockhost.trestle.resources.ui_minecraft_access_token
 import net.blockhost.trestle.resources.ui_more
@@ -144,6 +143,7 @@ import net.blockhost.trestle.resources.ui_offline_profile
 import net.blockhost.trestle.resources.ui_offline_username
 import net.blockhost.trestle.resources.ui_open_microsoft_sign_in
 import net.blockhost.trestle.resources.ui_open_named
+import net.blockhost.trestle.resources.ui_password_sign_in_warning
 import net.blockhost.trestle.resources.ui_play_with_any_username_servers_in_online
 import net.blockhost.trestle.resources.ui_player_model
 import net.blockhost.trestle.resources.ui_profile
@@ -170,7 +170,6 @@ import net.blockhost.trestle.resources.ui_sign_out_question
 import net.blockhost.trestle.resources.ui_the_active_account_plays_your_instances
 import net.blockhost.trestle.resources.ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_
 import net.blockhost.trestle.resources.ui_to_letters_numbers_or_underscores
-import net.blockhost.trestle.resources.ui_trestle_discards_the_password_after_this_attempt
 import net.blockhost.trestle.resources.ui_use
 import net.blockhost.trestle.resources.ui_use_a_minecraft_access_token_directly_it
 import net.blockhost.trestle.resources.ui_use_a_refresh_token_issued_for_the
@@ -788,8 +787,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        stringResource(Res.string.ui_microsoft_discourages_direct_password_login_and_it) +
-                            stringResource(Res.string.ui_trestle_discards_the_password_after_this_attempt),
+                        stringResource(Res.string.ui_password_sign_in_warning),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }

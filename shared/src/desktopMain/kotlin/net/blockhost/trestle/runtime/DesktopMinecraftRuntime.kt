@@ -10,6 +10,7 @@ import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.auth.AuthSession
+import net.blockhost.trestle.auth.SecretValue
 import net.blockhost.trestle.auth.SessionProvider
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
@@ -205,12 +206,12 @@ class DesktopMinecraftRuntime(
             }
             send(LaunchEvent.Exited(exitCode))
         } catch (error: CancellationException) {
-            process?.destroy()
+            process?.destroyWithDescendants()
             logger.info("runtime", "Minecraft launch cancelled", mapOf("instanceId" to preparedLaunch.instanceId))
             trySend(LaunchEvent.Cancelled)
             throw error
         } catch (error: Exception) {
-            process?.destroy()
+            process?.destroyWithDescendants()
             logger.error(
                 "runtime",
                 "Minecraft process could not start",
@@ -239,7 +240,7 @@ class DesktopMinecraftRuntime(
                 exitCode
             }
         } catch (error: CancellationException) {
-            process.destroy()
+            process.destroyWithDescendants()
             throw error
         }
     }
@@ -288,6 +289,11 @@ class DesktopMinecraftRuntime(
                 "game_directory" to (instance.instanceDirectory.toPath() / "game").toString(),
                 "assets_root" to directories.assets.toString(),
                 "assets_index_name" to (installed.assetIndexId ?: installed.metadata.assets.orEmpty()),
+                "game_assets" to LegacyAssets.prepare(
+                    Path.of(directories.assets.toString()),
+                    installed.assetIndexId ?: installed.metadata.assets.orEmpty(),
+                    Path.of((instance.instanceDirectory.toPath() / "game").toString()),
+                ).toString(),
                 "version_type" to installed.metadata.type,
                 "user_properties" to "{}",
             ),
@@ -336,6 +342,13 @@ class DesktopMinecraftRuntime(
             val availableSession = requireNotNull(session)
             return availableSession.accessToken?.let(CommandArgument::Secret) ?: CommandArgument.Public("0")
         }
+        // Minecraft 1.5.2 and older take one session argument made of the token and the profile ID.
+        if (argument == "\${auth_session}") {
+            val availableSession = requireNotNull(session)
+            return availableSession.accessToken
+                ?.let { token -> CommandArgument.Secret(SecretValue("token:${token.reveal()}:${availableSession.profileId}")) }
+                ?: CommandArgument.Public("-")
+        }
         return CommandArgument.Public(substitutePublic(argument, values))
     }
 
@@ -348,10 +361,21 @@ class DesktopMinecraftRuntime(
             "\${user_type}",
             "\${clientid}",
             "\${auth_xuid}",
+            "\${auth_session}",
         )
     }
 }
 
 fun interface JavaResolver {
     suspend fun resolve(component: String?, requiredMajor: Int): String
+}
+
+/**
+ * Stops the process and everything it started. With a wrapper command such as `prime-run` or a script that does not
+ * `exec`, the direct child is the wrapper and Minecraft is one of its descendants.
+ */
+internal fun Process.destroyWithDescendants() {
+    val descendants = descendants().toList()
+    destroy()
+    descendants.forEach(ProcessHandle::destroy)
 }

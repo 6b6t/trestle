@@ -1,5 +1,7 @@
 package net.blockhost.trestle
 
+import android.content.ContentResolver
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ShortcutInfo
@@ -49,12 +51,19 @@ import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherCommandRequest
 import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
+import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.io.InputStream
 import java.util.Locale
+import java.util.UUID
 
 private const val ACTION_LAUNCH_INSTANCE = "net.blockhost.trestle.action.LAUNCH_INSTANCE"
 private const val ACTION_NEW_INSTANCE = "net.blockhost.trestle.action.NEW_INSTANCE"
 private const val ACTION_OPEN_SETTINGS = "net.blockhost.trestle.action.OPEN_SETTINGS"
 private const val EXTRA_INSTANCE_ID = "instance_id"
+private const val EXTRA_LAUNCH_TOKEN = "launch_token"
+private const val SHORTCUT_PREFERENCES = "shortcuts"
+private const val KEY_LAUNCH_TOKEN = "launch_token"
 private const val MAX_IMPORT_BYTES = 512L * 1024L * 1024L
 
 class MainActivity : ComponentActivity() {
@@ -107,7 +116,10 @@ class MainActivity : ComponentActivity() {
         }
         observePinnedInstances()
         observeOperations()
-        handleIntent(intent)
+        // A recreated activity (rotation, theme change, restore from Recents) still carries the intent that first
+        // opened it. Handling it again would import the same file twice or start the game again.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) handleIntent(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -135,7 +147,12 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_SEND -> intent.readSharedUri()?.let(::importUri)
 
             ACTION_LAUNCH_INSTANCE -> intent.getStringExtra(EXTRA_INSTANCE_ID)?.let { id ->
-                viewModel.launcher.launchInstance(InstanceId(id))
+                // Only Trestle's own pinned shortcuts carry the token. Other apps can only open the instance page.
+                if (intent.getStringExtra(EXTRA_LAUNCH_TOKEN) == launchShortcutToken()) {
+                    viewModel.launcher.launchInstance(InstanceId(id))
+                } else {
+                    showInstance(id)
+                }
             }
 
             ACTION_NEW_INSTANCE -> sendCommand(LauncherCommand.NEW_INSTANCE)
@@ -148,41 +165,39 @@ class MainActivity : ComponentActivity() {
         when (uri.host?.lowercase(Locale.ROOT)) {
             "settings" -> sendCommand(LauncherCommand.SHOW_SETTINGS)
 
-            "launch" -> uri.pathSegments.firstOrNull()?.let { id ->
-                viewModel.launcher.launchInstance(InstanceId(id))
-            }
+            // Any web page can open a trestle: link, so a link only opens the instance. The player presses Play.
+            "launch" -> uri.pathSegments.firstOrNull()?.let(::showInstance)
         }
+    }
+
+    private fun showInstance(id: String) {
+        viewModel.launcher.selectInstance(InstanceId(id))
+        sendCommand(LauncherCommand.SHOW_INSTANCE)
     }
 
     private fun importUri(uri: Uri) {
         lifecycleScope.launch {
-            val name = queryDisplayName(uri) ?: uri.lastPathSegment ?: "local-file"
-            val declaredLength = runCatching {
-                contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length }
-            }.getOrNull()
-            if (declaredLength != null && declaredLength > MAX_IMPORT_BYTES) {
+            // Imports are held in memory, so the limit also stays well inside the app's heap.
+            val limit = minOf(MAX_IMPORT_BYTES, Runtime.getRuntime().maxMemory() / 4)
+            val name = withContext(Dispatchers.IO) { contentResolver.displayName(uri) } ?: uri.lastPathSegment ?: "local-file"
+            val declaredLength = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull()
+            }
+            if (declaredLength != null && declaredLength > limit) {
                 viewModel.launcher.reportLocalFileTooLarge(name)
                 return@launch
             }
-            val bytes = withContext(Dispatchers.IO) {
-                runCatching { contentResolver.openInputStream(uri)?.use { it.readBytes() } }
-            }.getOrNull()
-            if (bytes == null) {
-                viewModel.launcher.reportLocalFileReadFailure(name)
-            } else if (bytes.size.toLong() > MAX_IMPORT_BYTES) {
-                viewModel.launcher.reportLocalFileTooLarge(name)
-            } else {
-                viewModel.launcher.queueLocalFileImport(name, bytes)
+            val result = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.openInputStream(uri)?.use { it.readAtMost(limit) } }
+            }
+            val bytes = result.getOrNull()
+            when {
+                result.exceptionOrNull() is FileTooLargeException -> viewModel.launcher.reportLocalFileTooLarge(name)
+                bytes == null -> viewModel.launcher.reportLocalFileReadFailure(name)
+                else -> viewModel.launcher.queueLocalFileImport(name, bytes)
             }
         }
     }
-
-    private fun queryDisplayName(uri: Uri): String? = runCatching {
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-        }
-    }.getOrNull()
 
     private fun observePinnedInstances() {
         val shortcutManager = getSystemService(ShortcutManager::class.java) ?: return
@@ -210,6 +225,7 @@ class MainActivity : ComponentActivity() {
                                     Intent(this@MainActivity, MainActivity::class.java).apply {
                                         action = ACTION_LAUNCH_INSTANCE
                                         putExtra(EXTRA_INSTANCE_ID, instance.id)
+                                        putExtra(EXTRA_LAUNCH_TOKEN, launchShortcutToken())
                                         flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                                     },
                                 )
@@ -304,5 +320,36 @@ private data class PinnedShortcut(val id: String, val label: String)
 private class TrestleAndroidViewModel(val launcher: LauncherViewModel) : ViewModel() {
     override fun onCleared() {
         launcher.close()
+    }
+}
+
+private class FileTooLargeException : IOException("The file is larger than the import limit.")
+
+/** Reads the stream but stops as soon as it is longer than [limit], so an oversized file never fills the heap. */
+private fun InputStream.readAtMost(limit: Long): ByteArray {
+    val output = ByteArrayOutputStream()
+    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+    var total = 0L
+    while (true) {
+        val read = read(buffer)
+        if (read < 0) return output.toByteArray()
+        total += read
+        if (total > limit) throw FileTooLargeException()
+        output.write(buffer, 0, read)
+    }
+}
+
+private fun ContentResolver.displayName(uri: Uri): String? = runCatching {
+    query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (!cursor.moveToFirst()) return@use null
+        cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+    }
+}.getOrNull()
+
+/** A random value that only Trestle's own pinned shortcuts carry, so other apps cannot start the game directly. */
+private fun Context.launchShortcutToken(): String {
+    val preferences = getSharedPreferences(SHORTCUT_PREFERENCES, Context.MODE_PRIVATE)
+    return preferences.getString(KEY_LAUNCH_TOKEN, null) ?: UUID.randomUUID().toString().also { token ->
+        preferences.edit().putString(KEY_LAUNCH_TOKEN, token).apply()
     }
 }

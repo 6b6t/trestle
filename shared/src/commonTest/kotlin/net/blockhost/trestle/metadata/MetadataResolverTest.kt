@@ -139,6 +139,34 @@ class MetadataResolverTest {
     }
 
     @Test
+    fun loaderOverlayKeepsBaseLibrariesThatDifferOnlyByOsRules() {
+        val macOnly = listOf(MojangRule(RuleAction.ALLOW, os = RuleOs(name = "osx")))
+        val notMac = listOf(MojangRule(RuleAction.ALLOW), MojangRule(RuleAction.DISALLOW, os = RuleOs(name = "osx")))
+        val base = VersionMetadata(
+            id = "1.18.2",
+            mainClass = "net.minecraft.client.main.Main",
+            downloads = VersionDownloads(client = DownloadReference(url = "https://cdn.test/client.jar")),
+            libraries = listOf(
+                MojangLibrary("org.lwjgl:lwjgl:3.2.1", rules = macOnly),
+                MojangLibrary("org.lwjgl:lwjgl:3.2.2", rules = notMac),
+            ),
+        )
+        val overlay = VersionMetadata(
+            id = "fabric-loader-0.16.0-1.18.2",
+            mainClass = "net.fabricmc.loader.impl.launch.knot.KnotClient",
+            libraries = listOf(MojangLibrary("net.fabricmc:fabric-loader:0.16.0")),
+            inheritsFrom = "1.18.2",
+        )
+
+        val resolved = MinecraftMetadataResolver.resolve(MinecraftMetadataResolver.merge(base, overlay), linux)
+
+        assertEquals(
+            listOf("net.fabricmc:fabric-loader:0.16.0", "org.lwjgl:lwjgl:3.2.2"),
+            resolved.libraries.map { it.name },
+        )
+    }
+
+    @Test
     fun marksGeneratedLoaderArtifactsAsOffClasspath() {
         val library = MojangLibrary(
             name = "example:generated:1.0",

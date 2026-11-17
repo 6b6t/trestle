@@ -2,6 +2,8 @@ package net.blockhost.trestle.app
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonObject
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.msg_proxy_port_must_be_between_and
 import net.blockhost.trestle.text.requireUser
@@ -127,9 +129,26 @@ data class LauncherPreferences(
 class LauncherPreferencesStore(private val fileSystem: FileSystem, private val path: Path) {
     fun read(): LauncherPreferences {
         if (!fileSystem.exists(path)) return LauncherPreferences()
-        return runCatching {
-            preferencesJson.decodeFromString<LauncherPreferences>(fileSystem.read(path) { readUtf8() })
-        }.getOrDefault(LauncherPreferences())
+        return runCatching { fileSystem.read(path) { readUtf8() } }
+            .mapCatching { content ->
+                runCatching { preferencesJson.decodeFromString<LauncherPreferences>(content) }
+                    .getOrElse { decodeReadableSections(content) }
+            }
+            .getOrDefault(LauncherPreferences())
+    }
+
+    /**
+     * Keeps every top-level section that still decodes when another one does not, for example an option value
+     * written by a newer Trestle. Without this, one bad value would reset every setting, including custom folders.
+     */
+    private fun decodeReadableSections(content: String): LauncherPreferences {
+        val saved = preferencesJson.parseToJsonElement(content).jsonObject
+        val readable = saved.filter { (key, value) ->
+            runCatching {
+                preferencesJson.decodeFromJsonElement(LauncherPreferences.serializer(), JsonObject(mapOf(key to value)))
+            }.isSuccess
+        }
+        return preferencesJson.decodeFromJsonElement(LauncherPreferences.serializer(), JsonObject(readable))
     }
 
     fun write(preferences: LauncherPreferences) {

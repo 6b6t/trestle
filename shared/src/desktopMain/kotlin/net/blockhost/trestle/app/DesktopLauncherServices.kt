@@ -135,6 +135,9 @@ private fun desktopSystemProfile(): SystemProfile {
     )
 }
 
+/** The per-user folder that holds Trestle's preferences, instances and runtime state on this computer. */
+fun desktopLauncherDataDirectory(): String = desktopDataDirectory(desktopEnvironment().operatingSystem)
+
 private fun desktopEnvironment(): PlatformEnvironment {
     val osName = System.getProperty("os.name").lowercase()
     val os = when {
