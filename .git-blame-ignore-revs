@@ -1,0 +1,4 @@
+# Bulk formatting commits. Use: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# style: format Kotlin sources with ktlint
+ae5fc063fba36eb6d1738130cf5a892c2134d11a
