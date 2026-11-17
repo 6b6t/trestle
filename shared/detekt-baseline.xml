@@ -9,22 +9,29 @@
     <ID>ComplexCondition:LauncherViewModel.kt:email.isBlank() || password.isBlank() || (edition == MinecraftEdition.BEDROCK &amp;&amp; bedrockGameVersion.isBlank())</ID>
     <ID>ComplexCondition:ModpackCatalogPlatforms.kt:LegacyFtbResourcePlatform$directory.isBlank() || name.isBlank() || minecraft.isBlank() || file.isBlank()</ID>
     <ID>ComplexCondition:ReleaseVersion.kt:ReleaseVersion.Companion$pre.any { part -&gt; part.all(Char::isDigit) &amp;&amp; ((part.length &gt; 1 &amp;&amp; part.startsWith('0')) || part.toULongOrNull() == null) }</ID>
+    <ID>ComplexCondition:ResourceBrowserDialog.kt:project.provider == ResourceProvider.CURSEFORGE &amp;&amp; selectedFile?.url == null &amp;&amp; selectedFile?.id != null &amp;&amp; project.websiteUrl != null</ID>
     <ID>ComplexCondition:ResourceInstaller.kt:ResourceInstaller$current.versionId != candidate.version.id &amp;&amp; (otherOwners.isNotEmpty() || (!candidate.isRoot &amp;&amp; current.direct))</ID>
-    <ID>ComplexCondition:TrestleApp.kt:project.provider == ResourceProvider.CURSEFORGE &amp;&amp; selectedFile?.url == null &amp;&amp; selectedFile?.id != null &amp;&amp; project.websiteUrl != null</ID>
+    <ID>ComposableParamOrder:CreateInstanceDialog.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun Selector</ID>
     <ID>ComposableParamOrder:InstanceIconEditor.kt:@Composable internal fun InstanceIconArtwork</ID>
-    <ID>ComposableParamOrder:TrestleApp.kt:@Composable private fun LibraryPage</ID>
-    <ID>ComposableParamOrder:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun Selector</ID>
+    <ID>ComposableParamOrder:LibraryPage.kt:@Composable internal fun LibraryPage</ID>
     <ID>CompositionLocalAllowlist:TrestleComponents.kt:internal val LocalTrestleWindowAdaptiveInfo = staticCompositionLocalOf&lt;WindowAdaptiveInfo?&gt; { null }</ID>
     <ID>CompositionLocalAllowlist:TrestleTheme.kt:internal val LocalReduceMotion = staticCompositionLocalOf { false }</ID>
+    <ID>CyclomaticComplexMethod:AccountsPage.kt:@Composable internal fun AccountLoginDialog</ID>
+    <ID>CyclomaticComplexMethod:AccountsPage.kt:@Composable internal fun AccountsPage</ID>
     <ID>CyclomaticComplexMethod:AdoptiumJavaResolver.kt:internal fun extractTemurinArchive</ID>
     <ID>CyclomaticComplexMethod:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$private fun copyVerified</ID>
     <ID>CyclomaticComplexMethod:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$fun extract</ID>
     <ID>CyclomaticComplexMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
     <ID>CyclomaticComplexMethod:ContentMetadata.jvm.kt:internal actual fun readEmbeddedMetadata: ContentMetadata</ID>
     <ID>CyclomaticComplexMethod:ContentMetadata.kt:ContentIdentifier$suspend fun identify: List&lt;InstalledContent&gt;</ID>
+    <ID>CyclomaticComplexMethod:CreateInstanceDialog.kt:@Composable internal fun CreateInstanceDialog</ID>
     <ID>CyclomaticComplexMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
     <ID>CyclomaticComplexMethod:DownloadPipeline.kt:DownloadPipeline$private suspend fun downloadWithRetry</ID>
     <ID>CyclomaticComplexMethod:GameFileBrowser.kt:@Composable internal fun GameFileBrowserDialog</ID>
+    <ID>CyclomaticComplexMethod:InstanceSettingsDialog.kt:@Composable internal fun InstanceSettingsContent</ID>
+    <ID>CyclomaticComplexMethod:InstanceWorkspace.kt:@Composable internal fun InstanceWorkspace</ID>
+    <ID>CyclomaticComplexMethod:InstanceWorkspace.kt:@Composable private fun InstanceGameData</ID>
+    <ID>CyclomaticComplexMethod:InstanceWorkspace.kt:@Composable private fun InstanceLogs</ID>
     <ID>CyclomaticComplexMethod:JvmArchiveExtractor.kt:JvmArchiveExtractor$override fun extract</ID>
     <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$override suspend fun importWorld: ManagedWorld</ID>
     <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$private fun copyNbtPayload</ID>
@@ -36,6 +43,10 @@
     <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$private fun launchSelected</ID>
     <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$private fun searchResources</ID>
     <ID>CyclomaticComplexMethod:LauncherViewModel.kt:private fun parseCommandLine: List&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:LibraryPage.kt:@Composable internal fun LibraryPage</ID>
+    <ID>CyclomaticComplexMethod:LibraryPage.kt:@Composable private fun InstanceTile</ID>
+    <ID>CyclomaticComplexMethod:LibraryPage.kt:@Composable private fun LaunchReadiness</ID>
+    <ID>CyclomaticComplexMethod:LocalFileImportDialog.kt:@Composable internal fun LocalFileImportDialog</ID>
     <ID>CyclomaticComplexMethod:MetadataRules.kt:fun parseLegacyArguments: List&lt;String&gt;</ID>
     <ID>CyclomaticComplexMethod:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$internal fun fromOptionsText: MinecraftClientSettings?</ID>
     <ID>CyclomaticComplexMethod:MinecraftInstaller.kt:MinecraftInstaller$suspend fun install: GameInstance</ID>
@@ -45,40 +56,36 @@
     <ID>CyclomaticComplexMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun readCurseForgePlan: ModpackPlan</ID>
     <ID>CyclomaticComplexMethod:MojangJavaResolver.kt:MojangJavaResolver$private suspend fun provision</ID>
     <ID>CyclomaticComplexMethod:MojangJavaResolver.kt:internal fun mojangRuntimePlatform: String</ID>
+    <ID>CyclomaticComplexMethod:ResourceBrowserDialog.kt:@Composable private fun ResourceSelection</ID>
     <ID>CyclomaticComplexMethod:ResourceDescription.kt:private fun decodeHtmlEntities: String</ID>
     <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$private suspend fun resolveDependencies: List&lt;ResolvedResourceVersion&gt;</ID>
     <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun install: ResourceInstallSummary</ID>
     <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun setEnabled: Boolean</ID>
     <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable fun TrestleApp</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun AccountLoginDialog</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun AccountsPage</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun CreateInstanceDialog</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceGameData</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceLogs</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceSettingsContent</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceTile</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceWorkspace</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LaunchReadiness</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LibraryPage</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LocalFileImportDialog</ID>
-    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun ResourceSelection</ID>
     <ID>CyclomaticComplexMethod:UpdateChecker.kt:UpdateChecker$suspend fun availableUpdate: LauncherUpdate?</ID>
     <ID>FunctionNaming:MainViewController.kt:fun MainViewController: UIViewController</ID>
     <ID>FunctionNaming:MainViewController.kt:fun TrestleViewController: UIViewController</ID>
+    <ID>LambdaParameterEventTrailing:CreateInstanceDialog.kt:onSelect: (String) -&gt; Unit</ID>
+    <ID>LambdaParameterEventTrailing:InstanceWorkspace.kt:onChangeComponents: () -&gt; Unit</ID>
     <ID>LambdaParameterEventTrailing:SettingsUi.kt:onClick: () -&gt; Unit</ID>
-    <ID>LambdaParameterEventTrailing:TrestleApp.kt:onChangeComponents: () -&gt; Unit</ID>
-    <ID>LambdaParameterEventTrailing:TrestleApp.kt:onSelect: (String) -&gt; Unit</ID>
     <ID>LambdaParameterEventTrailing:TrestleComponents.kt:onCheckedChange: (Boolean) -&gt; Unit</ID>
     <ID>LambdaParameterInRestartableEffect:TrestleApp.kt:onExternalCommandHandled: (Long) -&gt; Unit = {}</ID>
     <ID>LargeClass:JvmGameDataManager.kt:JvmGameDataManager : GameDataManager</ID>
     <ID>LargeClass:LauncherViewModel.kt:LauncherViewModel : LauncherUiActions</ID>
     <ID>LargeClass:ModpackInstaller.kt:ModpackInstaller</ID>
+    <ID>LongMethod:AccountsPage.kt:@Composable internal fun AccountLoginDialog</ID>
+    <ID>LongMethod:AccountsPage.kt:@Composable internal fun AccountsPage</ID>
+    <ID>LongMethod:AccountsPage.kt:@Composable private fun AccountDetail</ID>
+    <ID>LongMethod:AccountsPage.kt:@Composable private fun AccountRow</ID>
     <ID>LongMethod:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$suspend fun resolve: String</ID>
     <ID>LongMethod:AndroidLauncherServices.kt:fun createAndroidLauncherServices: LauncherServices</ID>
     <ID>LongMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
     <ID>LongMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
     <ID>LongMethod:ContentMetadata.jvm.kt:internal actual fun readEmbeddedMetadata: ContentMetadata</ID>
     <ID>LongMethod:ContentMetadata.kt:ContentIdentifier$suspend fun identify: List&lt;InstalledContent&gt;</ID>
+    <ID>LongMethod:CreateInstanceDialog.kt:@Composable internal fun CreateInstanceDialog</ID>
+    <ID>LongMethod:CreateInstanceDialog.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun ClientSettingsFields</ID>
+    <ID>LongMethod:CreateInstanceDialog.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun Selector</ID>
     <ID>LongMethod:DesktopLauncherServices.kt:fun createDesktopLauncherServices: LauncherServices</ID>
     <ID>LongMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
     <ID>LongMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
@@ -87,6 +94,13 @@
     <ID>LongMethod:GameFileBrowser.kt:@Composable internal fun GameFileBrowserDialog</ID>
     <ID>LongMethod:GameFileBrowser.kt:@Composable private fun GameTextEditorContent</ID>
     <ID>LongMethod:InstanceIconEditor.kt:@Composable internal fun InstanceIconEditorDialog</ID>
+    <ID>LongMethod:InstanceSettingsDialog.kt:@Composable internal fun InstanceSettingsContent</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable internal fun InstanceWorkspace</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable private fun InstalledContentPanel</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable private fun InstalledContentRow</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable private fun InstanceGameData</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable private fun InstanceLogs</ID>
+    <ID>LongMethod:InstanceWorkspace.kt:@Composable private fun InstanceOverview</ID>
     <ID>LongMethod:IosLauncherServices.kt:@OptIn(ExperimentalForeignApi::class) fun createIosLauncherServices: LauncherServices</ID>
     <ID>LongMethod:IosMinecraftRuntime.kt:IosMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
     <ID>LongMethod:JvmGameDataManager.kt:JvmGameDataManager$override suspend fun importWorld: ManagedWorld</ID>
@@ -98,6 +112,10 @@
     <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun installSelectedResource</ID>
     <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun launchSelected</ID>
     <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun loadCreateLoaderVersions</ID>
+    <ID>LongMethod:LibraryPage.kt:@Composable internal fun LibraryPage</ID>
+    <ID>LongMethod:LibraryPage.kt:@Composable internal fun OperationBar</ID>
+    <ID>LongMethod:LibraryPage.kt:@Composable private fun InstanceTile</ID>
+    <ID>LongMethod:LocalFileImportDialog.kt:@Composable internal fun LocalFileImportDialog</ID>
     <ID>LongMethod:MinecraftInstaller.kt:MinecraftInstaller$suspend fun install: GameInstance</ID>
     <ID>LongMethod:MinecraftSkinPreview.kt:@Composable fun MinecraftSkinPreview</ID>
     <ID>LongMethod:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$override suspend fun version: ResourceVersion</ID>
@@ -105,35 +123,17 @@
     <ID>LongMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun installExternal: GameInstance</ID>
     <ID>LongMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun readCurseForgePlan: ModpackPlan</ID>
     <ID>LongMethod:MojangJavaResolverTest.kt:MojangJavaResolverTest$@Test fun provisionsVerifiedRuntimeAndReusesItOffline</ID>
+    <ID>LongMethod:ResourceBrowserDialog.kt:@Composable private fun ResourceBrowserToolbar</ID>
+    <ID>LongMethod:ResourceBrowserDialog.kt:@Composable private fun ResourceFilterFields</ID>
+    <ID>LongMethod:ResourceBrowserDialog.kt:@Composable private fun ResourceSelection</ID>
+    <ID>LongMethod:ResourceBrowserDialog.kt:@OptIn(ExperimentalMaterial3AdaptiveApi::class) @Composable internal fun ResourceBrowserContent</ID>
     <ID>LongMethod:ResourceInstaller.kt:ResourceInstaller$private suspend fun resolveDependencies: List&lt;ResolvedResourceVersion&gt;</ID>
     <ID>LongMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun install: ResourceInstallSummary</ID>
+    <ID>LongMethod:SettingsSections.kt:@Composable internal fun ProxySettings</ID>
     <ID>LongMethod:SettingsUi.kt:@Composable internal fun SettingsPage</ID>
+    <ID>LongMethod:SkinStudioPage.kt:@Composable internal fun SkinEditorDialog</ID>
+    <ID>LongMethod:SkinStudioPage.kt:@Composable internal fun SkinStudioPage</ID>
     <ID>LongMethod:TrestleApp.kt:@Composable fun TrestleApp</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable internal fun OperationBar</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable internal fun ProxySettings</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountDetail</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountLoginDialog</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountRow</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountsPage</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun CreateInstanceDialog</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstalledContentPanel</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstalledContentRow</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceGameData</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceLogs</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceOverview</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceSettingsContent</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceTile</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceWorkspace</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun LibraryPage</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun LocalFileImportDialog</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceBrowserToolbar</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceFilterFields</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceSelection</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun SkinEditorDialog</ID>
-    <ID>LongMethod:TrestleApp.kt:@Composable private fun SkinStudioPage</ID>
-    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3AdaptiveApi::class) @Composable private fun ResourceBrowserContent</ID>
-    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun ClientSettingsFields</ID>
-    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun Selector</ID>
     <ID>LoopWithTooManyJumpStatements:AdoptiumJavaResolver.kt:while</ID>
     <ID>LoopWithTooManyJumpStatements:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$while</ID>
     <ID>LoopWithTooManyJumpStatements:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$while</ID>
@@ -211,6 +211,19 @@
     <ID>MagicNumber:JvmGameDataManager.kt:JvmGameDataManager$4L</ID>
     <ID>MagicNumber:JvmGameDataManager.kt:JvmGameDataManager$8L</ID>
     <ID>MagicNumber:LaunchTuning.kt:LaunchTuningAdvisor$512</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:10.0</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:100L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:100_000L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:100_000_000L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:102L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:104_857L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:107_374_182L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_000L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_000_000L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_000_000_000L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_024L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_048_576L</ID>
+    <ID>MagicNumber:LauncherFormatting.kt:1_073_741_824L</ID>
     <ID>MagicNumber:LauncherPreferences.kt:ConsolePreferences$100</ID>
     <ID>MagicNumber:LauncherPreferences.kt:ConsolePreferences$1_000_000</ID>
     <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$10</ID>
@@ -311,19 +324,6 @@
     <ID>MagicNumber:SkinLibrary.kt:64</ID>
     <ID>MagicNumber:SkinLibrary.kt:8</ID>
     <ID>MagicNumber:SkinLibrary.kt:SkinLibrary$64</ID>
-    <ID>MagicNumber:TrestleApp.kt:10.0</ID>
-    <ID>MagicNumber:TrestleApp.kt:100L</ID>
-    <ID>MagicNumber:TrestleApp.kt:100_000L</ID>
-    <ID>MagicNumber:TrestleApp.kt:100_000_000L</ID>
-    <ID>MagicNumber:TrestleApp.kt:102L</ID>
-    <ID>MagicNumber:TrestleApp.kt:104_857L</ID>
-    <ID>MagicNumber:TrestleApp.kt:107_374_182L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_000L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_000_000L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_000_000_000L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_024L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_048_576L</ID>
-    <ID>MagicNumber:TrestleApp.kt:1_073_741_824L</ID>
     <ID>MagicNumber:TrestleTheme.kt:0.05f</ID>
     <ID>MagicNumber:TrestleTheme.kt:0.16f</ID>
     <ID>MagicNumber:TrestleTheme.kt:0.62f</ID>
@@ -338,11 +338,19 @@
     <ID>MatchingDeclarationName:local-file-drop.kt:LocalDroppedFile</ID>
     <ID>MatchingDeclarationName:progress-update-throttle.kt:ProgressUpdateThrottle</ID>
     <ID>ModifierMissing:TrestleApp.kt:@Composable fun TrestleApp</ID>
+    <ID>ModifierWithoutDefault:AccountsPage.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:InstanceSettingsDialog.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:InstanceWorkspace.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:LauncherLog.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:LibraryPage.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:ResourceBrowserDialog.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:ResourceCatalogPage.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:SettingsSections.kt:modifier: Modifier</ID>
     <ID>ModifierWithoutDefault:SettingsUi.kt:modifier: Modifier</ID>
-    <ID>ModifierWithoutDefault:TrestleApp.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:SkinStudioPage.kt:modifier: Modifier</ID>
     <ID>ModifierWithoutDefault:TrestleNavigation.kt:modifier: Modifier</ID>
-    <ID>MultipleEmitters:TrestleApp.kt:@Composable private fun InstallationProgress</ID>
-    <ID>MultipleEmitters:TrestleApp.kt:@Composable private fun PropertyRow</ID>
+    <ID>MultipleEmitters:LauncherFormatting.kt:@Composable internal fun PropertyRow</ID>
+    <ID>MultipleEmitters:LibraryPage.kt:@Composable private fun InstallationProgress</ID>
     <ID>MultipleEmitters:TrestleComponents.kt:@Composable internal fun TrestleDialogActions</ID>
     <ID>MultipleEmitters:TrestleComponents.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun TrestleDialogHeader</ID>
     <ID>MutableStateAutoboxing:TrestleApp.kt:mutableStateOf(0)</ID>
@@ -461,18 +469,22 @@
     <ID>TooManyFunctions:DownloadPipeline.kt:DownloadPipeline</ID>
     <ID>TooManyFunctions:FileInstanceRepository.kt:FileInstanceRepository : InstanceRepository</ID>
     <ID>TooManyFunctions:GameDataManager.kt:GameDataManager</ID>
+    <ID>TooManyFunctions:InstanceWorkspace.kt:net.blockhost.trestle.ui.InstanceWorkspace.kt</ID>
     <ID>TooManyFunctions:IosInstanceServices.kt:IosGameDataManager : GameDataManager</ID>
     <ID>TooManyFunctions:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator : MinecraftAuthenticator</ID>
     <ID>TooManyFunctions:JvmGameDataManager.kt:JvmGameDataManager : GameDataManager</ID>
     <ID>TooManyFunctions:JvmMinecraftAuthenticator.kt:JvmMinecraftAuthenticator : MinecraftAuthenticator</ID>
+    <ID>TooManyFunctions:LauncherFormatting.kt:net.blockhost.trestle.ui.LauncherFormatting.kt</ID>
     <ID>TooManyFunctions:LauncherUiActions.kt:LauncherUiActions</ID>
     <ID>TooManyFunctions:LauncherViewModel.kt:LauncherViewModel : LauncherUiActions</ID>
+    <ID>TooManyFunctions:LibraryPage.kt:net.blockhost.trestle.ui.LibraryPage.kt</ID>
     <ID>TooManyFunctions:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform : ResourcePlatform</ID>
     <ID>TooManyFunctions:ModpackInstaller.kt:ModpackInstaller</ID>
     <ID>TooManyFunctions:ModpackUpdates.kt:ModpackUpdates</ID>
+    <ID>TooManyFunctions:ResourceBrowserDialog.kt:net.blockhost.trestle.ui.ResourceBrowserDialog.kt</ID>
     <ID>TooManyFunctions:ResourceInstaller.kt:ResourceInstaller</ID>
     <ID>TooManyFunctions:ResourcePlatforms.kt:net.blockhost.trestle.resources.ResourcePlatforms.kt</ID>
-    <ID>TooManyFunctions:TrestleApp.kt:net.blockhost.trestle.ui.TrestleApp.kt</ID>
+    <ID>TooManyFunctions:SettingsSections.kt:net.blockhost.trestle.ui.SettingsSections.kt</ID>
     <ID>TooManyFunctions:TrestlePreviews.kt:net.blockhost.trestle.ui.TrestlePreviews.kt</ID>
     <ID>UnusedPrivateClass:MojangJavaResolver.kt:JavaRuntimeRelease</ID>
   </CurrentIssues>
