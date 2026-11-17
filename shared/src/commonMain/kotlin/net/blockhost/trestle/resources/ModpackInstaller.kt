@@ -525,6 +525,7 @@ class ModpackInstaller(
         val resolvedVersions = platform.versionsByIds(
             includedFiles.map { it.projectId.toString() to it.fileId.toString() },
         )
+        val missingDownloads = mutableListOf<RestrictedDownload>()
         val files = includedFiles.zip(resolvedVersions).map { (reference, curseForgeVersion) ->
             val resourceType = referencedProjects[reference.projectId.toString()]?.type ?: ResourceType.MOD
             var file = curseForgeVersion.primaryFile
@@ -547,10 +548,11 @@ class ModpackInstaller(
                 path = "${resourceType.packInstallFolder()}/${file.fileName}",
                 url = file.url.orEmpty(),
                 localSource = if (file.url == null) {
-                    restrictedDownloads.requireFile(
+                    restrictedDownloads.locate(
                         file,
                         referencedProjects[reference.projectId.toString()]?.websiteUrl?.let { "$it/files/${reference.fileId}" }
                             ?: "https://www.curseforge.com/minecraft/mc-mods/${reference.projectId}/files/${reference.fileId}",
+                        missingDownloads,
                     )
                 } else {
                     null
@@ -560,6 +562,7 @@ class ModpackInstaller(
                 sha512 = file.sha512,
             )
         }
+        if (missingDownloads.isNotEmpty()) throw RestrictedDownloadRequired(missingDownloads)
         return ModpackPlan(
             name = manifest.name,
             minecraftVersion = manifest.minecraft.version,

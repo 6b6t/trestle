@@ -5,9 +5,15 @@ import okio.FileSystem
 import okio.Path
 
 data class RestrictedDownload(val fileName: String, val sha1: String, val websiteUrl: String)
-class RestrictedDownloadRequired(val download: RestrictedDownload) :
+
+/** Every file the install still needs from its publisher, reported together so they can be fetched in one pass. */
+class RestrictedDownloadRequired(val downloads: List<RestrictedDownload>) :
     Exception(
-        "${download.fileName} requires a download from its publisher. Select the downloaded file to continue.",
+        if (downloads.size == 1) {
+            "${downloads.single().fileName} requires a download from its publisher. Select the downloaded file to continue."
+        } else {
+            "${downloads.size} files require downloads from their publishers. Select the downloaded files to continue."
+        },
     )
 
 /** Only exact publisher-provided SHA-1 matches may substitute for a restricted download. */
@@ -18,11 +24,19 @@ class RestrictedDownloads(private val fileSystem: FileSystem, private val direct
         return path.takeIf { fileSystem.exists(it) && fileSystem.sha1(it).equals(sha1, ignoreCase = true) }
     }
 
-    fun requireFile(file: ResourceFile, websiteUrl: String): Path {
+    /** Returns the verified local copy of [file], or records it in [missing] when the player still has to download it. */
+    fun locate(file: ResourceFile, websiteUrl: String, missing: MutableList<RestrictedDownload>): Path? {
         find(file.sha1)?.let { return it }
         val sha1 = file.sha1?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }
             ?: error("${file.fileName} requires a manual download, but the publisher supplied no checksum. It cannot be imported safely.")
-        throw RestrictedDownloadRequired(RestrictedDownload(file.fileName, sha1, websiteUrl))
+        missing += RestrictedDownload(file.fileName, sha1, websiteUrl)
+        return null
+    }
+
+    /** Finds which of [downloads] the selected [bytes] are, by checksum, so files can be chosen in any order. */
+    fun match(downloads: List<RestrictedDownload>, bytes: ByteArray): RestrictedDownload? {
+        val sha1 = bytes.toByteString().sha1().hex()
+        return downloads.firstOrNull { it.sha1.equals(sha1, ignoreCase = true) }
     }
 
     fun accept(download: RestrictedDownload, bytes: ByteArray) {

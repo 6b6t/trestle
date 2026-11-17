@@ -116,6 +116,7 @@ internal object LauncherTestTags {
     const val RESOURCE_FILTERS = "resource-filters"
     const val RESOURCE_RESULTS = "resource-results"
     const val RESOURCE_DETAIL = "resource-detail"
+    const val INSTALL_BLOCKED_REASON = "install-blocked-reason"
     const val CREATE_DIALOG = "create-dialog"
     const val FIXED_CREATE_VERSION = "fixed-create-version"
     const val FIXED_CREATE_LOADER = "fixed-create-loader"
@@ -239,7 +240,7 @@ fun TrestleApp(
             state.serverEditor.visible ||
             state.pendingInstanceRemovalId != null ||
             state.pendingWorldDeletionKey != null ||
-            showShortcuts || state.restrictedDownload != null || state.modpackUpdatePreview != null ||
+            showShortcuts || state.restrictedDownloads.isNotEmpty() || state.modpackUpdatePreview != null ||
             state.suggestedPackInstances.isNotEmpty() ||
             (
                 state.resourceBrowser.visible &&

@@ -44,6 +44,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -66,6 +67,7 @@ import androidx.compose.material3.adaptive.layout.AnimatedPane
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffold
 import androidx.compose.material3.adaptive.layout.ListDetailPaneScaffoldRole
 import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
+import androidx.compose.material3.adaptive.layout.ThreePaneScaffoldValue
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -111,6 +113,7 @@ import net.blockhost.trestle.resources.ic_close
 import net.blockhost.trestle.resources.ic_expand_more
 import net.blockhost.trestle.resources.ic_extension
 import net.blockhost.trestle.resources.ui_any_category
+import net.blockhost.trestle.resources.ui_any_loader
 import net.blockhost.trestle.resources.ui_any_version
 import net.blockhost.trestle.resources.ui_apply
 import net.blockhost.trestle.resources.ui_apply_filters
@@ -119,18 +122,27 @@ import net.blockhost.trestle.resources.ui_back_to_results
 import net.blockhost.trestle.resources.ui_browse_content
 import net.blockhost.trestle.resources.ui_category
 import net.blockhost.trestle.resources.ui_change_the_search_or_content_type
+import net.blockhost.trestle.resources.ui_choose_a_version
+import net.blockhost.trestle.resources.ui_choose_instance_to_install_into
 import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_
 import net.blockhost.trestle.resources.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil
 import net.blockhost.trestle.resources.ui_filters
+import net.blockhost.trestle.resources.ui_filters_with_count
+import net.blockhost.trestle.resources.ui_install_instance
+import net.blockhost.trestle.resources.ui_install_named_first
+import net.blockhost.trestle.resources.ui_instance_loader_named
+import net.blockhost.trestle.resources.ui_instance_version_named
+import net.blockhost.trestle.resources.ui_loading_versions
 import net.blockhost.trestle.resources.ui_minecraft_version
+import net.blockhost.trestle.resources.ui_no_compatible_version
 import net.blockhost.trestle.resources.ui_no_results
+import net.blockhost.trestle.resources.ui_no_version_for_named
 import net.blockhost.trestle.resources.ui_open_manual_download
 import net.blockhost.trestle.resources.ui_optional_dependencies
 import net.blockhost.trestle.resources.ui_search_mods_packs_and_shaders
 import net.blockhost.trestle.resources.ui_select_a_result
 import net.blockhost.trestle.resources.ui_the_author_blocks_downloads_from_third_party_launchers
-import net.blockhost.trestle.resources.ui_this_content_type_cannot_be_installed_into_an_instance_yet
 import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_view_on_provider
 import org.jetbrains.compose.resources.painterResource
@@ -238,8 +250,7 @@ internal fun ResourceBrowserContent(
 
     SelectFirstResultWhenSideBySide(
         browser = browser,
-        sideBySide = !listPaneHidden &&
-            navigator.scaffoldValue[ListDetailPaneScaffoldRole.Detail] != PaneAdaptedValue.Hidden,
+        sideBySide = navigator.scaffoldValue.bothPanesVisible(),
         onSelect = actions::selectResource,
     )
     val clearSelection = {
@@ -250,7 +261,10 @@ internal fun ResourceBrowserContent(
         onBack = clearSelection,
     )
     Column(modifier) {
-        ResourceBrowserToolbar(browser, state, actions, searchFocusRequester)
+        // In a single pane, the details get the whole height; the toolbar returns with the results.
+        if (!detailFillsScreen(listPaneHidden, browser)) {
+            ResourceBrowserToolbar(browser, state, actions, searchFocusRequester)
+        }
         browser.error?.let { InlineMessage(it, true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
@@ -306,12 +320,27 @@ private fun ResourceBrowserToolbar(
     val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
         val wide = maxWidth >= 840.dp
+        val activeFilters = listOf(
+            browser.gameVersionFilter.isNotBlank(),
+            browser.loaderFilter != null,
+            browser.categoryFilter.isNotBlank(),
+        ).count { it }
         val filtersButton: @Composable (Modifier) -> Unit = { buttonModifier ->
             OutlinedButton(
-                onClick = { showFilters = !showFilters },
+                onClick = {
+                    // Closing the inline panel applies what was typed, so filters are never silently ignored.
+                    if (showFilters && wide) actions.searchResources()
+                    showFilters = !showFilters
+                },
                 modifier = buttonModifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
             ) {
-                Text(stringResource(Res.string.ui_filters))
+                Text(
+                    if (activeFilters == 0) {
+                        stringResource(Res.string.ui_filters)
+                    } else {
+                        stringResource(Res.string.ui_filters_with_count, activeFilters)
+                    },
+                )
             }
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -337,6 +366,7 @@ private fun ResourceBrowserToolbar(
                 if (showFilters) {
                     ResourceFilterFields(
                         browser = browser,
+                        instance = state.selectedInstance,
                         actions = actions,
                         compact = false,
                         onApply = actions::searchResources,
@@ -358,6 +388,7 @@ private fun ResourceBrowserToolbar(
             ) {
                 ResourceFilterFields(
                     browser = browser,
+                    instance = state.selectedInstance,
                     actions = actions,
                     compact = true,
                     onApply = {
@@ -377,6 +408,7 @@ private fun ResourceBrowserToolbar(
 @Composable
 private fun ResourceFilterFields(
     browser: ResourceBrowserState,
+    instance: GameInstance?,
     actions: LauncherUiActions,
     compact: Boolean,
     onApply: () -> Unit,
@@ -387,16 +419,25 @@ private fun ResourceFilterFields(
             value = browser.gameVersionFilter,
             onValueChange = actions::setResourceGameVersionFilter,
             label = { Text(stringResource(Res.string.ui_minecraft_version)) },
-            placeholder = { Text(stringResource(Res.string.ui_any_version)) },
+            placeholder = {
+                Text(
+                    instance?.takeIf { browser.type != ResourceType.MODPACK }
+                        ?.let { stringResource(Res.string.ui_instance_version_named, it.minecraftVersionId) }
+                        ?: stringResource(Res.string.ui_any_version),
+                )
+            },
             singleLine = true,
             modifier = fieldModifier,
         )
     }
+    val defaultLoaderLabel = instance?.takeIf { browser.type != ResourceType.MODPACK }
+        ?.let { stringResource(Res.string.ui_instance_loader_named, it.modLoader.label) }
+        ?: stringResource(Res.string.ui_any_loader)
     val loaderField: @Composable (Modifier) -> Unit = { fieldModifier ->
         Selector(
             label = "Mod loader",
-            value = browser.loaderFilter?.label ?: "Any loader",
-            values = listOf("Any loader") + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
+            value = browser.loaderFilter?.label ?: defaultLoaderLabel,
+            values = listOf(defaultLoaderLabel) + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
             modifier = fieldModifier,
             onSelect = { label ->
                 actions.setResourceLoaderFilter(ModLoader.entries.firstOrNull { it.label == label })
@@ -439,18 +480,6 @@ private fun ResourceFilterFields(
                 categoryField(Modifier.weight(1f))
                 sortField(Modifier.weight(1f))
                 Button(onClick = onApply) { Text(stringResource(Res.string.ui_apply)) }
-            }
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(Res.string.ui_versions), style = MaterialTheme.typography.labelLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
-                    FilterChip(
-                        selected = channel in browser.releaseChannels,
-                        onClick = { actions.toggleResourceReleaseChannel(channel) },
-                        label = { Text(channel.label) },
-                    )
-                }
             }
         }
         if (compact) {
@@ -553,7 +582,7 @@ private fun InstallTarget(
                 expanded = false
                 if (target.id != instance?.id) {
                     actions.selectInstance(target.id)
-                    actions.openResourceBrowser(browser.type, browser.presentation)
+                    actions.searchResources()
                 }
             },
         )
@@ -787,10 +816,9 @@ private fun ResourceSelection(
         return
     }
     val version = browser.selectedVersion
-    val supportedType = project.type in installableResourceTypes
-    val instanceReady = project.type == ResourceType.MODPACK || instance?.installationState is InstallationState.Installed
     val selectedFile = version?.primaryFile
     val downloadable = version?.externalPack != null || selectedFile?.url != null || selectedFile?.sha1 != null
+    val blockedReason = installBlockedReason(project, instance, browser, downloadable)
     Column(modifier.fillMaxHeight()) {
         Column(
             Modifier
@@ -874,12 +902,6 @@ private fun ResourceSelection(
                 }
             }
             Spacer(Modifier.height(8.dp))
-            if (!supportedType) {
-                Text(
-                    stringResource(Res.string.ui_this_content_type_cannot_be_installed_into_an_instance_yet),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
             if (selectedFile?.url == null && selectedFile?.sha1 != null) {
                 Text(
                     stringResource(Res.string.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_),
@@ -918,27 +940,7 @@ private fun ResourceSelection(
                 )
             }
         }
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Button(
-                    onClick = actions::installSelectedResource,
-                    enabled = supportedType && instanceReady && downloadable && !browser.isInstalling,
-                    modifier = Modifier
-                        .widthIn(max = 960.dp)
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 12.dp),
-                ) {
-                    if (browser.isInstalling) {
-                        CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
-                    } else {
-                        Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
-                    }
-                }
-            }
-        }
+        InstallBar(project, instance, browser, blockedReason, actions)
     }
 }
 
@@ -962,15 +964,26 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: Launch
     val selected = browser.selectedVersion
     val versions = browser.versions.filter { it.channel in browser.releaseChannels }
     val labels = versions.map { "${it.versionNumber} · ${it.channel.label}" }
-    Selector(
-        label = "Version",
-        value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: "Select version",
-        values = labels,
-        modifier = Modifier.fillMaxWidth(),
-        onSelect = { label ->
-            versions.getOrNull(labels.indexOf(label))?.let { actions.selectResourceVersion(it.id) }
-        },
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Selector(
+            label = "Version",
+            value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: "Select version",
+            values = labels,
+            modifier = Modifier.fillMaxWidth(),
+            onSelect = { label ->
+                versions.getOrNull(labels.indexOf(label))?.let { actions.selectResourceVersion(it.id) }
+            },
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReleaseChannel.entries.filterNot { it == ReleaseChannel.UNKNOWN }.forEach { channel ->
+                FilterChip(
+                    selected = channel in browser.releaseChannels,
+                    onClick = { actions.toggleResourceReleaseChannel(channel) },
+                    label = { Text(channel.label) },
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -986,5 +999,104 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
         }
         val required = version.dependencies.count { it.kind == DependencyKind.REQUIRED }
         if (required > 0) PropertyRow("Dependencies", "$required required")
+    }
+}
+
+/** Explains, in one line, why Install is not available yet; null when it is. */
+@Composable
+private fun installBlockedReason(
+    project: ResourceProject,
+    instance: GameInstance?,
+    browser: ResourceBrowserState,
+    downloadable: Boolean,
+): String? = targetBlockedReason(project, instance) ?: versionBlockedReason(project, instance, browser, downloadable)
+
+@Composable
+private fun targetBlockedReason(project: ResourceProject, instance: GameInstance?): String? = when {
+    project.type == ResourceType.MODPACK -> null
+    instance == null -> stringResource(Res.string.ui_choose_instance_to_install_into)
+    instance.installationState !is InstallationState.Installed -> stringResource(Res.string.ui_install_named_first, instance.displayName)
+    instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE
+    else -> null
+}
+
+@Composable
+private fun versionBlockedReason(
+    project: ResourceProject,
+    instance: GameInstance?,
+    browser: ResourceBrowserState,
+    downloadable: Boolean,
+): String? = when {
+    browser.isLoadingVersions -> stringResource(Res.string.ui_loading_versions)
+
+    browser.selectedVersion == null && browser.versions.isEmpty() -> if (project.type != ResourceType.MODPACK && instance != null) {
+        stringResource(Res.string.ui_no_version_for_named, "${instance.minecraftVersionId} ${instance.modLoader.label}")
+    } else {
+        stringResource(Res.string.ui_no_compatible_version)
+    }
+
+    browser.selectedVersion == null -> stringResource(Res.string.ui_choose_a_version)
+
+    !downloadable -> stringResource(Res.string.ui_the_author_blocks_downloads_from_third_party_launchers)
+
+    else -> null
+}
+
+/** In a single pane, an open project's details take the whole height. */
+private fun detailFillsScreen(listPaneHidden: Boolean, browser: ResourceBrowserState): Boolean =
+    listPaneHidden && browser.selectedProject != null
+
+private fun ThreePaneScaffoldValue.bothPanesVisible(): Boolean = this[ListDetailPaneScaffoldRole.List] != PaneAdaptedValue.Hidden &&
+    this[ListDetailPaneScaffoldRole.Detail] != PaneAdaptedValue.Hidden
+
+@Composable
+private fun InstallBar(
+    project: ResourceProject,
+    instance: GameInstance?,
+    browser: ResourceBrowserState,
+    blockedReason: String?,
+    actions: LauncherUiActions,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            if (blockedReason != null) {
+                Row(
+                    Modifier.widthIn(max = 960.dp).fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Text(
+                        blockedReason,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f).testTag(LauncherTestTags.INSTALL_BLOCKED_REASON),
+                    )
+                    val notInstalled = project.type != ResourceType.MODPACK && instance != null &&
+                        instance.installationState !is InstallationState.Installed &&
+                        instance.installationState !is InstallationState.Installing
+                    if (notInstalled) {
+                        FilledTonalButton(onClick = actions::installSelected) { Text(stringResource(Res.string.ui_install_instance)) }
+                    }
+                }
+            }
+            Button(
+                onClick = actions::installSelectedResource,
+                enabled = blockedReason == null && !browser.isInstalling,
+                modifier = Modifier.widthIn(max = 960.dp).fillMaxWidth(),
+            ) {
+                if (browser.isInstalling) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+                }
+            }
+        }
     }
 }

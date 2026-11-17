@@ -156,9 +156,31 @@ data class OperationStatus(
 
 private class QueuedLocalFile(val fileName: String, val bytes: ByteArray, val type: ResourceType?, val sourceOrigin: String?)
 
-/** The notice shown after an instance leaves the library; its snackbar is the only one that offers Undo. */
+/** Marks a search as running; a new search (not a page append) also clears the previous results and selection. */
+private fun ResourceBrowserState.startingSearch(append: Boolean): ResourceBrowserState = if (append) {
+    copy(isSearching = true, error = null)
+} else {
+    copy(
+        isSearching = true,
+        projects = emptyList(),
+        totalProjects = 0,
+        selectedProjectId = null,
+        versions = emptyList(),
+        selectedVersionId = null,
+        selectedOptionalDependencies = emptySet(),
+        isLoadingVersions = false,
+        error = null,
+    )
+}
+
+/** Content types that need a mod loader; Vanilla instances cannot load them. */
+internal val loaderOnlyTypes = setOf(ResourceType.MOD, ResourceType.SHADER_PACK)
+
+internal const val VANILLA_CONTENT_MESSAGE = "Vanilla can't load mods or shaders. Create a Fabric or NeoForge instance for them."
+
 internal const val BUSY_NOTICE = "Trestle is still finishing the last change. Try again in a moment."
 
+/** The notice shown after an instance leaves the library; its snackbar is the only one that offers Undo. */
 internal const val INSTANCE_REMOVED_NOTICE = "Instance removed from the library. Its game directory was kept."
 
 data class LocalFileImportState(
@@ -358,7 +380,9 @@ data class LauncherUiState(
     val themePreference: ThemePreference = ThemePreference.SYSTEM,
     val launcherPreferences: LauncherPreferences = LauncherPreferences(),
     val defaultFolders: FolderPreferences = FolderPreferences(),
-    val restrictedDownload: RestrictedDownload? = null,
+    /** Files the current install still needs from their publishers, and the checksums already verified. */
+    val restrictedDownloads: List<RestrictedDownload> = emptyList(),
+    val verifiedRestrictedDownloads: Set<String> = emptySet(),
     val suggestedPackInstances: List<GameInstance> = emptyList(),
     val modpackUpdatePreview: ModpackUpdatePreview? = null,
     val canRollbackModpack: Boolean = false,
@@ -400,6 +424,7 @@ class LauncherViewModel(
     private var installJob: Job? = null
     private var resourceJob: Job? = null
     private var resourceSearchJob: Job? = null
+    private var resourceVersionsJob: Job? = null
     private var installedContentJob: Job? = null
     private var contentWriteJob: Job? = null
     private var gameDataJob: Job? = null
@@ -410,6 +435,7 @@ class LauncherViewModel(
     private val initialInitialization = CompletableDeferred<Unit>()
     private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
     private val queuedLocalFiles = ArrayDeque<QueuedLocalFile>()
+    private var restrictedDownloadRetry: (() -> Unit)? = null
     private val loadedSkinUrls = mutableMapOf<String, String>()
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
@@ -630,8 +656,9 @@ class LauncherViewModel(
     }
 
     override fun openCreate() {
+        val versions = mutableState.value.versions
         val defaultVersion = mutableState.value.create.versionId.ifBlank {
-            mutableState.value.versions.firstOrNull()?.id.orEmpty()
+            (versions.firstOrNull { it.type == "release" } ?: versions.firstOrNull())?.id.orEmpty()
         }
         mutableState.update {
             it.copy(
@@ -1173,6 +1200,7 @@ class LauncherViewModel(
 
     override fun setResourceProvider(provider: ResourceProvider) {
         resourceSearchJob?.cancel()
+        resourceVersionsJob?.cancel()
         val current = mutableState.value.resourceBrowser
         val platform = services.resourcePlatforms.platform(provider)
         mutableState.value = mutableState.value.copy(
@@ -1184,6 +1212,8 @@ class LauncherViewModel(
                 versions = emptyList(),
                 selectedVersionId = null,
                 selectedOptionalDependencies = emptySet(),
+                isSearching = false,
+                isLoadingVersions = false,
                 error = when {
                     !platform.isAvailable -> "${provider.label} is not available for third-party launcher access."
                     !platform.supports(current.type) -> "${provider.label} does not provide ${current.type.label.lowercase()}."
@@ -1196,6 +1226,7 @@ class LauncherViewModel(
 
     override fun setResourceType(type: ResourceType) {
         resourceSearchJob?.cancel()
+        resourceVersionsJob?.cancel()
         val current = mutableState.value.resourceBrowser
         val requestedPlatform = services.resourcePlatforms.platform(current.provider)
         val provider = if (requestedPlatform.supports(type)) current.provider else ResourceProvider.MODRINTH
@@ -1216,9 +1247,9 @@ class LauncherViewModel(
     }
 
     override fun setResourceQuery(value: String) {
-        mutableState.value = mutableState.value.copy(
-            resourceBrowser = mutableState.value.resourceBrowser.copy(query = value),
-        )
+        val cleared = value.isBlank() && mutableState.value.resourceBrowser.query.isNotBlank()
+        mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(query = value)) }
+        if (cleared) searchResources()
     }
 
     override fun setResourceGameVersionFilter(value: String) {
@@ -1245,8 +1276,17 @@ class LauncherViewModel(
         } else {
             browser.releaseChannels + value
         }
-        if (channels.isNotEmpty()) {
-            mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(releaseChannels = channels)) }
+        if (channels.isEmpty()) return
+        mutableState.update { state ->
+            val current = state.resourceBrowser
+            val visible = current.versions.filter { it.channel in channels }
+            val keepSelection = visible.any { it.id == current.selectedVersionId }
+            state.copy(
+                resourceBrowser = current.copy(
+                    releaseChannels = channels,
+                    selectedVersionId = if (keepSelection) current.selectedVersionId else visible.firstOrNull()?.id,
+                ),
+            )
         }
     }
 
@@ -1262,18 +1302,20 @@ class LauncherViewModel(
     override fun selectResource(projectId: String) {
         val browser = mutableState.value.resourceBrowser
         val project = browser.projects.firstOrNull { it.id == projectId } ?: return
-        resourceSearchJob?.cancel()
-        resourceSearchJob = scope.launch {
-            mutableState.value = mutableState.value.copy(
-                resourceBrowser = browser.copy(
-                    selectedProjectId = projectId,
-                    versions = emptyList(),
-                    selectedVersionId = null,
-                    selectedOptionalDependencies = emptySet(),
-                    isLoadingVersions = true,
-                    error = null,
-                ),
-            )
+        resourceVersionsJob?.cancel()
+        resourceVersionsJob = scope.launch {
+            mutableState.update {
+                it.copy(
+                    resourceBrowser = it.resourceBrowser.copy(
+                        selectedProjectId = projectId,
+                        versions = emptyList(),
+                        selectedVersionId = null,
+                        selectedOptionalDependencies = emptySet(),
+                        isLoadingVersions = true,
+                        error = null,
+                    ),
+                )
+            }
             try {
                 val instance = mutableState.value.selectedInstance
                 val platform = services.resourcePlatforms.platform(project.provider)
@@ -1292,7 +1334,7 @@ class LauncherViewModel(
                         selectedVersionId = versions.firstOrNull { it.channel == ReleaseChannel.RELEASE }?.id
                             ?: versions.firstOrNull()?.id,
                         isLoadingVersions = false,
-                        error = if (versions.isEmpty()) "No compatible versions were found." else null,
+                        error = null,
                     ),
                 )
             } catch (_: CancellationException) {
@@ -1309,7 +1351,7 @@ class LauncherViewModel(
     }
 
     override fun clearResourceSelection() {
-        resourceSearchJob?.cancel()
+        resourceVersionsJob?.cancel()
         val browser = mutableState.value.resourceBrowser
         mutableState.value = mutableState.value.copy(
             resourceBrowser = browser.copy(
@@ -1366,15 +1408,19 @@ class LauncherViewModel(
                 return
             }
         }
-        if (project.type != ResourceType.MODPACK && instance?.installationState !is InstallationState.Installed) {
-            mutableState.value = mutableState.value.copy(
-                resourceBrowser = browser.copy(error = "Install the selected instance before adding resources."),
-            )
+        val blocked = when {
+            project.type == ResourceType.MODPACK -> null
+            instance?.installationState !is InstallationState.Installed -> "Install the selected instance before adding resources."
+            instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE
+            else -> null
+        }
+        if (blocked != null) {
+            mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.copy(error = blocked)) }
             return
         }
         resourceJob = scope.launch {
             mutableState.value = mutableState.value.copy(
-                resourceBrowser = browser.copy(isInstalling = true, error = null),
+                resourceBrowser = mutableState.value.resourceBrowser.copy(isInstalling = true, error = null),
                 operation = OperationStatus(
                     title = if (project.type ==
                         ResourceType.MODPACK
@@ -1412,7 +1458,7 @@ class LauncherViewModel(
                 }
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = if (browser.presentation == ResourceBrowserPresentation.PAGE) {
-                        browser.copy(isInstalling = false, error = null)
+                        mutableState.value.resourceBrowser.copy(isInstalling = false, error = null)
                     } else {
                         ResourceBrowserState()
                     },
@@ -1432,7 +1478,10 @@ class LauncherViewModel(
                 )
             } catch (error: Exception) {
                 if (error is RestrictedDownloadRequired) {
-                    mutableState.update { it.copy(restrictedDownload = error.download) }
+                    restrictedDownloadRetry = { installSelectedResource(suggestUpdate = false) }
+                    mutableState.update {
+                        it.copy(restrictedDownloads = error.downloads, verifiedRestrictedDownloads = emptySet())
+                    }
                 }
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
@@ -1448,20 +1497,45 @@ class LauncherViewModel(
     }
 
     override fun dismissRestrictedDownload() {
-        mutableState.update { it.copy(restrictedDownload = null) }
+        restrictedDownloadRetry = null
+        mutableState.update { it.copy(restrictedDownloads = emptyList(), verifiedRestrictedDownloads = emptySet()) }
     }
 
     override fun acceptRestrictedDownload(bytes: ByteArray) {
-        val download = mutableState.value.restrictedDownload ?: return
+        val pending = mutableState.value.restrictedDownloads
+        if (pending.isEmpty()) return
         scope.launch {
+            val download = services.restrictedDownloads.match(pending, bytes)
+            if (download == null) {
+                mutableState.update { it.copy(error = "That file is not one the pack needs. Check the file name and version.") }
+                return@launch
+            }
             runCatching { services.restrictedDownloads.accept(download, bytes) }
-                .onSuccess {
-                    mutableState.update {
-                        it.copy(restrictedDownload = null, error = null, notice = "File verified. Retry the installation to continue.")
-                    }
-                }
+                .onSuccess { onRestrictedDownloadVerified(download) }
                 .onFailure(::showError)
         }
+    }
+
+    private fun onRestrictedDownloadVerified(download: RestrictedDownload) {
+        mutableState.update { it.copy(verifiedRestrictedDownloads = it.verifiedRestrictedDownloads + download.sha1, error = null) }
+        val state = mutableState.value
+        if (state.restrictedDownloads.any { it.sha1 !in state.verifiedRestrictedDownloads }) return
+        val retry = restrictedDownloadRetry
+        restrictedDownloadRetry = null
+        mutableState.update {
+            it.copy(
+                restrictedDownloads = emptyList(),
+                verifiedRestrictedDownloads = emptySet(),
+                notice = if (retry ==
+                    null
+                ) {
+                    "All files verified. Retry the installation to continue."
+                } else {
+                    "All files verified. Continuing the installation."
+                },
+            )
+        }
+        retry?.invoke()
     }
 
     override fun previewSelectedModpackUpdate(id: InstanceId) {
@@ -3131,19 +3205,9 @@ class LauncherViewModel(
         val platform = services.resourcePlatforms.platform(browser.provider)
         if (!platform.isAvailable || !platform.supports(browser.type)) return
         resourceSearchJob?.cancel()
+        if (!append) resourceVersionsJob?.cancel()
         resourceSearchJob = scope.launch {
-            mutableState.value = mutableState.value.copy(
-                resourceBrowser = browser.copy(
-                    isSearching = true,
-                    projects = if (append) browser.projects else emptyList(),
-                    totalProjects = if (append) browser.totalProjects else 0,
-                    selectedProjectId = if (append) browser.selectedProjectId else null,
-                    versions = if (append) browser.versions else emptyList(),
-                    selectedVersionId = if (append) browser.selectedVersionId else null,
-                    selectedOptionalDependencies = if (append) browser.selectedOptionalDependencies else emptySet(),
-                    error = null,
-                ),
-            )
+            mutableState.update { it.copy(resourceBrowser = it.resourceBrowser.startingSearch(append)) }
             try {
                 val instance = mutableState.value.selectedInstance
                 val result = platform.search(
@@ -3159,14 +3223,17 @@ class LauncherViewModel(
                         offset = if (append) browser.projects.size else 0,
                     ),
                 )
-                mutableState.value = mutableState.value.copy(
-                    resourceBrowser = mutableState.value.resourceBrowser.copy(
-                        projects = if (append) browser.projects + result.projects else result.projects,
-                        totalProjects = result.total,
-                        isSearching = false,
-                        error = if (result.projects.isEmpty() && !append) "No resources matched these filters." else null,
-                    ),
-                )
+                mutableState.update { state ->
+                    val current = state.resourceBrowser
+                    state.copy(
+                        resourceBrowser = current.copy(
+                            projects = if (append) current.projects + result.projects else result.projects,
+                            totalProjects = result.total,
+                            isSearching = false,
+                            error = null,
+                        ),
+                    )
+                }
             } catch (_: CancellationException) {
                 return@launch
             } catch (error: Exception) {
@@ -3366,7 +3433,8 @@ class LauncherViewModel(
 
     private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null) {
         if (error is RestrictedDownloadRequired) {
-            mutableState.update { it.copy(restrictedDownload = error.download) }
+            restrictedDownloadRetry = null
+            mutableState.update { it.copy(restrictedDownloads = error.downloads, verifiedRestrictedDownloads = emptySet()) }
         }
         mutableState.update {
             it.copy(

@@ -197,7 +197,6 @@
     <string name="ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives">Supports Modrinth, CurseForge, Prism, and MultiMC pack archives.</string>
     <string name="ui_technic">Technic</string>
     <string name="ui_the_author_blocks_downloads_from_third_party_launchers">The author blocks downloads from third-party launchers.</string>
-    <string name="ui_this_content_type_cannot_be_installed_into_an_instance_yet">This content type cannot be installed into an instance yet.</string>
     <string name="ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk">This deletes the local skin profile and its PNG. Your active Minecraft skin does not change.</string>
     <string name="ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain">This permanently deletes the world directory. Existing ZIP backups remain available.</string>
     <string name="ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_">This removes the local profile and saved credentials. It does not change the source account.</string>
@@ -291,4 +290,22 @@
     <string name="ui_remove_server_explanation">This removes the server from the game's multiplayer list.</string>
     <string name="ui_enable_named">Enable %1$s</string>
     <string name="ui_update_to_version">Update %1$s</string>
+    <string name="ui_filters_with_count">Filters (%1$d)</string>
+    <string name="ui_instance_version_named">Instance\'s version (%1$s)</string>
+    <string name="ui_instance_loader_named">Instance\'s loader (%1$s)</string>
+    <string name="ui_any_loader">Any loader</string>
+    <string name="ui_choose_instance_to_install_into">Choose an instance to install into.</string>
+    <string name="ui_install_named_first">Install %1$s before adding content to it.</string>
+    <string name="ui_loading_versions">Loading versions…</string>
+    <string name="ui_no_version_for_named">No version is available for %1$s.</string>
+    <string name="ui_no_compatible_version">No compatible version is available.</string>
+    <string name="ui_choose_a_version">Choose a version to install.</string>
+    <string name="ui_install_instance">Install instance</string>
+    <string name="ui_download_from_the_publisher">Download from the publisher</string>
+    <string name="ui_download_files_from_publishers">Download %1$d files from their publishers</string>
+    <string name="ui_restricted_download_explanation">These publishers require a manual download. Download each exact version, then select the files in any order. Trestle checks every file and continues the installation when all are verified.</string>
+    <string name="ui_verified">Verified</string>
+    <string name="ui_waiting_for_file">Waiting for the downloaded file</string>
+    <string name="ui_open_download">Open download</string>
+    <string name="ui_select_downloaded_file">Select downloaded file</string>
 </resources>

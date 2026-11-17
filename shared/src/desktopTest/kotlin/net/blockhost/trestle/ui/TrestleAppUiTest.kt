@@ -390,15 +390,15 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun discoverInstallTargetSwitchesTheInstanceAndReloadsResults() = runComposeUiTest {
+    fun discoverInstallTargetSwitchesTheInstanceAndKeepsTheSearch() = runComposeUiTest {
         val events = mutableListOf<String>()
         val actions = object : LauncherUiActions {
             override fun selectInstance(id: InstanceId) {
                 events += "select:${id.value}"
             }
 
-            override fun openResourceBrowser(type: ResourceType, presentation: ResourceBrowserPresentation) {
-                events += "open:${type.name}"
+            override fun searchResources() {
+                events += "search"
             }
         }
         setContent {
@@ -416,7 +416,7 @@ class TrestleAppUiTest {
         onNodeWithText("Installing into").performClick()
         onNodeWithText("Latest release").performClick()
 
-        assertEquals(listOf("select:vanilla", "open:MOD"), events)
+        assertEquals(listOf("select:vanilla", "search"), events)
     }
 
     @Test

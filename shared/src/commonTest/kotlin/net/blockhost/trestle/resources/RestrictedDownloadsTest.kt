@@ -11,6 +11,7 @@ import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
@@ -36,5 +37,27 @@ class RestrictedDownloadsTest {
             pipeline.download(listOf(DownloadRequest("", "/other/mod.jar".toPath(), sha1 = download.sha1, localSource = source)), "/staging".toPath())
         }
         assertFalse(fs.exists("/other/mod.jar".toPath()))
+    }
+
+    @Test fun collectsEveryMissingFileAndMatchesSelectedFilesByChecksum() {
+        val fs = FakeFileSystem()
+        val cache = RestrictedDownloads(fs, "/manual".toPath())
+        val first = byteArrayOf(1, 2, 3)
+        val second = byteArrayOf(4, 5, 6)
+        val missing = mutableListOf<RestrictedDownload>()
+        listOf("first.jar" to first, "second.jar" to second).forEach { (name, bytes) ->
+            val file = ResourceFile(id = null, fileName = name, url = null, sha1 = bytes.toByteString().sha1().hex(), size = bytes.size.toLong(), primary = true)
+            assertNull(cache.locate(file, "https://example.test/$name", missing))
+        }
+
+        assertEquals(listOf("first.jar", "second.jar"), missing.map { it.fileName })
+        assertEquals("second.jar", cache.match(missing, second)?.fileName)
+        assertNull(cache.match(missing, byteArrayOf(7)))
+
+        cache.accept(missing[0], first)
+        val stillMissing = mutableListOf<RestrictedDownload>()
+        val firstFile = ResourceFile(id = null, fileName = "first.jar", url = null, sha1 = missing[0].sha1, size = 3, primary = true)
+        assertNotNull(cache.locate(firstFile, "https://example.test/first.jar", stillMissing))
+        assertEquals(emptyList(), stillMissing)
     }
 }

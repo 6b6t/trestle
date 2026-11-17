@@ -74,6 +74,7 @@ import net.blockhost.trestle.resources.ui_controls_and_accessibility
 import net.blockhost.trestle.resources.ui_creating
 import net.blockhost.trestle.resources.ui_custom
 import net.blockhost.trestle.resources.ui_direct_download_or_curseforge_url
+import net.blockhost.trestle.resources.ui_enter_an_instance_name
 import net.blockhost.trestle.resources.ui_existing_ftb_app_library
 import net.blockhost.trestle.resources.ui_filter_named_field
 import net.blockhost.trestle.resources.ui_group
@@ -147,7 +148,14 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             selected = false,
                             onClick = {
                                 actions.closeCreate()
-                                actions.openResourceBrowser(ResourceType.MODPACK)
+                                // On the Discover page, switch its type instead of opening a dialog on top of it.
+                                if (state.resourceBrowser.visible &&
+                                    state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE
+                                ) {
+                                    actions.setResourceType(ResourceType.MODPACK)
+                                } else {
+                                    actions.openResourceBrowser(ResourceType.MODPACK)
+                                }
                             },
                             shape = SegmentedButtonDefaults.itemShape(2, 3),
                             modifier = Modifier.weight(1f),
@@ -158,6 +166,8 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     value = form.name,
                     onValueChange = actions::setCreateName,
                     label = { Text(stringResource(Res.string.ui_name)) },
+                    isError = form.name.isBlank(),
+                    supportingText = if (form.name.isBlank()) ({ Text(stringResource(Res.string.ui_enter_an_instance_name)) }) else null,
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     keyboardActions = KeyboardActions(

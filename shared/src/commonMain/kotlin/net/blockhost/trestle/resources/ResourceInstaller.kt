@@ -224,6 +224,7 @@ class ResourceInstaller(
         }
         val root = instance.instanceDirectory.toPath()
         val resolved = resolveDependencies(project, version, instance, optionalDependencies)
+        val missingDownloads = mutableListOf<RestrictedDownload>()
         val plannedFiles = buildList {
             resolved.forEach { resolvedVersion ->
                 val file = downloadableFile(resolvedVersion.version)
@@ -236,7 +237,7 @@ class ResourceInstaller(
                     }
                     val page = publisher?.websiteUrl?.let { "$it/files/${resolvedVersion.version.id}" }
                         ?: "https://www.curseforge.com/minecraft"
-                    restrictedDownloads?.requireFile(file, page)
+                    restrictedDownloads?.locate(file, page, missingDownloads)
                 } else {
                     null
                 }
@@ -255,6 +256,7 @@ class ResourceInstaller(
                 )
             }
         }
+        if (missingDownloads.isNotEmpty()) throw RestrictedDownloadRequired(missingDownloads)
         rejectPathCollisions(plannedFiles)
 
         val rootKey = resourceKey(project.provider, project.id)
