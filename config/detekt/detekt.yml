@@ -1,0 +1,39 @@
+# Overrides for detekt's default configuration. Existing findings live in each module's detekt-baseline.xml.
+# The defaults skip common test folders but not desktopTest or androidHostTest, so the rules below list them too.
+
+complexity:
+  TooManyFunctions:
+    excludes: &tests ['**/*Test/**', '**/test/**']
+
+exceptions:
+  InstanceOfCheckForException:
+    excludes: *tests
+  ThrowingExceptionsWithoutMessageOrCause:
+    excludes: *tests
+  TooGenericExceptionCaught:
+    excludes: *tests
+
+naming:
+  FunctionNaming:
+    excludes: *tests
+    # Composable functions use PascalCase names.
+    ignoreAnnotated: ['Composable']
+
+performance:
+  ForEachOnRange:
+    excludes: *tests
+  SpreadOperator:
+    excludes: *tests
+
+potential-bugs:
+  UnsafeCallOnNullableType:
+    excludes: *tests
+
+style:
+  MagicNumber:
+    excludes: ['**/*Test/**', '**/test/**', '**/*.kts']
+    # Compose layout code uses literal sizes, weights, and colors.
+    ignoreAnnotated: ['Composable']
+  # ktlint enforces the line length from .editorconfig.
+  MaxLineLength:
+    active: false

@@ -1,0 +1,20 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_style = space
+indent_size = 4
+max_line_length = 140
+ktlint_code_style = intellij_idea
+ktlint_function_naming_ignore_when_annotated_with = Composable
+# Platform expect and actual files use kebab-case names, such as clipboard.android.kt.
+ktlint_standard_filename = disabled
+
+# Tests keep JSON fixtures and expected values on one line.
+[**/src/*Test/**.kt]
+ktlint_standard_max-line-length = disabled
