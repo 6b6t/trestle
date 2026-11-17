@@ -771,10 +771,11 @@ class LauncherViewModel(
         }
     }
 
-    override fun importRemoteModpack(url: String) {
+    override fun importRemoteModpack(url: String) = importRemoteModpack(url, mutableState.value.create)
+
+    private fun importRemoteModpack(url: String, requestedIdentity: CreateInstanceState) {
         val source = url.trim()
         if (source.isBlank() || resourceJob?.isActive == true) return
-        val requestedIdentity = mutableState.value.create
         mutableState.update {
             it.copy(
                 create = CreateInstanceState(),
@@ -784,25 +785,7 @@ class LauncherViewModel(
         }
         resourceJob = scope.launch {
             try {
-                val downloadUrl = if (source.startsWith("curseforge://", ignoreCase = true)) {
-                    val parameters = source.substringAfter('?', "").split('&').mapNotNull { part ->
-                        val key = part.substringBefore('=', "").lowercase()
-                        val value = part.substringAfter('=', "")
-                        if (key.isBlank() || value.isBlank()) null else key to value
-                    }.toMap()
-                    val projectId = parameters["addonid"] ?: parameters["projectid"]
-                        ?: throw IllegalArgumentException("The CurseForge link has no project ID.")
-                    val fileId = parameters["fileid"]
-                        ?: throw IllegalArgumentException("The CurseForge link has no file ID.")
-                    services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE)
-                        .version(projectId, fileId).primaryFile?.url
-                        ?: throw IllegalArgumentException("The CurseForge file blocks third-party downloads.")
-                } else {
-                    require(source.startsWith("https://") || source.startsWith("http://")) {
-                        "Enter an HTTP, HTTPS, or curseforge:// URL."
-                    }
-                    source
-                }
+                val downloadUrl = resolveModpackImportUrl(source)
                 val (fileName, bytes) = services.downloadImport(downloadUrl)
                 val imported = services.modpackInstaller.installLocal(fileName, bytes, ::updateResourceProgress)
                 val configured = services.repository.update(
@@ -823,19 +806,39 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null, notice = "Modpack import cancelled.") }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
-                showError(error)
+                showError(error, resume = { importRemoteModpack(source, requestedIdentity) })
             } finally {
                 resourceJob = null
             }
         }
     }
 
-    override fun importFtbAppInstances() {
+    /** Turns a pasted modpack link into a direct download URL; curseforge:// links are resolved through the API. */
+    private suspend fun resolveModpackImportUrl(source: String): String = if (source.startsWith("curseforge://", ignoreCase = true)) {
+        val parameters = source.substringAfter('?', "").split('&').mapNotNull { part ->
+            val key = part.substringBefore('=', "").lowercase()
+            val value = part.substringAfter('=', "")
+            if (key.isBlank() || value.isBlank()) null else key to value
+        }.toMap()
+        val projectId = requireNotNull(parameters["addonid"] ?: parameters["projectid"]) { "The CurseForge link has no project ID." }
+        val fileId = requireNotNull(parameters["fileid"]) { "The CurseForge link has no file ID." }
+        requireNotNull(
+            services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).version(projectId, fileId).primaryFile?.url,
+        ) { "The CurseForge file blocks third-party downloads." }
+    } else {
+        require(source.startsWith("https://") || source.startsWith("http://")) {
+            "Enter an HTTP, HTTPS, or curseforge:// URL."
+        }
+        source
+    }
+
+    override fun importFtbAppInstances() = importFtbAppInstances(mutableState.value.create.group.trim())
+
+    private fun importFtbAppInstances(requestedGroup: String) {
         if (resourceJob?.isActive == true) return
         val path = mutableState.value.launcherPreferences.ftbAppInstancesPath.trim()
-        val requestedGroup = mutableState.value.create.group.trim()
         if (path.isBlank()) {
-            showError(IllegalArgumentException("Set the FTB App instances folder in Settings > Services first."))
+            showError(IllegalArgumentException("Set the FTB App instances folder in Settings > Folders first."))
             return
         }
         mutableState.update {
@@ -866,7 +869,7 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null, notice = "FTB App import cancelled.") }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
-                showError(error)
+                showError(error, resume = { importFtbAppInstances(requestedGroup) })
             } finally {
                 resourceJob = null
             }
@@ -1580,7 +1583,7 @@ class LauncherViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError(error)
+                showError(error, resume = ::checkModpackUpdate)
             } finally {
                 mutableState.update { it.copy(operation = null) }
             }
@@ -1595,7 +1598,7 @@ class LauncherViewModel(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                showError(error)
+                showError(error, resume = { preparePackUpdate(instance, project, version) })
             } finally {
                 mutableState.update { it.copy(operation = null) }
             }
@@ -2336,10 +2339,11 @@ class LauncherViewModel(
         queueLocalFileImport(next.fileName, next.bytes, next.type, next.sourceOrigin)
     }
 
-    override fun confirmLocalFileImport() {
-        if (resourceJob?.isActive == true) return
-        val pending = mutableState.value.localFileImport
-        val type = pending.selectedType ?: return
+    override fun confirmLocalFileImport() = runLocalFileImport(mutableState.value.localFileImport)
+
+    private fun runLocalFileImport(pending: LocalFileImportState) {
+        val type = pending.selectedType
+        if (resourceJob?.isActive == true || type == null) return
         val target = pending.targetInstanceId?.let { id -> mutableState.value.instances.firstOrNull { it.id == id } }
         if (type != ResourceType.MODPACK && target?.installationState !is InstallationState.Installed) {
             mutableState.update {
@@ -2380,7 +2384,7 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null, notice = "Local file import cancelled.") }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
-                showError(error)
+                showError(error, resume = { runLocalFileImport(pending) })
             } finally {
                 resourceJob = null
                 showNextQueuedLocalFile()
@@ -3448,9 +3452,13 @@ class LauncherViewModel(
         }
     }
 
-    private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null) {
+    /**
+     * Shows [error]. When it lists files the player must download from their publishers, [resume] restarts
+     * the same operation once every file is verified, so the player never has to retry by hand.
+     */
+    private fun showError(error: Throwable, recovery: ErrorRecoveryAction? = null, resume: (() -> Unit)? = null) {
         if (error is RestrictedDownloadRequired) {
-            restrictedDownloadRetry = null
+            restrictedDownloadRetry = resume
             mutableState.update { it.copy(restrictedDownloads = error.downloads, verifiedRestrictedDownloads = emptySet()) }
         }
         mutableState.update {
