@@ -41,6 +41,8 @@ jobs:
       - name: Build and test
         run: >-
           ./gradlew
+          ktlintCheck
+          detekt
           :shared:allTests
           :androidApp:lintDebug
           :androidApp:assembleDebug

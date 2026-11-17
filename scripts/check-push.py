@@ -29,6 +29,11 @@ RULES = [
                 ".",
                 [
                     "./gradlew",
+                    ":ktlintCheck",
+                    ":shared:ktlintCheck",
+                    ":desktopApp:ktlintCheck",
+                    ":shared:detekt",
+                    ":desktopApp:detekt",
                     ":shared:desktopTest",
                     ":desktopApp:test",
                     ":desktopApp:classes",
