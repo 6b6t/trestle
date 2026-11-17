@@ -440,7 +440,11 @@ class LauncherViewModel(
                 services.accounts.initialize()
                 services.skinLibrary.initialize()
             }
-                .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
+                .onFailure { failure ->
+                    if (failure !is CancellationException) {
+                        showError(failure, ErrorRecoveryAction.INITIALIZE)
+                    }
+                }
             val instances = services.repository.instances.value
             mutableState.update { state ->
                 val selected = state.selectedId?.takeIf { id -> instances.any { it.id == id } }

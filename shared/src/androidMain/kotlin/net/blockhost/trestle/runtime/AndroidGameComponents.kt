@@ -61,7 +61,8 @@ internal class AndroidGameComponentManager(
                     mapOf("componentSet" to componentSetId, "source" to AMETHYST_REVISION),
                 )
             } catch (error: CancellationException) {
-                deleteTree(root)
+                // A cleanup failure must not replace the cancellation.
+                runCatching { deleteTree(root) }.exceptionOrNull()?.let(error::addSuppressed)
                 throw error
             } catch (error: LauncherException) {
                 deleteTree(root)
