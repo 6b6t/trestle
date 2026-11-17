@@ -55,12 +55,19 @@ import kotlinx.coroutines.launch
 import net.blockhost.trestle.auth.MinecraftEdition
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_account
 import net.blockhost.trestle.resources.ui_additional_game_arguments
 import net.blockhost.trestle.resources.ui_additional_jvm_arguments
 import net.blockhost.trestle.resources.ui_browse
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_changes_are_written_to_this_instance_s
+import net.blockhost.trestle.resources.ui_changing_the_game_version_or_loader_requires
+import net.blockhost.trestle.resources.ui_commands_run_directly_in_the_game_directory
 import net.blockhost.trestle.resources.ui_custom_commands
 import net.blockhost.trestle.resources.ui_custom_java_executable
+import net.blockhost.trestle.resources.ui_enter_a_maximum_memory_value
+import net.blockhost.trestle.resources.ui_enter_a_minimum_memory_value
+import net.blockhost.trestle.resources.ui_enter_a_valid_maximum_memory_value
 import net.blockhost.trestle.resources.ui_enter_an_instance_name
 import net.blockhost.trestle.resources.ui_enter_one_name_value_pair_per_line_lines_starting_with_are_ignored
 import net.blockhost.trestle.resources.ui_environment_variables
@@ -73,9 +80,14 @@ import net.blockhost.trestle.resources.ui_leave_blank_to_list_under_all_instance
 import net.blockhost.trestle.resources.ui_leave_blank_to_use_trestles_managed_mojang_runtime
 import net.blockhost.trestle.resources.ui_loader
 import net.blockhost.trestle.resources.ui_loading_client_settings
+import net.blockhost.trestle.resources.ui_maximum_memory_mib
+import net.blockhost.trestle.resources.ui_maximum_memory_must_be_at_least_minimum
 import net.blockhost.trestle.resources.ui_memory_classpath_native_path_and_architecture_options_are_managed_by_tre
 import net.blockhost.trestle.resources.ui_minecraft_client
 import net.blockhost.trestle.resources.ui_minecraft_version
+import net.blockhost.trestle.resources.ui_minimum_memory_mib
+import net.blockhost.trestle.resources.ui_minimum_memory_must_be_greater_than_zero
+import net.blockhost.trestle.resources.ui_mod_loader
 import net.blockhost.trestle.resources.ui_must_exit_successfully_before_minecraft_starts
 import net.blockhost.trestle.resources.ui_name
 import net.blockhost.trestle.resources.ui_only_minecraft_version_is_supported_on_android
@@ -86,6 +98,7 @@ import net.blockhost.trestle.resources.ui_quoted_values_and_escaped_characters_a
 import net.blockhost.trestle.resources.ui_runs_after_minecraft_exits
 import net.blockhost.trestle.resources.ui_runs_before_the_java_executable_for_example_gamescope
 import net.blockhost.trestle.resources.ui_save_changes
+import net.blockhost.trestle.resources.ui_use_active_account
 import net.blockhost.trestle.resources.ui_use_recommended
 import net.blockhost.trestle.resources.ui_wrapper_command
 import org.jetbrains.compose.resources.stringResource
@@ -132,7 +145,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
     val availableLoaders = ModLoader.entries.filter { loader ->
         state.supportedModLoaders == null || loader in state.supportedModLoaders
     }
-    val accountChoices = listOf("Use active account" to null) + state.accounts
+    val accountChoices = listOf(stringResource(Res.string.ui_use_active_account) to null) + state.accounts
         .filter { it.profile.edition == MinecraftEdition.JAVA }
         .map { account ->
             "${account.profile.playerName} (${account.profile.profileId.takeLast(6)})" to account.profile.profileId
@@ -141,14 +154,14 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
         instance.minecraftVersionId != form.minecraftVersionId || instance.modLoader != form.modLoader
         )
     val minimumError = when {
-        form.minimumMemoryMiB.isBlank() -> "Enter a minimum memory value."
-        minimum == null || minimum <= 0 -> "Minimum memory must be greater than 0."
+        form.minimumMemoryMiB.isBlank() -> stringResource(Res.string.ui_enter_a_minimum_memory_value)
+        minimum == null || minimum <= 0 -> stringResource(Res.string.ui_minimum_memory_must_be_greater_than_zero)
         else -> null
     }
     val maximumError = when {
-        form.maximumMemoryMiB.isBlank() -> "Enter a maximum memory value."
-        maximum == null -> "Enter a valid maximum memory value."
-        minimum != null && maximum < minimum -> "Maximum memory must be at least the minimum."
+        form.maximumMemoryMiB.isBlank() -> stringResource(Res.string.ui_enter_a_maximum_memory_value)
+        maximum == null -> stringResource(Res.string.ui_enter_a_valid_maximum_memory_value)
+        minimum != null && maximum < minimum -> stringResource(Res.string.ui_maximum_memory_must_be_at_least_minimum)
         else -> null
     }
     Column(modifier) {
@@ -207,7 +220,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 )
             } else {
                 Selector(
-                    label = "Minecraft version",
+                    label = stringResource(Res.string.ui_minecraft_version),
                     value = form.minecraftVersionId,
                     values = availableVersions,
                     enabled = !state.isLoadingVersions,
@@ -222,7 +235,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 )
             } else {
                 Selector(
-                    label = "Mod loader",
+                    label = stringResource(Res.string.ui_mod_loader),
                     value = form.modLoader.label,
                     values = availableLoaders.map { it.label },
                     onSelect = { selected ->
@@ -232,7 +245,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
             }
             if (componentsChanged) {
                 Text(
-                    "Changing the game version or loader requires another installation. Trestle keeps worlds and content files in place.",
+                    stringResource(Res.string.ui_changing_the_game_version_or_loader_requires),
                     color = MaterialTheme.colorScheme.primary,
                 )
             }
@@ -240,9 +253,9 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
             Spacer(Modifier.height(8.dp))
             FormSectionTitle(stringResource(Res.string.ui_launch))
             Selector(
-                label = "Account",
+                label = stringResource(Res.string.ui_account),
                 value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
-                    ?: "Use active account",
+                    ?: stringResource(Res.string.ui_use_active_account),
                 values = accountChoices.map { it.first },
                 onSelect = { selected ->
                     actions.setInstanceAccount(accountChoices.firstOrNull { it.first == selected }?.second)
@@ -254,7 +267,17 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                     OutlinedTextField(
                         value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
                         onValueChange = if (isMinimum) actions::setMinimumMemory else actions::setMaximumMemory,
-                        label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
+                        label = {
+                            Text(
+                                if (isMinimum) {
+                                    stringResource(
+                                        Res.string.ui_minimum_memory_mib,
+                                    )
+                                } else {
+                                    stringResource(Res.string.ui_maximum_memory_mib)
+                                },
+                            )
+                        },
                         isError = error != null,
                         supportingText = if (error == null) null else ({ Text(error) }),
                         keyboardOptions = KeyboardOptions(
@@ -345,7 +368,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 Spacer(Modifier.height(8.dp))
                 FormSectionTitle(stringResource(Res.string.ui_custom_commands))
                 Text(
-                    "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
+                    stringResource(Res.string.ui_commands_run_directly_in_the_game_directory),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 OutlinedTextField(
@@ -374,7 +397,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
             Spacer(Modifier.height(8.dp))
             FormSectionTitle(stringResource(Res.string.ui_minecraft_client))
             Text(
-                "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
+                stringResource(Res.string.ui_changes_are_written_to_this_instance_s),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )

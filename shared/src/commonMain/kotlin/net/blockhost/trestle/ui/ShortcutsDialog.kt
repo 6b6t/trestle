@@ -26,7 +26,18 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_arrow_keys
+import net.blockhost.trestle.resources.ui_close_or_go_back
+import net.blockhost.trestle.resources.ui_import_a_file
 import net.blockhost.trestle.resources.ui_keyboard_shortcuts
+import net.blockhost.trestle.resources.ui_move_instance_focus
+import net.blockhost.trestle.resources.ui_new_instance
+import net.blockhost.trestle.resources.ui_open_focused_instance
+import net.blockhost.trestle.resources.ui_remove_focused_instance
+import net.blockhost.trestle.resources.ui_search
+import net.blockhost.trestle.resources.ui_settings
+import net.blockhost.trestle.resources.ui_show_shortcuts
+import net.blockhost.trestle.resources.ui_switch_section
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -50,16 +61,16 @@ internal fun ShortcutsDialog(onDismiss: () -> Unit) {
                 onClose = onDismiss,
             )
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                ShortcutRow("Ctrl/Cmd + N", "New instance")
-                ShortcutRow("Ctrl/Cmd + F", "Search")
-                ShortcutRow("Ctrl/Cmd + O", "Import a file")
-                ShortcutRow("Ctrl/Cmd + 1–4", "Switch section")
-                ShortcutRow("Ctrl/Cmd + ,", "Settings")
-                ShortcutRow("Enter", "Open focused instance")
-                ShortcutRow("Arrow keys", "Move instance focus")
-                ShortcutRow("Delete", "Remove focused instance")
-                ShortcutRow("Escape", "Close or go back")
-                ShortcutRow("F1", "Show shortcuts")
+                ShortcutRow("Ctrl/Cmd + N", stringResource(Res.string.ui_new_instance))
+                ShortcutRow("Ctrl/Cmd + F", stringResource(Res.string.ui_search))
+                ShortcutRow("Ctrl/Cmd + O", stringResource(Res.string.ui_import_a_file))
+                ShortcutRow("Ctrl/Cmd + 1–4", stringResource(Res.string.ui_switch_section))
+                ShortcutRow("Ctrl/Cmd + ,", stringResource(Res.string.ui_settings))
+                ShortcutRow("Enter", stringResource(Res.string.ui_open_focused_instance))
+                ShortcutRow(stringResource(Res.string.ui_arrow_keys), stringResource(Res.string.ui_move_instance_focus))
+                ShortcutRow("Delete", stringResource(Res.string.ui_remove_focused_instance))
+                ShortcutRow("Escape", stringResource(Res.string.ui_close_or_go_back))
+                ShortcutRow("F1", stringResource(Res.string.ui_show_shortcuts))
             }
         }
     }

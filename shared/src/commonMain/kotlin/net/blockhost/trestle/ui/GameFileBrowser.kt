@@ -59,6 +59,7 @@ import net.blockhost.trestle.resources.ic_folder
 import net.blockhost.trestle.resources.ic_open_in_new
 import net.blockhost.trestle.resources.ic_save
 import net.blockhost.trestle.resources.ui_archive
+import net.blockhost.trestle.resources.ui_back_to_files
 import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_discard
 import net.blockhost.trestle.resources.ui_discard_file_changes
@@ -76,11 +77,17 @@ import net.blockhost.trestle.resources.ui_folder
 import net.blockhost.trestle.resources.ui_image
 import net.blockhost.trestle.resources.ui_instance_root
 import net.blockhost.trestle.resources.ui_keep_editing
+import net.blockhost.trestle.resources.ui_no_app_can_open_this_file
+import net.blockhost.trestle.resources.ui_open_named
 import net.blockhost.trestle.resources.ui_open_with
+import net.blockhost.trestle.resources.ui_parent_folder
 import net.blockhost.trestle.resources.ui_reload_file
 import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_save
 import net.blockhost.trestle.resources.ui_text_file
+import net.blockhost.trestle.resources.ui_trestle_could_not_open_this_path
+import net.blockhost.trestle.resources.ui_trestle_could_not_read_this_file
+import net.blockhost.trestle.resources.ui_trestle_could_not_save_this_file
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -102,6 +109,10 @@ internal fun GameFileBrowserDialog(
     onDismiss: () -> Unit,
     onOpenExternal: (String) -> Result<Unit>,
 ) {
+    val messageNoAppCanOpenThisFile = stringResource(Res.string.ui_no_app_can_open_this_file)
+    val messageTrestleCouldNotOpenThisPath = stringResource(Res.string.ui_trestle_could_not_open_this_path)
+    val messageTrestleCouldNotReadThisFile = stringResource(Res.string.ui_trestle_could_not_read_this_file)
+    val messageTrestleCouldNotSaveThisFile = stringResource(Res.string.ui_trestle_could_not_save_this_file)
     val filesResult = remember(rootPath) { runCatching { GameFileBrowserFiles(rootPath) } }
     val files = filesResult.getOrNull()
     if (files == null) {
@@ -153,7 +164,7 @@ internal fun GameFileBrowserDialog(
     fun openExternally(path: String, dismissAfterOpening: Boolean = false) {
         onOpenExternal(path)
             .onSuccess { if (dismissAfterOpening) onDismiss() }
-            .onFailure { error -> message = error.message ?: "No app can open this file." }
+            .onFailure { error -> message = error.message ?: messageNoAppCanOpenThisFile }
     }
 
     LaunchedEffect(files, initialPath) {
@@ -166,7 +177,7 @@ internal fun GameFileBrowserDialog(
                     else -> location.filePath?.let { openExternally(it, dismissAfterOpening = true) }
                 }
             }
-            .onFailure { error -> message = error.message ?: "Trestle could not open this path." }
+            .onFailure { error -> message = error.message ?: messageTrestleCouldNotOpenThisPath }
     }
 
     LaunchedEffect(currentDirectoryPath, directoryRevision) {
@@ -188,7 +199,7 @@ internal fun GameFileBrowserDialog(
         message = null
         runCatching { withContext(Dispatchers.Default) { files.readText(path) } }
             .onSuccess { document = it }
-            .onFailure { error -> message = error.message ?: "Trestle could not read this file." }
+            .onFailure { error -> message = error.message ?: messageTrestleCouldNotReadThisFile }
         documentLoading = false
     }
 
@@ -223,7 +234,7 @@ internal fun GameFileBrowserDialog(
                                 documentDirty = false
                                 directoryRevision += 1
                             }
-                            .onFailure { error -> message = error.message ?: "Trestle could not save this file." }
+                            .onFailure { error -> message = error.message ?: messageTrestleCouldNotSaveThisFile }
                         saving = false
                     }
                 },
@@ -301,8 +312,8 @@ private fun GameFileDirectoryBrowser(
             title = { Text(stringResource(Res.string.ui_file_browser)) },
             navigationIcon = {
                 if (canNavigateBack) {
-                    TrestleTooltipIconButton(label = "Parent folder", onClick = onBack) {
-                        Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = "Parent folder")
+                    TrestleTooltipIconButton(label = stringResource(Res.string.ui_parent_folder), onClick = onBack) {
+                        Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = stringResource(Res.string.ui_parent_folder))
                     }
                 }
             },
@@ -411,7 +422,9 @@ private fun FileList(entries: List<GameFileEntry>, filter: String, onOpen: (Game
                     )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.fillMaxWidth().clickable(onClickLabel = "Open ${entry.name}") { onOpen(entry) },
+                modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(Res.string.ui_open_named, entry.name)) {
+                    onOpen(entry)
+                },
             )
             HorizontalDivider(
                 modifier = Modifier.padding(start = 56.dp),
@@ -451,8 +464,8 @@ private fun GameTextEditor(
                 }
             },
             navigationIcon = {
-                TrestleTooltipIconButton(label = "Back to files", onClick = onBack) {
-                    Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = "Back to files")
+                TrestleTooltipIconButton(label = stringResource(Res.string.ui_back_to_files), onClick = onBack) {
+                    Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = stringResource(Res.string.ui_back_to_files))
                 }
             },
             actions = {

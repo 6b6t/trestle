@@ -64,33 +64,71 @@ import net.blockhost.trestle.instance.MinecraftNarratorMode
 import net.blockhost.trestle.instance.MinecraftParticleSetting
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ui_alphas
 import net.blockhost.trestle.resources.ui_android_runtime
 import net.blockhost.trestle.resources.ui_apply_these_defaults
 import net.blockhost.trestle.resources.ui_audio
+import net.blockhost.trestle.resources.ui_auto
+import net.blockhost.trestle.resources.ui_auto_jump
+import net.blockhost.trestle.resources.ui_betas
+import net.blockhost.trestle.resources.ui_brightness
 import net.blockhost.trestle.resources.ui_browse_modpacks
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_client_defaults
+import net.blockhost.trestle.resources.ui_configure_first_launch_accessibility_audio_and_distance
 import net.blockhost.trestle.resources.ui_controls_and_accessibility
+import net.blockhost.trestle.resources.ui_create_instance
 import net.blockhost.trestle.resources.ui_creating
 import net.blockhost.trestle.resources.ui_custom
+import net.blockhost.trestle.resources.ui_customize
 import net.blockhost.trestle.resources.ui_direct_download_or_curseforge_url
 import net.blockhost.trestle.resources.ui_enter_an_instance_name
+import net.blockhost.trestle.resources.ui_entity_shadows
 import net.blockhost.trestle.resources.ui_existing_ftb_app_library
+import net.blockhost.trestle.resources.ui_field_of_view
 import net.blockhost.trestle.resources.ui_filter_named_field
+import net.blockhost.trestle.resources.ui_frame_rate_limit
+import net.blockhost.trestle.resources.ui_fullscreen
 import net.blockhost.trestle.resources.ui_group
+import net.blockhost.trestle.resources.ui_gui_scale
+import net.blockhost.trestle.resources.ui_hide
 import net.blockhost.trestle.resources.ui_https_or_curseforge
 import net.blockhost.trestle.resources.ui_icon_path_or_url
 import net.blockhost.trestle.resources.ui_import
 import net.blockhost.trestle.resources.ui_import_ftb_app_instances
+import net.blockhost.trestle.resources.ui_import_modpack
+import net.blockhost.trestle.resources.ui_invert_mouse
 import net.blockhost.trestle.resources.ui_loader
+import net.blockhost.trestle.resources.ui_loading
+import net.blockhost.trestle.resources.ui_loading_versions
+import net.blockhost.trestle.resources.ui_master_volume
 import net.blockhost.trestle.resources.ui_minecraft_version
+import net.blockhost.trestle.resources.ui_mouse_sensitivity
+import net.blockhost.trestle.resources.ui_music_volume
 import net.blockhost.trestle.resources.ui_name
+import net.blockhost.trestle.resources.ui_narrator
 import net.blockhost.trestle.resources.ui_new_instance
+import net.blockhost.trestle.resources.ui_no_compatible_loader
+import net.blockhost.trestle.resources.ui_no_matching_options
+import net.blockhost.trestle.resources.ui_no_versions_available
 import net.blockhost.trestle.resources.ui_only_minecraft_version_is_supported_on_android
 import net.blockhost.trestle.resources.ui_only_vanilla_is_supported_on_android
 import net.blockhost.trestle.resources.ui_optional
+import net.blockhost.trestle.resources.ui_particles
+import net.blockhost.trestle.resources.ui_render_distance
+import net.blockhost.trestle.resources.ui_s_chunks
+import net.blockhost.trestle.resources.ui_s_version
+import net.blockhost.trestle.resources.ui_set_the_ftb_app_instances_folder_in
+import net.blockhost.trestle.resources.ui_simulation_distance
+import net.blockhost.trestle.resources.ui_snapshots
+import net.blockhost.trestle.resources.ui_subtitles
 import net.blockhost.trestle.resources.ui_supports_modrinth_curseforge_prism_and_multimc_pack_archives
+import net.blockhost.trestle.resources.ui_trestle_will_use_balanced_defaults_for_the
+import net.blockhost.trestle.resources.ui_unlimited
 import net.blockhost.trestle.resources.ui_video
+import net.blockhost.trestle.resources.ui_view_bobbing
+import net.blockhost.trestle.resources.ui_vsync
+import net.blockhost.trestle.resources.ui_write_these_settings_before_the_first_launch
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -209,7 +247,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     Text(stringResource(Res.string.ui_existing_ftb_app_library), style = MaterialTheme.typography.titleMedium)
                     Text(
                         state.launcherPreferences.ftbAppInstancesPath.ifBlank {
-                            "Set the FTB App instances folder in Settings > Services."
+                            stringResource(Res.string.ui_set_the_ftb_app_instances_folder_in)
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
@@ -263,9 +301,15 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                         )
                     } else {
                         Selector(
-                            label = "Minecraft version",
+                            label = stringResource(Res.string.ui_minecraft_version),
                             value = selectedVersionLabel.ifBlank {
-                                if (state.isLoadingVersions) "Loading versions…" else "No versions available"
+                                if (state.isLoadingVersions) {
+                                    stringResource(
+                                        Res.string.ui_loading_versions,
+                                    )
+                                } else {
+                                    stringResource(Res.string.ui_no_versions_available)
+                                }
                             },
                             values = versionLabels,
                             enabled = !state.isLoadingVersions,
@@ -283,17 +327,17 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             FilterChip(
                                 selected = showSnapshots,
                                 onClick = { showSnapshots = !showSnapshots },
-                                label = { Text("Snapshots") },
+                                label = { Text(stringResource(Res.string.ui_snapshots)) },
                             )
                             FilterChip(
                                 selected = showBetas,
                                 onClick = { showBetas = !showBetas },
-                                label = { Text("Betas") },
+                                label = { Text(stringResource(Res.string.ui_betas)) },
                             )
                             FilterChip(
                                 selected = showAlphas,
                                 onClick = { showAlphas = !showAlphas },
-                                label = { Text("Alphas") },
+                                label = { Text(stringResource(Res.string.ui_alphas)) },
                             )
                         }
                     }
@@ -318,8 +362,16 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     }
                     if (form.modLoader != ModLoader.VANILLA) {
                         Selector(
-                            label = "${form.modLoader.label} version",
-                            value = form.loaderVersion ?: if (form.isResolvingLoader) "Loading…" else "No compatible loader",
+                            label = stringResource(Res.string.ui_s_version, form.modLoader.label),
+                            value =
+                            form.loaderVersion
+                                ?: if (form.isResolvingLoader) {
+                                    stringResource(
+                                        Res.string.ui_loading,
+                                    )
+                                } else {
+                                    stringResource(Res.string.ui_no_compatible_loader)
+                                },
                             values = form.loaderVersions,
                             enabled = !form.isResolvingLoader,
                             onSelect = actions::setCreateLoaderVersion,
@@ -331,16 +383,16 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             Text(stringResource(Res.string.ui_client_defaults), style = MaterialTheme.typography.titleMedium)
                             Text(
                                 if (showAdvanced) {
-                                    "Configure first-launch accessibility, audio, and distance settings."
+                                    stringResource(Res.string.ui_configure_first_launch_accessibility_audio_and_distance)
                                 } else {
-                                    "Trestle will use balanced defaults for the first launch."
+                                    stringResource(Res.string.ui_trestle_will_use_balanced_defaults_for_the)
                                 },
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
                         TextButton(onClick = { showAdvanced = !showAdvanced }) {
-                            Text(if (showAdvanced) "Hide" else "Customize")
+                            Text(if (showAdvanced) stringResource(Res.string.ui_hide) else stringResource(Res.string.ui_customize))
                         }
                     }
                     if (showAdvanced) ClientDefaultsFields(form, actions, showHeading = false)
@@ -364,7 +416,15 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                         Spacer(Modifier.width(8.dp))
                         Text(stringResource(Res.string.ui_creating))
                     } else {
-                        Text(if (source == "import") "Import modpack" else "Create instance")
+                        Text(
+                            if (source ==
+                                "import"
+                            ) {
+                                stringResource(Res.string.ui_import_modpack)
+                            } else {
+                                stringResource(Res.string.ui_create_instance)
+                            },
+                        )
                     }
                 }
             }
@@ -381,7 +441,7 @@ private fun ClientDefaultsFields(form: CreateInstanceState, actions: LauncherUiA
             TrestleSwitchItem(
                 label = stringResource(Res.string.ui_client_defaults),
                 checked = form.preconfigureClientSettings,
-                supportingText = "Write these settings before the first launch. Settings unavailable in older versions are skipped.",
+                supportingText = stringResource(Res.string.ui_write_these_settings_before_the_first_launch),
                 onCheckedChange = actions::setCreateClientPreconfiguration,
             )
         } else {
@@ -403,12 +463,12 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(Res.string.ui_audio), style = MaterialTheme.typography.titleSmall)
         PercentageSlider(
-            label = "Master volume",
+            label = stringResource(Res.string.ui_master_volume),
             value = settings.masterVolumePercent,
             onValueChange = { onSettingsChange(settings.copy(masterVolumePercent = it)) },
         )
         PercentageSlider(
-            label = "Music volume",
+            label = stringResource(Res.string.ui_music_volume),
             value = settings.musicVolumePercent,
             onValueChange = { onSettingsChange(settings.copy(musicVolumePercent = it)) },
         )
@@ -416,46 +476,52 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
         HorizontalDivider()
         Text(stringResource(Res.string.ui_video), style = MaterialTheme.typography.titleSmall)
         IntegerSlider(
-            label = "Field of view",
+            label = stringResource(Res.string.ui_field_of_view),
             valueLabel = "${settings.fieldOfViewDegrees}°",
             value = settings.fieldOfViewDegrees,
             range = 30..110,
             onValueChange = { onSettingsChange(settings.copy(fieldOfViewDegrees = it)) },
         )
         PercentageSlider(
-            label = "Brightness",
+            label = stringResource(Res.string.ui_brightness),
             value = settings.brightnessPercent,
             onValueChange = { onSettingsChange(settings.copy(brightnessPercent = it)) },
         )
         IntegerSlider(
-            label = "Frame rate limit",
-            valueLabel = if (settings.maximumFrameRate == 260) "Unlimited" else "${settings.maximumFrameRate} FPS",
+            label = stringResource(Res.string.ui_frame_rate_limit),
+            valueLabel = if (settings.maximumFrameRate ==
+                260
+            ) {
+                stringResource(Res.string.ui_unlimited)
+            } else {
+                "${settings.maximumFrameRate} FPS"
+            },
             value = settings.maximumFrameRate,
             range = 10..260,
             steps = 24,
             onValueChange = { onSettingsChange(settings.copy(maximumFrameRate = it)) },
         )
         IntegerSlider(
-            label = "GUI scale",
-            valueLabel = if (settings.guiScale == 0) "Auto" else "${settings.guiScale}x",
+            label = stringResource(Res.string.ui_gui_scale),
+            valueLabel = if (settings.guiScale == 0) stringResource(Res.string.ui_auto) else "${settings.guiScale}x",
             value = settings.guiScale,
             range = 0..8,
             onValueChange = { onSettingsChange(settings.copy(guiScale = it)) },
         )
         ChunkDistanceSlider(
-            label = "Render distance",
+            label = stringResource(Res.string.ui_render_distance),
             value = settings.renderDistanceChunks,
             range = 2..32,
             onValueChange = { onSettingsChange(settings.copy(renderDistanceChunks = it)) },
         )
         ChunkDistanceSlider(
-            label = "Simulation distance",
+            label = stringResource(Res.string.ui_simulation_distance),
             value = settings.simulationDistanceChunks,
             range = 5..32,
             onValueChange = { onSettingsChange(settings.copy(simulationDistanceChunks = it)) },
         )
         Selector(
-            label = "Particles",
+            label = stringResource(Res.string.ui_particles),
             value = settings.particles.label,
             values = MinecraftParticleSetting.entries.map { it.label },
             onSelect = { label ->
@@ -465,22 +531,22 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
             },
         )
         ClientSettingSwitch(
-            label = "Fullscreen",
+            label = stringResource(Res.string.ui_fullscreen),
             checked = settings.fullscreen,
             onCheckedChange = { onSettingsChange(settings.copy(fullscreen = it)) },
         )
         ClientSettingSwitch(
-            label = "VSync",
+            label = stringResource(Res.string.ui_vsync),
             checked = settings.enableVsync,
             onCheckedChange = { onSettingsChange(settings.copy(enableVsync = it)) },
         )
         ClientSettingSwitch(
-            label = "View bobbing",
+            label = stringResource(Res.string.ui_view_bobbing),
             checked = settings.viewBobbing,
             onCheckedChange = { onSettingsChange(settings.copy(viewBobbing = it)) },
         )
         ClientSettingSwitch(
-            label = "Entity shadows",
+            label = stringResource(Res.string.ui_entity_shadows),
             checked = settings.entityShadows,
             onCheckedChange = { onSettingsChange(settings.copy(entityShadows = it)) },
         )
@@ -488,12 +554,12 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
         HorizontalDivider()
         Text(stringResource(Res.string.ui_controls_and_accessibility), style = MaterialTheme.typography.titleSmall)
         PercentageSlider(
-            label = "Mouse sensitivity",
+            label = stringResource(Res.string.ui_mouse_sensitivity),
             value = settings.mouseSensitivityPercent,
             onValueChange = { onSettingsChange(settings.copy(mouseSensitivityPercent = it)) },
         )
         Selector(
-            label = "Narrator",
+            label = stringResource(Res.string.ui_narrator),
             value = settings.narratorMode.label,
             values = MinecraftNarratorMode.entries.map { it.label },
             onSelect = { label ->
@@ -503,17 +569,17 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
             },
         )
         ClientSettingSwitch(
-            label = "Invert mouse",
+            label = stringResource(Res.string.ui_invert_mouse),
             checked = settings.invertMouse,
             onCheckedChange = { onSettingsChange(settings.copy(invertMouse = it)) },
         )
         ClientSettingSwitch(
-            label = "Auto-jump",
+            label = stringResource(Res.string.ui_auto_jump),
             checked = settings.autoJump,
             onCheckedChange = { onSettingsChange(settings.copy(autoJump = it)) },
         )
         ClientSettingSwitch(
-            label = "Subtitles",
+            label = stringResource(Res.string.ui_subtitles),
             checked = settings.showSubtitles,
             onCheckedChange = { onSettingsChange(settings.copy(showSubtitles = it)) },
         )
@@ -534,7 +600,7 @@ private fun PercentageSlider(label: String, value: Int, onValueChange: (Int) -> 
 
 @Composable
 private fun ChunkDistanceSlider(label: String, value: Int, range: IntRange, onValueChange: (Int) -> Unit) {
-    IntegerSlider(label, "$value chunks", value, range, onValueChange = onValueChange)
+    IntegerSlider(label, stringResource(Res.string.ui_s_chunks, value), value, range, onValueChange = onValueChange)
 }
 
 @Composable
@@ -665,7 +731,7 @@ internal fun Selector(
             }
             if (visibleValues.isEmpty()) {
                 Text(
-                    "No matching options",
+                    stringResource(Res.string.ui_no_matching_options),
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

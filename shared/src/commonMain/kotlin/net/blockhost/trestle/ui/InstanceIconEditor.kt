@@ -72,37 +72,57 @@ import net.blockhost.trestle.resources.instance_logo_peaks
 import net.blockhost.trestle.resources.instance_logo_portal
 import net.blockhost.trestle.resources.instance_logo_potion
 import net.blockhost.trestle.resources.instance_logo_terrain
+import net.blockhost.trestle.resources.ui_archive
+import net.blockhost.trestle.resources.ui_automatic
 import net.blockhost.trestle.resources.ui_built_in_logos
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_changes_are_saved_with_the_instance_settings
+import net.blockhost.trestle.resources.ui_choose_an_image_smaller_than_mb
 import net.blockhost.trestle.resources.ui_choose_image
+import net.blockhost.trestle.resources.ui_circuit
+import net.blockhost.trestle.resources.ui_citadel
+import net.blockhost.trestle.resources.ui_compass
+import net.blockhost.trestle.resources.ui_current_image
 import net.blockhost.trestle.resources.ui_custom_image
 import net.blockhost.trestle.resources.ui_done
 import net.blockhost.trestle.resources.ui_edit_image
 import net.blockhost.trestle.resources.ui_edit_instance_image
+import net.blockhost.trestle.resources.ui_forge
 import net.blockhost.trestle.resources.ui_image
+import net.blockhost.trestle.resources.ui_lantern
+import net.blockhost.trestle.resources.ui_moonrise
+import net.blockhost.trestle.resources.ui_mushroom
+import net.blockhost.trestle.resources.ui_peaks
+import net.blockhost.trestle.resources.ui_png_jpeg_or_webp_up_to_mb
+import net.blockhost.trestle.resources.ui_portal
+import net.blockhost.trestle.resources.ui_potion
+import net.blockhost.trestle.resources.ui_shown_as_a_square_crop
+import net.blockhost.trestle.resources.ui_terrain
+import net.blockhost.trestle.resources.ui_trestle_could_not_read_that_image
 import okio.Path.Companion.toPath
 import org.jetbrains.compose.resources.DrawableResource
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-internal data class BuiltInInstanceIcon(val id: String, val label: String, val resource: DrawableResource) {
+internal data class BuiltInInstanceIcon(val id: String, val label: StringResource, val resource: DrawableResource) {
     val reference: String = "$BUILT_IN_INSTANCE_ICON_PREFIX$id"
 }
 
 internal val builtInInstanceIcons = listOf(
-    BuiltInInstanceIcon("terrain", "Terrain", Res.drawable.instance_logo_terrain),
-    BuiltInInstanceIcon("portal", "Portal", Res.drawable.instance_logo_portal),
-    BuiltInInstanceIcon("compass", "Compass", Res.drawable.instance_logo_compass),
-    BuiltInInstanceIcon("forge", "Forge", Res.drawable.instance_logo_forge),
-    BuiltInInstanceIcon("circuit", "Circuit", Res.drawable.instance_logo_circuit),
-    BuiltInInstanceIcon("archive", "Archive", Res.drawable.instance_logo_archive),
-    BuiltInInstanceIcon("lantern", "Lantern", Res.drawable.instance_logo_lantern),
-    BuiltInInstanceIcon("peaks", "Peaks", Res.drawable.instance_logo_peaks),
-    BuiltInInstanceIcon("mushroom", "Mushroom", Res.drawable.instance_logo_mushroom),
-    BuiltInInstanceIcon("potion", "Potion", Res.drawable.instance_logo_potion),
-    BuiltInInstanceIcon("moonrise", "Moonrise", Res.drawable.instance_logo_moonrise),
-    BuiltInInstanceIcon("citadel", "Citadel", Res.drawable.instance_logo_citadel),
+    BuiltInInstanceIcon("terrain", Res.string.ui_terrain, Res.drawable.instance_logo_terrain),
+    BuiltInInstanceIcon("portal", Res.string.ui_portal, Res.drawable.instance_logo_portal),
+    BuiltInInstanceIcon("compass", Res.string.ui_compass, Res.drawable.instance_logo_compass),
+    BuiltInInstanceIcon("forge", Res.string.ui_forge, Res.drawable.instance_logo_forge),
+    BuiltInInstanceIcon("circuit", Res.string.ui_circuit, Res.drawable.instance_logo_circuit),
+    BuiltInInstanceIcon("archive", Res.string.ui_archive, Res.drawable.instance_logo_archive),
+    BuiltInInstanceIcon("lantern", Res.string.ui_lantern, Res.drawable.instance_logo_lantern),
+    BuiltInInstanceIcon("peaks", Res.string.ui_peaks, Res.drawable.instance_logo_peaks),
+    BuiltInInstanceIcon("mushroom", Res.string.ui_mushroom, Res.drawable.instance_logo_mushroom),
+    BuiltInInstanceIcon("potion", Res.string.ui_potion, Res.drawable.instance_logo_potion),
+    BuiltInInstanceIcon("moonrise", Res.string.ui_moonrise, Res.drawable.instance_logo_moonrise),
+    BuiltInInstanceIcon("citadel", Res.string.ui_citadel, Res.drawable.instance_logo_citadel),
 )
 
 @Composable
@@ -202,7 +222,7 @@ internal fun InstanceIconSetting(instance: GameInstance, form: InstanceSettingsS
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(stringResource(Res.string.ui_image), style = MaterialTheme.typography.titleSmall)
             Text(
-                "Shown as a square crop.",
+                stringResource(Res.string.ui_shown_as_a_square_crop),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall,
             )
@@ -226,6 +246,8 @@ internal fun InstanceIconEditorDialog(
     var selectedPendingIcon by remember(pendingIcon) { mutableStateOf(pendingIcon) }
     var fileError by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val imageTooLargeMessage = stringResource(Res.string.ui_choose_an_image_smaller_than_mb)
+    val imageUnreadableMessage = stringResource(Res.string.ui_trestle_could_not_read_that_image)
     val picker = rememberFilePickerLauncher(
         type = FileKitType.File(extensions = listOf("png", "jpg", "jpeg", "webp")),
     ) { file ->
@@ -233,27 +255,30 @@ internal fun InstanceIconEditorDialog(
             scope.launch {
                 fileError = null
                 if (runCatching { file.size() }.getOrDefault(-1L) > MAX_INSTANCE_ICON_BYTES) {
-                    fileError = "Choose an image smaller than 5 MB."
+                    fileError = imageTooLargeMessage
                     return@launch
                 }
                 runCatching { file.readBytes() }
                     .onSuccess { bytes ->
                         if (bytes.size > MAX_INSTANCE_ICON_BYTES) {
-                            fileError = "Choose an image smaller than 5 MB."
+                            fileError = imageTooLargeMessage
                         } else if (bytes.isEmpty() || bytes.decodeImageOrNull() == null) {
-                            fileError = "Trestle could not read that image."
+                            fileError = imageUnreadableMessage
                         } else {
                             selectedPendingIcon = PendingInstanceIcon(file.name, bytes)
                         }
                     }
-                    .onFailure { fileError = "Trestle could not read that image." }
+                    .onFailure { fileError = imageUnreadableMessage }
             }
         }
     }
     val selectionLabel = when {
         selectedPendingIcon != null -> selectedPendingIcon?.fileName.orEmpty()
-        selectedReference.isBlank() -> "Automatic"
-        else -> builtInInstanceIcons.firstOrNull { it.reference == selectedReference }?.label ?: "Current image"
+
+        selectedReference.isBlank() -> stringResource(Res.string.ui_automatic)
+
+        else -> builtInInstanceIcons.firstOrNull { it.reference == selectedReference }?.label?.let { stringResource(it) }
+            ?: stringResource(Res.string.ui_current_image)
     }
     TrestleDialog(
         onDismissRequest = onDismiss,
@@ -290,7 +315,7 @@ internal fun InstanceIconEditorDialog(
                             style = MaterialTheme.typography.titleMedium,
                         )
                         Text(
-                            "Changes are saved with the instance settings.",
+                            stringResource(Res.string.ui_changes_are_saved_with_the_instance_settings),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -306,7 +331,7 @@ internal fun InstanceIconEditorDialog(
                 ) {
                     item(key = "automatic") {
                         InstanceIconChoice(
-                            label = "Automatic",
+                            label = stringResource(Res.string.ui_automatic),
                             selected = selectedPendingIcon == null && selectedReference.isBlank(),
                             testTag = LauncherTestTags.instanceIconOption("automatic"),
                             onClick = {
@@ -320,7 +345,7 @@ internal fun InstanceIconEditorDialog(
                     }
                     items(builtInInstanceIcons, key = { it.id }) { icon ->
                         InstanceIconChoice(
-                            label = icon.label,
+                            label = stringResource(icon.label),
                             selected = selectedPendingIcon == null && selectedReference == icon.reference,
                             testTag = LauncherTestTags.instanceIconOption(icon.id),
                             onClick = {
@@ -347,7 +372,7 @@ internal fun InstanceIconEditorDialog(
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(stringResource(Res.string.ui_custom_image), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "PNG, JPEG, or WebP up to 5 MB.",
+                            stringResource(Res.string.ui_png_jpeg_or_webp_up_to_mb),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                         )

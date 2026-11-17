@@ -112,15 +112,23 @@ import net.blockhost.trestle.resources.ic_play
 import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_add_an_account_to_launch
+import net.blockhost.trestle.resources.ui_add_content
 import net.blockhost.trestle.resources.ui_add_mods
 import net.blockhost.trestle.resources.ui_all_instances
+import net.blockhost.trestle.resources.ui_checking
+import net.blockhost.trestle.resources.ui_checking_launch_requirements
 import net.blockhost.trestle.resources.ui_choose_one_from_the_library
+import net.blockhost.trestle.resources.ui_copy_directory
+import net.blockhost.trestle.resources.ui_copy_instance_details
 import net.blockhost.trestle.resources.ui_create_an_isolated_minecraft_instance
 import net.blockhost.trestle.resources.ui_create_instance
 import net.blockhost.trestle.resources.ui_drop_to_import
+import net.blockhost.trestle.resources.ui_duplicate_instance
+import net.blockhost.trestle.resources.ui_export_instance
 import net.blockhost.trestle.resources.ui_import
 import net.blockhost.trestle.resources.ui_import_hint
 import net.blockhost.trestle.resources.ui_import_hint_touch
+import net.blockhost.trestle.resources.ui_inspect_launch_plan
 import net.blockhost.trestle.resources.ui_install
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_last_played_on
@@ -128,30 +136,50 @@ import net.blockhost.trestle.resources.ui_launch
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_manage
 import net.blockhost.trestle.resources.ui_manage_content
+import net.blockhost.trestle.resources.ui_minecraft_is_running
+import net.blockhost.trestle.resources.ui_minecraft_is_running_process_s
+import net.blockhost.trestle.resources.ui_minecraft_s_s
+import net.blockhost.trestle.resources.ui_move_to_trash
 import net.blockhost.trestle.resources.ui_named_is_still_running
 import net.blockhost.trestle.resources.ui_never_played
 import net.blockhost.trestle.resources.ui_new_instance
 import net.blockhost.trestle.resources.ui_no_account_to_play
 import net.blockhost.trestle.resources.ui_no_instances_yet
 import net.blockhost.trestle.resources.ui_no_matching_instances
+import net.blockhost.trestle.resources.ui_open_game_folder
+import net.blockhost.trestle.resources.ui_open_instance_folder
+import net.blockhost.trestle.resources.ui_open_mods
 import net.blockhost.trestle.resources.ui_open_named
 import net.blockhost.trestle.resources.ui_open_operation_details
+import net.blockhost.trestle.resources.ui_open_screenshots
 import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_pause_installation
+import net.blockhost.trestle.resources.ui_pin_to_top
 import net.blockhost.trestle.resources.ui_pinned
 import net.blockhost.trestle.resources.ui_play
 import net.blockhost.trestle.resources.ui_play_named
 import net.blockhost.trestle.resources.ui_playing_as
+import net.blockhost.trestle.resources.ui_remove_from_library
+import net.blockhost.trestle.resources.ui_required_before_launch_s
 import net.blockhost.trestle.resources.ui_resume_install
+import net.blockhost.trestle.resources.ui_resume_installation
 import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_retry_install
+import net.blockhost.trestle.resources.ui_retry_installation
 import net.blockhost.trestle.resources.ui_retry_launch
 import net.blockhost.trestle.resources.ui_running
+import net.blockhost.trestle.resources.ui_s_of_s
+import net.blockhost.trestle.resources.ui_s_of_s_files
+import net.blockhost.trestle.resources.ui_s_of_s_files_saved_ready_to
 import net.blockhost.trestle.resources.ui_search_instances
 import net.blockhost.trestle.resources.ui_select_an_instance
 import net.blockhost.trestle.resources.ui_sign_in_required_for
+import net.blockhost.trestle.resources.ui_starting
+import net.blockhost.trestle.resources.ui_starting_minecraft
 import net.blockhost.trestle.resources.ui_stop
 import net.blockhost.trestle.resources.ui_try_another_name_version_or_loader
 import net.blockhost.trestle.resources.ui_unavailable
+import net.blockhost.trestle.resources.ui_unpin_from_top
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -583,7 +611,9 @@ private fun LaunchAccount(state: LauncherUiState, instance: GameInstance, onOpen
     }
 }
 
-private fun instanceSubtitle(instance: GameInstance): String = "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}"
+@Composable
+private fun instanceSubtitle(instance: GameInstance): String =
+    stringResource(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label)
 
 @Composable
 private fun InstallationStatusLine(instance: GameInstance, state: LauncherUiState) {
@@ -837,10 +867,10 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
                     val progressDetail = buildList {
                         status.detail?.let(::add)
                         if (status.completed != null && status.total != null) {
-                            add("${formatFileSize(status.completed)} of ${formatFileSize(status.total)}")
+                            add(stringResource(Res.string.ui_s_of_s, formatFileSize(status.completed), formatFileSize(status.total)))
                         }
                         if (status.completedItems != null && status.totalItems != null) {
-                            add("${status.completedItems} of ${status.totalItems} files")
+                            add(stringResource(Res.string.ui_s_of_s_files, status.completedItems, status.totalItems))
                         }
                     }.joinToString(" · ")
                     progressDetail.takeIf(String::isNotBlank)?.let {
@@ -884,22 +914,24 @@ private fun LaunchStatusMessage(state: LauncherUiState, instance: GameInstance) 
     Text(message, color = color, style = MaterialTheme.typography.labelMedium)
 }
 
+@Composable
 private fun launchStatusMessage(state: LauncherUiState, instance: GameInstance, status: LaunchStatus): String? = when (status) {
     is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
         null
     } else {
-        "Required before launch: ${status.missingRequirements.joinToString()}"
+        stringResource(Res.string.ui_required_before_launch_s, status.missingRequirements.joinToString())
     }
 
     is LaunchStatus.Failed -> status.message
 
     is LaunchStatus.Unavailable -> status.reason
 
-    LaunchStatus.Checking -> "Checking launch requirements"
+    LaunchStatus.Checking -> stringResource(Res.string.ui_checking_launch_requirements)
 
-    LaunchStatus.Starting -> "Starting Minecraft…"
+    LaunchStatus.Starting -> stringResource(Res.string.ui_starting_minecraft)
 
-    is LaunchStatus.Running -> status.processId?.let { "Minecraft is running · Process $it" } ?: "Minecraft is running"
+    is LaunchStatus.Running -> status.processId?.let { stringResource(Res.string.ui_minecraft_is_running_process_s, it) }
+        ?: stringResource(Res.string.ui_minecraft_is_running)
 
     else -> null
 }
@@ -1006,9 +1038,9 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
     }
     Text(
         if (state is InstallationState.Interrupted) {
-            "${progress.completedFiles} of ${progress.totalFiles} files saved · Ready to resume"
+            stringResource(Res.string.ui_s_of_s_files_saved_ready_to, progress.completedFiles, progress.totalFiles)
         } else {
-            "${progress.completedFiles} of ${progress.totalFiles} files"
+            stringResource(Res.string.ui_s_of_s_files, progress.completedFiles, progress.totalFiles)
         },
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
@@ -1056,57 +1088,77 @@ private fun instanceContextActions(
         action()
     }
     val primaryAction = when (state) {
-        is InstallationState.Installing -> ContextAction("Pause installation") {
+        is InstallationState.Installing -> ContextAction(stringResource(Res.string.ui_pause_installation)) {
             selectedAction(actions::cancelInstall)
         }
 
-        is InstallationState.Interrupted -> ContextAction("Resume installation") {
+        is InstallationState.Interrupted -> ContextAction(stringResource(Res.string.ui_resume_installation)) {
             selectedAction(actions::installSelected)
         }
 
-        is InstallationState.Installed -> ContextAction("Play") {
+        is InstallationState.Installed -> ContextAction(stringResource(Res.string.ui_play)) {
             selectedAction(actions::launchSelected)
         }
 
-        is InstallationState.Failed -> ContextAction("Retry installation") {
+        is InstallationState.Failed -> ContextAction(stringResource(Res.string.ui_retry_installation)) {
             selectedAction(actions::installSelected)
         }
 
-        InstallationState.NotInstalled -> ContextAction("Install") {
+        InstallationState.NotInstalled -> ContextAction(stringResource(Res.string.ui_install)) {
             selectedAction(actions::installSelected)
         }
     }
     return buildList {
         add(primaryAction)
         if (state is InstallationState.Installed) {
-            add(ContextAction("Inspect launch plan") { selectedAction(actions::inspectLaunchPlan) })
+            add(ContextAction(stringResource(Res.string.ui_inspect_launch_plan)) { selectedAction(actions::inspectLaunchPlan) })
         }
         if (state is InstallationState.Installed) {
-            add(ContextAction("Add content") { selectedAction { onDiscover(ResourceType.MOD) } })
+            add(ContextAction(stringResource(Res.string.ui_add_content)) { selectedAction { onDiscover(ResourceType.MOD) } })
         }
-        add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(actions::openInstanceSettings) })
-        add(ContextAction("Duplicate instance") { selectedAction(actions::cloneSelectedInstance) })
-        add(ContextAction("Export instance") { selectedAction(actions::exportSelectedInstance) })
         add(
-            ContextAction(if (instance.pinned) "Unpin from top" else "Pin to top") {
+            ContextAction(stringResource(Res.string.ui_instance_settings), separatorBefore = true) {
+                selectedAction(actions::openInstanceSettings)
+            },
+        )
+        add(ContextAction(stringResource(Res.string.ui_duplicate_instance)) { selectedAction(actions::cloneSelectedInstance) })
+        add(ContextAction(stringResource(Res.string.ui_export_instance)) { selectedAction(actions::exportSelectedInstance) })
+        add(
+            ContextAction(if (instance.pinned) stringResource(Res.string.ui_unpin_from_top) else stringResource(Res.string.ui_pin_to_top)) {
                 selectedAction(actions::toggleSelectedInstancePinned)
             },
         )
-        if (supportsOpenPath) {
-            add(ContextAction("Open instance folder", separatorBefore = true) { openPath(instance.instanceDirectory) })
-            if (state is InstallationState.Installed) {
-                add(ContextAction("Open game folder") { openPath("${instance.instanceDirectory}/game") })
-                add(ContextAction("Open screenshots") { openPath("${instance.instanceDirectory}/game/screenshots") })
-                if (instance.modLoader != ModLoader.VANILLA) {
-                    add(ContextAction("Open mods") { openPath("${instance.instanceDirectory}/game/mods") })
-                }
-            }
-        }
-        add(ContextAction("Copy directory") { copyText(instance.instanceDirectory) })
-        add(ContextAction("Copy instance details") { copyText(formatInstanceForClipboard(instance)) })
-        add(ContextAction("Remove from library", separatorBefore = true) { selectedAction(actions::deleteSelected) })
+        if (supportsOpenPath) addAll(instanceFolderActions(instance, openPath))
+        add(ContextAction(stringResource(Res.string.ui_copy_directory)) { copyText(instance.instanceDirectory) })
+        add(ContextAction(stringResource(Res.string.ui_copy_instance_details)) { copyText(formatInstanceForClipboard(instance)) })
+        add(
+            ContextAction(stringResource(Res.string.ui_remove_from_library), separatorBefore = true) {
+                selectedAction(actions::deleteSelected)
+            },
+        )
         if (supportsPathTrash) {
-            add(ContextAction("Move to Trash") { selectedAction(actions::moveSelectedToTrash) })
+            add(ContextAction(stringResource(Res.string.ui_move_to_trash)) { selectedAction(actions::moveSelectedToTrash) })
+        }
+    }
+}
+
+@Composable
+private fun instanceFolderActions(instance: GameInstance, openPath: (String) -> Unit): List<ContextAction> = buildList {
+    val state = instance.installationState
+    add(
+        ContextAction(stringResource(Res.string.ui_open_instance_folder), separatorBefore = true) {
+            openPath(instance.instanceDirectory)
+        },
+    )
+    if (state is InstallationState.Installed) {
+        add(ContextAction(stringResource(Res.string.ui_open_game_folder)) { openPath("${instance.instanceDirectory}/game") })
+        add(
+            ContextAction(stringResource(Res.string.ui_open_screenshots)) {
+                openPath("${instance.instanceDirectory}/game/screenshots")
+            },
+        )
+        if (instance.modLoader != ModLoader.VANILLA) {
+            add(ContextAction(stringResource(Res.string.ui_open_mods)) { openPath("${instance.instanceDirectory}/game/mods") })
         }
     }
 }
@@ -1130,7 +1182,7 @@ private fun LaunchButton(state: LauncherUiState, instance: GameInstance, actions
             onClick = {},
             enabled = false,
             modifier = modifier,
-        ) { Text(if (status == LaunchStatus.Checking) "Checking…" else "Starting…") }
+        ) { Text(if (status == LaunchStatus.Checking) stringResource(Res.string.ui_checking) else stringResource(Res.string.ui_starting)) }
 
         is LaunchStatus.Blocked -> Button(
             onClick = {},

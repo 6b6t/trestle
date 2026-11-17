@@ -42,12 +42,20 @@ import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.name
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_category
 import net.blockhost.trestle.resources.ui_clear
 import net.blockhost.trestle.resources.ui_close
+import net.blockhost.trestle.resources.ui_copy_details
+import net.blockhost.trestle.resources.ui_copy_event
+import net.blockhost.trestle.resources.ui_copy_message
+import net.blockhost.trestle.resources.ui_details
 import net.blockhost.trestle.resources.ui_events_from_this_session_right_click_an_entry_to_copy_diagnostics
 import net.blockhost.trestle.resources.ui_launcher_log
+import net.blockhost.trestle.resources.ui_level
 import net.blockhost.trestle.resources.ui_no_launcher_events_in_this_session
+import net.blockhost.trestle.resources.ui_open_log_details
 import net.blockhost.trestle.resources.ui_showing_latest_log_entries
+import net.blockhost.trestle.resources.ui_time
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -103,12 +111,12 @@ internal fun LauncherLog(state: LauncherUiState, actions: LauncherUiActions, lis
 private fun LogRow(entry: LogEntry, onOpen: () -> Unit) {
     val copyText = rememberCopyText()
     val actions = buildList {
-        add(ContextAction("Copy message") { copyText(entry.message) })
+        add(ContextAction(stringResource(Res.string.ui_copy_message)) { copyText(entry.message) })
         if (entry.details.isNotEmpty()) {
-            add(ContextAction("Copy details") { copyText(formatLogDetails(entry)) })
+            add(ContextAction(stringResource(Res.string.ui_copy_details)) { copyText(formatLogDetails(entry)) })
         }
         add(
-            ContextAction("Copy event", separatorBefore = true) {
+            ContextAction(stringResource(Res.string.ui_copy_event), separatorBefore = true) {
                 copyText(formatLogEntryForClipboard(entry))
             },
         )
@@ -148,7 +156,7 @@ private fun LogRow(entry: LogEntry, onOpen: () -> Unit) {
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
             modifier = Modifier.fillMaxWidth().clickable(
-                onClickLabel = "Open log details",
+                onClickLabel = stringResource(Res.string.ui_open_log_details),
                 role = Role.Button,
                 onClick = onOpen,
             ),
@@ -163,10 +171,10 @@ private fun LogDetailsDialog(entry: LogEntry, onDismiss: () -> Unit) {
         title = { Text(entry.message) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                PropertyRow("Time", formatUtcTime(entry.timestampEpochMillis))
-                PropertyRow("Level", entry.level.name)
-                PropertyRow("Category", entry.category)
-                if (entry.details.isNotEmpty()) PropertyRow("Details", formatLogDetails(entry))
+                PropertyRow(stringResource(Res.string.ui_time), formatUtcTime(entry.timestampEpochMillis))
+                PropertyRow(stringResource(Res.string.ui_level), entry.level.name)
+                PropertyRow(stringResource(Res.string.ui_category), entry.category)
+                if (entry.details.isNotEmpty()) PropertyRow(stringResource(Res.string.ui_details), formatLogDetails(entry))
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_close)) } },

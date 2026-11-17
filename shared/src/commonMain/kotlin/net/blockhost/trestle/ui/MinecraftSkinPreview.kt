@@ -38,7 +38,15 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import kotlinx.coroutines.isActive
 import net.blockhost.trestle.auth.SkinVariant
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_3d_minecraft_skin_preview
+import net.blockhost.trestle.resources.ui_interactive_3d_minecraft_skin_preview_use_left
+import net.blockhost.trestle.resources.ui_reset_rotation
+import net.blockhost.trestle.resources.ui_rotate_left
+import net.blockhost.trestle.resources.ui_rotate_right
+import net.blockhost.trestle.resources.ui_skin_preview_unavailable
 import org.jetbrains.compose.resources.decodeToImageBitmap
+import org.jetbrains.compose.resources.stringResource
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -98,7 +106,7 @@ fun MinecraftSkinPreview(
     modifier: Modifier = Modifier,
     interactive: Boolean = true,
     animate: Boolean = true,
-    emptyLabel: String = "Skin preview unavailable",
+    emptyLabel: String = stringResource(Res.string.ui_skin_preview_unavailable),
     background: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
 ) {
     val shouldAnimate = animate && !LocalReduceMotion.current
@@ -116,26 +124,31 @@ fun MinecraftSkinPreview(
         }
     }
 
+    val interactiveDescription = stringResource(Res.string.ui_interactive_3d_minecraft_skin_preview_use_left)
+    val staticDescription = stringResource(Res.string.ui_3d_minecraft_skin_preview)
+    val rotateLeftLabel = stringResource(Res.string.ui_rotate_left)
+    val rotateRightLabel = stringResource(Res.string.ui_rotate_right)
+    val resetRotationLabel = stringResource(Res.string.ui_reset_rotation)
     Box(
         modifier
             .background(background)
             .semantics {
                 contentDescription = if (interactive) {
-                    "Interactive 3D Minecraft skin preview. Use Left and Right to rotate, or Home to reset."
+                    interactiveDescription
                 } else {
-                    "3D Minecraft skin preview"
+                    staticDescription
                 }
                 if (interactive) {
                     customActions = listOf(
-                        CustomAccessibilityAction("Rotate left") {
+                        CustomAccessibilityAction(rotateLeftLabel) {
                             yaw -= KEYBOARD_ROTATION_STEP
                             true
                         },
-                        CustomAccessibilityAction("Rotate right") {
+                        CustomAccessibilityAction(rotateRightLabel) {
                             yaw += KEYBOARD_ROTATION_STEP
                             true
                         },
-                        CustomAccessibilityAction("Reset rotation") {
+                        CustomAccessibilityAction(resetRotationLabel) {
                             yaw = DEFAULT_YAW
                             true
                         },

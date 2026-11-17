@@ -138,6 +138,7 @@ import net.blockhost.trestle.resources.ic_add
 import net.blockhost.trestle.resources.ic_arrow_back
 import net.blockhost.trestle.resources.ic_more_vert
 import net.blockhost.trestle.resources.ic_play
+import net.blockhost.trestle.resources.ui_account
 import net.blockhost.trestle.resources.ui_add_content
 import net.blockhost.trestle.resources.ui_add_content_hint
 import net.blockhost.trestle.resources.ui_add_mods
@@ -145,35 +146,57 @@ import net.blockhost.trestle.resources.ui_add_server
 import net.blockhost.trestle.resources.ui_add_server_hint
 import net.blockhost.trestle.resources.ui_address
 import net.blockhost.trestle.resources.ui_all_worlds
+import net.blockhost.trestle.resources.ui_always
+import net.blockhost.trestle.resources.ui_ask
+import net.blockhost.trestle.resources.ui_automatic
 import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_back_to_library
+import net.blockhost.trestle.resources.ui_back_up
 import net.blockhost.trestle.resources.ui_backup_hint
 import net.blockhost.trestle.resources.ui_backups
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_change
+import net.blockhost.trestle.resources.ui_check_updates
+import net.blockhost.trestle.resources.ui_checking
+import net.blockhost.trestle.resources.ui_chosen_at_install
+import net.blockhost.trestle.resources.ui_classpath
 import net.blockhost.trestle.resources.ui_clear
+import net.blockhost.trestle.resources.ui_clear_streamed_log
 import net.blockhost.trestle.resources.ui_color_warnings_and_errors
 import net.blockhost.trestle.resources.ui_content
+import net.blockhost.trestle.resources.ui_copy
+import net.blockhost.trestle.resources.ui_copy_file_path
+import net.blockhost.trestle.resources.ui_copy_installed_list
 import net.blockhost.trestle.resources.ui_copy_seed
+import net.blockhost.trestle.resources.ui_copy_visible_log
 import net.blockhost.trestle.resources.ui_crash_report_value
+import net.blockhost.trestle.resources.ui_data_pack_s
+import net.blockhost.trestle.resources.ui_data_packs
 import net.blockhost.trestle.resources.ui_delete
 import net.blockhost.trestle.resources.ui_delete_log_explanation
+import net.blockhost.trestle.resources.ui_delete_log_file
 import net.blockhost.trestle.resources.ui_delete_named_file
 import net.blockhost.trestle.resources.ui_delete_screenshot_explanation
 import net.blockhost.trestle.resources.ui_discard
 import net.blockhost.trestle.resources.ui_discard_changes_explanation
 import net.blockhost.trestle.resources.ui_discard_changes_title
+import net.blockhost.trestle.resources.ui_drop_to_add_content_to_s
+import net.blockhost.trestle.resources.ui_edit
 import net.blockhost.trestle.resources.ui_edit_instance_settings
 import net.blockhost.trestle.resources.ui_edit_server
 import net.blockhost.trestle.resources.ui_enable_named
+import net.blockhost.trestle.resources.ui_environment
 import net.blockhost.trestle.resources.ui_file_name
 import net.blockhost.trestle.resources.ui_find_in_log
 import net.blockhost.trestle.resources.ui_follow_launch
 import net.blockhost.trestle.resources.ui_for_example_play_example_net_25565
+import net.blockhost.trestle.resources.ui_game_arguments
 import net.blockhost.trestle.resources.ui_game_console
 import net.blockhost.trestle.resources.ui_game_files
+import net.blockhost.trestle.resources.ui_group
 import net.blockhost.trestle.resources.ui_homepage
 import net.blockhost.trestle.resources.ui_import_world
+import net.blockhost.trestle.resources.ui_inherited
 import net.blockhost.trestle.resources.ui_inspect_launch_plan
 import net.blockhost.trestle.resources.ui_installed_content
 import net.blockhost.trestle.resources.ui_installed_content_hint
@@ -181,26 +204,55 @@ import net.blockhost.trestle.resources.ui_instance
 import net.blockhost.trestle.resources.ui_instance_logs
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_instance_version_loader
+import net.blockhost.trestle.resources.ui_java
+import net.blockhost.trestle.resources.ui_java_runtime
+import net.blockhost.trestle.resources.ui_java_s
 import net.blockhost.trestle.resources.ui_join
 import net.blockhost.trestle.resources.ui_jump_back_in
 import net.blockhost.trestle.resources.ui_jump_back_in_hint
+import net.blockhost.trestle.resources.ui_jvm_arguments
 import net.blockhost.trestle.resources.ui_keep_editing
+import net.blockhost.trestle.resources.ui_keep_setup_details_server_information_or_reminders
 import net.blockhost.trestle.resources.ui_last_played_on
+import net.blockhost.trestle.resources.ui_launch_and_minecraft_client_settings_apply_only
 import net.blockhost.trestle.resources.ui_launch_plan
 import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_loader
+import net.blockhost.trestle.resources.ui_local_file
+import net.blockhost.trestle.resources.ui_log_file
 import net.blockhost.trestle.resources.ui_logs
 import net.blockhost.trestle.resources.ui_logs_crash_reports_screenshots_and_more
 import net.blockhost.trestle.resources.ui_manage
+import net.blockhost.trestle.resources.ui_managed_java_s
+import net.blockhost.trestle.resources.ui_maximum_memory
+import net.blockhost.trestle.resources.ui_memory
+import net.blockhost.trestle.resources.ui_min
+import net.blockhost.trestle.resources.ui_minecraft
+import net.blockhost.trestle.resources.ui_minecraft_s
+import net.blockhost.trestle.resources.ui_minecraft_s_s
+import net.blockhost.trestle.resources.ui_minimum_memory
+import net.blockhost.trestle.resources.ui_modified_s
 import net.blockhost.trestle.resources.ui_mods
 import net.blockhost.trestle.resources.ui_more
+import net.blockhost.trestle.resources.ui_move_down
+import net.blockhost.trestle.resources.ui_move_up
 import net.blockhost.trestle.resources.ui_name
+import net.blockhost.trestle.resources.ui_never
 import net.blockhost.trestle.resources.ui_no_instance_selected
 import net.blockhost.trestle.resources.ui_no_logs_explanation
 import net.blockhost.trestle.resources.ui_no_logs_yet
+import net.blockhost.trestle.resources.ui_no_matching_log_lines
+import net.blockhost.trestle.resources.ui_no_mods_resource_packs_or_shaders_are
+import net.blockhost.trestle.resources.ui_no_process_output
 import net.blockhost.trestle.resources.ui_no_worlds_import_hint
 import net.blockhost.trestle.resources.ui_no_worlds_overview
+import net.blockhost.trestle.resources.ui_none
+import net.blockhost.trestle.resources.ui_not_checked
 import net.blockhost.trestle.resources.ui_notes
+import net.blockhost.trestle.resources.ui_offline
+import net.blockhost.trestle.resources.ui_online
 import net.blockhost.trestle.resources.ui_open
+import net.blockhost.trestle.resources.ui_open_config_folder
 import net.blockhost.trestle.resources.ui_open_game_folder
 import net.blockhost.trestle.resources.ui_open_log_file
 import net.blockhost.trestle.resources.ui_overview
@@ -208,6 +260,8 @@ import net.blockhost.trestle.resources.ui_play
 import net.blockhost.trestle.resources.ui_play_time
 import net.blockhost.trestle.resources.ui_played_duration
 import net.blockhost.trestle.resources.ui_played_on
+import net.blockhost.trestle.resources.ui_post_exit
+import net.blockhost.trestle.resources.ui_pre_launch
 import net.blockhost.trestle.resources.ui_reading_installed_content
 import net.blockhost.trestle.resources.ui_reading_the_game_directory
 import net.blockhost.trestle.resources.ui_recent_screenshots
@@ -220,16 +274,27 @@ import net.blockhost.trestle.resources.ui_remove_server_explanation
 import net.blockhost.trestle.resources.ui_rename
 import net.blockhost.trestle.resources.ui_rename_screenshot
 import net.blockhost.trestle.resources.ui_rename_world
+import net.blockhost.trestle.resources.ui_required_by_items
+import net.blockhost.trestle.resources.ui_requires_s
+import net.blockhost.trestle.resources.ui_reset_icon
 import net.blockhost.trestle.resources.ui_restore_copy
 import net.blockhost.trestle.resources.ui_return_to_library
 import net.blockhost.trestle.resources.ui_running
+import net.blockhost.trestle.resources.ui_s_custom
+import net.blockhost.trestle.resources.ui_s_entries
+import net.blockhost.trestle.resources.ui_s_online
+import net.blockhost.trestle.resources.ui_s_s_mib
+import net.blockhost.trestle.resources.ui_s_s_online
+import net.blockhost.trestle.resources.ui_save
 import net.blockhost.trestle.resources.ui_save_notes
+import net.blockhost.trestle.resources.ui_saving
 import net.blockhost.trestle.resources.ui_screenshot_hint
 import net.blockhost.trestle.resources.ui_screenshots
 import net.blockhost.trestle.resources.ui_screenshots_count
 import net.blockhost.trestle.resources.ui_screenshots_summary
 import net.blockhost.trestle.resources.ui_see_all_count
 import net.blockhost.trestle.resources.ui_seed_value
+import net.blockhost.trestle.resources.ui_server_resource_packs
 import net.blockhost.trestle.resources.ui_server_status
 import net.blockhost.trestle.resources.ui_servers
 import net.blockhost.trestle.resources.ui_servers_summary
@@ -239,12 +304,14 @@ import net.blockhost.trestle.resources.ui_setup
 import net.blockhost.trestle.resources.ui_update
 import net.blockhost.trestle.resources.ui_update_to_version
 import net.blockhost.trestle.resources.ui_updates_available
+import net.blockhost.trestle.resources.ui_vanilla
 import net.blockhost.trestle.resources.ui_version_components
 import net.blockhost.trestle.resources.ui_world_name
 import net.blockhost.trestle.resources.ui_worlds
 import net.blockhost.trestle.resources.ui_worlds_count
 import net.blockhost.trestle.resources.ui_worlds_summary
 import net.blockhost.trestle.resources.ui_wrap_lines
+import net.blockhost.trestle.resources.ui_wrapper
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
@@ -648,12 +715,12 @@ private fun InstanceGameData(
                                             screenshot = screenshot,
                                             onOpen = { openPath(screenshot.path) },
                                             menu = listOf(
-                                                "Copy file path" to { copyText(screenshot.path) },
-                                                "Rename" to {
+                                                stringResource(Res.string.ui_copy_file_path) to { copyText(screenshot.path) },
+                                                stringResource(Res.string.ui_rename) to {
                                                     screenshotToRename = screenshot.key
                                                     screenshotName = screenshot.fileName.substringBeforeLast('.')
                                                 },
-                                                "Delete" to
+                                                stringResource(Res.string.ui_delete) to
                                                     {
                                                         pendingDeletion =
                                                             PendingGameDataDeletion.Screenshot(screenshot.key, screenshot.fileName)
@@ -755,7 +822,7 @@ private fun InstanceNotes(instance: GameInstance, actions: LauncherUiActions, mo
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(
-                        "Keep setup details, server information, or reminders with this instance.",
+                        stringResource(Res.string.ui_keep_setup_details_server_information_or_reminders),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -838,7 +905,7 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
         ) {
             if (state.gameData.logs.isNotEmpty()) {
                 Selector(
-                    label = "Log file",
+                    label = stringResource(Res.string.ui_log_file),
                     value = selectedKey.orEmpty(),
                     values = state.gameData.logs.map { it.key },
                     enabled = !state.isLoadingInstanceLog,
@@ -861,10 +928,10 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
                     if (supportsOpenPath && selectedLogPath != null) {
                         add(openLogFileLabel to { openPath(selectedLogPath) })
                     }
-                    if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
-                    if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
+                    if (visibleText.isNotEmpty()) add(stringResource(Res.string.ui_copy_visible_log) to { copyText(visibleText) })
+                    if (state.gameLogLines.isNotEmpty()) add(stringResource(Res.string.ui_clear_streamed_log) to actions::clearGameLog)
                     if (selectedKey != null && !launchActive) {
-                        add("Delete log file" to { pendingLogDeletion = selectedKey })
+                        add(stringResource(Res.string.ui_delete_log_file) to { pendingLogDeletion = selectedKey })
                     }
                 },
             )
@@ -912,7 +979,7 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
 
                 else -> SelectionContainer {
                     Text(
-                        if (renderedText.isEmpty()) AnnotatedString("No matching log lines.") else renderedText,
+                        if (renderedText.isEmpty()) AnnotatedString(stringResource(Res.string.ui_no_matching_log_lines)) else renderedText,
                         modifier = Modifier.fillMaxSize().verticalScroll(outputScroll).padding(16.dp),
                         fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.bodySmall,
@@ -1008,7 +1075,7 @@ private fun WorldCard(
             details = listOfNotNull(
                 world.gameMode?.replaceFirstChar { it.uppercase() },
                 formatFileSize(world.sizeBytes),
-                world.dataPacks.size.takeIf { it > 0 }?.let { if (it == 1) "1 data pack" else "$it data packs" },
+                world.dataPacks.size.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.ui_data_packs, it, it) },
                 world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
             ).joinToString(" · "),
             leading = { WorldThumbnail(world.iconPath, world.name, instance) },
@@ -1023,12 +1090,12 @@ private fun WorldCard(
             }
             InstanceItemActions(
                 buildList {
-                    add("Rename" to onRename)
-                    add("Copy" to { actions.copyWorld(world.key) })
-                    add("Back up" to { actions.backupWorld(world.key) })
-                    world.seed?.let { seed -> add("Copy seed" to { onCopySeed(seed) }) }
-                    if (world.iconPath != null) add("Reset icon" to { actions.resetWorldIcon(world.key) })
-                    add("Delete" to { actions.deleteWorld(world.key) })
+                    add(stringResource(Res.string.ui_rename) to onRename)
+                    add(stringResource(Res.string.ui_copy) to { actions.copyWorld(world.key) })
+                    add(stringResource(Res.string.ui_back_up) to { actions.backupWorld(world.key) })
+                    world.seed?.let { seed -> add(stringResource(Res.string.ui_copy_seed) to { onCopySeed(seed) }) }
+                    if (world.iconPath != null) add(stringResource(Res.string.ui_reset_icon) to { actions.resetWorldIcon(world.key) })
+                    add(stringResource(Res.string.ui_delete) to { actions.deleteWorld(world.key) })
                 },
             )
         }
@@ -1044,7 +1111,7 @@ private fun WorldCard(
                 Column(Modifier.weight(1f)) {
                     Text(pack.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        "Data pack · ${formatFileSize(pack.sizeBytes)}",
+                        stringResource(Res.string.ui_data_pack_s, formatFileSize(pack.sizeBytes)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1091,10 +1158,10 @@ private fun ServerCard(server: SavedServer, actions: LauncherUiActions, onRemove
         }
         InstanceItemActions(
             buildList {
-                if (!isFirst) add("Move up" to { actions.moveServer(server.key, -1) })
-                if (!isLast) add("Move down" to { actions.moveServer(server.key, 1) })
-                add("Edit" to { actions.openServerEditor(server.key) })
-                add("Remove" to onRemove)
+                if (!isFirst) add(stringResource(Res.string.ui_move_up) to { actions.moveServer(server.key, -1) })
+                if (!isLast) add(stringResource(Res.string.ui_move_down) to { actions.moveServer(server.key, 1) })
+                add(stringResource(Res.string.ui_edit) to { actions.openServerEditor(server.key) })
+                add(stringResource(Res.string.ui_remove) to onRemove)
             },
         )
     }
@@ -1181,13 +1248,17 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Selector(
-                    label = "Server resource packs",
+                    label = stringResource(Res.string.ui_server_resource_packs),
                     value = when (editor.acceptTextures) {
-                        true -> "Always"
-                        false -> "Never"
-                        null -> "Ask"
+                        true -> stringResource(Res.string.ui_always)
+                        false -> stringResource(Res.string.ui_never)
+                        null -> stringResource(Res.string.ui_ask)
                     },
-                    values = listOf("Ask", "Always", "Never"),
+                    values = listOf(
+                        stringResource(Res.string.ui_ask),
+                        stringResource(Res.string.ui_always),
+                        stringResource(Res.string.ui_never),
+                    ),
                     onSelect = actions::setServerResourcePacks,
                 )
             }
@@ -1197,7 +1268,7 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
         },
         confirmButton = {
             Button(onClick = actions::saveServer, enabled = valid && !editor.isSaving) {
-                Text(if (editor.isSaving) "Saving…" else "Save")
+                Text(if (editor.isSaving) stringResource(Res.string.ui_saving) else stringResource(Res.string.ui_save))
             }
         },
     )
@@ -1258,7 +1329,7 @@ private fun ExpandedInstanceHeader(
                     style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                    stringResource(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -1401,7 +1472,7 @@ private fun OverviewStats(instance: GameInstance, state: LauncherUiState, stacke
     val stats = listOf(
         Triple(
             stringResource(Res.string.ui_play_time),
-            if (instance.playTimeMillis > 0) formatPlayTime(instance.playTimeMillis) else "0 min",
+            if (instance.playTimeMillis > 0) formatPlayTime(instance.playTimeMillis) else stringResource(Res.string.ui_min),
             MaterialTheme.colorScheme.primary,
         ),
         Triple(stringResource(Res.string.ui_sessions), instance.launchCount.toString(), MaterialTheme.colorScheme.tertiary),
@@ -1635,17 +1706,27 @@ private fun OverviewSetup(
             ) { Text(stringResource(Res.string.ui_change)) }
         },
     ) {
-        CompactProperty("Minecraft", instance.minecraftVersionId)
+        CompactProperty(stringResource(Res.string.ui_minecraft), instance.minecraftVersionId)
         CompactProperty(
-            if (instance.modLoader == ModLoader.VANILLA) "Loader" else instance.modLoader.label,
-            if (instance.modLoader == ModLoader.VANILLA) "Vanilla" else instance.loaderVersion ?: "Chosen at install",
+            if (instance.modLoader == ModLoader.VANILLA) stringResource(Res.string.ui_loader) else instance.modLoader.label,
+            if (instance.modLoader ==
+                ModLoader.VANILLA
+            ) {
+                stringResource(Res.string.ui_vanilla)
+            } else {
+                instance.loaderVersion
+                    ?: stringResource(Res.string.ui_chosen_at_install)
+            },
         )
-        CompactProperty("Java", "Java ${instance.requiredJavaMajor}")
-        CompactProperty("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
-        instance.group?.let { CompactProperty("Group", it) }
+        CompactProperty(stringResource(Res.string.ui_java), stringResource(Res.string.ui_java_s, instance.requiredJavaMajor))
+        CompactProperty(
+            stringResource(Res.string.ui_memory),
+            stringResource(Res.string.ui_s_s_mib, instance.memory.minimumMiB, instance.memory.maximumMiB),
+        )
+        instance.group?.let { CompactProperty(stringResource(Res.string.ui_group), it) }
         state.launchPlan?.let { plan ->
-            CompactProperty("Classpath", "${plan.classpathEntries} entries")
-            CompactProperty("Account", plan.authentication)
+            CompactProperty(stringResource(Res.string.ui_classpath), stringResource(Res.string.ui_s_entries, plan.classpathEntries))
+            CompactProperty(stringResource(Res.string.ui_account), plan.authentication)
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -1706,7 +1787,7 @@ private fun GameConsole(state: LauncherUiState, openPath: (String) -> Unit) {
         ) {
             SelectionContainer {
                 Text(
-                    state.gameLogLines.takeLast(120).joinToString("\n").ifBlank { "No process output." },
+                    state.gameLogLines.takeLast(120).joinToString("\n").ifBlank { stringResource(Res.string.ui_no_process_output) },
                     modifier = Modifier.padding(12.dp),
                     fontFamily = FontFamily.Monospace,
                     style = MaterialTheme.typography.bodySmall,
@@ -1783,7 +1864,7 @@ private fun InstanceContent(
                 InstalledContentPanel(state, instance, actions)
             }
         }
-        if (dropActive) DropOverlay("Drop to add content to ${instance.displayName}")
+        if (dropActive) DropOverlay(stringResource(Res.string.ui_drop_to_add_content_to_s, instance.displayName))
     }
 }
 
@@ -1814,12 +1895,20 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                 enabled = state.installedContent.any { it.direct && it.isTracked } &&
                     !state.isCheckingInstalledContentUpdates,
             ) {
-                Text(if (state.isCheckingInstalledContentUpdates) "Checking…" else "Check updates")
+                Text(
+                    if (state.isCheckingInstalledContentUpdates) {
+                        stringResource(
+                            Res.string.ui_checking,
+                        )
+                    } else {
+                        stringResource(Res.string.ui_check_updates)
+                    },
+                )
             }
             InstanceItemActions(
                 buildList {
                     add(
-                        "Copy installed list" to {
+                        stringResource(Res.string.ui_copy_installed_list) to {
                             copyText(
                                 state.installedContent.filter { it.direct }
                                     .joinToString("\n") { content ->
@@ -1830,7 +1919,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                     )
                     if (supportsOpenPath) {
                         add(stringResource(Res.string.ui_open_game_folder) to { openPath("${instance.instanceDirectory}/game") })
-                        add("Open config folder" to { openPath("${instance.instanceDirectory}/game/config") })
+                        add(stringResource(Res.string.ui_open_config_folder) to { openPath("${instance.instanceDirectory}/game/config") })
                     }
                 },
             )
@@ -1847,7 +1936,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
             }
 
             state.installedContent.isEmpty() -> Text(
-                "No mods, resource packs, or shaders are installed yet.",
+                stringResource(Res.string.ui_no_mods_resource_packs_or_shaders_are),
                 modifier = Modifier.padding(16.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -1946,21 +2035,22 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
     }
 }
 
+@Composable
 private fun installedContentDetails(content: InstalledContent): String {
     val role = if (content.direct) {
-        content.provider?.label ?: "Local file"
+        content.provider?.label ?: stringResource(Res.string.ui_local_file)
     } else {
-        "Required by ${if (content.requiredByCount == 1) "1 item" else "${content.requiredByCount} items"}"
+        pluralStringResource(Res.plurals.ui_required_by_items, content.requiredByCount, content.requiredByCount)
     }
     return buildList {
         add(content.type.label.removeSuffix("s"))
         content.versionNumber?.let(::add)
         if (content.authors.isNotEmpty()) add(content.authors.joinToString())
-        if (content.dependencies.isNotEmpty()) add("Requires ${content.dependencies.joinToString()}")
-        if (content.gameVersions.isNotEmpty()) add("Minecraft ${content.gameVersions.joinToString()}")
+        if (content.dependencies.isNotEmpty()) add(stringResource(Res.string.ui_requires_s, content.dependencies.joinToString()))
+        if (content.gameVersions.isNotEmpty()) add(stringResource(Res.string.ui_minecraft_s, content.gameVersions.joinToString()))
         add(role)
         if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
-        content.lastModifiedEpochMillis?.let { add("Modified ${formatLocalDateTime(it)}") }
+        content.lastModifiedEpochMillis?.let { add(stringResource(Res.string.ui_modified_s, formatLocalDateTime(it))) }
     }.joinToString(" · ")
 }
 
@@ -1978,34 +2068,58 @@ private fun InstanceConfiguration(instance: GameInstance, actions: LauncherUiAct
         ) {
             Text(stringResource(Res.string.ui_instance_settings), style = MaterialTheme.typography.titleLarge)
             Text(
-                "Launch and Minecraft client settings apply only to ${instance.displayName}.",
+                stringResource(Res.string.ui_launch_and_minecraft_client_settings_apply_only, instance.displayName),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            PropertyRow("Java", "Java ${instance.requiredJavaMajor}")
-            PropertyRow("Minimum memory", "${instance.memory.minimumMiB} MiB")
-            PropertyRow("Maximum memory", "${instance.memory.maximumMiB} MiB")
-            PropertyRow("JVM arguments", instance.jvmArguments.joinToString().ifBlank { "Automatic" })
-            PropertyRow("Game arguments", instance.gameArguments.joinToString().ifBlank { "None" })
-            PropertyRow("Java runtime", instance.javaExecutable ?: "Managed Java ${instance.requiredJavaMajor}")
+            PropertyRow(stringResource(Res.string.ui_java), stringResource(Res.string.ui_java_s, instance.requiredJavaMajor))
+            PropertyRow(stringResource(Res.string.ui_minimum_memory), "${instance.memory.minimumMiB} MiB")
+            PropertyRow(stringResource(Res.string.ui_maximum_memory), "${instance.memory.maximumMiB} MiB")
             PropertyRow(
-                "Environment",
-                if (instance.environmentVariables.isEmpty()) "Inherited" else "${instance.environmentVariables.size} custom",
+                stringResource(Res.string.ui_jvm_arguments),
+                instance.jvmArguments.joinToString().ifBlank {
+                    stringResource(Res.string.ui_automatic)
+                },
             )
-            if (instance.preLaunchCommand.isNotEmpty()) {
-                PropertyRow("Pre-launch", instance.preLaunchCommand.joinToString(" "))
-            }
-            if (instance.wrapperCommand.isNotEmpty()) {
-                PropertyRow("Wrapper", instance.wrapperCommand.joinToString(" "))
-            }
-            if (instance.postExitCommand.isNotEmpty()) {
-                PropertyRow("Post-exit", instance.postExitCommand.joinToString(" "))
-            }
+            PropertyRow(
+                stringResource(Res.string.ui_game_arguments),
+                instance.gameArguments.joinToString().ifBlank {
+                    stringResource(Res.string.ui_none)
+                },
+            )
+            PropertyRow(
+                stringResource(Res.string.ui_java_runtime),
+                instance.javaExecutable ?: stringResource(Res.string.ui_managed_java_s, instance.requiredJavaMajor),
+            )
+            PropertyRow(
+                stringResource(Res.string.ui_environment),
+                if (instance.environmentVariables.isEmpty()) {
+                    stringResource(
+                        Res.string.ui_inherited,
+                    )
+                } else {
+                    stringResource(Res.string.ui_s_custom, instance.environmentVariables.size)
+                },
+            )
+            InstanceCommandRows(instance)
             OutlinedButton(
                 onClick = { actions.openInstanceSettings(inline = true) },
                 modifier = Modifier.padding(top = 12.dp),
             ) { Text(stringResource(Res.string.ui_edit_instance_settings)) }
         }
+    }
+}
+
+@Composable
+private fun InstanceCommandRows(instance: GameInstance) {
+    if (instance.preLaunchCommand.isNotEmpty()) {
+        PropertyRow(stringResource(Res.string.ui_pre_launch), instance.preLaunchCommand.joinToString(" "))
+    }
+    if (instance.wrapperCommand.isNotEmpty()) {
+        PropertyRow(stringResource(Res.string.ui_wrapper), instance.wrapperCommand.joinToString(" "))
+    }
+    if (instance.postExitCommand.isNotEmpty()) {
+        PropertyRow(stringResource(Res.string.ui_post_exit), instance.postExitCommand.joinToString(" "))
     }
 }
 
@@ -2053,17 +2167,19 @@ private fun GameDataDeletionDialog(deletion: PendingGameDataDeletion, actions: L
 }
 
 /** The server's status in words, so it never depends on the status dot's color alone. */
+@Composable
 private fun serverStatusText(server: SavedServer): String = when (server.status) {
     ServerStatus.ONLINE -> listOfNotNull(
         server.onlinePlayers?.let { online ->
-            server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
+            server.maximumPlayers?.let { maximum -> stringResource(Res.string.ui_s_s_online, online, maximum) }
+                ?: stringResource(Res.string.ui_s_online, online)
         },
         server.pingMillis?.let { "$it ms" },
-    ).joinToString(" · ").ifBlank { "Online" }
+    ).joinToString(" · ").ifBlank { stringResource(Res.string.ui_online) }
 
-    ServerStatus.OFFLINE -> "Offline"
+    ServerStatus.OFFLINE -> stringResource(Res.string.ui_offline)
 
-    ServerStatus.UNKNOWN -> "Not checked"
+    ServerStatus.UNKNOWN -> stringResource(Res.string.ui_not_checked)
 }
 
 @Composable

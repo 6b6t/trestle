@@ -67,36 +67,81 @@ import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_address
+import net.blockhost.trestle.resources.ui_android_provisions_its_java_runtime_and_verified
 import net.blockhost.trestle.resources.ui_appearance
 import net.blockhost.trestle.resources.ui_atlauncher
 import net.blockhost.trestle.resources.ui_availability_is_controlled_by_the_trestle_build_api_key
 import net.blockhost.trestle.resources.ui_available_without_an_api_key
+import net.blockhost.trestle.resources.ui_check_for_trestle_updates
+import net.blockhost.trestle.resources.ui_check_for_trestle_updates_automatically
+import net.blockhost.trestle.resources.ui_checking
+import net.blockhost.trestle.resources.ui_choose_how_trestle_looks_changes_apply_right
 import net.blockhost.trestle.resources.ui_client_id
+import net.blockhost.trestle.resources.ui_concurrent_download_limit
+import net.blockhost.trestle.resources.ui_concurrent_task_limit
 import net.blockhost.trestle.resources.ui_console
+import net.blockhost.trestle.resources.ui_credential_vault
 import net.blockhost.trestle.resources.ui_curseforge
+import net.blockhost.trestle.resources.ui_custom_location
+import net.blockhost.trestle.resources.ui_default_s
+import net.blockhost.trestle.resources.ui_desktop_launch_preparation_downloads_and_uses_mojang
+import net.blockhost.trestle.resources.ui_desktop_system_accent_colors_remain_available_in
+import net.blockhost.trestle.resources.ui_detect_incompatible_content
+import net.blockhost.trestle.resources.ui_downloads_and_exports
+import net.blockhost.trestle.resources.ui_english
+import net.blockhost.trestle.resources.ui_enter_a_full_folder_path_or_leave
 import net.blockhost.trestle.resources.ui_folder_changes_apply_after_trestle_restarts
 import net.blockhost.trestle.resources.ui_folders
 import net.blockhost.trestle.resources.ui_ftb_app_instances_folder
 import net.blockhost.trestle.resources.ui_general
+import net.blockhost.trestle.resources.ui_http_timeout
 import net.blockhost.trestle.resources.ui_http_timeout_and_proxy_changes_apply_to_new_connections_after_restart
+import net.blockhost.trestle.resources.ui_include_preview_releases
+import net.blockhost.trestle.resources.ui_install_required_dependencies_automatically
+import net.blockhost.trestle.resources.ui_instance_export_launch_plan_inspection_log_diagnostics
+import net.blockhost.trestle.resources.ui_instance_folders_use_stable_ids_so_renaming
 import net.blockhost.trestle.resources.ui_instance_sorting
+import net.blockhost.trestle.resources.ui_instances
+import net.blockhost.trestle.resources.ui_interface_language
+import net.blockhost.trestle.resources.ui_java_runtimes
+import net.blockhost.trestle.resources.ui_keep_track_of_content_metadata
 import net.blockhost.trestle.resources.ui_language
+import net.blockhost.trestle.resources.ui_log_history_limit
 import net.blockhost.trestle.resources.ui_modrinth
 import net.blockhost.trestle.resources.ui_mods_and_modpacks
 import net.blockhost.trestle.resources.ui_open_version_release
 import net.blockhost.trestle.resources.ui_optional_some_private_or_rate_limited_technic_packs_require_it_applies_a
 import net.blockhost.trestle.resources.ui_password
+import net.blockhost.trestle.resources.ui_platform
 import net.blockhost.trestle.resources.ui_port
 import net.blockhost.trestle.resources.ui_proxy
 import net.blockhost.trestle.resources.ui_proxy_changes_apply_after_restart
 import net.blockhost.trestle.resources.ui_proxy_credentials_are_stored_in_the_launcher_preferences_file
 import net.blockhost.trestle.resources.ui_proxy_settings_apply_to_trestle_minecraft_does_not_use_them
+import net.blockhost.trestle.resources.ui_refresh_minecraft_metadata
+import net.blockhost.trestle.resources.ui_refresh_versions
+import net.blockhost.trestle.resources.ui_refreshing_versions
+import net.blockhost.trestle.resources.ui_retry_limit
 import net.blockhost.trestle.resources.ui_runtime
+import net.blockhost.trestle.resources.ui_s_lines
+import net.blockhost.trestle.resources.ui_scan_subfolders_for_blocked_mods
 import net.blockhost.trestle.resources.ui_services
+import net.blockhost.trestle.resources.ui_skins
+import net.blockhost.trestle.resources.ui_stop_logging_when_the_history_limit_is
+import net.blockhost.trestle.resources.ui_suggest_updating_an_existing_instance_during_modpack
+import net.blockhost.trestle.resources.ui_system_default
 import net.blockhost.trestle.resources.ui_tasks_and_downloads
 import net.blockhost.trestle.resources.ui_technic
+import net.blockhost.trestle.resources.ui_the_public_catalog_is_available_without_an
 import net.blockhost.trestle.resources.ui_tools
+import net.blockhost.trestle.resources.ui_total_launches
+import net.blockhost.trestle.resources.ui_total_play_time
+import net.blockhost.trestle.resources.ui_trestle_currently_ships_english_text_the_saved
+import net.blockhost.trestle.resources.ui_trestle_resolves_the_platform_runtime_and_compatible
+import net.blockhost.trestle.resources.ui_type
+import net.blockhost.trestle.resources.ui_unavailable
 import net.blockhost.trestle.resources.ui_used_when_importing_existing_ftb_app_instances
 import net.blockhost.trestle.resources.ui_username
 import org.jetbrains.compose.resources.StringResource
@@ -141,7 +186,7 @@ internal fun GeneralSettings(state: LauncherUiState, actions: LauncherUiActions,
             }
         }
         Text(
-            "Instance folders use stable IDs, so renaming an instance never invalidates its files.",
+            stringResource(Res.string.ui_instance_folders_use_stable_ids_so_renaming),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -151,14 +196,14 @@ internal fun LanguageSettings(state: LauncherUiState, actions: LauncherUiActions
     SettingsColumn(Res.string.ui_language, scrollState, modifier) {
         val preferences = state.launcherPreferences
         Selector(
-            label = "Interface language",
+            label = stringResource(Res.string.ui_interface_language),
             value = preferences.language,
-            values = listOf("System default", "English"),
+            values = listOf(stringResource(Res.string.ui_system_default), stringResource(Res.string.ui_english)),
             modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
             onSelect = { actions.setLauncherPreferences(preferences.copy(language = it)) },
         )
         Text(
-            "Trestle currently ships English text. The saved language preference is ready for additional translations.",
+            stringResource(Res.string.ui_trestle_currently_ships_english_text_the_saved),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -168,16 +213,16 @@ internal fun FolderSettings(state: LauncherUiState, actions: LauncherUiActions, 
     SettingsColumn(Res.string.ui_folders, scrollState, modifier) {
         val preferences = state.launcherPreferences
         val folders = preferences.folders
-        FolderPreferenceField("Instances", folders.instances, state.defaultFolders.instances) {
+        FolderPreferenceField(stringResource(Res.string.ui_instances), folders.instances, state.defaultFolders.instances) {
             actions.setLauncherPreferences(preferences.copy(folders = folders.copy(instances = it)))
         }
-        FolderPreferenceField("Java runtimes", folders.runtimes, state.defaultFolders.runtimes) {
+        FolderPreferenceField(stringResource(Res.string.ui_java_runtimes), folders.runtimes, state.defaultFolders.runtimes) {
             actions.setLauncherPreferences(preferences.copy(folders = folders.copy(runtimes = it)))
         }
-        FolderPreferenceField("Skins", folders.skins, state.defaultFolders.skins) {
+        FolderPreferenceField(stringResource(Res.string.ui_skins), folders.skins, state.defaultFolders.skins) {
             actions.setLauncherPreferences(preferences.copy(folders = folders.copy(skins = it)))
         }
-        FolderPreferenceField("Downloads and exports", folders.downloads, state.defaultFolders.downloads) {
+        FolderPreferenceField(stringResource(Res.string.ui_downloads_and_exports), folders.downloads, state.defaultFolders.downloads) {
             actions.setLauncherPreferences(preferences.copy(folders = folders.copy(downloads = it)))
         }
         CommittedTextField(
@@ -185,7 +230,7 @@ internal fun FolderSettings(state: LauncherUiState, actions: LauncherUiActions, 
             onCommit = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
             label = stringResource(Res.string.ui_ftb_app_instances_folder),
             supportingText = stringResource(Res.string.ui_used_when_importing_existing_ftb_app_instances),
-            validate = ::folderPathError,
+            validate = { folderPathError(it) },
         )
         Text(stringResource(Res.string.ui_folder_changes_apply_after_trestle_restarts), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -197,17 +242,25 @@ private fun FolderPreferenceField(label: String, value: String, defaultValue: St
         onCommit = onValueChange,
         label = label,
         placeholder = defaultValue,
-        supportingText = if (value.isBlank()) "Default: $defaultValue" else "Custom location",
-        validate = ::folderPathError,
+        supportingText = if (value.isBlank()) {
+            stringResource(
+                Res.string.ui_default_s,
+                defaultValue,
+            )
+        } else {
+            stringResource(Res.string.ui_custom_location)
+        },
+        validate = { folderPathError(it) },
     )
 }
 
 /** Folder fields accept a blank value (the default) or a full path, never a half-typed relative one. */
+@Composable
 private fun folderPathError(value: String): String? {
     val trimmed = value.trim()
     val absolute = trimmed.startsWith("/") || Regex("^[A-Za-z]:[\\\\/]").containsMatchIn(trimmed) ||
         trimmed.startsWith("\\\\")
-    return if (trimmed.isEmpty() || absolute) null else "Enter a full folder path, or leave it blank for the default."
+    return if (trimmed.isEmpty() || absolute) null else stringResource(Res.string.ui_enter_a_full_folder_path_or_leave)
 }
 
 /**
@@ -225,7 +278,7 @@ private fun CommittedTextField(
     enabled: Boolean = true,
     password: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
-    validate: (String) -> String? = { null },
+    validate: @Composable (String) -> String? = { null },
 ) {
     var draft by remember(value) { mutableStateOf(value) }
     val error = validate(draft)
@@ -252,7 +305,7 @@ private fun CommittedTextField(
 @Composable
 private fun PreferenceSlider(
     label: String,
-    valueLabel: (Int) -> String,
+    valueLabel: @Composable (Int) -> String,
     value: Int,
     range: IntRange,
     steps: Int = range.last - range.first - 1,
@@ -284,19 +337,19 @@ internal fun ContentSettings(state: LauncherUiState, actions: LauncherUiActions,
     SettingsColumn(Res.string.ui_mods_and_modpacks, scrollState, modifier) {
         val preferences = state.launcherPreferences
         val content = preferences.content
-        SettingsSwitch("Scan subfolders for blocked mods", content.scanSubfolders) {
+        SettingsSwitch(stringResource(Res.string.ui_scan_subfolders_for_blocked_mods), content.scanSubfolders) {
             actions.setLauncherPreferences(preferences.copy(content = content.copy(scanSubfolders = it)))
         }
-        SettingsSwitch("Keep track of content metadata", content.trackMetadata) {
+        SettingsSwitch(stringResource(Res.string.ui_keep_track_of_content_metadata), content.trackMetadata) {
             actions.setLauncherPreferences(preferences.copy(content = content.copy(trackMetadata = it)))
         }
-        SettingsSwitch("Install required dependencies automatically", content.installDependencies) {
+        SettingsSwitch(stringResource(Res.string.ui_install_required_dependencies_automatically), content.installDependencies) {
             actions.setLauncherPreferences(preferences.copy(content = content.copy(installDependencies = it)))
         }
-        SettingsSwitch("Detect incompatible content", content.detectIncompatibilities) {
+        SettingsSwitch(stringResource(Res.string.ui_detect_incompatible_content), content.detectIncompatibilities) {
             actions.setLauncherPreferences(preferences.copy(content = content.copy(detectIncompatibilities = it)))
         }
-        SettingsSwitch("Suggest updating an existing instance during modpack installation", content.suggestModpackUpdates) {
+        SettingsSwitch(stringResource(Res.string.ui_suggest_updating_an_existing_instance_during_modpack), content.suggestModpackUpdates) {
             actions.setLauncherPreferences(preferences.copy(content = content.copy(suggestModpackUpdates = it)))
         }
     }
@@ -316,30 +369,30 @@ internal fun NetworkSettings(state: LauncherUiState, actions: LauncherUiActions,
     SettingsColumn(Res.string.ui_tasks_and_downloads, scrollState, modifier) {
         val preferences = state.launcherPreferences
         val network = preferences.network
-        PreferenceSlider("Concurrent task limit", { it.toString() }, network.concurrentTasks, 1..64) {
+        PreferenceSlider(stringResource(Res.string.ui_concurrent_task_limit), { it.toString() }, network.concurrentTasks, 1..64) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentTasks = it)))
         }
-        PreferenceSlider("Concurrent download limit", { it.toString() }, network.concurrentDownloads, 1..32) {
+        PreferenceSlider(stringResource(Res.string.ui_concurrent_download_limit), { it.toString() }, network.concurrentDownloads, 1..32) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentDownloads = it)))
         }
-        PreferenceSlider("Retry limit", { it.toString() }, network.retryLimit, 1..10) {
+        PreferenceSlider(stringResource(Res.string.ui_retry_limit), { it.toString() }, network.retryLimit, 1..10) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(retryLimit = it)))
         }
-        PreferenceSlider("HTTP timeout", { "${it}s" }, network.httpTimeoutSeconds, 5..300, steps = 58) {
+        PreferenceSlider(stringResource(Res.string.ui_http_timeout), { "${it}s" }, network.httpTimeoutSeconds, 5..300, steps = 58) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(httpTimeoutSeconds = it)))
         }
         HorizontalDivider()
         Text(stringResource(Res.string.ui_console), style = MaterialTheme.typography.titleMedium)
         PreferenceSlider(
-            "Log history limit",
-            { "$it lines" },
+            stringResource(Res.string.ui_log_history_limit),
+            { stringResource(Res.string.ui_s_lines, it) },
             preferences.console.historyLimit,
             1_000..100_000,
             steps = 98,
         ) {
             actions.setLauncherPreferences(preferences.copy(console = preferences.console.copy(historyLimit = it)))
         }
-        SettingsSwitch("Stop logging when the history limit is reached", preferences.console.stopLoggingOnOverflow) {
+        SettingsSwitch(stringResource(Res.string.ui_stop_logging_when_the_history_limit_is), preferences.console.stopLoggingOnOverflow) {
             actions.setLauncherPreferences(preferences.copy(console = preferences.console.copy(stopLoggingOnOverflow = it)))
         }
         Text(
@@ -358,7 +411,7 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Selector(
-            label = "Type",
+            label = stringResource(Res.string.ui_type),
             value = proxy.type.label,
             values = LauncherProxyType.entries.map { it.label },
             modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
@@ -424,7 +477,7 @@ internal fun ServiceSettings(state: LauncherUiState, actions: LauncherUiActions,
         HorizontalDivider()
         Text(stringResource(Res.string.ui_atlauncher), style = MaterialTheme.typography.titleMedium)
         Text(
-            "The public catalog is available without an API key.",
+            stringResource(Res.string.ui_the_public_catalog_is_available_without_an),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         HorizontalDivider()
@@ -441,22 +494,38 @@ internal fun ServiceSettings(state: LauncherUiState, actions: LauncherUiActions,
 internal fun ToolSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) =
     SettingsColumn(Res.string.ui_tools, scrollState, modifier) {
         OutlinedButton(onClick = actions::refreshVersions, enabled = !state.isLoadingVersions) {
-            Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh Minecraft metadata")
+            Text(
+                if (state.isLoadingVersions) {
+                    stringResource(
+                        Res.string.ui_refreshing_versions,
+                    )
+                } else {
+                    stringResource(Res.string.ui_refresh_minecraft_metadata)
+                },
+            )
         }
         val preferences = state.launcherPreferences
-        SettingsSwitch("Check for Trestle updates automatically", preferences.updates.automaticChecks) {
+        SettingsSwitch(stringResource(Res.string.ui_check_for_trestle_updates_automatically), preferences.updates.automaticChecks) {
             actions.setLauncherPreferences(preferences.copy(updates = preferences.updates.copy(automaticChecks = it)))
         }
-        SettingsSwitch("Include preview releases", preferences.updates.includePrereleases) {
+        SettingsSwitch(stringResource(Res.string.ui_include_preview_releases), preferences.updates.includePrereleases) {
             actions.setLauncherPreferences(
                 preferences.copy(updates = preferences.updates.copy(includePrereleases = it, lastCheckedAtMillis = 0)),
             )
         }
         OutlinedButton(onClick = actions::checkForLauncherUpdate, enabled = !state.isCheckingForUpdate) {
-            Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates")
+            Text(
+                if (state.isCheckingForUpdate) {
+                    stringResource(
+                        Res.string.ui_checking,
+                    )
+                } else {
+                    stringResource(Res.string.ui_check_for_trestle_updates)
+                },
+            )
         }
         Text(
-            "Instance export, launch-plan inspection, log diagnostics, and file-management tools remain available from each instance.",
+            stringResource(Res.string.ui_instance_export_launch_plan_inspection_log_diagnostics),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -465,7 +534,7 @@ internal fun ToolSettings(state: LauncherUiState, actions: LauncherUiActions, sc
 internal fun AppearanceSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) =
     SettingsColumn(Res.string.ui_appearance, scrollState, modifier) {
         Text(
-            "Choose how Trestle looks. Changes apply right away.",
+            stringResource(Res.string.ui_choose_how_trestle_looks_changes_apply_right),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -478,7 +547,7 @@ internal fun AppearanceSettings(state: LauncherUiState, actions: LauncherUiActio
             }
         }
         Text(
-            "Desktop system accent colors remain available in every mode.",
+            stringResource(Res.string.ui_desktop_system_accent_colors_remain_available_in),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
@@ -521,30 +590,35 @@ private fun ThemeSwatch(scheme: ColorScheme, modifier: Modifier) {
 }
 
 @Composable
+private fun RuntimeSummaryRows(state: LauncherUiState) {
+    PropertyRow(stringResource(Res.string.ui_platform), currentPlatform)
+    PropertyRow(stringResource(Res.string.ui_instances), state.instances.size.toString())
+    PropertyRow(stringResource(Res.string.ui_accounts), state.accounts.size.toString())
+    PropertyRow(stringResource(Res.string.ui_total_launches), state.instances.sumOf(GameInstance::launchCount).toString())
+    PropertyRow(stringResource(Res.string.ui_total_play_time), formatPlayTime(state.instances.sumOf(GameInstance::playTimeMillis)))
+    state.credentialProtection?.let { protection ->
+        PropertyRow(
+            stringResource(Res.string.ui_credential_vault),
+            if (protection.encryptionOperational) protection.effectiveLevel else stringResource(Res.string.ui_unavailable),
+        )
+    }
+}
+
+@Composable
 internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) {
     val uriHandler = LocalUriHandler.current
     SettingsColumn(Res.string.ui_runtime, scrollState, modifier) {
         Text(
-            "Trestle resolves the platform runtime and compatible Minecraft metadata automatically.",
+            stringResource(Res.string.ui_trestle_resolves_the_platform_runtime_and_compatible),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.widthIn(max = 640.dp).padding(bottom = 8.dp),
         )
-        PropertyRow("Platform", currentPlatform)
-        PropertyRow("Instances", state.instances.size.toString())
-        PropertyRow("Accounts", state.accounts.size.toString())
-        PropertyRow("Total launches", state.instances.sumOf(GameInstance::launchCount).toString())
-        PropertyRow("Total play time", formatPlayTime(state.instances.sumOf(GameInstance::playTimeMillis)))
-        state.credentialProtection?.let { protection ->
-            PropertyRow(
-                "Credential vault",
-                if (protection.encryptionOperational) protection.effectiveLevel else "Unavailable",
-            )
-        }
+        RuntimeSummaryRows(state)
         Text(
             if (currentPlatform == "Android") {
-                "Android provisions its Java runtime and verified native game components when the selected version is launched."
+                stringResource(Res.string.ui_android_provisions_its_java_runtime_and_verified)
             } else {
-                "Desktop launch preparation downloads and uses Mojang's compatible Java runtime automatically."
+                stringResource(Res.string.ui_desktop_launch_preparation_downloads_and_uses_mojang)
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 12.dp).widthIn(max = 640.dp),
@@ -553,12 +627,32 @@ internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions,
             onClick = actions::refreshVersions,
             enabled = !state.isLoadingVersions,
             modifier = Modifier.padding(top = 8.dp),
-        ) { Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh versions") }
+        ) {
+            Text(
+                if (state.isLoadingVersions) {
+                    stringResource(
+                        Res.string.ui_refreshing_versions,
+                    )
+                } else {
+                    stringResource(Res.string.ui_refresh_versions)
+                },
+            )
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             OutlinedButton(
                 onClick = actions::checkForLauncherUpdate,
                 enabled = !state.isCheckingForUpdate,
-            ) { Text(if (state.isCheckingForUpdate) "Checking…" else "Check for Trestle updates") }
+            ) {
+                Text(
+                    if (state.isCheckingForUpdate) {
+                        stringResource(
+                            Res.string.ui_checking,
+                        )
+                    } else {
+                        stringResource(Res.string.ui_check_for_trestle_updates)
+                    },
+                )
+            }
             state.availableUpdate?.let { update ->
                 TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) {
                     Text(stringResource(Res.string.ui_open_version_release, update.version))

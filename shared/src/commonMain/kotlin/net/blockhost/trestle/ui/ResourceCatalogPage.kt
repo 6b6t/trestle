@@ -39,9 +39,15 @@ import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ui_add_compatible_lighting_and_rendering_effects_to
 import net.blockhost.trestle.resources.ui_add_file
 import net.blockhost.trestle.resources.ui_browse
+import net.blockhost.trestle.resources.ui_change_textures_sounds_and_presentation_without_changing
+import net.blockhost.trestle.resources.ui_create_a_complete_isolated_instance_from_a
 import net.blockhost.trestle.resources.ui_discover
+import net.blockhost.trestle.resources.ui_extend_an_installed_game_with_compatible_client
+import net.blockhost.trestle.resources.ui_mods_modpacks_resource_packs_and_shaders_from
+import net.blockhost.trestle.resources.ui_select_and_install_an_instance_first
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -57,7 +63,7 @@ internal fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, act
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
         PageHero(
             title = stringResource(Res.string.ui_discover),
-            subtitle = "Mods, modpacks, resource packs, and shaders from Modrinth and CurseForge.",
+            subtitle = stringResource(Res.string.ui_mods_modpacks_resource_packs_and_shaders_from),
         )
         if (
             state.resourceBrowser.visible &&
@@ -78,10 +84,10 @@ internal fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, act
 @Composable
 internal fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () -> Unit, localFileAction: @Composable () -> Unit) {
     val description = when (type) {
-        ResourceType.MOD -> "Extend an installed game with compatible client mods and required dependencies."
-        ResourceType.MODPACK -> "Create a complete, isolated instance from a curated pack."
-        ResourceType.RESOURCE_PACK -> "Change textures, sounds, and presentation without changing game logic."
-        ResourceType.SHADER_PACK -> "Add compatible lighting and rendering effects to an installed instance."
+        ResourceType.MOD -> stringResource(Res.string.ui_extend_an_installed_game_with_compatible_client)
+        ResourceType.MODPACK -> stringResource(Res.string.ui_create_a_complete_isolated_instance_from_a)
+        ResourceType.RESOURCE_PACK -> stringResource(Res.string.ui_change_textures_sounds_and_presentation_without_changing)
+        ResourceType.SHADER_PACK -> stringResource(Res.string.ui_add_compatible_lighting_and_rendering_effects_to)
     }
     ListItem(
         headlineContent = { Text(type.label) },
@@ -90,7 +96,7 @@ internal fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () ->
                 Text(description)
                 if (!enabled) {
                     Text(
-                        "Select and install an instance first.",
+                        stringResource(Res.string.ui_select_and_install_an_instance_first),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.labelMedium,
                     )

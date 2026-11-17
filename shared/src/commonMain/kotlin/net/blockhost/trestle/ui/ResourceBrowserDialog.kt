@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -120,31 +121,68 @@ import net.blockhost.trestle.resources.ui_apply_filters
 import net.blockhost.trestle.resources.ui_available_versions_and_installation_details_will_appear_here
 import net.blockhost.trestle.resources.ui_back_to_results
 import net.blockhost.trestle.resources.ui_browse_content
+import net.blockhost.trestle.resources.ui_by_author_on_provider
+import net.blockhost.trestle.resources.ui_categories
 import net.blockhost.trestle.resources.ui_category
 import net.blockhost.trestle.resources.ui_change_the_search_or_content_type
+import net.blockhost.trestle.resources.ui_channel
 import net.blockhost.trestle.resources.ui_choose_a_version
+import net.blockhost.trestle.resources.ui_choose_an_instance_to_install_into
 import net.blockhost.trestle.resources.ui_choose_instance_to_install_into
+import net.blockhost.trestle.resources.ui_client
 import net.blockhost.trestle.resources.ui_close
+import net.blockhost.trestle.resources.ui_compatible_with_s_s
+import net.blockhost.trestle.resources.ui_create_instance
 import net.blockhost.trestle.resources.ui_curseforge_blocks_this_file_trestle_will_look_for_the_identical_file_on_
 import net.blockhost.trestle.resources.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil
+import net.blockhost.trestle.resources.ui_dependencies
+import net.blockhost.trestle.resources.ui_downloads
+import net.blockhost.trestle.resources.ui_external_dependency
+import net.blockhost.trestle.resources.ui_file
 import net.blockhost.trestle.resources.ui_filters
 import net.blockhost.trestle.resources.ui_filters_with_count
+import net.blockhost.trestle.resources.ui_followers
+import net.blockhost.trestle.resources.ui_install
 import net.blockhost.trestle.resources.ui_install_instance
 import net.blockhost.trestle.resources.ui_install_named_first
+import net.blockhost.trestle.resources.ui_installing_into
 import net.blockhost.trestle.resources.ui_instance_loader_named
 import net.blockhost.trestle.resources.ui_instance_version_named
+import net.blockhost.trestle.resources.ui_issues
+import net.blockhost.trestle.resources.ui_license
+import net.blockhost.trestle.resources.ui_load_more
+import net.blockhost.trestle.resources.ui_loaders
+import net.blockhost.trestle.resources.ui_loading
 import net.blockhost.trestle.resources.ui_loading_versions
+import net.blockhost.trestle.resources.ui_minecraft
 import net.blockhost.trestle.resources.ui_minecraft_version
+import net.blockhost.trestle.resources.ui_mod_loader
+import net.blockhost.trestle.resources.ui_modpacks_create_a_new_instance
+import net.blockhost.trestle.resources.ui_modpacks_install_as_a_new_instance
 import net.blockhost.trestle.resources.ui_no_compatible_version
 import net.blockhost.trestle.resources.ui_no_results
 import net.blockhost.trestle.resources.ui_no_version_for_named
 import net.blockhost.trestle.resources.ui_open_manual_download
 import net.blockhost.trestle.resources.ui_optional_dependencies
+import net.blockhost.trestle.resources.ui_pack_manifest
+import net.blockhost.trestle.resources.ui_published
+import net.blockhost.trestle.resources.ui_s_required
 import net.blockhost.trestle.resources.ui_search_mods_packs_and_shaders
 import net.blockhost.trestle.resources.ui_select_a_result
+import net.blockhost.trestle.resources.ui_select_an_installed_instance_to_add_content
+import net.blockhost.trestle.resources.ui_select_version
+import net.blockhost.trestle.resources.ui_server
+import net.blockhost.trestle.resources.ui_server_status
+import net.blockhost.trestle.resources.ui_size
+import net.blockhost.trestle.resources.ui_sort_by
+import net.blockhost.trestle.resources.ui_source
 import net.blockhost.trestle.resources.ui_the_author_blocks_downloads_from_third_party_launchers
+import net.blockhost.trestle.resources.ui_unknown_author
+import net.blockhost.trestle.resources.ui_updated
+import net.blockhost.trestle.resources.ui_version
 import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_view_on_provider
+import net.blockhost.trestle.resources.ui_wiki
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -169,11 +207,11 @@ internal fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAc
                         Text(stringResource(Res.string.ui_browse_content))
                         Text(
                             if (browser.type == ResourceType.MODPACK) {
-                                "Modpacks create a new instance."
+                                stringResource(Res.string.ui_modpacks_create_a_new_instance)
                             } else if (instance == null) {
-                                "Select an installed instance to add content."
+                                stringResource(Res.string.ui_select_an_installed_instance_to_add_content)
                             } else {
-                                "Compatible with ${instance.minecraftVersionId} · ${instance.modLoader.label}"
+                                stringResource(Res.string.ui_compatible_with_s_s, instance.minecraftVersionId, instance.modLoader.label)
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
@@ -435,7 +473,7 @@ private fun ResourceFilterFields(
         ?: stringResource(Res.string.ui_any_loader)
     val loaderField: @Composable (Modifier) -> Unit = { fieldModifier ->
         Selector(
-            label = "Mod loader",
+            label = stringResource(Res.string.ui_mod_loader),
             value = browser.loaderFilter?.label ?: defaultLoaderLabel,
             values = listOf(defaultLoaderLabel) + ModLoader.entries.filterNot { it == ModLoader.VANILLA }.map { it.label },
             modifier = fieldModifier,
@@ -456,7 +494,7 @@ private fun ResourceFilterFields(
     }
     val sortField: @Composable (Modifier) -> Unit = { fieldModifier ->
         Selector(
-            label = "Sort by",
+            label = stringResource(Res.string.ui_sort_by),
             value = browser.sort.label,
             values = ResourceSearchSort.entries.map { it.label },
             modifier = fieldModifier,
@@ -549,29 +587,7 @@ private fun InstallTarget(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                if (instance != null && !creatingInstance) {
-                    InstanceArtwork(instance, 28.dp)
-                    Column(Modifier.weight(1f, fill = false)) {
-                        Text(
-                            "Installing into",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            "${instance.displayName} · ${instance.minecraftVersionId} ${instance.modLoader.label}",
-                            style = MaterialTheme.typography.labelLarge,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    Icon(painterResource(Res.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
-                } else {
-                    Text(
-                        if (creatingInstance) "Modpacks install as a new instance" else "Choose an instance to install into",
-                        style = MaterialTheme.typography.labelLarge,
-                        modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
-                    )
-                }
+                InstallTargetLabel(instance.takeUnless { creatingInstance }, creatingInstance)
             }
         }
         InstallTargetMenu(
@@ -585,6 +601,39 @@ private fun InstallTarget(
                     actions.searchResources()
                 }
             },
+        )
+    }
+}
+
+@Composable
+private fun RowScope.InstallTargetLabel(instance: GameInstance?, creatingInstance: Boolean) {
+    if (instance != null) {
+        InstanceArtwork(instance, 28.dp)
+        Column(Modifier.weight(1f, fill = false)) {
+            Text(
+                stringResource(Res.string.ui_installing_into),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                "${instance.displayName} · ${instance.minecraftVersionId} ${instance.modLoader.label}",
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Icon(painterResource(Res.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
+    } else {
+        Text(
+            if (creatingInstance) {
+                stringResource(
+                    Res.string.ui_modpacks_install_as_a_new_instance,
+                )
+            } else {
+                stringResource(Res.string.ui_choose_an_instance_to_install_into)
+            },
+            style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
         )
     }
 }
@@ -680,7 +729,7 @@ private fun ResourceResultList(
                         onClick = actions::loadMoreResources,
                         enabled = !browser.isSearching,
                         modifier = Modifier.fillMaxWidth(),
-                    ) { Text(if (browser.isSearching) "Loading…" else "Load more") }
+                    ) { Text(if (browser.isSearching) stringResource(Res.string.ui_loading) else stringResource(Res.string.ui_load_more)) }
                 }
             }
         }
@@ -700,34 +749,19 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
         },
         overlineContent = {
             Text(
-                "${project.provider.label} · ${project.author.ifBlank { "Unknown author" }}",
+                stringResource(
+                    Res.string.ui_server_status,
+                    project.provider.label,
+                    project.author.ifBlank {
+                        stringResource(Res.string.ui_unknown_author)
+                    },
+                ),
                 color = MaterialTheme.colorScheme.primary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
         },
-        supportingContent = {
-            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(
-                    project.summary,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    buildString {
-                        append(formatDownloads(project.downloads))
-                        if (project.categories.isNotEmpty()) {
-                            append(" · ")
-                            append(project.categories.take(3).joinToString(" · "))
-                        }
-                    },
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        },
+        supportingContent = { ResourceProjectSummary(project) },
         leadingContent = {
             ResourceProjectLogo(project = project, modifier = Modifier.size(52.dp))
         },
@@ -743,6 +777,30 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
             .selectionOutline(selected)
             .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
     )
+}
+
+@Composable
+private fun ResourceProjectSummary(project: ResourceProject) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            project.summary,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            buildString {
+                append(formatDownloads(project.downloads))
+                if (project.categories.isNotEmpty()) {
+                    append(" · ")
+                    append(project.categories.take(3).joinToString(" · "))
+                }
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }
 
 @Composable
@@ -839,7 +897,13 @@ private fun ResourceSelection(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(project.name, style = MaterialTheme.typography.titleLarge)
                     Text(
-                        "by ${project.author.ifBlank { "Unknown author" }} on ${project.provider.label}",
+                        stringResource(
+                            Res.string.ui_by_author_on_provider,
+                            project.author.ifBlank {
+                                stringResource(Res.string.ui_unknown_author)
+                            },
+                            project.provider.label,
+                        ),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.labelMedium,
                     )
@@ -857,9 +921,9 @@ private fun ResourceSelection(
                 }
             }
             val platformLinks = listOfNotNull(
-                project.sourceUrl?.let { "Source" to it },
-                project.issuesUrl?.let { "Issues" to it },
-                project.wikiUrl?.let { "Wiki" to it },
+                project.sourceUrl?.let { stringResource(Res.string.ui_source) to it },
+                project.issuesUrl?.let { stringResource(Res.string.ui_issues) to it },
+                project.wikiUrl?.let { stringResource(Res.string.ui_wiki) to it },
             )
             if (platformLinks.isNotEmpty()) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -881,7 +945,10 @@ private fun ResourceSelection(
                     optionalDependencies.forEach { dependency ->
                         ListItem(
                             headlineContent = {
-                                Text(dependency.fileName ?: dependency.projectId ?: dependency.versionId ?: "External dependency")
+                                Text(
+                                    dependency.fileName ?: dependency.projectId ?: dependency.versionId
+                                        ?: stringResource(Res.string.ui_external_dependency),
+                                )
                             },
                             leadingContent = {
                                 Checkbox(
@@ -947,14 +1014,14 @@ private fun ResourceSelection(
 @Composable
 private fun ResourceProjectDetails(project: ResourceProject) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PropertyRow("Downloads", formatCount(project.downloads))
-        project.followers?.let { PropertyRow("Followers", formatCount(it)) }
-        project.updatedAt?.let { PropertyRow("Updated", it.substringBefore('T')) }
-        project.license?.takeIf(String::isNotBlank)?.let { PropertyRow("License", it) }
-        project.clientSupport?.let { PropertyRow("Client", it.label) }
-        project.serverSupport?.let { PropertyRow("Server", it.label) }
+        PropertyRow(stringResource(Res.string.ui_downloads), formatCount(project.downloads))
+        project.followers?.let { PropertyRow(stringResource(Res.string.ui_followers), formatCount(it)) }
+        project.updatedAt?.let { PropertyRow(stringResource(Res.string.ui_updated), it.substringBefore('T')) }
+        project.license?.takeIf(String::isNotBlank)?.let { PropertyRow(stringResource(Res.string.ui_license), it) }
+        project.clientSupport?.let { PropertyRow(stringResource(Res.string.ui_client), it.label) }
+        project.serverSupport?.let { PropertyRow(stringResource(Res.string.ui_server), it.label) }
         if (project.categories.isNotEmpty()) {
-            PropertyRow("Categories", project.categories.take(4).joinToString())
+            PropertyRow(stringResource(Res.string.ui_categories), project.categories.take(4).joinToString())
         }
     }
 }
@@ -966,8 +1033,8 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: Launch
     val labels = versions.map { "${it.versionNumber} · ${it.channel.label}" }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Selector(
-            label = "Version",
-            value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: "Select version",
+            label = stringResource(Res.string.ui_version),
+            value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: stringResource(Res.string.ui_select_version),
             values = labels,
             modifier = Modifier.fillMaxWidth(),
             onSelect = { label ->
@@ -989,16 +1056,23 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: Launch
 @Composable
 private fun ResourceVersionDetails(version: ResourceVersion) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PropertyRow("Channel", version.channel.label)
-        PropertyRow("Minecraft", version.gameVersions.take(4).joinToString().ifBlank { "Pack manifest" })
-        if (version.loaders.isNotEmpty()) PropertyRow("Loaders", version.loaders.joinToString())
-        version.publishedAt.takeIf(String::isNotBlank)?.let { PropertyRow("Published", it.substringBefore('T')) }
+        PropertyRow(stringResource(Res.string.ui_channel), version.channel.label)
+        PropertyRow(
+            stringResource(Res.string.ui_minecraft),
+            version.gameVersions.take(4).joinToString().ifBlank {
+                stringResource(Res.string.ui_pack_manifest)
+            },
+        )
+        if (version.loaders.isNotEmpty()) PropertyRow(stringResource(Res.string.ui_loaders), version.loaders.joinToString())
+        version.publishedAt.takeIf(String::isNotBlank)?.let {
+            PropertyRow(stringResource(Res.string.ui_published), it.substringBefore('T'))
+        }
         version.primaryFile?.let { file ->
-            PropertyRow("File", file.fileName)
-            file.size?.let { PropertyRow("Size", formatFileSize(it)) }
+            PropertyRow(stringResource(Res.string.ui_file), file.fileName)
+            file.size?.let { PropertyRow(stringResource(Res.string.ui_size), formatFileSize(it)) }
         }
         val required = version.dependencies.count { it.kind == DependencyKind.REQUIRED }
-        if (required > 0) PropertyRow("Dependencies", "$required required")
+        if (required > 0) PropertyRow(stringResource(Res.string.ui_dependencies), stringResource(Res.string.ui_s_required, required))
     }
 }
 
@@ -1094,7 +1168,15 @@ private fun InstallBar(
                 if (browser.isInstalling) {
                     CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
                 } else {
-                    Text(if (project.type == ResourceType.MODPACK) "Create instance" else "Install")
+                    Text(
+                        if (project.type ==
+                            ResourceType.MODPACK
+                        ) {
+                            stringResource(Res.string.ui_create_instance)
+                        } else {
+                            stringResource(Res.string.ui_install)
+                        },
+                    )
                 }
             }
         }

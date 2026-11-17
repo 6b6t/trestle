@@ -50,19 +50,34 @@ import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ui_app
 import net.blockhost.trestle.resources.ui_appearance
 import net.blockhost.trestle.resources.ui_back
+import net.blockhost.trestle.resources.ui_choose_a_category_to_change_trestle_settings
 import net.blockhost.trestle.resources.ui_content
+import net.blockhost.trestle.resources.ui_dependencies_metadata_and_modpacks
+import net.blockhost.trestle.resources.ui_diagnostics
+import net.blockhost.trestle.resources.ui_downloads_timeouts_and_log_history
 import net.blockhost.trestle.resources.ui_folders
 import net.blockhost.trestle.resources.ui_general
 import net.blockhost.trestle.resources.ui_language
+import net.blockhost.trestle.resources.ui_launcher_language
 import net.blockhost.trestle.resources.ui_launcher_log
+import net.blockhost.trestle.resources.ui_library_sorting
+import net.blockhost.trestle.resources.ui_light_dark_or_system_theme
+import net.blockhost.trestle.resources.ui_metadata_refresh_and_update_checks
+import net.blockhost.trestle.resources.ui_modrinth_curseforge_and_other_catalogs
 import net.blockhost.trestle.resources.ui_network
+import net.blockhost.trestle.resources.ui_platform_usage_and_credential_storage
 import net.blockhost.trestle.resources.ui_proxy
+import net.blockhost.trestle.resources.ui_route_launcher_traffic_through_a_proxy
 import net.blockhost.trestle.resources.ui_runtime
 import net.blockhost.trestle.resources.ui_services
 import net.blockhost.trestle.resources.ui_settings
+import net.blockhost.trestle.resources.ui_storage
 import net.blockhost.trestle.resources.ui_tools
+import net.blockhost.trestle.resources.ui_what_the_launcher_did
+import net.blockhost.trestle.resources.ui_where_instances_and_files_live
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -147,7 +162,7 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
                             SettingsGroup.entries.forEach { group ->
                                 item("group-${group.name}") {
                                     Text(
-                                        group.label,
+                                        stringResource(group.label),
                                         modifier = Modifier.padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 6.dp),
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         style = MaterialTheme.typography.labelLarge,
@@ -179,7 +194,7 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
                         ) {
                             Text(stringResource(Res.string.ui_settings), style = MaterialTheme.typography.titleLarge)
                             Text(
-                                "Choose a category to change Trestle settings.",
+                                stringResource(Res.string.ui_choose_a_category_to_change_trestle_settings),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
@@ -201,25 +216,25 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
     }
 }
 
-private enum class SettingsGroup(val label: String) {
-    APP("App"),
-    STORAGE("Storage"),
-    NETWORK("Network"),
-    DIAGNOSTICS("Diagnostics"),
+private enum class SettingsGroup(val label: StringResource) {
+    APP(Res.string.ui_app),
+    STORAGE(Res.string.ui_storage),
+    NETWORK(Res.string.ui_network),
+    DIAGNOSTICS(Res.string.ui_diagnostics),
 }
 
-private enum class SettingsSection(val label: StringResource, val group: SettingsGroup, val summary: String) {
-    GENERAL(Res.string.ui_general, SettingsGroup.APP, "Library sorting"),
-    APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP, "Light, dark, or system theme"),
-    LANGUAGE(Res.string.ui_language, SettingsGroup.APP, "Launcher language"),
-    FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE, "Where instances and files live"),
-    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, "Dependencies, metadata, and modpacks"),
-    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, "Downloads, timeouts, and log history"),
-    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, "Route launcher traffic through a proxy"),
-    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, "Modrinth, CurseForge, and other catalogs"),
-    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, "Platform, usage, and credential storage"),
-    LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS, "What the launcher did"),
-    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS, "Metadata refresh and update checks"),
+private enum class SettingsSection(val label: StringResource, val group: SettingsGroup, val summary: StringResource) {
+    GENERAL(Res.string.ui_general, SettingsGroup.APP, Res.string.ui_library_sorting),
+    APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP, Res.string.ui_light_dark_or_system_theme),
+    LANGUAGE(Res.string.ui_language, SettingsGroup.APP, Res.string.ui_launcher_language),
+    FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE, Res.string.ui_where_instances_and_files_live),
+    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, Res.string.ui_dependencies_metadata_and_modpacks),
+    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, Res.string.ui_downloads_timeouts_and_log_history),
+    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, Res.string.ui_route_launcher_traffic_through_a_proxy),
+    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, Res.string.ui_modrinth_curseforge_and_other_catalogs),
+    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, Res.string.ui_platform_usage_and_credential_storage),
+    LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS, Res.string.ui_what_the_launcher_did),
+    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS, Res.string.ui_metadata_refresh_and_update_checks),
 }
 
 @Composable
@@ -227,7 +242,12 @@ private fun SettingsSectionButton(section: SettingsSection, selected: Boolean, m
     ListItem(
         headlineContent = { Text(stringResource(section.label), style = MaterialTheme.typography.titleSmall) },
         supportingContent = {
-            Text(section.summary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                stringResource(section.summary),
+                style = MaterialTheme.typography.bodySmall,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         },
         colors = ListItemDefaults.colors(
             containerColor = if (selected) {

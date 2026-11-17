@@ -22,6 +22,20 @@ import io.github.vinceglb.filekit.name
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.logging.LogEntry
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_count_downloads
+import net.blockhost.trestle.resources.ui_download_count
+import net.blockhost.trestle.resources.ui_hours_minutes
+import net.blockhost.trestle.resources.ui_install_failed
+import net.blockhost.trestle.resources.ui_installed
+import net.blockhost.trestle.resources.ui_installing
+import net.blockhost.trestle.resources.ui_less_than_a_minute
+import net.blockhost.trestle.resources.ui_minutes_short
+import net.blockhost.trestle.resources.ui_not_installed
+import net.blockhost.trestle.resources.ui_not_played
+import net.blockhost.trestle.resources.ui_ready_to_resume
+import org.jetbrains.compose.resources.pluralStringResource
+import org.jetbrains.compose.resources.stringResource
 
 internal fun formatUtcTime(epochMillis: Long): String {
     val secondsPerDay = 24L * 60L * 60L
@@ -34,11 +48,10 @@ internal fun formatUtcTime(epochMillis: Long): String {
         "${remainingSeconds.toString().padStart(2, '0')}Z"
 }
 
+@Composable
 internal fun formatDownloads(downloads: Long): String = when {
-    downloads >= 1_000_000_000L -> "${downloads / 100_000_000L / 10.0}B downloads"
-    downloads >= 1_000_000L -> "${downloads / 100_000L / 10.0}M downloads"
-    downloads >= 1_000L -> "${downloads / 100L / 10.0}K downloads"
-    else -> "$downloads downloads"
+    downloads >= 1_000L -> stringResource(Res.string.ui_count_downloads, formatCount(downloads))
+    else -> pluralStringResource(Res.plurals.ui_download_count, downloads.toInt(), downloads)
 }
 
 internal fun formatCount(count: Long): String = when {
@@ -62,15 +75,16 @@ internal fun formatInstanceForClipboard(instance: GameInstance): String = buildS
     append(instance.instanceDirectory)
 }
 
+@Composable
 internal fun formatPlayTime(milliseconds: Long): String {
     val totalMinutes = milliseconds / 60_000
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return when {
-        hours > 0 -> "${hours}h ${minutes}m"
-        minutes > 0 -> "${minutes}m"
-        milliseconds > 0 -> "Less than a minute"
-        else -> "Not played"
+        hours > 0 -> stringResource(Res.string.ui_hours_minutes, hours, minutes)
+        minutes > 0 -> stringResource(Res.string.ui_minutes_short, minutes)
+        milliseconds > 0 -> stringResource(Res.string.ui_less_than_a_minute)
+        else -> stringResource(Res.string.ui_not_played)
     }
 }
 
@@ -115,11 +129,11 @@ internal fun PropertyRow(
 
 @Composable
 internal fun stateLabel(state: InstallationState): String = when (state) {
-    InstallationState.NotInstalled -> "Not installed"
-    is InstallationState.Installing -> "Installing"
-    is InstallationState.Interrupted -> "Ready to resume"
-    is InstallationState.Installed -> "Installed"
-    is InstallationState.Failed -> "Install failed"
+    InstallationState.NotInstalled -> stringResource(Res.string.ui_not_installed)
+    is InstallationState.Installing -> stringResource(Res.string.ui_installing)
+    is InstallationState.Interrupted -> stringResource(Res.string.ui_ready_to_resume)
+    is InstallationState.Installed -> stringResource(Res.string.ui_installed)
+    is InstallationState.Failed -> stringResource(Res.string.ui_install_failed)
 }
 
 @Composable

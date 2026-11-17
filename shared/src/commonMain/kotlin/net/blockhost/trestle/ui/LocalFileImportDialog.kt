@@ -35,9 +35,14 @@ import io.github.vinceglb.filekit.size
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.ui_add_file
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_choose_how_trestle_should_use_this_zip_file
 import net.blockhost.trestle.resources.ui_import_local_file
+import net.blockhost.trestle.resources.ui_import_modpack
+import net.blockhost.trestle.resources.ui_select_an_instance_before_adding_this_file
+import net.blockhost.trestle.resources.ui_target_s
+import net.blockhost.trestle.resources.ui_the_modpack_creates_a_new_instance
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -106,8 +111,8 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                 }
                 if (selectedType != ResourceType.MODPACK) {
                     Text(
-                        target?.let { "Target: ${it.displayName}" }
-                            ?: "Select an instance before adding this file.",
+                        target?.let { stringResource(Res.string.ui_target_s, it.displayName) }
+                            ?: stringResource(Res.string.ui_select_an_instance_before_adding_this_file),
                         color = if (target == null) {
                             MaterialTheme.colorScheme.error
                         } else {
@@ -116,7 +121,7 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                     )
                 } else {
                     Text(
-                        "The modpack creates a new instance.",
+                        stringResource(Res.string.ui_the_modpack_creates_a_new_instance),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -127,7 +132,17 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                     onClick = actions::confirmLocalFileImport,
                     enabled = selectedType != null &&
                         (selectedType == ResourceType.MODPACK || target?.installationState is InstallationState.Installed),
-                ) { Text(if (selectedType == ResourceType.MODPACK) "Import modpack" else "Add file") }
+                ) {
+                    Text(
+                        if (selectedType ==
+                            ResourceType.MODPACK
+                        ) {
+                            stringResource(Res.string.ui_import_modpack)
+                        } else {
+                            stringResource(Res.string.ui_add_file)
+                        },
+                    )
+                }
             }
         }
     }

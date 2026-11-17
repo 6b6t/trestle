@@ -78,13 +78,20 @@ import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ui_add_new_skin
 import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_change_how_s_looks_in_game
 import net.blockhost.trestle.resources.ui_choose_a_skin_file
+import net.blockhost.trestle.resources.ui_choose_a_skin_png
+import net.blockhost.trestle.resources.ui_choose_png
+import net.blockhost.trestle.resources.ui_classic
 import net.blockhost.trestle.resources.ui_current
 import net.blockhost.trestle.resources.ui_delete
 import net.blockhost.trestle.resources.ui_drag_to_rotate
+import net.blockhost.trestle.resources.ui_drop_png_to_use_this_skin
 import net.blockhost.trestle.resources.ui_edit
+import net.blockhost.trestle.resources.ui_edit_skin
 import net.blockhost.trestle.resources.ui_import_a_64x64_or_legacy_64x32_png_to_start_your_local_library
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_loading_skin_preview
@@ -96,15 +103,21 @@ import net.blockhost.trestle.resources.ui_no_saved_skins
 import net.blockhost.trestle.resources.ui_player_model
 import net.blockhost.trestle.resources.ui_remove_named_skin
 import net.blockhost.trestle.resources.ui_remove_skin
+import net.blockhost.trestle.resources.ui_replace_png
 import net.blockhost.trestle.resources.ui_reset_skin
 import net.blockhost.trestle.resources.ui_reset_skin_explanation
 import net.blockhost.trestle.resources.ui_reset_skin_question
 import net.blockhost.trestle.resources.ui_reset_to_default
+import net.blockhost.trestle.resources.ui_s_model_drag_to_rotate
 import net.blockhost.trestle.resources.ui_save
+import net.blockhost.trestle.resources.ui_save_and_use
 import net.blockhost.trestle.resources.ui_save_to_library
+import net.blockhost.trestle.resources.ui_saving_2
+import net.blockhost.trestle.resources.ui_select_skin
 import net.blockhost.trestle.resources.ui_skin_could_not_load
 import net.blockhost.trestle.resources.ui_skin_file
 import net.blockhost.trestle.resources.ui_skins
+import net.blockhost.trestle.resources.ui_slim
 import net.blockhost.trestle.resources.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk
 import net.blockhost.trestle.resources.ui_use_a_64x64_png_or_a_legacy_64x32_skin
 import net.blockhost.trestle.resources.ui_use_skin
@@ -135,7 +148,7 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
     ) {
         PageHero(
             title = stringResource(Res.string.ui_skins),
-            subtitle = account?.let { "Change how ${it.profile.playerName} looks in game." },
+            subtitle = account?.let { stringResource(Res.string.ui_change_how_s_looks_in_game, it.profile.playerName) },
             accent = MaterialTheme.colorScheme.tertiary,
             navigationIcon = {
                 TrestleTooltipIconButton(
@@ -257,7 +270,7 @@ private fun CurrentSkinPanel(
         )
         Text(playerName, style = MaterialTheme.typography.titleMedium)
         Text(
-            "${variant.label} model · Drag to rotate",
+            stringResource(Res.string.ui_s_model_drag_to_rotate, variant.label),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -373,7 +386,7 @@ private fun SkinLibraryItem(skin: SavedSkin, selected: Boolean, onClick: () -> U
             .fillMaxWidth()
             .trestleSelectable(
                 selected = selected,
-                onClickLabel = "Select skin",
+                onClickLabel = stringResource(Res.string.ui_select_skin),
                 onClick = onClick,
                 onDoubleClick = onDoubleClick,
             ),
@@ -452,7 +465,13 @@ internal fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions
         Box(Modifier.fillMaxSize()) {
             Column(Modifier.fillMaxSize()) {
                 TrestleDialogHeader(
-                    title = if (editor.profileId == null) "Add new skin" else "Edit skin",
+                    title = if (editor.profileId ==
+                        null
+                    ) {
+                        stringResource(Res.string.ui_add_new_skin)
+                    } else {
+                        stringResource(Res.string.ui_edit_skin)
+                    },
                     onClose = actions::closeSkinEditor,
                     closeEnabled = !editor.isSaving,
                 )
@@ -488,10 +507,10 @@ internal fun SkinEditorDialog(state: LauncherUiState, actions: LauncherUiActions
                     Button(
                         onClick = { actions.saveSkin(useAfterSave = true) },
                         enabled = editor.canSave,
-                    ) { Text(if (editor.isSaving) "Saving" else "Save and use") }
+                    ) { Text(if (editor.isSaving) stringResource(Res.string.ui_saving_2) else stringResource(Res.string.ui_save_and_use)) }
                 }
             }
-            if (dropActive) DropOverlay("Drop PNG to use this skin")
+            if (dropActive) DropOverlay(stringResource(Res.string.ui_drop_png_to_use_this_skin))
         }
     }
 }
@@ -503,7 +522,7 @@ private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modi
             texture = editor.texture,
             variant = editor.variant,
             modifier = Modifier.fillMaxWidth().weight(1f),
-            emptyLabel = "Choose a skin PNG",
+            emptyLabel = stringResource(Res.string.ui_choose_a_skin_png),
         )
         Text(
             stringResource(Res.string.ui_drag_to_rotate),
@@ -554,7 +573,7 @@ private fun SkinEditorFields(editor: SkinEditorState, onBrowse: () -> Unit, acti
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(stringResource(Res.string.ui_skin_file), style = MaterialTheme.typography.labelLarge)
             OutlinedButton(onClick = onBrowse, enabled = !editor.isSaving) {
-                Text(if (editor.texture == null) "Choose PNG" else "Replace PNG")
+                Text(if (editor.texture == null) stringResource(Res.string.ui_choose_png) else stringResource(Res.string.ui_replace_png))
             }
             editor.sourceFileName?.let {
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -570,9 +589,9 @@ private fun SkinEditorFields(editor: SkinEditorState, onBrowse: () -> Unit, acti
 }
 
 internal val SkinVariant.label: String
-    get() = when (this) {
-        SkinVariant.CLASSIC -> "Classic"
-        SkinVariant.SLIM -> "Slim"
+    @Composable get() = when (this) {
+        SkinVariant.CLASSIC -> stringResource(Res.string.ui_classic)
+        SkinVariant.SLIM -> stringResource(Res.string.ui_slim)
     }
 
 private val SkinEditorState.canSave: Boolean

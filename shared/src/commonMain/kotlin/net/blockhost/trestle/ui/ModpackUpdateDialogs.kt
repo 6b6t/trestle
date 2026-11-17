@@ -32,6 +32,7 @@ import net.blockhost.trestle.resources.ui_back_up_and_update
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_check_pack_updates
 import net.blockhost.trestle.resources.ui_install_separate_copy
+import net.blockhost.trestle.resources.ui_minecraft_changes_to_s_back_up_your
 import net.blockhost.trestle.resources.ui_pack_already_installed
 import net.blockhost.trestle.resources.ui_pack_already_installed_explanation
 import net.blockhost.trestle.resources.ui_pack_backup_explanation
@@ -40,6 +41,7 @@ import net.blockhost.trestle.resources.ui_restore_previous_pack_version
 import net.blockhost.trestle.resources.ui_roll_back
 import net.blockhost.trestle.resources.ui_roll_back_pack_update
 import net.blockhost.trestle.resources.ui_rollback_explanation
+import net.blockhost.trestle.resources.ui_s_pack_file_changes_worlds_personal_settings
 import net.blockhost.trestle.resources.ui_update_named
 import org.jetbrains.compose.resources.stringResource
 
@@ -113,11 +115,11 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${preview.original.modpackOrigin?.versionName} → ${preview.candidate.modpackOrigin?.versionName}")
                 Text(
-                    "${preview.changes.size} pack file changes. Worlds, personal settings, and files you added are preserved unless they conflict with a pack file below. Modified pack files stay unchanged by default.",
+                    stringResource(Res.string.ui_s_pack_file_changes_worlds_personal_settings, preview.changes.size),
                 )
                 if (preview.original.minecraftVersionId != preview.candidate.minecraftVersionId) {
                     Text(
-                        "Minecraft changes to ${preview.candidate.minecraftVersionId}. Back up your worlds before playing; opening a world in a newer game version can prevent downgrading.",
+                        stringResource(Res.string.ui_minecraft_changes_to_s_back_up_your, preview.candidate.minecraftVersionId),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }

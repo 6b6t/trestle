@@ -28,6 +28,8 @@ import net.blockhost.trestle.resources.ui_download_format
 import net.blockhost.trestle.resources.ui_open_release_page
 import net.blockhost.trestle.resources.ui_release_notes
 import net.blockhost.trestle.resources.ui_remind_me_tomorrow
+import net.blockhost.trestle.resources.ui_s_s_sha_s
+import net.blockhost.trestle.resources.ui_see_the_release_page_for_changes_and
 import net.blockhost.trestle.resources.ui_trestle_version
 import net.blockhost.trestle.resources.ui_trestle_version_available
 import net.blockhost.trestle.resources.ui_view_release
@@ -59,10 +61,10 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
             text = {
                 SelectionContainer {
                     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(update.releaseNotes.ifBlank { "See the release page for changes and installation instructions." })
+                        Text(update.releaseNotes.ifBlank { stringResource(Res.string.ui_see_the_release_page_for_changes_and) })
                         update.downloads.forEach { download ->
                             Text(
-                                ".${download.format}: ${download.minimumOS}\nSHA-256: ${download.sha256}",
+                                stringResource(Res.string.ui_s_s_sha_s, download.format, download.minimumOS, download.sha256),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }

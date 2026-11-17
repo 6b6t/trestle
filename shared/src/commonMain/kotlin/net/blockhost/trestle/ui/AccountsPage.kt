@@ -101,35 +101,82 @@ import net.blockhost.trestle.resources.ic_visibility_off
 import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_active
 import net.blockhost.trestle.resources.ui_add_account
+import net.blockhost.trestle.resources.ui_add_an_online_account_import_an_existing
+import net.blockhost.trestle.resources.ui_add_offline_account
 import net.blockhost.trestle.resources.ui_back
+import net.blockhost.trestle.resources.ui_bedrock_authentication_is_stored_for_the_future
+import net.blockhost.trestle.resources.ui_bedrock_can_t_launch_java
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_choose_an_account_to_view_its_profile
 import net.blockhost.trestle.resources.ui_code_expires_at
+import net.blockhost.trestle.resources.ui_cookies_grant_access_to_your_microsoft_session
 import net.blockhost.trestle.resources.ui_copy_code
+import net.blockhost.trestle.resources.ui_copy_player_name
+import net.blockhost.trestle.resources.ui_copy_profile_id
+import net.blockhost.trestle.resources.ui_edition
+import net.blockhost.trestle.resources.ui_enter_a_microsoft_email_and_password_fails
+import net.blockhost.trestle.resources.ui_enter_a_microsoft_email_and_password_for
 import net.blockhost.trestle.resources.ui_enter_this_code
 import net.blockhost.trestle.resources.ui_for_example_1_21_100
 import net.blockhost.trestle.resources.ui_forget
 import net.blockhost.trestle.resources.ui_forget_account
 import net.blockhost.trestle.resources.ui_forget_account_2
+import net.blockhost.trestle.resources.ui_get_sign_in_code
+import net.blockhost.trestle.resources.ui_hide_password
+import net.blockhost.trestle.resources.ui_hide_secret
+import net.blockhost.trestle.resources.ui_import_a_session_from_another_launcher_with
+import net.blockhost.trestle.resources.ui_import_a_session_from_exported_microsoft_browser
+import net.blockhost.trestle.resources.ui_import_account
+import net.blockhost.trestle.resources.ui_imported_secret
 import net.blockhost.trestle.resources.ui_installed_bedrock_version
+import net.blockhost.trestle.resources.ui_login_live_com_cookies_or_cookie_export
 import net.blockhost.trestle.resources.ui_manage_skins
 import net.blockhost.trestle.resources.ui_microsoft_account_email
 import net.blockhost.trestle.resources.ui_microsoft_account_password
+import net.blockhost.trestle.resources.ui_microsoft_discourages_direct_password_login_and_it
+import net.blockhost.trestle.resources.ui_microsoft_refresh_token
+import net.blockhost.trestle.resources.ui_minecraft_access_token
 import net.blockhost.trestle.resources.ui_more
+import net.blockhost.trestle.resources.ui_more_sign_in_options
 import net.blockhost.trestle.resources.ui_no_accounts
+import net.blockhost.trestle.resources.ui_offline_accounts_prove_no_ownership_they_only
+import net.blockhost.trestle.resources.ui_offline_profile
 import net.blockhost.trestle.resources.ui_offline_username
 import net.blockhost.trestle.resources.ui_open_microsoft_sign_in
+import net.blockhost.trestle.resources.ui_open_named
+import net.blockhost.trestle.resources.ui_play_with_any_username_servers_in_online
+import net.blockhost.trestle.resources.ui_player_model
+import net.blockhost.trestle.resources.ui_profile
+import net.blockhost.trestle.resources.ui_profile_id
+import net.blockhost.trestle.resources.ui_raw_minecraft_access_tokens_cannot_be_renewed
+import net.blockhost.trestle.resources.ui_ready_to_play
+import net.blockhost.trestle.resources.ui_recommended
 import net.blockhost.trestle.resources.ui_refresh
+import net.blockhost.trestle.resources.ui_refresh_profile
 import net.blockhost.trestle.resources.ui_reset_skin
 import net.blockhost.trestle.resources.ui_reset_skin_explanation
 import net.blockhost.trestle.resources.ui_reset_skin_question
 import net.blockhost.trestle.resources.ui_retry
+import net.blockhost.trestle.resources.ui_show_password
+import net.blockhost.trestle.resources.ui_show_secret
+import net.blockhost.trestle.resources.ui_sign_in
 import net.blockhost.trestle.resources.ui_sign_in_again
+import net.blockhost.trestle.resources.ui_sign_in_required
+import net.blockhost.trestle.resources.ui_sign_in_to_a_bedrock_edition_account
+import net.blockhost.trestle.resources.ui_sign_in_with_a_code_in_your
 import net.blockhost.trestle.resources.ui_sign_out
 import net.blockhost.trestle.resources.ui_sign_out_explanation
 import net.blockhost.trestle.resources.ui_sign_out_question
+import net.blockhost.trestle.resources.ui_the_active_account_plays_your_instances
 import net.blockhost.trestle.resources.ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_
+import net.blockhost.trestle.resources.ui_to_letters_numbers_or_underscores
+import net.blockhost.trestle.resources.ui_trestle_discards_the_password_after_this_attempt
 import net.blockhost.trestle.resources.ui_use
+import net.blockhost.trestle.resources.ui_use_a_minecraft_access_token_directly_it
+import net.blockhost.trestle.resources.ui_use_a_refresh_token_issued_for_the
 import net.blockhost.trestle.resources.ui_use_account
+import net.blockhost.trestle.resources.ui_use_to_letters_numbers_or_underscores
+import net.blockhost.trestle.resources.ui_waiting
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -220,7 +267,7 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
             } else {
                 PageHero(
                     title = stringResource(Res.string.ui_accounts),
-                    subtitle = "The active account plays your instances.",
+                    subtitle = stringResource(Res.string.ui_the_active_account_plays_your_instances),
                     accent = MaterialTheme.colorScheme.tertiary,
                 ) {
                     if (layoutMode != TrestleLayoutMode.COMPACT && state.accounts.isNotEmpty()) {
@@ -252,7 +299,7 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
             ) {
                 Text(stringResource(Res.string.ui_no_accounts), style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Add an online account, import an existing session, or create an offline profile.",
+                    stringResource(Res.string.ui_add_an_online_account_import_an_existing),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.widthIn(max = 520.dp),
                 )
@@ -297,7 +344,7 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                             ) {
                                 Text(stringResource(Res.string.ui_accounts), style = MaterialTheme.typography.titleLarge)
                                 Text(
-                                    "Choose an account to view its profile.",
+                                    stringResource(Res.string.ui_choose_an_account_to_view_its_profile),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
                             }
@@ -374,27 +421,27 @@ private fun AccountRow(
     val statusText = accountStatusText(account)
     val contextActions = buildList {
         if (!account.isActive) {
-            add(ContextAction("Use account") { actions.selectAccount(profileId) })
+            add(ContextAction(stringResource(Res.string.ui_use_account)) { actions.selectAccount(profileId) })
         }
         if (account.canManageOfficialProfile) {
-            add(ContextAction("Manage skins") { actions.openSkinStudio() })
-            add(ContextAction("Refresh profile") { actions.refreshActiveAccount() })
-            add(ContextAction("Reset skin", onClick = callbacks.onResetSkin))
+            add(ContextAction(stringResource(Res.string.ui_manage_skins)) { actions.openSkinStudio() })
+            add(ContextAction(stringResource(Res.string.ui_refresh_profile)) { actions.refreshActiveAccount() })
+            add(ContextAction(stringResource(Res.string.ui_reset_skin), onClick = callbacks.onResetSkin))
         }
         if (account.canSignInAgain) {
-            add(ContextAction("Sign in again", onClick = callbacks.onSignInAgain))
+            add(ContextAction(stringResource(Res.string.ui_sign_in_again), onClick = callbacks.onSignInAgain))
         }
         if (account.isAuthenticated) {
-            add(ContextAction("Sign out", separatorBefore = isNotEmpty(), onClick = callbacks.onSignOut))
+            add(ContextAction(stringResource(Res.string.ui_sign_out), separatorBefore = isNotEmpty(), onClick = callbacks.onSignOut))
         }
         add(
             ContextAction(
-                "Copy player name",
+                stringResource(Res.string.ui_copy_player_name),
                 separatorBefore = true,
             ) { copyText(account.profile.playerName) },
         )
-        add(ContextAction("Copy profile ID") { copyText(profileId) })
-        add(ContextAction("Forget account", separatorBefore = true, onClick = callbacks.onForget))
+        add(ContextAction(stringResource(Res.string.ui_copy_profile_id)) { copyText(profileId) })
+        add(ContextAction(stringResource(Res.string.ui_forget_account_2), separatorBefore = true, onClick = callbacks.onForget))
     }
 
     ContextActionArea(contextActions) {
@@ -434,7 +481,7 @@ private fun AccountRow(
                 .selectionOutline(selected)
                 .trestleSelectable(
                     selected = selected,
-                    onClickLabel = "Open ${account.profile.playerName}",
+                    onClickLabel = stringResource(Res.string.ui_open_named, account.profile.playerName),
                     onClick = onOpen,
                 )
                 .testTag(LauncherTestTags.account(profileId)),
@@ -520,10 +567,15 @@ private fun AccountDetail(
                     }
                 }
             }
-            SectionCard(title = "Profile") {
-                PropertyRow("Edition", account.profile.edition.name.lowercase().replaceFirstChar(Char::uppercase))
-                PropertyRow("Profile ID", profileId)
-                account.profile.skin?.let { skin -> PropertyRow("Player model", skin.variant.label, divider = false) }
+            SectionCard(title = stringResource(Res.string.ui_profile)) {
+                PropertyRow(
+                    stringResource(Res.string.ui_edition),
+                    account.profile.edition.name.lowercase().replaceFirstChar(Char::uppercase),
+                )
+                PropertyRow(stringResource(Res.string.ui_profile_id), profileId)
+                account.profile.skin?.let { skin ->
+                    PropertyRow(stringResource(Res.string.ui_player_model), skin.variant.label, divider = false)
+                }
             }
             TextButton(onClick = callbacks.onForget) {
                 Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error)
@@ -597,8 +649,10 @@ private fun AccountOverflowMenu(
                 }, onClick = { menuAction(callbacks.onSignInAgain) })
             }
             if (account.canManageOfficialProfile) {
-                DropdownMenuItem(text = { Text("Refresh profile") }, onClick = { menuAction(actions::refreshActiveAccount) })
-                DropdownMenuItem(text = { Text("Reset skin") }, onClick = { menuAction(callbacks.onResetSkin) })
+                DropdownMenuItem(text = {
+                    Text(stringResource(Res.string.ui_refresh_profile))
+                }, onClick = { menuAction(actions::refreshActiveAccount) })
+                DropdownMenuItem(text = { Text(stringResource(Res.string.ui_reset_skin)) }, onClick = { menuAction(callbacks.onResetSkin) })
                 HorizontalDivider()
             }
             if (account.isAuthenticated) {
@@ -659,7 +713,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        "Bedrock authentication is stored for the future runtime adapter. Trestle cannot launch Bedrock yet.",
+                        stringResource(Res.string.ui_bedrock_authentication_is_stored_for_the_future),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -695,14 +749,26 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         },
                         trailingIcon = {
                             TrestleTooltipIconButton(
-                                label = if (passwordVisible) "Hide password" else "Show password",
+                                label = if (passwordVisible) {
+                                    stringResource(
+                                        Res.string.ui_hide_password,
+                                    )
+                                } else {
+                                    stringResource(Res.string.ui_show_password)
+                                },
                                 onClick = { passwordVisible = !passwordVisible },
                             ) {
                                 Icon(
                                     painterResource(
                                         if (passwordVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
                                     ),
-                                    contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                    contentDescription = if (passwordVisible) {
+                                        stringResource(
+                                            Res.string.ui_hide_password,
+                                        )
+                                    } else {
+                                        stringResource(Res.string.ui_show_password)
+                                    },
                                 )
                             }
                         },
@@ -716,8 +782,8 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        "Microsoft discourages direct password login and it cannot complete MFA. " +
-                            "Trestle discards the password after this attempt and stores only encrypted token state.",
+                        stringResource(Res.string.ui_microsoft_discourages_direct_password_login_and_it) +
+                            stringResource(Res.string.ui_trestle_discards_the_password_after_this_attempt),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -737,14 +803,26 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         },
                         trailingIcon = {
                             TrestleTooltipIconButton(
-                                label = if (importedSecretVisible) "Hide secret" else "Show secret",
+                                label = if (importedSecretVisible) {
+                                    stringResource(
+                                        Res.string.ui_hide_secret,
+                                    )
+                                } else {
+                                    stringResource(Res.string.ui_show_secret)
+                                },
                                 onClick = { importedSecretVisible = !importedSecretVisible },
                             ) {
                                 Icon(
                                     painterResource(
                                         if (importedSecretVisible) Res.drawable.ic_visibility_off else Res.drawable.ic_visibility,
                                     ),
-                                    contentDescription = if (importedSecretVisible) "Hide secret" else "Show secret",
+                                    contentDescription = if (importedSecretVisible) {
+                                        stringResource(
+                                            Res.string.ui_hide_secret,
+                                        )
+                                    } else {
+                                        stringResource(Res.string.ui_show_secret)
+                                    },
                                 )
                             }
                         },
@@ -764,9 +842,9 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                                 if (form.offlineUsername.isNotEmpty() &&
                                     !form.offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$"))
                                 ) {
-                                    "Use 1 to 16 letters, numbers, or underscores."
+                                    stringResource(Res.string.ui_use_to_letters_numbers_or_underscores)
                                 } else {
-                                    "1 to 16 letters, numbers, or underscores"
+                                    stringResource(Res.string.ui_to_letters_numbers_or_underscores)
                                 },
                             )
                         },
@@ -779,7 +857,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
-                        "Offline accounts prove no ownership. They only work with single-player and servers that allow offline identities.",
+                        stringResource(Res.string.ui_offline_accounts_prove_no_ownership_they_only),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -830,20 +908,20 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                     ) {
                         Text(
                             if (form.isWaiting) {
-                                "Waiting…"
+                                stringResource(Res.string.ui_waiting)
                             } else {
                                 when (form.method) {
                                     AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
                                     AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
-                                    -> "Get sign-in code"
+                                    -> stringResource(Res.string.ui_get_sign_in_code)
 
                                     AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
                                     AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
-                                    -> "Sign in"
+                                    -> stringResource(Res.string.ui_sign_in)
 
-                                    AccountAuthenticationMethod.OFFLINE -> "Add offline account"
+                                    AccountAuthenticationMethod.OFFLINE -> stringResource(Res.string.ui_add_offline_account)
 
-                                    else -> "Import account"
+                                    else -> stringResource(Res.string.ui_import_account)
                                 }
                             },
                         )
@@ -860,23 +938,23 @@ private val AccountAuthenticationMethod.requiresImportedSecret: Boolean
         this == AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN
 
 private val AccountAuthenticationMethod.secretInputLabel: String
-    get() = when (this) {
-        AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> "Microsoft refresh token"
-        AccountAuthenticationMethod.MICROSOFT_COOKIES -> "login.live.com cookies or cookie export"
-        AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> "Minecraft access token"
-        else -> "Imported secret"
+    @Composable get() = when (this) {
+        AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> stringResource(Res.string.ui_microsoft_refresh_token)
+        AccountAuthenticationMethod.MICROSOFT_COOKIES -> stringResource(Res.string.ui_login_live_com_cookies_or_cookie_export)
+        AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> stringResource(Res.string.ui_minecraft_access_token)
+        else -> stringResource(Res.string.ui_imported_secret)
     }
 
 private val AccountAuthenticationMethod.importWarning: String
-    get() = when (this) {
+    @Composable get() = when (this) {
         AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN ->
-            "Use a refresh token issued for the same Minecraft title configuration. It is exchanged and stored encrypted."
+            stringResource(Res.string.ui_use_a_refresh_token_issued_for_the)
 
         AccountAuthenticationMethod.MICROSOFT_COOKIES ->
-            "Cookies grant access to your Microsoft session. Trestle exchanges them once, then stores only encrypted token state."
+            stringResource(Res.string.ui_cookies_grant_access_to_your_microsoft_session)
 
         AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN ->
-            "Raw Minecraft access tokens cannot be renewed. Trestle validates the profile and stores the token encrypted until it expires."
+            stringResource(Res.string.ui_raw_minecraft_access_tokens_cannot_be_renewed)
 
         else -> ""
     }
@@ -901,15 +979,15 @@ private val AccountLoginState.canSubmit: Boolean
     }
 
 private val AccountAuthenticationMethod.summary: String
-    get() = when (this) {
-        AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE -> "Sign in with a code in your browser. Works with two-factor sign-in."
-        AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE -> "Sign in to a Bedrock Edition account with a browser code."
-        AccountAuthenticationMethod.MICROSOFT_CREDENTIALS -> "Enter a Microsoft email and password. Fails with two-factor sign-in."
-        AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS -> "Enter a Microsoft email and password for Bedrock Edition."
-        AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> "Import a session from another launcher with a refresh token."
-        AccountAuthenticationMethod.MICROSOFT_COOKIES -> "Import a session from exported Microsoft browser cookies."
-        AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> "Use a Minecraft access token directly. It expires within a day."
-        AccountAuthenticationMethod.OFFLINE -> "Play with any username. Servers in online mode will not accept it."
+    @Composable get() = when (this) {
+        AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE -> stringResource(Res.string.ui_sign_in_with_a_code_in_your)
+        AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE -> stringResource(Res.string.ui_sign_in_to_a_bedrock_edition_account)
+        AccountAuthenticationMethod.MICROSOFT_CREDENTIALS -> stringResource(Res.string.ui_enter_a_microsoft_email_and_password_fails)
+        AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS -> stringResource(Res.string.ui_enter_a_microsoft_email_and_password_for)
+        AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> stringResource(Res.string.ui_import_a_session_from_another_launcher_with)
+        AccountAuthenticationMethod.MICROSOFT_COOKIES -> stringResource(Res.string.ui_import_a_session_from_exported_microsoft_browser)
+        AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> stringResource(Res.string.ui_use_a_minecraft_access_token_directly_it)
+        AccountAuthenticationMethod.OFFLINE -> stringResource(Res.string.ui_play_with_any_username_servers_in_online)
     }
 
 /** Lists sign-in methods with what each one does, so the recommended choice is obvious. */
@@ -941,7 +1019,7 @@ private fun AccountMethodPicker(selected: AccountAuthenticationMethod, enabled: 
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(method.label, style = MaterialTheme.typography.titleSmall)
                         if (method == AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE) {
-                            StatusBadge("Recommended", MaterialTheme.colorScheme.tertiary)
+                            StatusBadge(stringResource(Res.string.ui_recommended), MaterialTheme.colorScheme.tertiary)
                         }
                     }
                     Text(method.summary, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -949,7 +1027,7 @@ private fun AccountMethodPicker(selected: AccountAuthenticationMethod, enabled: 
             }
         }
         if (!showAll) {
-            TextButton(onClick = { showAll = true }, enabled = enabled) { Text("More sign-in options") }
+            TextButton(onClick = { showAll = true }, enabled = enabled) { Text(stringResource(Res.string.ui_more_sign_in_options)) }
         }
     }
 }
@@ -966,9 +1044,10 @@ private class AccountCallbacks(
 private val ManagedAccount.canSignInAgain: Boolean
     get() = !isAuthenticated && profile.authenticationMethod != AccountAuthenticationMethod.OFFLINE
 
+@Composable
 private fun accountStatusText(account: ManagedAccount): String = when {
-    account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
-    !account.isAuthenticated -> "Sign-in required"
-    account.profile.edition == MinecraftEdition.JAVA -> "Ready to play"
-    else -> "Bedrock · can't launch Java"
+    account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> stringResource(Res.string.ui_offline_profile)
+    !account.isAuthenticated -> stringResource(Res.string.ui_sign_in_required)
+    account.profile.edition == MinecraftEdition.JAVA -> stringResource(Res.string.ui_ready_to_play)
+    else -> stringResource(Res.string.ui_bedrock_can_t_launch_java)
 }
