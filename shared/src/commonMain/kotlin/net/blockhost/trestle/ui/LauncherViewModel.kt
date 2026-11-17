@@ -157,6 +157,8 @@ data class OperationStatus(
 private class QueuedLocalFile(val fileName: String, val bytes: ByteArray, val type: ResourceType?, val sourceOrigin: String?)
 
 /** The notice shown after an instance leaves the library; its snackbar is the only one that offers Undo. */
+internal const val BUSY_NOTICE = "Trestle is still finishing the last change. Try again in a moment."
+
 internal const val INSTANCE_REMOVED_NOTICE = "Instance removed from the library. Its game directory was kept."
 
 data class LocalFileImportState(
@@ -231,7 +233,25 @@ data class InstanceSettingsState(
     val recommendation: String? = null,
     val warnings: List<String> = emptyList(),
     val isSaving: Boolean = false,
-)
+    /** True when the form is shown inside the instance page instead of as a dialog. */
+    val inline: Boolean = false,
+    /** The values the form opened with, used to detect unsaved changes. */
+    val initial: InstanceSettingsState? = null,
+) {
+    val hasChanges: Boolean
+        get() = initial != null && editableValues() != initial.editableValues()
+
+    private fun editableValues() = copy(
+        visible = false,
+        isLoadingClientSettings = false,
+        clientSettingsError = null,
+        recommendation = null,
+        warnings = emptyList(),
+        isSaving = false,
+        inline = false,
+        initial = null,
+    )
+}
 
 class PendingInstanceIcon(fileName: String, bytes: ByteArray) {
     val fileName: String = fileName
@@ -381,7 +401,9 @@ class LauncherViewModel(
     private var resourceJob: Job? = null
     private var resourceSearchJob: Job? = null
     private var installedContentJob: Job? = null
+    private var contentWriteJob: Job? = null
     private var gameDataJob: Job? = null
+    private var gameDataWriteJob: Job? = null
     private var accountLoginJob: Job? = null
     private var launchCheckJob: Job? = null
     private var launchJob: Job? = null
@@ -517,6 +539,7 @@ class LauncherViewModel(
                 selectedId = id,
                 notice = null,
                 removedInstanceUndo = null,
+                instanceSettings = InstanceSettingsState(),
                 launchPlan = null,
                 launch = it.activeLaunch?.takeIf { active -> active.instanceId == id } ?: InstanceLaunchState(id),
                 installedContent = emptyList(),
@@ -1675,11 +1698,10 @@ class LauncherViewModel(
     }
 
     override fun toggleInstalledContent(key: String) {
-        if (installedContentJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
-        val content = mutableState.value.installedContent.firstOrNull { it.key == key } ?: return
-        if (!content.canManage) return
-        installedContentJob = scope.launch {
+        val content = mutableState.value.installedContent.firstOrNull { it.key == key }?.takeIf { it.canManage } ?: return
+        if (!startContentWrite()) return
+        contentWriteJob = scope.launch {
             try {
                 val enabled = !content.enabled
                 if (services.resourceInstaller.setEnabled(instance, content, enabled)) {
@@ -1687,7 +1709,7 @@ class LauncherViewModel(
                         it.copy(notice = "${content.name} was ${if (enabled) "enabled" else "disabled"}.")
                     }
                     val refreshed = services.resourceInstaller.installedContent(instance)
-                    mutableState.update { it.copy(installedContent = refreshed) }
+                    mutableState.update { it.copy(installedContent = refreshed, isLoadingInstalledContent = false) }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1737,11 +1759,10 @@ class LauncherViewModel(
     }
 
     override fun removeInstalledContent(key: String) {
-        if (installedContentJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
-        val content = mutableState.value.installedContent.firstOrNull { it.key == key } ?: return
-        if (!content.canManage) return
-        installedContentJob = scope.launch {
+        val content = mutableState.value.installedContent.firstOrNull { it.key == key }?.takeIf { it.canManage } ?: return
+        if (!startContentWrite()) return
+        contentWriteJob = scope.launch {
             try {
                 if (services.resourceInstaller.uninstall(instance, content)) {
                     val refreshed = services.resourceInstaller.installedContent(instance)
@@ -1749,6 +1770,7 @@ class LauncherViewModel(
                         it.copy(
                             installedContent = refreshed,
                             installedContentUpdates = it.installedContentUpdates - key,
+                            isLoadingInstalledContent = false,
                             notice = "${content.name} was removed.",
                         )
                     }
@@ -1759,6 +1781,20 @@ class LauncherViewModel(
                 showError(error)
             }
         }
+    }
+
+    /**
+     * Content changes wait for each other but never for a background refresh: the refresh is cancelled
+     * and the change reloads the list itself. Returns false when another change is still running.
+     */
+    private fun startContentWrite(): Boolean {
+        if (contentWriteJob?.isActive == true) {
+            mutableState.update { it.copy(notice = BUSY_NOTICE) }
+            return false
+        }
+        installedContentJob?.cancel()
+        mutableState.update { it.copy(isCheckingInstalledContentUpdates = false) }
+        return true
     }
 
     override fun refreshGameData() {
@@ -1903,9 +1939,11 @@ class LauncherViewModel(
 
     override fun saveServer() {
         val editor = mutableState.value.serverEditor
-        if (!editor.visible || editor.name.isBlank() || editor.address.isBlank()) return
-        val instance = mutableState.value.selectedInstance ?: return
-        gameDataJob = scope.launch {
+        val instance = mutableState.value.selectedInstance
+        val ready = editor.visible && editor.name.isNotBlank() && editor.address.isNotBlank()
+        if (!ready || instance == null || gameDataWriteJob?.isActive == true) return
+        gameDataJob?.cancel()
+        gameDataWriteJob = scope.launch {
             mutableState.update { it.copy(serverEditor = editor.copy(isSaving = true)) }
             try {
                 services.gameDataManager.upsertServer(
@@ -1921,6 +1959,7 @@ class LauncherViewModel(
                 mutableState.update {
                     it.copy(
                         gameData = inventory,
+                        isLoadingGameData = false,
                         serverEditor = ServerEditorState(),
                         notice = "Saved ${editor.name.trim()} to the Minecraft server list.",
                     )
@@ -2001,14 +2040,21 @@ class LauncherViewModel(
     }
 
     private fun runGameDataOperation(title: String, operation: suspend (GameInstance) -> String) {
-        if (gameDataJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
-        gameDataJob = scope.launch {
+        if (gameDataWriteJob?.isActive == true) {
+            mutableState.update { it.copy(notice = BUSY_NOTICE) }
+            return
+        }
+        // A refresh only reads, so it is safe to stop; this operation reloads the inventory itself.
+        gameDataJob?.cancel()
+        gameDataWriteJob = scope.launch {
             mutableState.update { it.copy(operation = OperationStatus(title, instance.displayName)) }
             try {
                 val notice = operation(instance)
                 val inventory = services.gameDataManager.inventory(instance)
-                mutableState.update { it.copy(gameData = inventory, operation = null, notice = notice) }
+                mutableState.update {
+                    it.copy(gameData = inventory, isLoadingGameData = false, operation = null, notice = notice)
+                }
             } catch (error: CancellationException) {
                 mutableState.update { it.copy(operation = null) }
                 throw error
@@ -2016,7 +2062,7 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
             } finally {
-                gameDataJob = null
+                gameDataWriteJob = null
             }
         }
     }
@@ -2281,12 +2327,13 @@ class LauncherViewModel(
         }
     }
 
-    override fun openInstanceSettings() {
+    override fun openInstanceSettings(inline: Boolean) {
         val instance = mutableState.value.selectedInstance ?: return
         val recommendation = LaunchTuningAdvisor.recommend(instance, services.systemProfile)
         mutableState.update {
             it.copy(
                 instanceSettings = InstanceSettingsState(
+                    inline = inline,
                     visible = true,
                     instanceId = instance.id,
                     name = instance.displayName,
@@ -2311,7 +2358,7 @@ class LauncherViewModel(
                     isLoadingClientSettings = true,
                     recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
                     warnings = recommendation.warnings,
-                ),
+                ).let { form -> form.copy(initial = form) },
             )
         }
         scope.launch {
@@ -2325,6 +2372,7 @@ class LauncherViewModel(
                         state.copy(
                             instanceSettings = form.copy(
                                 clientSettings = clientSettings,
+                                initial = form.initial?.copy(clientSettings = clientSettings),
                                 isLoadingClientSettings = false,
                                 clientSettingsError = if (clientSettings == null) {
                                     "Client settings are unavailable for Minecraft ${instance.minecraftVersionId}."

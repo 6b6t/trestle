@@ -614,8 +614,8 @@ class TrestleAppUiTest {
     fun changingVersionComponentsOpensTheInstanceSettingsSection() = runComposeUiTest {
         var settingsRequests = 0
         val actions = object : LauncherUiActions {
-            override fun openInstanceSettings() {
-                settingsRequests += 1
+            override fun openInstanceSettings(inline: Boolean) {
+                if (inline) settingsRequests += 1
             }
         }
         setContent {
@@ -630,6 +630,7 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.VERSION_COMPONENTS_CHANGE).performScrollTo().performClick()
+        waitForIdle()
 
         assertEquals(1, settingsRequests)
         onNodeWithTag(LauncherTestTags.INSTANCE_CONFIGURATION).assertIsDisplayed()

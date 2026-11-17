@@ -281,4 +281,14 @@
     <string name="ui_open_named">Open %1$s</string>
     <string name="ui_named_is_still_running">%1$s is still running. Close it to play another instance.</string>
     <string name="ui_import_hint_touch">Import a Modrinth, CurseForge, Prism, or MultiMC pack.</string>
+    <string name="ui_discard_changes_title">Discard unsaved changes?</string>
+    <string name="ui_discard_changes_explanation">Your changes to this instance's settings have not been saved.</string>
+    <string name="ui_remove_named">Remove %1$s?</string>
+    <string name="ui_remove_content_explanation">This deletes the file from the instance. Dependencies that nothing else needs are removed too.</string>
+    <string name="ui_delete_named_file">Delete %1$s?</string>
+    <string name="ui_delete_log_explanation">This permanently deletes the log file.</string>
+    <string name="ui_delete_screenshot_explanation">This permanently deletes the screenshot file.</string>
+    <string name="ui_remove_server_explanation">This removes the server from the game's multiplayer list.</string>
+    <string name="ui_enable_named">Enable %1$s</string>
+    <string name="ui_update_to_version">Update %1$s</string>
 </resources>

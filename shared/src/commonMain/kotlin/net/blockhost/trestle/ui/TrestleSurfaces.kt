@@ -13,9 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +27,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_cancel
+import org.jetbrains.compose.resources.stringResource
 
 /** A titled, bordered group of related rows, used to break long pages into scannable blocks. */
 @Composable
@@ -120,4 +126,28 @@ internal fun Modifier.selectionOutline(selected: Boolean): Modifier {
     val shape = MaterialTheme.shapes.medium
     val color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     return clip(shape).border(1.dp, color, shape)
+}
+
+/** A pending destructive action that needs the player's confirmation. */
+internal class ConfirmationRequest(val title: String, val text: String, val confirmLabel: String, val onConfirm: () -> Unit)
+
+/** Shows [request] as a dialog whose confirm button is styled as destructive. */
+@Composable
+internal fun ConfirmationDialog(request: ConfirmationRequest?, onDismiss: () -> Unit) {
+    if (request == null) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(request.title) },
+        text = { Text(request.text) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_cancel)) } },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onDismiss()
+                    request.onConfirm()
+                },
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) { Text(request.confirmLabel) }
+        },
+    )
 }

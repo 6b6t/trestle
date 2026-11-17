@@ -232,7 +232,7 @@ fun TrestleApp(
         windowAdaptiveInfo = windowAdaptiveInfo,
     ) {
         val modalVisible = state.create.visible ||
-            state.instanceSettings.visible ||
+            (state.instanceSettings.visible && !state.instanceSettings.inline) ||
             state.accountLogin.visible ||
             state.skinStudio.editor.visible ||
             state.localFileImport.visible ||
@@ -384,7 +384,7 @@ fun TrestleApp(
             ) {
                 ResourceBrowserDialog(state, actions)
             }
-            if (state.instanceSettings.visible && destination != LauncherDestination.INSTANCE) {
+            if (state.instanceSettings.visible && !state.instanceSettings.inline) {
                 InstanceSettingsDialog(state, actions)
             }
             if (state.accountLogin.visible) AccountLoginDialog(state, actions)

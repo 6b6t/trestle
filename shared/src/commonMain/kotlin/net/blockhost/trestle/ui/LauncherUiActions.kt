@@ -110,7 +110,7 @@ interface LauncherUiActions {
     fun cancelLocalFileImport() {}
     fun clearMessage() {}
     fun retryError() {}
-    fun openInstanceSettings() {}
+    fun openInstanceSettings(inline: Boolean = false) {}
     fun closeInstanceSettings() {}
     fun setMinimumMemory(value: String) {}
     fun setMaximumMemory(value: String) {}

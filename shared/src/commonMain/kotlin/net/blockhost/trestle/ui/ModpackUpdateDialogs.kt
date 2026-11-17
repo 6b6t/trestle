@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -19,8 +20,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.domain.GameInstance
 
@@ -99,16 +102,8 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
                     )
                 }
                 preview.changes.forEach { change ->
-                    Column {
-                        Text("${change.action}: ${change.path}", style = MaterialTheme.typography.bodyMedium)
-                        if (change.conflict) {
-                            Row {
-                                Checkbox(checked = change.path in replace, onCheckedChange = { checked ->
-                                    replace = if (checked) replace + change.path else replace - change.path
-                                })
-                                Text("Apply pack change to my modified file", modifier = Modifier.padding(top = 12.dp))
-                            }
-                        }
+                    PackChangeRow(change.action, change.path, change.conflict, change.path in replace) { checked ->
+                        replace = if (checked) replace + change.path else replace - change.path
                     }
                 }
                 Text("Trestle keeps one backup of changed files. Applying another update replaces that rollback backup.")
@@ -119,4 +114,21 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
         },
         dismissButton = { TextButton(onClick = actions::cancelModpackUpdate) { Text("Cancel") } },
     )
+}
+
+@Composable
+private fun PackChangeRow(action: String, path: String, conflict: Boolean, replace: Boolean, onReplaceChange: (Boolean) -> Unit) {
+    Column {
+        Text("$action: $path", style = MaterialTheme.typography.bodyMedium)
+        if (conflict) {
+            Row(
+                Modifier.toggleable(value = replace, role = Role.Checkbox, onValueChange = onReplaceChange)
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Checkbox(checked = replace, onCheckedChange = null)
+                Text("Apply pack change to my modified file")
+            }
+        }
+    }
 }

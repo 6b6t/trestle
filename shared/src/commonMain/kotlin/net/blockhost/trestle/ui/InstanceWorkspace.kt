@@ -43,6 +43,7 @@ import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -73,12 +74,15 @@ import androidx.compose.material3.adaptive.layout.PaneAdaptedValue
 import androidx.compose.material3.adaptive.layout.calculatePaneScaffoldDirective
 import androidx.compose.material3.adaptive.navigation.rememberListDetailPaneScaffoldNavigator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -91,6 +95,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -135,7 +141,15 @@ import net.blockhost.trestle.resources.ui_color_warnings_and_errors
 import net.blockhost.trestle.resources.ui_content
 import net.blockhost.trestle.resources.ui_copy_seed
 import net.blockhost.trestle.resources.ui_crash_report_value
+import net.blockhost.trestle.resources.ui_delete
+import net.blockhost.trestle.resources.ui_delete_log_explanation
+import net.blockhost.trestle.resources.ui_delete_named_file
+import net.blockhost.trestle.resources.ui_delete_screenshot_explanation
+import net.blockhost.trestle.resources.ui_discard
+import net.blockhost.trestle.resources.ui_discard_changes_explanation
+import net.blockhost.trestle.resources.ui_discard_changes_title
 import net.blockhost.trestle.resources.ui_edit_instance_settings
+import net.blockhost.trestle.resources.ui_enable_named
 import net.blockhost.trestle.resources.ui_file_name
 import net.blockhost.trestle.resources.ui_find_in_log
 import net.blockhost.trestle.resources.ui_follow_launch
@@ -151,10 +165,12 @@ import net.blockhost.trestle.resources.ui_instance_logs
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_instance_version_loader
 import net.blockhost.trestle.resources.ui_join
+import net.blockhost.trestle.resources.ui_keep_editing
 import net.blockhost.trestle.resources.ui_launch_plan
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_logs
 import net.blockhost.trestle.resources.ui_logs_crash_reports_screenshots_and_more
+import net.blockhost.trestle.resources.ui_manage
 import net.blockhost.trestle.resources.ui_more
 import net.blockhost.trestle.resources.ui_name
 import net.blockhost.trestle.resources.ui_no_instance_selected
@@ -168,6 +184,9 @@ import net.blockhost.trestle.resources.ui_reading_the_game_directory
 import net.blockhost.trestle.resources.ui_refresh
 import net.blockhost.trestle.resources.ui_reload
 import net.blockhost.trestle.resources.ui_remove
+import net.blockhost.trestle.resources.ui_remove_content_explanation
+import net.blockhost.trestle.resources.ui_remove_named
+import net.blockhost.trestle.resources.ui_remove_server_explanation
 import net.blockhost.trestle.resources.ui_rename
 import net.blockhost.trestle.resources.ui_rename_screenshot
 import net.blockhost.trestle.resources.ui_rename_world
@@ -180,6 +199,7 @@ import net.blockhost.trestle.resources.ui_server_status
 import net.blockhost.trestle.resources.ui_servers
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_update
+import net.blockhost.trestle.resources.ui_update_to_version
 import net.blockhost.trestle.resources.ui_version_components
 import net.blockhost.trestle.resources.ui_world_name
 import net.blockhost.trestle.resources.ui_worlds
@@ -219,18 +239,53 @@ internal fun InstanceWorkspace(
     val screenshotsListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
     val compact = layoutMode == TrestleLayoutMode.COMPACT
-    val selectSection: (InstanceSection) -> Unit = { selectedSection ->
-        sectionName = selectedSection.name
-        if (selectedSection == InstanceSection.SETTINGS && !state.instanceSettings.visible) {
-            actions.openInstanceSettings()
+    val tabStates = rememberSaveableStateHolder()
+    val settingsForm = state.instanceSettings
+    val inlineSettingsOpen = settingsForm.visible && settingsForm.inline
+    // Leaving the Settings tab, or the page, closes the inline form. Unsaved changes ask first.
+    var pendingLeave by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val leaveSettings: (() -> Unit) -> Unit = { next ->
+        if (inlineSettingsOpen && settingsForm.hasChanges) {
+            pendingLeave = next
+        } else {
+            if (inlineSettingsOpen) actions.closeInstanceSettings()
+            next()
         }
+    }
+    val selectSection: (InstanceSection) -> Unit = { selectedSection ->
+        if (section == InstanceSection.SETTINGS && selectedSection != InstanceSection.SETTINGS) {
+            leaveSettings { sectionName = selectedSection.name }
+        } else {
+            sectionName = selectedSection.name
+        }
+    }
+    val back: () -> Unit = { leaveSettings(onBack) }
+    LaunchedEffect(section, settingsForm.visible, instance?.id) {
+        if (section == InstanceSection.SETTINGS && !settingsForm.visible && instance != null) {
+            actions.openInstanceSettings(inline = true)
+        }
+    }
+    val currentActions by rememberUpdatedState(actions)
+    val currentInlineSettingsOpen by rememberUpdatedState(inlineSettingsOpen)
+    DisposableEffect(Unit) {
+        onDispose { if (currentInlineSettingsOpen) currentActions.closeInstanceSettings() }
+    }
+    pendingLeave?.let { next ->
+        DiscardChangesDialog(
+            onKeepEditing = { pendingLeave = null },
+            onDiscard = {
+                pendingLeave = null
+                actions.closeInstanceSettings()
+                next()
+            },
+        )
     }
 
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
         if (instance == null) {
             PageHeader(
                 title = stringResource(Res.string.ui_instance),
-                navigationIcon = { InstanceBackButton(onBack) },
+                navigationIcon = { InstanceBackButton(back) },
             )
             Column(
                 Modifier.fillMaxSize().padding(24.dp),
@@ -242,76 +297,79 @@ internal fun InstanceWorkspace(
             }
             return@Column
         }
-        InstanceWorkspaceHeader(state, instance, actions, onBack, compact)
+        // Phones keep the header short on every tab except Overview, where the stats belong.
+        InstanceWorkspaceHeader(state, instance, actions, back, showStats = !compact || section == InstanceSection.OVERVIEW)
         InstanceSectionTabs(section, compact, selectSection)
         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
             val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
-            when (section) {
-                InstanceSection.OVERVIEW -> InstanceOverview(
-                    state,
-                    instance,
-                    actions,
-                    overviewListState,
-                    onChangeComponents = { selectSection(InstanceSection.SETTINGS) },
-                    onOpenSection = selectSection,
-                    onDiscover = onDiscover,
-                    modifier = contentModifier,
-                )
-
-                InstanceSection.CONTENT -> InstanceContent(
-                    state,
-                    instance,
-                    actions,
-                    onDiscover,
-                    contentListState,
-                    contentModifier,
-                )
-
-                InstanceSection.WORLDS -> InstanceGameData(
-                    state,
-                    instance,
-                    actions,
-                    GameDataView.WORLDS,
-                    worldsListState,
-                    contentModifier,
-                )
-
-                InstanceSection.SERVERS -> InstanceGameData(
-                    state,
-                    instance,
-                    actions,
-                    GameDataView.SERVERS,
-                    serversListState,
-                    contentModifier,
-                )
-
-                InstanceSection.SCREENSHOTS -> InstanceGameData(
-                    state,
-                    instance,
-                    actions,
-                    GameDataView.SCREENSHOTS,
-                    screenshotsListState,
-                    contentModifier,
-                )
-
-                InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
-
-                InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
-
-                InstanceSection.SETTINGS -> if (state.instanceSettings.visible) {
-                    InstanceSettingsContent(
-                        state = state,
-                        actions = actions,
-                        modifier = contentModifier,
-                        showHeader = false,
-                    )
-                } else {
-                    InstanceConfiguration(
-                        instance = instance,
-                        actions = actions,
-                        scrollState = configurationScrollState,
+            tabStates.SaveableStateProvider("${instance.id.value}:${section.name}") {
+                when (section) {
+                    InstanceSection.OVERVIEW -> InstanceOverview(
+                        state,
+                        instance,
+                        actions,
+                        overviewListState,
+                        onChangeComponents = { selectSection(InstanceSection.SETTINGS) },
+                        onOpenSection = selectSection,
+                        onDiscover = onDiscover,
                         modifier = contentModifier,
                     )
+
+                    InstanceSection.CONTENT -> InstanceContent(
+                        state,
+                        instance,
+                        actions,
+                        onDiscover,
+                        contentListState,
+                        contentModifier,
+                    )
+
+                    InstanceSection.WORLDS -> InstanceGameData(
+                        state,
+                        instance,
+                        actions,
+                        GameDataView.WORLDS,
+                        worldsListState,
+                        contentModifier,
+                    )
+
+                    InstanceSection.SERVERS -> InstanceGameData(
+                        state,
+                        instance,
+                        actions,
+                        GameDataView.SERVERS,
+                        serversListState,
+                        contentModifier,
+                    )
+
+                    InstanceSection.SCREENSHOTS -> InstanceGameData(
+                        state,
+                        instance,
+                        actions,
+                        GameDataView.SCREENSHOTS,
+                        screenshotsListState,
+                        contentModifier,
+                    )
+
+                    InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
+
+                    InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
+
+                    InstanceSection.SETTINGS -> if (state.instanceSettings.visible) {
+                        InstanceSettingsContent(
+                            state = state,
+                            actions = actions,
+                            modifier = contentModifier,
+                            showHeader = false,
+                        )
+                    } else {
+                        InstanceConfiguration(
+                            instance = instance,
+                            actions = actions,
+                            scrollState = configurationScrollState,
+                            modifier = contentModifier,
+                        )
+                    }
                 }
             }
         }
@@ -374,6 +432,10 @@ private fun InstanceGameData(
     var screenshotName by rememberSaveable(instance.id) { mutableStateOf("") }
     var worldToRename by rememberSaveable(instance.id) { mutableStateOf<String?>(null) }
     var worldName by rememberSaveable(instance.id) { mutableStateOf("") }
+    var pendingDeletion by remember { mutableStateOf<PendingGameDataDeletion?>(null) }
+    pendingDeletion?.let { deletion ->
+        GameDataDeletionDialog(deletion, actions) { pendingDeletion = null }
+    }
     LazyColumn(
         state = listState,
         modifier = modifier,
@@ -465,7 +527,16 @@ private fun InstanceGameData(
                         }
                     },
                 ) {
-                    state.gameData.servers.forEach { server -> ServerCard(server, actions) }
+                    val servers = state.gameData.servers
+                    servers.forEachIndexed { index, server ->
+                        ServerCard(
+                            server = server,
+                            actions = actions,
+                            onRemove = { pendingDeletion = PendingGameDataDeletion.Server(server.key, server.name) },
+                            isFirst = index == 0,
+                            isLast = index == servers.lastIndex,
+                        )
+                    }
                 }
             }
         }
@@ -491,7 +562,11 @@ private fun InstanceGameData(
                                                     screenshotToRename = screenshot.key
                                                     screenshotName = screenshot.fileName.substringBeforeLast('.')
                                                 },
-                                                "Delete" to { actions.deleteScreenshot(screenshot.key) },
+                                                "Delete" to
+                                                    {
+                                                        pendingDeletion =
+                                                            PendingGameDataDeletion.Screenshot(screenshot.key, screenshot.fileName)
+                                                    },
                                             ),
                                             modifier = Modifier.weight(1f),
                                         )
@@ -617,6 +692,16 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
     var followLaunch by rememberSaveable(instance.id) { mutableStateOf(true) }
     var wrapLines by rememberSaveable(instance.id) { mutableStateOf(true) }
     var colorLines by rememberSaveable(instance.id) { mutableStateOf(true) }
+    var pendingLogDeletion by remember { mutableStateOf<String?>(null) }
+    pendingLogDeletion?.let { key ->
+        ConfirmationDialog(
+            ConfirmationRequest(
+                title = stringResource(Res.string.ui_delete_named_file, key.substringAfterLast('/')),
+                text = stringResource(Res.string.ui_delete_log_explanation),
+                confirmLabel = stringResource(Res.string.ui_delete),
+            ) { actions.deleteInstanceLog(key) },
+        ) { pendingLogDeletion = null }
+    }
     val copyText = rememberCopyText()
     val openPath = rememberOpenPath()
     val outputScroll = rememberScrollState()
@@ -688,7 +773,7 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
                     if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
                     if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
                     if (selectedKey != null && !launchActive) {
-                        add("Delete log file" to { actions.deleteInstanceLog(selectedKey) })
+                        add("Delete log file" to { pendingLogDeletion = selectedKey })
                     }
                 },
             )
@@ -880,24 +965,9 @@ private fun WorldCard(
 }
 
 @Composable
-private fun ServerCard(server: SavedServer, actions: LauncherUiActions) {
-    val statusColor = when (server.status) {
-        ServerStatus.ONLINE -> MaterialTheme.colorScheme.tertiary
-        ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
-        ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
-    }
-    val status = when (server.status) {
-        ServerStatus.ONLINE -> listOfNotNull(
-            server.onlinePlayers?.let { online ->
-                server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
-            },
-            server.pingMillis?.let { "$it ms" },
-        ).joinToString(" · ").ifBlank { "Online" }
-
-        ServerStatus.OFFLINE -> "Offline"
-
-        ServerStatus.UNKNOWN -> "Not checked"
-    }
+private fun ServerCard(server: SavedServer, actions: LauncherUiActions, onRemove: () -> Unit, isFirst: Boolean, isLast: Boolean) {
+    val statusColor = serverStatusColor(server)
+    val status = serverStatusText(server)
     GameDataRow(
         title = server.name,
         details = "${server.address} · $status",
@@ -924,16 +994,17 @@ private fun ServerCard(server: SavedServer, actions: LauncherUiActions) {
             }
         },
     ) {
-        FilledTonalButton(onClick = { actions.joinServer(server.key) }, enabled = server.status != ServerStatus.OFFLINE) {
+        // A failed ping does not mean the server is down, so Join always stays available.
+        FilledTonalButton(onClick = { actions.joinServer(server.key) }) {
             Text(stringResource(Res.string.ui_join))
         }
         InstanceItemActions(
-            listOf(
-                "Move up" to { actions.moveServer(server.key, -1) },
-                "Move down" to { actions.moveServer(server.key, 1) },
-                "Edit" to { actions.openServerEditor(server.key) },
-                "Remove" to { actions.removeServer(server.key) },
-            ),
+            buildList {
+                if (!isFirst) add("Move up" to { actions.moveServer(server.key, -1) })
+                if (!isLast) add("Move down" to { actions.moveServer(server.key, 1) })
+                add("Edit" to { actions.openServerEditor(server.key) })
+                add("Remove" to onRemove)
+            },
         )
     }
 }
@@ -1047,15 +1118,17 @@ private fun InstanceWorkspaceHeader(
     instance: GameInstance,
     actions: LauncherUiActions,
     onBack: () -> Unit,
-    compact: Boolean,
+    showStats: Boolean,
 ) {
     val accent = instanceAccent(instance)
-    Box(
+    BoxWithConstraints(
         Modifier.fillMaxWidth().background(
             Brush.verticalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent)),
         ),
         contentAlignment = Alignment.TopCenter,
     ) {
+        // Stack the Play button under the name whenever a side-by-side row would squeeze the name.
+        val compact = maxWidth < 760.dp
         Column(
             Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
                 .padding(start = 12.dp, end = 24.dp, top = 20.dp, bottom = 16.dp),
@@ -1079,7 +1152,7 @@ private fun InstanceWorkspaceHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    if (!compact) InstanceHeaderStats(state, instance)
+                    if (!compact && showStats) InstanceHeaderStats(state, instance)
                 }
                 if (!compact) {
                     PrimaryInstanceAction(
@@ -1092,7 +1165,7 @@ private fun InstanceWorkspaceHeader(
                 }
             }
             if (compact) {
-                InstanceHeaderStats(state, instance, Modifier.padding(start = 12.dp))
+                if (showStats) InstanceHeaderStats(state, instance, Modifier.padding(start = 12.dp))
                 PrimaryInstanceAction(
                     instance,
                     state,
@@ -1306,40 +1379,28 @@ private fun OverviewServers(state: LauncherUiState, actions: LauncherUiActions, 
     if (servers.isEmpty()) return
     SectionCard(
         title = stringResource(Res.string.ui_servers),
-        action = { TextButton(onClick = { onOpenSection(InstanceSection.SERVERS) }) { Text("Manage") } },
+        action = { TextButton(onClick = { onOpenSection(InstanceSection.SERVERS) }) { Text(stringResource(Res.string.ui_manage)) } },
     ) {
         servers.take(3).forEach { server ->
-            val online = server.status == ServerStatus.ONLINE
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
-                    Modifier.size(10.dp).background(
-                        when (server.status) {
-                            ServerStatus.ONLINE -> MaterialTheme.colorScheme.tertiary
-                            ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
-                            ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
-                        },
-                        CircleShape,
-                    ),
+                    Modifier.size(10.dp).background(serverStatusColor(server), CircleShape),
                 )
                 Column(Modifier.weight(1f)) {
                     Text(server.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        listOfNotNull(
-                            server.address,
-                            server.onlinePlayers?.let { online -> "$online/${server.maximumPlayers ?: "?"} online" },
-                            server.pingMillis?.let { "$it ms" },
-                        ).joinToString(" · "),
+                        "${server.address} · ${serverStatusText(server)}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                TextButton(onClick = { actions.joinServer(server.key) }, enabled = online || server.status == ServerStatus.UNKNOWN) {
+                TextButton(onClick = { actions.joinServer(server.key) }) {
                     Text(stringResource(Res.string.ui_join))
                 }
             }
@@ -1384,7 +1445,7 @@ private fun OverviewContentSummary(
     val updates = state.installedContentUpdates.size
     SectionCard(
         title = stringResource(Res.string.ui_content),
-        action = { TextButton(onClick = { onOpenSection(InstanceSection.CONTENT) }) { Text("Manage") } },
+        action = { TextButton(onClick = { onOpenSection(InstanceSection.CONTENT) }) { Text(stringResource(Res.string.ui_manage)) } },
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
             listOf(ResourceType.MOD, ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK).forEach { type ->
@@ -1459,9 +1520,9 @@ private fun OverviewSetup(
             if (supportsOpenPath) {
                 TextButton(
                     onClick = {
-                        openPath(if (currentPlatform == "Android") "${instance.instanceDirectory}/game" else instance.instanceDirectory)
+                        openPath("${instance.instanceDirectory}/game")
                     },
-                ) { Text("Open folder") }
+                ) { Text("Open game folder") }
             }
             TextButton(
                 onClick = actions::inspectLaunchPlan,
@@ -1554,7 +1615,7 @@ private fun InstanceContent(
             extensions = setOf("jar", "zip"),
             onActiveChange = { dropActive = it },
             onFiles = { files ->
-                files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
+                files.forEach { actions.queueLocalFileImport(it.name, it.bytes) }
             },
             onFailure = actions::reportLocalFileReadFailure,
         ),
@@ -1596,6 +1657,16 @@ private fun InstanceContent(
 private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance, actions: LauncherUiActions) {
     val openPath = rememberOpenPath()
     val copyText = rememberCopyText()
+    var pendingRemoval by remember { mutableStateOf<InstalledContent?>(null) }
+    pendingRemoval?.let { item ->
+        ConfirmationDialog(
+            ConfirmationRequest(
+                title = stringResource(Res.string.ui_remove_named, item.name),
+                text = stringResource(Res.string.ui_remove_content_explanation),
+                confirmLabel = stringResource(Res.string.ui_remove),
+            ) { actions.removeInstalledContent(item.key) },
+        ) { pendingRemoval = null }
+    }
     SectionCard(
         title = stringResource(Res.string.ui_installed_content),
         supportingText = "Turn content on or off, update it, or remove it.",
@@ -1662,6 +1733,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                                     content = content,
                                     update = state.installedContentUpdates[content.key],
                                     actions = actions,
+                                    onRemove = { pendingRemoval = content },
                                 )
                                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
@@ -1674,41 +1746,25 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
 }
 
 @Composable
-private fun InstalledContentRow(content: InstalledContent, update: ResourceVersion?, actions: LauncherUiActions) {
+private fun InstalledContentRow(content: InstalledContent, update: ResourceVersion?, actions: LauncherUiActions, onRemove: () -> Unit) {
     val uriHandler = LocalUriHandler.current
+    val switchLabel = stringResource(Res.string.ui_enable_named, content.name)
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         ListItem(
             headlineContent = {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(content.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(content.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (update != null) {
                         Text(
-                            "Update ${update.versionNumber}",
+                            stringResource(Res.string.ui_update_to_version, update.versionNumber),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelMedium,
+                            maxLines = 1,
                         )
                     }
                 }
             },
-            supportingContent = {
-                val source = content.provider?.label ?: "Local file"
-                val role = if (content.direct) {
-                    source
-                } else {
-                    "Dependency${if (content.requiredByCount > 1) " for ${content.requiredByCount} items" else ""}"
-                }
-                val details = buildList {
-                    add(content.type.label.removeSuffix("s"))
-                    content.versionNumber?.let(::add)
-                    if (content.authors.isNotEmpty()) add(content.authors.joinToString())
-                    if (content.dependencies.isNotEmpty()) add("Requires ${content.dependencies.joinToString()}")
-                    if (content.gameVersions.isNotEmpty()) add("Minecraft ${content.gameVersions.joinToString()}")
-                    add(role)
-                    if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
-                    content.lastModifiedEpochMillis?.let { add("Modified ${formatLocalDateTime(it)}") }
-                }
-                Text(details.joinToString(" · "))
-            },
+            supportingContent = { Text(installedContentDetails(content)) },
             leadingContent = {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
@@ -1718,7 +1774,7 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         if (content.iconUrl != null) {
-                            coil3.compose.AsyncImage(model = content.iconUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
+                            AsyncImage(model = content.iconUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
                         } else {
                             Text(content.type.label.take(1), style = MaterialTheme.typography.titleMedium)
                         }
@@ -1726,19 +1782,16 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
                 }
             },
             trailingContent = {
+                // Only the switch toggles, so tapping the row to read its details never disables content.
                 Switch(
                     checked = content.enabled,
-                    onCheckedChange = null,
+                    onCheckedChange = { actions.toggleInstalledContent(content.key) },
                     enabled = content.canManage,
+                    modifier = Modifier.semantics { contentDescription = switchLabel },
                 )
             },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-            modifier = Modifier.fillMaxWidth().toggleable(
-                value = content.enabled,
-                enabled = content.canManage,
-                role = Role.Switch,
-                onValueChange = { actions.toggleInstalledContent(content.key) },
-            ),
+            modifier = Modifier.fillMaxWidth(),
         )
         if (content.canManage) {
             Row(
@@ -1753,10 +1806,28 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
                         Text(stringResource(Res.string.ui_update))
                     }
                 }
-                TextButton(onClick = { actions.removeInstalledContent(content.key) }) { Text(stringResource(Res.string.ui_remove)) }
+                TextButton(onClick = onRemove) { Text(stringResource(Res.string.ui_remove)) }
             }
         }
     }
+}
+
+private fun installedContentDetails(content: InstalledContent): String {
+    val role = if (content.direct) {
+        content.provider?.label ?: "Local file"
+    } else {
+        "Required by ${if (content.requiredByCount == 1) "1 item" else "${content.requiredByCount} items"}"
+    }
+    return buildList {
+        add(content.type.label.removeSuffix("s"))
+        content.versionNumber?.let(::add)
+        if (content.authors.isNotEmpty()) add(content.authors.joinToString())
+        if (content.dependencies.isNotEmpty()) add("Requires ${content.dependencies.joinToString()}")
+        if (content.gameVersions.isNotEmpty()) add("Minecraft ${content.gameVersions.joinToString()}")
+        add(role)
+        if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
+        content.lastModifiedEpochMillis?.let { add("Modified ${formatLocalDateTime(it)}") }
+    }.joinToString(" · ")
 }
 
 @Composable
@@ -1797,9 +1868,73 @@ private fun InstanceConfiguration(instance: GameInstance, actions: LauncherUiAct
                 PropertyRow("Post-exit", instance.postExitCommand.joinToString(" "))
             }
             OutlinedButton(
-                onClick = actions::openInstanceSettings,
+                onClick = { actions.openInstanceSettings(inline = true) },
                 modifier = Modifier.padding(top = 12.dp),
             ) { Text(stringResource(Res.string.ui_edit_instance_settings)) }
         }
     }
+}
+
+@Composable
+private fun DiscardChangesDialog(onKeepEditing: () -> Unit, onDiscard: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onKeepEditing,
+        title = { Text(stringResource(Res.string.ui_discard_changes_title)) },
+        text = { Text(stringResource(Res.string.ui_discard_changes_explanation)) },
+        dismissButton = { TextButton(onClick = onKeepEditing) { Text(stringResource(Res.string.ui_keep_editing)) } },
+        confirmButton = {
+            TextButton(
+                onClick = onDiscard,
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+            ) { Text(stringResource(Res.string.ui_discard)) }
+        },
+    )
+}
+
+private sealed interface PendingGameDataDeletion {
+    val key: String
+    val name: String
+
+    data class Screenshot(override val key: String, override val name: String) : PendingGameDataDeletion
+
+    data class Server(override val key: String, override val name: String) : PendingGameDataDeletion
+}
+
+@Composable
+private fun GameDataDeletionDialog(deletion: PendingGameDataDeletion, actions: LauncherUiActions, onDismiss: () -> Unit) {
+    val request = when (deletion) {
+        is PendingGameDataDeletion.Screenshot -> ConfirmationRequest(
+            title = stringResource(Res.string.ui_delete_named_file, deletion.name),
+            text = stringResource(Res.string.ui_delete_screenshot_explanation),
+            confirmLabel = stringResource(Res.string.ui_delete),
+        ) { actions.deleteScreenshot(deletion.key) }
+
+        is PendingGameDataDeletion.Server -> ConfirmationRequest(
+            title = stringResource(Res.string.ui_remove_named, deletion.name),
+            text = stringResource(Res.string.ui_remove_server_explanation),
+            confirmLabel = stringResource(Res.string.ui_remove),
+        ) { actions.removeServer(deletion.key) }
+    }
+    ConfirmationDialog(request, onDismiss)
+}
+
+/** The server's status in words, so it never depends on the status dot's color alone. */
+private fun serverStatusText(server: SavedServer): String = when (server.status) {
+    ServerStatus.ONLINE -> listOfNotNull(
+        server.onlinePlayers?.let { online ->
+            server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
+        },
+        server.pingMillis?.let { "$it ms" },
+    ).joinToString(" · ").ifBlank { "Online" }
+
+    ServerStatus.OFFLINE -> "Offline"
+
+    ServerStatus.UNKNOWN -> "Not checked"
+}
+
+@Composable
+private fun serverStatusColor(server: SavedServer) = when (server.status) {
+    ServerStatus.ONLINE -> MaterialTheme.colorScheme.tertiary
+    ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
+    ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
 }
