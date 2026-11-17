@@ -1512,6 +1512,8 @@ class LauncherViewModel(
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 showError(error)
             } finally {
@@ -1541,6 +1543,8 @@ class LauncherViewModel(
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 showError(error)
             } finally {
@@ -2053,6 +2057,8 @@ class LauncherViewModel(
                         },
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(pendingInstanceRemovalId = null) }
                 showError(error)
@@ -2081,6 +2087,8 @@ class LauncherViewModel(
                         installedContentUpdates = emptyMap(),
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(pendingInstanceRemovalId = null, operation = null) }
                 showError(error)
@@ -2503,6 +2511,8 @@ class LauncherViewModel(
                 }
                 checkLaunchReadiness(updated)
                 refreshInstalledContent()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(instanceSettings = form.copy(isSaving = false)) }
                 showError(error)
@@ -2672,6 +2682,8 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null, notice = "Account profile refreshed.") }
                 cachedLaunch = null
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -2695,6 +2707,8 @@ class LauncherViewModel(
                     ),
                 )
                 mutableState.update { it.copy(operation = null, notice = "The active skin was reset.") }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -2839,6 +2853,8 @@ class LauncherViewModel(
                         notice = if (useAfterSave) "${saved.profile.name} is now your active skin." else "Skin saved.",
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update {
                     it.copy(
@@ -2861,6 +2877,8 @@ class LauncherViewModel(
             try {
                 applySkin(saved)
                 mutableState.update { it.copy(operation = null, notice = "${saved.profile.name} is now your active skin.") }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)

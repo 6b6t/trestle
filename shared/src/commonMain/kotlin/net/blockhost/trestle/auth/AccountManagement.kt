@@ -1,5 +1,6 @@
 package net.blockhost.trestle.auth
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -274,6 +275,8 @@ class FileAccountManager(
                             ),
                             select = false,
                         )
+                    } catch (error: CancellationException) {
+                        throw error
                     } catch (error: Exception) {
                         logger.warn(
                             "accounts",

@@ -1,10 +1,12 @@
 package net.blockhost.trestle.auth
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -57,6 +59,30 @@ class AccountAuthenticationTest {
     }
 
     @Test
+    fun propagatesCancellationWhileRestoringSavedAccounts() = runTest {
+        val fileSystem = FakeFileSystem()
+        val registry = "/data/accounts.json".toPath()
+        val store = FakeCredentialStore()
+        val manager = FileAccountManager(
+            fileSystem,
+            registry,
+            credentialStore = store,
+            authenticator = FakeAuthenticator(),
+        )
+        manager.initialize()
+        manager.addAccount(AccountLoginRequest.DeviceCode(AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE)) {}
+
+        val restored = FileAccountManager(
+            fileSystem,
+            registry,
+            credentialStore = store,
+            authenticator = FakeAuthenticator(restoreError = CancellationException("Restore cancelled")),
+        )
+
+        assertFailsWith<CancellationException> { restored.initialize() }
+    }
+
+    @Test
     fun keepsOfflineAccountsReadyWithoutSavingCredentials() = runTest {
         val fileSystem = FakeFileSystem()
         val store = FakeCredentialStore()
@@ -94,7 +120,7 @@ private class FakeCredentialStore : AccountCredentialStore {
     }
 }
 
-private class FakeAuthenticator : MinecraftAuthenticator {
+private class FakeAuthenticator(private val restoreError: Exception? = null) : MinecraftAuthenticator {
     override suspend fun authenticate(
         request: AccountLoginRequest,
         onDeviceAuthorization: (DeviceAuthorization) -> Unit,
@@ -117,10 +143,10 @@ private class FakeAuthenticator : MinecraftAuthenticator {
         result(request.edition, request.method)
     }
 
-    override suspend fun restore(
-        profile: LauncherAccount,
-        serializedState: SecretValue,
-    ): AuthenticatedMinecraftAccount = result(profile.edition, profile.authenticationMethod)
+    override suspend fun restore(profile: LauncherAccount, serializedState: SecretValue): AuthenticatedMinecraftAccount {
+        restoreError?.let { throw it }
+        return result(profile.edition, profile.authenticationMethod)
+    }
 
     private fun result(
         edition: MinecraftEdition,

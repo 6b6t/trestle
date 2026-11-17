@@ -1,5 +1,6 @@
 package net.blockhost.trestle.runtime
 
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.LauncherException
@@ -59,6 +60,9 @@ internal class AndroidGameComponentManager(
                     "Installed bundled Android game components",
                     mapOf("componentSet" to componentSetId, "source" to AMETHYST_REVISION),
                 )
+            } catch (error: CancellationException) {
+                deleteTree(root)
+                throw error
             } catch (error: LauncherException) {
                 deleteTree(root)
                 throw error
