@@ -1655,7 +1655,10 @@ private fun OverviewContentSummary(
         title = stringResource(Res.string.ui_content),
         action = { TextButton(onClick = { onOpenSection(InstanceSection.CONTENT) }) { Text(stringResource(Res.string.ui_manage)) } },
     ) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
             listOf(ResourceType.MOD, ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK).forEach { type ->
                 Column(Modifier.weight(1f)) {
                     Text(direct.count { it.type == type }.toString(), style = MaterialTheme.typography.headlineMedium)

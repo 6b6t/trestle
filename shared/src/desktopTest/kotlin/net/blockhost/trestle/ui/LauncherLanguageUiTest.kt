@@ -48,6 +48,26 @@ class LauncherLanguageUiTest {
     }
 
     @Test
+    fun spanishPreferenceShowsSpanishText() = runComposeUiTest {
+        val preferences = LauncherPreferences(language = LauncherLanguage.SPANISH.name)
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded.copy(launcherPreferences = preferences),
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onAllNodesWithText("Ajustes").assertCountEquals(2)
+        onNodeWithText("Idioma").performClick()
+        onNodeWithText("Idioma de la interfaz").assertIsDisplayed()
+        onNodeWithText("Español").assertIsDisplayed()
+    }
+
+    @Test
     fun choosingGermanSavesTheLanguageName() = runComposeUiTest {
         val saved = mutableListOf<LauncherPreferences>()
         val actions = object : LauncherUiActions {

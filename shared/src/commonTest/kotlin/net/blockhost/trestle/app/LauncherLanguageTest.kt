@@ -8,6 +8,7 @@ class LauncherLanguageTest {
     fun readsSavedLanguageNames() {
         assertEquals(LauncherLanguage.GERMAN, LauncherPreferences(language = "GERMAN").launcherLanguage)
         assertEquals(LauncherLanguage.ENGLISH, LauncherPreferences(language = "ENGLISH").launcherLanguage)
+        assertEquals(LauncherLanguage.SPANISH, LauncherPreferences(language = "SPANISH").launcherLanguage)
         assertEquals(LauncherLanguage.SYSTEM, LauncherPreferences().launcherLanguage)
     }
 

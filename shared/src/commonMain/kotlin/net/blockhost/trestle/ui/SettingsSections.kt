@@ -675,4 +675,5 @@ private fun LauncherLanguage.label(): String = when (this) {
     LauncherLanguage.SYSTEM -> stringResource(Res.string.ui_system_default)
     LauncherLanguage.ENGLISH -> "English"
     LauncherLanguage.GERMAN -> "Deutsch"
+    LauncherLanguage.SPANISH -> "Español"
 }
