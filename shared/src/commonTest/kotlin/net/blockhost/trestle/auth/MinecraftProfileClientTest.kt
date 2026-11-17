@@ -84,6 +84,7 @@ class MinecraftProfileClientTest {
                     assertTrue(request.url.encodedPath.endsWith("/minecraft/profile/skins/active"))
                     respond(content = "", status = HttpStatusCode.NoContent)
                 }
+
                 else -> {
                     assertEquals(HttpMethod.Get, request.method)
                     respond(

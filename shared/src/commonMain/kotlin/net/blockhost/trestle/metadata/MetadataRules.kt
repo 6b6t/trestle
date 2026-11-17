@@ -79,26 +79,27 @@ data class MavenCoordinate(
 }
 
 object MojangArguments {
-    fun resolve(
-        values: List<kotlinx.serialization.json.JsonElement>,
-        environment: PlatformEnvironment,
-    ): List<String> = buildList {
+    fun resolve(values: List<kotlinx.serialization.json.JsonElement>, environment: PlatformEnvironment): List<String> = buildList {
         for (value in values) {
             when (value) {
                 is JsonPrimitive -> value.contentOrNull?.let(::add)
+
                 is JsonObject -> {
                     val rules = value["rules"]?.let(::decodeRules).orEmpty()
                     if (MojangRuleEvaluator.allows(rules, environment)) {
                         when (val argument = value["value"]) {
                             is JsonPrimitive -> argument.contentOrNull?.let(::add)
+
                             is JsonArray -> argument.forEach { item ->
                                 (item as? JsonPrimitive)?.contentOrNull?.let(::add)
                                     ?: throw LauncherException.InvalidMetadata("Argument array contains a non-string value.")
                             }
+
                             else -> throw LauncherException.InvalidMetadata("Argument object has no string value.")
                         }
                     }
                 }
+
                 else -> throw LauncherException.InvalidMetadata("Unsupported argument value in version metadata.")
             }
         }
@@ -142,13 +143,18 @@ fun parseLegacyArguments(value: String): List<String> {
                 current.append(character)
                 escaped = false
             }
+
             character == '\\' -> escaped = true
+
             quote != null && character == quote -> quote = null
+
             quote == null && (character == '\'' || character == '"') -> quote = character
+
             quote == null && character.isWhitespace() -> if (current.isNotEmpty()) {
                 result += current.toString()
                 current.clear()
             }
+
             else -> current.append(character)
         }
     }

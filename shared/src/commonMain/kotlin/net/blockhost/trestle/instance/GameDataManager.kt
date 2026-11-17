@@ -13,36 +13,13 @@ data class ManagedWorld(
     val iconPath: String? = null,
 )
 
-data class ManagedDataPack(
-    val key: String,
-    val fileName: String,
-    val enabled: Boolean,
-    val sizeBytes: Long,
-)
+data class ManagedDataPack(val key: String, val fileName: String, val enabled: Boolean, val sizeBytes: Long)
 
-data class ManagedScreenshot(
-    val key: String,
-    val fileName: String,
-    val path: String,
-    val sizeBytes: Long,
-    val createdAtEpochMillis: Long?,
-)
+data class ManagedScreenshot(val key: String, val fileName: String, val path: String, val sizeBytes: Long, val createdAtEpochMillis: Long?)
 
-data class WorldBackup(
-    val key: String,
-    val fileName: String,
-    val path: String,
-    val sizeBytes: Long,
-    val createdAtEpochMillis: Long?,
-)
+data class WorldBackup(val key: String, val fileName: String, val path: String, val sizeBytes: Long, val createdAtEpochMillis: Long?)
 
-data class ManagedLogFile(
-    val key: String,
-    val fileName: String,
-    val path: String,
-    val sizeBytes: Long,
-    val lastModifiedEpochMillis: Long?,
-)
+data class ManagedLogFile(val key: String, val fileName: String, val path: String, val sizeBytes: Long, val lastModifiedEpochMillis: Long?)
 
 data class SavedServer(
     val key: String,

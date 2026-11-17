@@ -228,6 +228,7 @@ internal fun GameFileBrowserDialog(
                     }
                 },
             )
+
             else -> GameFileDirectoryBrowser(
                 content = directoryContent,
                 filter = filter,
@@ -335,18 +336,16 @@ private fun GameFileDirectoryBrowser(
             DirectoryContent.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+
             is DirectoryContent.Failed -> FileBrowserFailure(content.message, onRetry)
+
             is DirectoryContent.Ready -> FileList(content.directory.entries, filter, onOpen)
         }
     }
 }
 
 @Composable
-private fun FileBreadcrumb(
-    segments: List<String>,
-    pathForBreadcrumb: (Int) -> String,
-    onNavigate: (String) -> Unit,
-) {
+private fun FileBreadcrumb(segments: List<String>, pathForBreadcrumb: (Int) -> String, onNavigate: (String) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -364,11 +363,7 @@ private fun FileBreadcrumb(
 }
 
 @Composable
-private fun FileList(
-    entries: List<GameFileEntry>,
-    filter: String,
-    onOpen: (GameFileEntry) -> Unit,
-) {
+private fun FileList(entries: List<GameFileEntry>, filter: String, onOpen: (GameFileEntry) -> Unit) {
     val visibleEntries = remember(entries, filter) {
         if (filter.isBlank()) entries else entries.filter { it.name.contains(filter, ignoreCase = true) }
     }
@@ -485,7 +480,9 @@ private fun GameTextEditor(
             loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
+
             document == null -> FileBrowserFailure(message.orEmpty(), onReload)
+
             else -> key(document.path, document.lastModifiedAtMillis, document.text.hashCode()) {
                 GameTextEditorContent(
                     document = document,
@@ -532,7 +529,9 @@ private fun GameTextEditorContent(
                                 Res.string.ui_file_browser_truncated,
                                 formatGameFileSize(document.text.encodeToByteArray().size.toLong()),
                             )
+
                             !document.editable -> stringResource(Res.string.ui_file_browser_read_only)
+
                             else -> formatGameFileSize(document.sizeBytes)
                         },
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

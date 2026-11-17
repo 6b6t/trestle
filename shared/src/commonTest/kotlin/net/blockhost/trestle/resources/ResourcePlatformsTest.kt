@@ -4,8 +4,8 @@ import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.HttpMethod
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import net.blockhost.trestle.domain.LauncherException
@@ -202,8 +202,10 @@ class ResourcePlatformsTest {
             val body = when (request.url.encodedPath) {
                 "/v1/packs/full/public" ->
                     """{"error":false,"data":[{"name":"Example Pack","safeName":"ExamplePack","description":"A public pack","supportURL":"https://support.test","websiteURL":"https://example.test","versions":[{"version":"1.0.0","minecraft":"1.21.1","published":42}]}]}"""
+
                 "/packs/ExamplePack/versions/1.0.0/Configs.json" ->
                     """{"version":"1.0.0","minecraft":"1.21.1","loader":{"type":"fabric","metadata":{"loader":"0.16.14"}},"noConfigs":false,"configs":{"filesize":12,"sha1":"config-sha1"},"mods":[{"name":"Example Mod","version":"2.0","url":"packs/ExamplePack/files/example.jar","file":"example.jar","download":"server","type":"mods","md5":"mod-md5","filesize":7,"client":true}]}"""
+
                 else -> error("Unexpected request: ${request.url}")
             }
             respond(body, headers = jsonHeaders)

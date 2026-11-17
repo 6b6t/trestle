@@ -19,6 +19,7 @@ import androidx.compose.ui.window.Notification
 import androidx.compose.ui.window.Tray
 import androidx.compose.ui.window.TrayState
 import com.sun.jna.Platform
+import kotlinx.coroutines.flow.collect
 import java.awt.Dimension
 import java.awt.Graphics2D
 import java.awt.Menu
@@ -31,19 +32,11 @@ import java.awt.image.BufferedImage
 import java.awt.image.MultiResolutionImage
 import kotlin.math.max
 import kotlin.math.roundToInt
-import kotlinx.coroutines.flow.collect
 
 internal sealed interface DesktopTrayMenuEntry {
-    data class Item(
-        val label: String,
-        val enabled: Boolean = true,
-        val onClick: () -> Unit,
-    ) : DesktopTrayMenuEntry
+    data class Item(val label: String, val enabled: Boolean = true, val onClick: () -> Unit) : DesktopTrayMenuEntry
 
-    data class Submenu(
-        val label: String,
-        val entries: List<DesktopTrayMenuEntry>,
-    ) : DesktopTrayMenuEntry
+    data class Submenu(val label: String, val entries: List<DesktopTrayMenuEntry>) : DesktopTrayMenuEntry
 
     data object Separator : DesktopTrayMenuEntry
 }
@@ -77,13 +70,7 @@ internal fun ApplicationScope.DesktopTray(
 }
 
 @Composable
-private fun FixedSizeAwtTray(
-    icon: Painter,
-    state: TrayState,
-    tooltip: String,
-    onAction: () -> Unit,
-    menu: List<DesktopTrayMenuEntry>,
-) {
+private fun FixedSizeAwtTray(icon: Painter, state: TrayState, tooltip: String, onAction: () -> Unit, menu: List<DesktopTrayMenuEntry>) {
     val currentOnAction by rememberUpdatedState(onAction)
     val traySize = remember { SystemTray.getSystemTray().trayIconSize }
     // GNOME's legacy tray bridge can crop Compose's requested HiDPI image variant into a 1x slot.

@@ -1,32 +1,32 @@
 package net.blockhost.trestle.app
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.engine.ProxyBuilder
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.http.Url
 import eu.anifantakis.lib.ksafe.KSafe
 import eu.anifantakis.lib.ksafe.KSafeConfig
 import eu.anifantakis.lib.ksafe.KSafeMemoryPolicy
+import io.ktor.client.HttpClient
+import io.ktor.client.engine.ProxyBuilder
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.http.Url
 import net.blockhost.trestle.auth.JvmMinecraftAuthenticator
 import net.blockhost.trestle.auth.KSafeAccountCredentialStore
 import net.blockhost.trestle.auth.OfficialMinecraftApplications
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.install.EpochClock
-import net.blockhost.trestle.logging.Slf4jLogSink
 import net.blockhost.trestle.instance.InstanceIdFactory
+import net.blockhost.trestle.instance.JvmGameDataManager
+import net.blockhost.trestle.instance.JvmInstanceExporter
+import net.blockhost.trestle.logging.Slf4jLogSink
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.resources.JvmArchiveExtractor
-import net.blockhost.trestle.instance.JvmInstanceExporter
-import net.blockhost.trestle.instance.JvmGameDataManager
 import net.blockhost.trestle.runtime.DesktopMinecraftRuntime
 import net.blockhost.trestle.runtime.MojangJavaResolver
 import net.blockhost.trestle.runtime.SystemProfile
 import net.harawata.appdirs.AppDirsFactory
-import okio.Path.Companion.toPath
 import okio.FileSystem
+import okio.Path.Companion.toPath
 import java.io.File
 import java.lang.management.ManagementFactory
 import java.net.Authenticator
@@ -45,10 +45,13 @@ fun createDesktopLauncherServices(): LauncherServices {
         engine {
             proxy = when (preferences.proxy.type) {
                 LauncherProxyType.SYSTEM -> null
+
                 LauncherProxyType.NONE -> Proxy.NO_PROXY
+
                 LauncherProxyType.HTTP -> ProxyBuilder.http(
                     Url("http://${preferences.proxy.host}:${preferences.proxy.port}"),
                 )
+
                 LauncherProxyType.SOCKS5 -> ProxyBuilder.socks(
                     preferences.proxy.host,
                     preferences.proxy.port,
@@ -112,7 +115,9 @@ private fun configureProxyAuthentication(proxy: ProxyPreferences) {
                 if (
                     requestingHost != proxy.host || requestingPort != proxy.port ||
                     requestorType != RequestorType.PROXY
-                ) return null
+                ) {
+                    return null
+                }
                 return PasswordAuthentication(proxy.username, proxy.password.toCharArray())
             }
         },

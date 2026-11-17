@@ -6,11 +6,7 @@ import okio.FileSystem
 import okio.Path
 
 /** A durable, single-level undo journal. Sources must already be downloaded and verified. */
-internal class ContentTransaction(
-    private val fileSystem: FileSystem,
-    private val root: Path,
-    private val backup: Path,
-) {
+internal class ContentTransaction(private val fileSystem: FileSystem, private val root: Path, private val backup: Path) {
     private val json = Json { ignoreUnknownKeys = true }
     private val journalPath = backup / "journal.json"
 
@@ -38,7 +34,11 @@ internal class ContentTransaction(
             write(journal.copy(committed = true))
         } catch (error: Exception) {
             // Leave the journal intact if restoring fails; startup will retry recovery.
-            try { restore(journal) } catch (restoreError: Exception) { error.addSuppressed(restoreError) }
+            try {
+                restore(journal)
+            } catch (restoreError: Exception) {
+                error.addSuppressed(restoreError)
+            }
             throw error
         }
     }
@@ -65,8 +65,9 @@ internal class ContentTransaction(
     private fun restore(journal: Journal) {
         journal.before.forEach { (name, hash) ->
             val target = checkedContentPath(fileSystem, root, name)
-            if (hash == null) fileSystem.delete(target, mustExist = false)
-            else {
+            if (hash == null) {
+                fileSystem.delete(target, mustExist = false)
+            } else {
                 val source = checkedContentPath(fileSystem, backup / "files", name)
                 require(fileSystem.sha256(source) == hash) { "The backup for $name is damaged." }
                 copy(source, target)
@@ -90,8 +91,11 @@ internal class ContentTransaction(
         fileSystem.atomicMove(temporary, target)
     }
 
-    private fun read(): Journal? = if (fileSystem.exists(journalPath))
-        json.decodeFromString<Journal>(fileSystem.read(journalPath) { readUtf8() }) else null
+    private fun read(): Journal? = if (fileSystem.exists(journalPath)) {
+        json.decodeFromString<Journal>(fileSystem.read(journalPath) { readUtf8() })
+    } else {
+        null
+    }
 
     private fun write(journal: Journal) {
         val temporary = backup / "journal.tmp"

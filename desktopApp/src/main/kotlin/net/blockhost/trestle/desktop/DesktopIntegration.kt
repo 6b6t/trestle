@@ -44,6 +44,7 @@ internal class DesktopIntegration {
             when {
                 currentTaskbar?.isSupported(Taskbar.Feature.USER_ATTENTION_WINDOW) == true ->
                     runCatching { currentTaskbar.requestWindowUserAttention(window) }
+
                 currentTaskbar?.isSupported(Taskbar.Feature.USER_ATTENTION) == true ->
                     runCatching { currentTaskbar.requestUserAttention(true, true) }
             }
@@ -79,6 +80,7 @@ internal class DesktopIntegration {
                     currentTaskbar.setWindowProgressState(window, taskbarState)
                 }
             }
+
             currentTaskbar.isSupported(Taskbar.Feature.PROGRESS_VALUE) -> runCatching {
                 currentTaskbar.setProgressValue(indicator.progressPercent ?: -1)
             }
@@ -96,6 +98,7 @@ internal class DesktopIntegration {
                 }
                 currentTaskbar.setWindowIconBadge(window, image)
             }
+
             currentTaskbar.isSupported(Taskbar.Feature.ICON_BADGE_TEXT) -> runCatching {
                 currentTaskbar.setIconBadge(
                     when (badge) {
@@ -105,6 +108,7 @@ internal class DesktopIntegration {
                     },
                 )
             }
+
             currentTaskbar.isSupported(Taskbar.Feature.ICON_BADGE_NUMBER) -> runCatching {
                 currentTaskbar.setIconBadge(if (badge == DesktopBadge.NONE) null else "1")
             }
@@ -115,8 +119,7 @@ internal class DesktopIntegration {
         if (isSupported(feature)) runCatching { action() }
     }
 
-    private fun windowBackground(darkTheme: Boolean): Color =
-        if (darkTheme) Color(0x17, 0x17, 0x15) else Color(0xF8, 0xF5, 0xED)
+    private fun windowBackground(darkTheme: Boolean): Color = if (darkTheme) Color(0x17, 0x17, 0x15) else Color(0xF8, 0xF5, 0xED)
 
     private fun createBadge(color: Color, glyph: String?): BufferedImage =
         BufferedImage(BADGE_SIZE, BADGE_SIZE, BufferedImage.TYPE_INT_ARGB).also { image ->

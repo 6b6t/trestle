@@ -75,8 +75,11 @@ class ContentIdentifier(
                         val platform = platforms.find(provider) ?: continue
                         if (!platform.isAvailable || provider in unavailable) continue
                         try {
-                            val version = if (provider == ResourceProvider.MODRINTH) platform.versionBySha1(sha1)
-                            else platform.versionByFingerprint(curseForgeFingerprint(fileSystem, path), sha1)
+                            val version = if (provider == ResourceProvider.MODRINTH) {
+                                platform.versionBySha1(sha1)
+                            } else {
+                                platform.versionByFingerprint(curseForgeFingerprint(fileSystem, path), sha1)
+                            }
                             if (version == null || version.files.none { it.sha1.equals(sha1, ignoreCase = true) }) continue
                             val project = platform.projectsByIds(listOf(version.projectId))[version.projectId] ?: continue
                             if (project.type != item.type) continue

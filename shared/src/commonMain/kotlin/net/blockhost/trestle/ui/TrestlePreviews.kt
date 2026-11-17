@@ -8,8 +8,8 @@ import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
-import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.instance.MinecraftClientSettings
+import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
@@ -155,13 +155,7 @@ internal object LauncherPreviewFixtures {
         ),
     )
 
-    private fun instance(
-        id: String,
-        name: String,
-        version: String,
-        loader: ModLoader,
-        state: InstallationState,
-    ) = GameInstance(
+    private fun instance(id: String, name: String, version: String, loader: ModLoader, state: InstallationState) = GameInstance(
         id = InstanceId(id),
         displayName = name,
         minecraftVersionId = version,
@@ -188,10 +182,7 @@ internal object LauncherPreviewFixtures {
 }
 
 @Composable
-private fun LauncherPreview(
-    state: LauncherUiState,
-    destination: LauncherDestination = LauncherDestination.LIBRARY,
-) {
+private fun LauncherPreview(state: LauncherUiState, destination: LauncherDestination = LauncherDestination.LIBRARY) {
     TrestleApp(
         state = state,
         actions = NoopLauncherUiActions,

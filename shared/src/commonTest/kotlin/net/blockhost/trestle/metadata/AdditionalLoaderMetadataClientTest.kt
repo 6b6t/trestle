@@ -17,16 +17,20 @@ class AdditionalLoaderMetadataClientTest {
         val profile =
             """{"version":"52.1.16","mainClass":"io.example.ForgeWrapper","libraries":[],"mavenFiles":[{"name":"net.minecraftforge:forge:1.21.1-52.1.16:installer"}],"minecraftArguments":"--launchTarget forge_client","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}"""
         val checksum = profile.encodeUtf8().sha256().hex()
-        val client = HttpClient(MockEngine { request ->
-            when (request.url.encodedPath) {
-                "/forge/index.json" -> respond(
-                    """{"versions":[{"version":"52.1.16","recommended":true,"sha256":"$checksum","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}]}""",
-                    headers = jsonHeaders,
-                )
-                "/forge/52.1.16.json" -> respond(profile, headers = jsonHeaders)
-                else -> error("Unexpected request: ${request.url}")
-            }
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/forge/index.json" -> respond(
+                        """{"versions":[{"version":"52.1.16","recommended":true,"sha256":"$checksum","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}]}""",
+                        headers = jsonHeaders,
+                    )
+
+                    "/forge/52.1.16.json" -> respond(profile, headers = jsonHeaders)
+
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            },
+        )
         val metadata = ForgeMetadataClient(client, "Trestle test", "https://meta.test/forge")
 
         val versions = metadata.loaderVersions("1.21.1")
@@ -39,19 +43,23 @@ class AdditionalLoaderMetadataClientTest {
 
     @Test
     fun readsQuiltLoaderAndLaunchProfile() = runTest {
-        val client = HttpClient(MockEngine { request ->
-            when (request.url.encodedPath) {
-                "/v3/versions/loader/1.21.1" -> respond(
-                    """[{"loader":{"maven":"org.quiltmc:quilt-loader:0.27.1","version":"0.27.1","build":27}}]""",
-                    headers = jsonHeaders,
-                )
-                "/v3/versions/loader/1.21.1/0.27.1/profile/json" -> respond(
-                    """{"id":"quilt-loader-0.27.1-1.21.1","inheritsFrom":"1.21.1","mainClass":"org.quiltmc.loader.impl.launch.knot.KnotClient","libraries":[]}""",
-                    headers = jsonHeaders,
-                )
-                else -> error("Unexpected request: ${request.url}")
-            }
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/v3/versions/loader/1.21.1" -> respond(
+                        """[{"loader":{"maven":"org.quiltmc:quilt-loader:0.27.1","version":"0.27.1","build":27}}]""",
+                        headers = jsonHeaders,
+                    )
+
+                    "/v3/versions/loader/1.21.1/0.27.1/profile/json" -> respond(
+                        """{"id":"quilt-loader-0.27.1-1.21.1","inheritsFrom":"1.21.1","mainClass":"org.quiltmc.loader.impl.launch.knot.KnotClient","libraries":[]}""",
+                        headers = jsonHeaders,
+                    )
+
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            },
+        )
         val metadata = QuiltMetadataClient(client, "https://meta.test/v3")
 
         val version = metadata.loaderVersions("1.21.1").single()

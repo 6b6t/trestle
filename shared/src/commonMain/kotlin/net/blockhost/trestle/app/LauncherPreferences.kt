@@ -40,12 +40,7 @@ data class ProxyPreferences(
 }
 
 @Serializable
-data class FolderPreferences(
-    val instances: String = "",
-    val runtimes: String = "",
-    val skins: String = "",
-    val downloads: String = "",
-)
+data class FolderPreferences(val instances: String = "", val runtimes: String = "", val skins: String = "", val downloads: String = "")
 
 @Serializable
 data class ContentPreferences(
@@ -72,10 +67,7 @@ data class NetworkPreferences(
 }
 
 @Serializable
-data class ConsolePreferences(
-    val historyLimit: Int = 100_000,
-    val stopLoggingOnOverflow: Boolean = true,
-) {
+data class ConsolePreferences(val historyLimit: Int = 100_000, val stopLoggingOnOverflow: Boolean = true) {
     init {
         require(historyLimit in 100..1_000_000)
     }
@@ -104,10 +96,7 @@ data class LauncherPreferences(
     val ftbAppInstancesPath: String = "",
 )
 
-class LauncherPreferencesStore(
-    private val fileSystem: FileSystem,
-    private val path: Path,
-) {
+class LauncherPreferencesStore(private val fileSystem: FileSystem, private val path: Path) {
     fun read(): LauncherPreferences {
         if (!fileSystem.exists(path)) return LauncherPreferences()
         return runCatching {

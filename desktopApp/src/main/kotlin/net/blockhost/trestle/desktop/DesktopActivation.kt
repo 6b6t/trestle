@@ -40,12 +40,15 @@ internal object DesktopActivationParser {
             val argument = arguments[index]
             when {
                 argument == "--settings" -> activations += DesktopActivation.OpenSettings
+
                 argument == "--launch-instance" -> {
                     arguments.getOrNull(++index)?.takeIf(String::isNotBlank)?.let { id ->
                         activations += DesktopActivation.LaunchInstance(id)
                     }
                 }
+
                 argument.startsWith("trestle:", ignoreCase = true) -> parseTrestleUri(argument)?.let(activations::add)
+
                 else -> parseImportPath(argument, workingDirectory)?.let(importPaths::add)
             }
             index += 1
@@ -91,6 +94,7 @@ internal class DesktopActivationBroker private constructor(
     private val executor = Executors.newSingleThreadExecutor { task ->
         Thread(task, "trestle-activation-listener").apply { isDaemon = true }
     }
+
     @Volatile
     private var handler: ((DesktopActivation) -> Unit)? = null
 

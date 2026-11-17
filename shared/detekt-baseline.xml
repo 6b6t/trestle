@@ -1,0 +1,479 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ComplexCondition:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$name.isBlank() &amp;&amp; type == '5' &amp;&amp; (archiveName == "." || archiveName == "./")</ID>
+    <ID>ComplexCondition:DownloadPipeline.kt:DownloadPipeline$request.md5 == null &amp;&amp; request.sha1 == null &amp;&amp; request.sha256 == null &amp;&amp; request.sha512 == null &amp;&amp; request.size == null</ID>
+    <ID>ComplexCondition:LauncherViewModel.kt:LauncherViewModel$automatic &amp;&amp; ( !preferences.automaticChecks || now &lt; preferences.remindAfterMillis || (now &gt;= preferences.lastCheckedAtMillis &amp;&amp; now - preferences.lastCheckedAtMillis &lt; 24 * 60 * 60 * 1000L) )</ID>
+    <ID>ComplexCondition:LauncherViewModel.kt:LauncherViewModel$form.name.isBlank() || form.minecraftVersionId.isBlank() || minimum &lt;= 0 || maximum &lt; minimum || form.isLoadingClientSettings</ID>
+    <ID>ComplexCondition:LauncherViewModel.kt:email.isBlank() || password.isBlank() || (edition == MinecraftEdition.BEDROCK &amp;&amp; bedrockGameVersion.isBlank())</ID>
+    <ID>ComplexCondition:ModpackCatalogPlatforms.kt:LegacyFtbResourcePlatform$directory.isBlank() || name.isBlank() || minecraft.isBlank() || file.isBlank()</ID>
+    <ID>ComplexCondition:ReleaseVersion.kt:ReleaseVersion.Companion$pre.any { part -&gt; part.all(Char::isDigit) &amp;&amp; ((part.length &gt; 1 &amp;&amp; part.startsWith('0')) || part.toULongOrNull() == null) }</ID>
+    <ID>ComplexCondition:ResourceInstaller.kt:ResourceInstaller$current.versionId != candidate.version.id &amp;&amp; (otherOwners.isNotEmpty() || (!candidate.isRoot &amp;&amp; current.direct))</ID>
+    <ID>ComplexCondition:TrestleApp.kt:project.provider == ResourceProvider.CURSEFORGE &amp;&amp; selectedFile?.url == null &amp;&amp; selectedFile?.id != null &amp;&amp; project.websiteUrl != null</ID>
+    <ID>ComposableParamOrder:InstanceIconEditor.kt:@Composable internal fun InstanceIconArtwork</ID>
+    <ID>ComposableParamOrder:TrestleApp.kt:@Composable private fun LibraryPage</ID>
+    <ID>ComposableParamOrder:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun Selector</ID>
+    <ID>CompositionLocalAllowlist:TrestleComponents.kt:internal val LocalTrestleWindowAdaptiveInfo = staticCompositionLocalOf&lt;WindowAdaptiveInfo?&gt; { null }</ID>
+    <ID>CompositionLocalAllowlist:TrestleTheme.kt:internal val LocalReduceMotion = staticCompositionLocalOf { false }</ID>
+    <ID>CyclomaticComplexMethod:AdoptiumJavaResolver.kt:internal fun extractTemurinArchive</ID>
+    <ID>CyclomaticComplexMethod:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$private fun copyVerified</ID>
+    <ID>CyclomaticComplexMethod:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$fun extract</ID>
+    <ID>CyclomaticComplexMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
+    <ID>CyclomaticComplexMethod:ContentMetadata.jvm.kt:internal actual fun readEmbeddedMetadata: ContentMetadata</ID>
+    <ID>CyclomaticComplexMethod:ContentMetadata.kt:ContentIdentifier$suspend fun identify: List&lt;InstalledContent&gt;</ID>
+    <ID>CyclomaticComplexMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
+    <ID>CyclomaticComplexMethod:DownloadPipeline.kt:DownloadPipeline$private suspend fun downloadWithRetry</ID>
+    <ID>CyclomaticComplexMethod:GameFileBrowser.kt:@Composable internal fun GameFileBrowserDialog</ID>
+    <ID>CyclomaticComplexMethod:JvmArchiveExtractor.kt:JvmArchiveExtractor$override fun extract</ID>
+    <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$override suspend fun importWorld: ManagedWorld</ID>
+    <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$private fun copyNbtPayload</ID>
+    <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$private fun readWorldData: WorldMetadata</ID>
+    <ID>CyclomaticComplexMethod:JvmGameDataManager.kt:JvmGameDataManager$private fun skipPayload</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$override fun checkInstalledContentUpdates</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$override fun saveInstanceSettings</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$private fun installSelectedResource</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$private fun launchSelected</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:LauncherViewModel$private fun searchResources</ID>
+    <ID>CyclomaticComplexMethod:LauncherViewModel.kt:private fun parseCommandLine: List&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:MetadataRules.kt:fun parseLegacyArguments: List&lt;String&gt;</ID>
+    <ID>CyclomaticComplexMethod:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$internal fun fromOptionsText: MinecraftClientSettings?</ID>
+    <ID>CyclomaticComplexMethod:MinecraftInstaller.kt:MinecraftInstaller$suspend fun install: GameInstance</ID>
+    <ID>CyclomaticComplexMethod:MinecraftSkinPreview.kt:@Composable fun MinecraftSkinPreview</ID>
+    <ID>CyclomaticComplexMethod:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$override suspend fun version: ResourceVersion</ID>
+    <ID>CyclomaticComplexMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun installExternal: GameInstance</ID>
+    <ID>CyclomaticComplexMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun readCurseForgePlan: ModpackPlan</ID>
+    <ID>CyclomaticComplexMethod:MojangJavaResolver.kt:MojangJavaResolver$private suspend fun provision</ID>
+    <ID>CyclomaticComplexMethod:MojangJavaResolver.kt:internal fun mojangRuntimePlatform: String</ID>
+    <ID>CyclomaticComplexMethod:ResourceDescription.kt:private fun decodeHtmlEntities: String</ID>
+    <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$private suspend fun resolveDependencies: List&lt;ResolvedResourceVersion&gt;</ID>
+    <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun install: ResourceInstallSummary</ID>
+    <ID>CyclomaticComplexMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun setEnabled: Boolean</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable fun TrestleApp</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun AccountLoginDialog</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun AccountsPage</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun CreateInstanceDialog</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceGameData</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceLogs</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceSettingsContent</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceTile</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun InstanceWorkspace</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LaunchReadiness</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LibraryPage</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun LocalFileImportDialog</ID>
+    <ID>CyclomaticComplexMethod:TrestleApp.kt:@Composable private fun ResourceSelection</ID>
+    <ID>CyclomaticComplexMethod:UpdateChecker.kt:UpdateChecker$suspend fun availableUpdate: LauncherUpdate?</ID>
+    <ID>FunctionNaming:MainViewController.kt:fun MainViewController: UIViewController</ID>
+    <ID>FunctionNaming:MainViewController.kt:fun TrestleViewController: UIViewController</ID>
+    <ID>LambdaParameterEventTrailing:SettingsUi.kt:onClick: () -&gt; Unit</ID>
+    <ID>LambdaParameterEventTrailing:TrestleApp.kt:onChangeComponents: () -&gt; Unit</ID>
+    <ID>LambdaParameterEventTrailing:TrestleApp.kt:onSelect: (String) -&gt; Unit</ID>
+    <ID>LambdaParameterEventTrailing:TrestleComponents.kt:onCheckedChange: (Boolean) -&gt; Unit</ID>
+    <ID>LambdaParameterInRestartableEffect:TrestleApp.kt:onExternalCommandHandled: (Long) -&gt; Unit = {}</ID>
+    <ID>LargeClass:JvmGameDataManager.kt:JvmGameDataManager : GameDataManager</ID>
+    <ID>LargeClass:LauncherViewModel.kt:LauncherViewModel : LauncherUiActions</ID>
+    <ID>LargeClass:ModpackInstaller.kt:ModpackInstaller</ID>
+    <ID>LongMethod:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$suspend fun resolve: String</ID>
+    <ID>LongMethod:AndroidLauncherServices.kt:fun createAndroidLauncherServices: LauncherServices</ID>
+    <ID>LongMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
+    <ID>LongMethod:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
+    <ID>LongMethod:ContentMetadata.jvm.kt:internal actual fun readEmbeddedMetadata: ContentMetadata</ID>
+    <ID>LongMethod:ContentMetadata.kt:ContentIdentifier$suspend fun identify: List&lt;InstalledContent&gt;</ID>
+    <ID>LongMethod:DesktopLauncherServices.kt:fun createDesktopLauncherServices: LauncherServices</ID>
+    <ID>LongMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override fun launch: Flow&lt;LaunchEvent&gt;</ID>
+    <ID>LongMethod:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
+    <ID>LongMethod:DownloadPipeline.kt:DownloadPipeline$private suspend fun downloadWithRetry</ID>
+    <ID>LongMethod:DownloadPipeline.kt:DownloadPipeline$suspend fun download</ID>
+    <ID>LongMethod:GameFileBrowser.kt:@Composable internal fun GameFileBrowserDialog</ID>
+    <ID>LongMethod:GameFileBrowser.kt:@Composable private fun GameTextEditorContent</ID>
+    <ID>LongMethod:InstanceIconEditor.kt:@Composable internal fun InstanceIconEditorDialog</ID>
+    <ID>LongMethod:IosLauncherServices.kt:@OptIn(ExperimentalForeignApi::class) fun createIosLauncherServices: LauncherServices</ID>
+    <ID>LongMethod:IosMinecraftRuntime.kt:IosMinecraftRuntime$override suspend fun prepare: PreparedLaunch</ID>
+    <ID>LongMethod:JvmGameDataManager.kt:JvmGameDataManager$override suspend fun importWorld: ManagedWorld</ID>
+    <ID>LongMethod:JvmGameDataManager.kt:JvmGameDataManager$override suspend fun inventory: GameDataInventory</ID>
+    <ID>LongMethod:LauncherServices.kt:LauncherServices.Companion$fun create: LauncherServices</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$override fun openInstanceSettings</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$override fun saveInstanceSettings</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$override fun signInAccount</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun installSelectedResource</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun launchSelected</ID>
+    <ID>LongMethod:LauncherViewModel.kt:LauncherViewModel$private fun loadCreateLoaderVersions</ID>
+    <ID>LongMethod:MinecraftInstaller.kt:MinecraftInstaller$suspend fun install: GameInstance</ID>
+    <ID>LongMethod:MinecraftSkinPreview.kt:@Composable fun MinecraftSkinPreview</ID>
+    <ID>LongMethod:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$override suspend fun version: ResourceVersion</ID>
+    <ID>LongMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun installArchive: GameInstance</ID>
+    <ID>LongMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun installExternal: GameInstance</ID>
+    <ID>LongMethod:ModpackInstaller.kt:ModpackInstaller$private suspend fun readCurseForgePlan: ModpackPlan</ID>
+    <ID>LongMethod:MojangJavaResolverTest.kt:MojangJavaResolverTest$@Test fun provisionsVerifiedRuntimeAndReusesItOffline</ID>
+    <ID>LongMethod:ResourceInstaller.kt:ResourceInstaller$private suspend fun resolveDependencies: List&lt;ResolvedResourceVersion&gt;</ID>
+    <ID>LongMethod:ResourceInstaller.kt:ResourceInstaller$suspend fun install: ResourceInstallSummary</ID>
+    <ID>LongMethod:SettingsUi.kt:@Composable internal fun SettingsPage</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable fun TrestleApp</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable internal fun OperationBar</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable internal fun ProxySettings</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountDetail</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountLoginDialog</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountRow</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun AccountsPage</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun CreateInstanceDialog</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstalledContentPanel</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstalledContentRow</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceGameData</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceLogs</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceOverview</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceSettingsContent</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceTile</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun InstanceWorkspace</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun LibraryPage</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun LocalFileImportDialog</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceBrowserToolbar</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceFilterFields</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun ResourceSelection</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun SkinEditorDialog</ID>
+    <ID>LongMethod:TrestleApp.kt:@Composable private fun SkinStudioPage</ID>
+    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3AdaptiveApi::class) @Composable private fun ResourceBrowserContent</ID>
+    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun ClientSettingsFields</ID>
+    <ID>LongMethod:TrestleApp.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable private fun Selector</ID>
+    <ID>LoopWithTooManyJumpStatements:AdoptiumJavaResolver.kt:while</ID>
+    <ID>LoopWithTooManyJumpStatements:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$while</ID>
+    <ID>LoopWithTooManyJumpStatements:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$while</ID>
+    <ID>LoopWithTooManyJumpStatements:ContentMetadata.kt:ContentIdentifier$for</ID>
+    <ID>LoopWithTooManyJumpStatements:DownloadPipeline.kt:DownloadPipeline$while</ID>
+    <ID>LoopWithTooManyJumpStatements:JvmGameDataManager.kt:JvmGameDataManager$while</ID>
+    <ID>LoopWithTooManyJumpStatements:MetadataResolver.kt:MinecraftMetadataResolver$for</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:0b001001001</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:1024</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:1024L</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:20000</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$1024</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$1024L</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$8</ID>
+    <ID>MagicNumber:AdoptiumJavaResolver.kt:AdoptiumJavaResolver$99</ID>
+    <ID>MagicNumber:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$0b001_001_001L</ID>
+    <ID>MagicNumber:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$100</ID>
+    <ID>MagicNumber:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$157</ID>
+    <ID>MagicNumber:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$8</ID>
+    <ID>MagicNumber:AndroidLauncherServices.kt:15</ID>
+    <ID>MagicNumber:AndroidLauncherServices.kt:15_000</ID>
+    <ID>MagicNumber:AndroidLauncherServices.kt:512</ID>
+    <ID>MagicNumber:AndroidLauncherServices.kt:60_000</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi$0x45</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi$0x46</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi$0x4c</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi$0x7f</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi$7</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi.ARM64$183</ID>
+    <ID>MagicNumber:AndroidRuntimeAbi.kt:AndroidRuntimeAbi.X64$62</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:0xffffffffL</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:10</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:13</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:15</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:1_048_576</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:24</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:255</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:32</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:8</ID>
+    <ID>MagicNumber:ContentMetadata.ios.kt:9</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:0xffffffffL</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:10</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:10000</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:1024</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:13</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:15</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:24</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:255</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:32</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:64L</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:8</ID>
+    <ID>MagicNumber:ContentMetadata.jvm.kt:9</ID>
+    <ID>MagicNumber:ContentMetadata.kt:ContentIdentifier$1024</ID>
+    <ID>MagicNumber:ContentMetadata.kt:ContentIdentifier$512L</ID>
+    <ID>MagicNumber:CookieImportMsaAuthService.kt:5</ID>
+    <ID>MagicNumber:CookieImportMsaAuthService.kt:6</ID>
+    <ID>MagicNumber:CookieImportMsaAuthService.kt:7</ID>
+    <ID>MagicNumber:DesktopLauncherServices.kt:512</ID>
+    <ID>MagicNumber:DownloadPipeline.kt:DownloadPipeline$250L</ID>
+    <ID>MagicNumber:FileInstanceRepository.kt:FileInstanceRepository$20</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:10.0</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:102L</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:104_857L</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:107_374_182L</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:1_024L</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:1_048_576L</ID>
+    <ID>MagicNumber:GameFileBrowserFiles.kt:1_073_741_824L</ID>
+    <ID>MagicNumber:IosLauncherServices.kt:512</ID>
+    <ID>MagicNumber:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator$5_000L</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:0x7F</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:0x80</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:35</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:65_535</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:7</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:JvmGameDataManager$4L</ID>
+    <ID>MagicNumber:JvmGameDataManager.kt:JvmGameDataManager$8L</ID>
+    <ID>MagicNumber:LaunchTuning.kt:LaunchTuningAdvisor$512</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:ConsolePreferences$100</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:ConsolePreferences$1_000_000</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$10</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$32</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$5</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$64</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:NetworkPreferences$900</ID>
+    <ID>MagicNumber:LauncherPreferences.kt:ProxyPreferences$65535</ID>
+    <ID>MagicNumber:LauncherViewModel.kt:LauncherViewModel$1000L</ID>
+    <ID>MagicNumber:LauncherViewModel.kt:LauncherViewModel$24</ID>
+    <ID>MagicNumber:LauncherViewModel.kt:LauncherViewModel$60</ID>
+    <ID>MagicNumber:LauncherViewModel.kt:LauncherViewModel$64</ID>
+    <ID>MagicNumber:MetadataRules.kt:MavenCoordinate.Companion$3</ID>
+    <ID>MagicNumber:MetadataRules.kt:MavenCoordinate.Companion$4</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:100</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:100.0</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:110</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:30</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:40</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:40.0</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:70</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$10</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$12</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$13</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$14</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$15</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$16</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$17</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$18</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$20</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$21</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$36</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$38</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$43</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$5</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$6</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$7</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$8</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientOptionsSupport.Companion$9</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$10</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$100</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$110</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$260</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$30</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$32</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$5</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings$8</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$10</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$260</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$3</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$32</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$5</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftClientSettings.Companion$8</ID>
+    <ID>MagicNumber:MinecraftClientSettings.kt:MinecraftNarratorMode.SYSTEM$3</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.01f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.25f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.5f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.62f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.76f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.7f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:0.88f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:1.08f</ID>
+    <ID>MagicNumber:MinecraftSkinPreview.kt:4f</ID>
+    <ID>MagicNumber:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$240</ID>
+    <ID>MagicNumber:ModpackCatalogPlatforms.kt:LegacyFtbResourcePlatform$240</ID>
+    <ID>MagicNumber:MojangJavaResolver.kt:MojangJavaResolver$16</ID>
+    <ID>MagicNumber:MojangJavaResolver.kt:MojangJavaResolver$17</ID>
+    <ID>MagicNumber:MojangJavaResolver.kt:MojangJavaResolver$21</ID>
+    <ID>MagicNumber:MojangJavaResolver.kt:MojangJavaResolver$25</ID>
+    <ID>MagicNumber:MojangJavaResolver.kt:MojangJavaResolver$8</ID>
+    <ID>MagicNumber:MojangModels.kt:Architecture.ARM32$32</ID>
+    <ID>MagicNumber:MojangModels.kt:Architecture.ARM64$64</ID>
+    <ID>MagicNumber:MojangModels.kt:Architecture.X86$32</ID>
+    <ID>MagicNumber:MojangModels.kt:Architecture.X86_64$64</ID>
+    <ID>MagicNumber:ResourceDescription.kt:16</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:12</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:240</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:4</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:4471</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:5</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:6</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:6552</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:CurseForgeResourcePlatform$50</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ModrinthResourcePlatform$50</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ResourceSearchRequest$50</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ResourceType.MOD$6</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ResourceType.MODPACK$4471</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ResourceType.RESOURCE_PACK$12</ID>
+    <ID>MagicNumber:ResourcePlatforms.kt:ResourceType.SHADER_PACK$6552</ID>
+    <ID>MagicNumber:RestrictedDownloads.kt:RestrictedDownloads$1024</ID>
+    <ID>MagicNumber:RestrictedDownloads.kt:RestrictedDownloads$512</ID>
+    <ID>MagicNumber:SkinLibrary.kt:0xff</ID>
+    <ID>MagicNumber:SkinLibrary.kt:12</ID>
+    <ID>MagicNumber:SkinLibrary.kt:16</ID>
+    <ID>MagicNumber:SkinLibrary.kt:24</ID>
+    <ID>MagicNumber:SkinLibrary.kt:3</ID>
+    <ID>MagicNumber:SkinLibrary.kt:32</ID>
+    <ID>MagicNumber:SkinLibrary.kt:64</ID>
+    <ID>MagicNumber:SkinLibrary.kt:8</ID>
+    <ID>MagicNumber:SkinLibrary.kt:SkinLibrary$64</ID>
+    <ID>MagicNumber:TrestleApp.kt:10.0</ID>
+    <ID>MagicNumber:TrestleApp.kt:100L</ID>
+    <ID>MagicNumber:TrestleApp.kt:100_000L</ID>
+    <ID>MagicNumber:TrestleApp.kt:100_000_000L</ID>
+    <ID>MagicNumber:TrestleApp.kt:102L</ID>
+    <ID>MagicNumber:TrestleApp.kt:104_857L</ID>
+    <ID>MagicNumber:TrestleApp.kt:107_374_182L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_000L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_000_000L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_000_000_000L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_024L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_048_576L</ID>
+    <ID>MagicNumber:TrestleApp.kt:1_073_741_824L</ID>
+    <ID>MagicNumber:TrestleTheme.kt:0.05f</ID>
+    <ID>MagicNumber:TrestleTheme.kt:0.16f</ID>
+    <ID>MagicNumber:TrestleTheme.kt:0.62f</ID>
+    <ID>MagicNumber:TrestleTheme.kt:12</ID>
+    <ID>MagicNumber:UpdateChecker.kt:UpdateChecker$1024</ID>
+    <ID>MagicNumber:date-time.ios.kt:1_000.0</ID>
+    <ID>MatchingDeclarationName:InstanceIconEditor.kt:BuiltInInstanceIcon</ID>
+    <ID>MatchingDeclarationName:LauncherError.kt:LauncherException : Exception</ID>
+    <ID>MatchingDeclarationName:TrestleLayout.kt:TrestleLayoutMode</ID>
+    <ID>MatchingDeclarationName:TrestlePreviews.kt:LauncherPreviewFixtures</ID>
+    <ID>MatchingDeclarationName:context-action-area.kt:ContextAction</ID>
+    <ID>MatchingDeclarationName:local-file-drop.kt:LocalDroppedFile</ID>
+    <ID>MatchingDeclarationName:progress-update-throttle.kt:ProgressUpdateThrottle</ID>
+    <ID>ModifierMissing:TrestleApp.kt:@Composable fun TrestleApp</ID>
+    <ID>ModifierWithoutDefault:SettingsUi.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:TrestleApp.kt:modifier: Modifier</ID>
+    <ID>ModifierWithoutDefault:TrestleNavigation.kt:modifier: Modifier</ID>
+    <ID>MultipleEmitters:TrestleApp.kt:@Composable private fun InstallationProgress</ID>
+    <ID>MultipleEmitters:TrestleApp.kt:@Composable private fun PropertyRow</ID>
+    <ID>MultipleEmitters:TrestleComponents.kt:@Composable internal fun TrestleDialogActions</ID>
+    <ID>MultipleEmitters:TrestleComponents.kt:@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun TrestleDialogHeader</ID>
+    <ID>MutableStateAutoboxing:TrestleApp.kt:mutableStateOf(0)</ID>
+    <ID>NestedBlockDepth:AdoptiumJavaResolver.kt:internal fun extractTemurinArchive</ID>
+    <ID>NestedBlockDepth:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$private fun copyVerified</ID>
+    <ID>NestedBlockDepth:JvmArchiveExtractor.kt:JvmArchiveExtractor$override fun extract</ID>
+    <ID>ParameterNaming:TrestleApp.kt:onDestinationChanged: (LauncherDestination) -&gt; Unit = {}</ID>
+    <ID>ParameterNaming:TrestleApp.kt:onExternalCommandHandled: (Long) -&gt; Unit = {}</ID>
+    <ID>ReturnCount:AndroidGraphicsCompatibility.kt:AndroidGraphicsCompatibilityProbe$private fun queryOpenGlStrings: GraphicsStrings</ID>
+    <ID>ReturnCount:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$private fun substituteArgument: CommandArgument</ID>
+    <ID>ReturnCount:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$private suspend fun awaitSystemExit: ApplicationExitInfo?</ID>
+    <ID>ReturnCount:ContentMetadata.jvm.kt:internal actual fun readEmbeddedMetadata: ContentMetadata</ID>
+    <ID>ReturnCount:CookieImportMsaAuthService.kt:internal fun normalizeMicrosoftCookieInput: String</ID>
+    <ID>ReturnCount:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$private fun substituteArgument: CommandArgument</ID>
+    <ID>ReturnCount:DownloadPipeline.kt:DownloadPipeline$private suspend fun downloadWithRetry</ID>
+    <ID>ReturnCount:DownloadPipeline.kt:DownloadPipeline$private suspend fun isValid: Boolean</ID>
+    <ID>ReturnCount:FileInstanceRepository.kt:FileInstanceRepository$private fun GameInstance.managedIconPath: Path?</ID>
+    <ID>ReturnCount:InstanceIconEditor.kt:private fun resolveInstanceIconModel: String</ID>
+    <ID>ReturnCount:IosMinecraftRuntime.kt:IosMinecraftRuntime$private fun substituteArgument: CommandArgument</ID>
+    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readRootCompound: List&lt;SavedServer&gt;</ID>
+    <ID>ReturnCount:JvmGameDataManager.kt:JvmGameDataManager$private fun readServers: List&lt;SavedServer&gt;</ID>
+    <ID>ReturnCount:JvmGameDataManager.kt:private fun String.toServerEndpoint: ServerEndpoint</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun cancelInstall</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun checkModpackUpdate</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun confirmLocalFileImport</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun createInstance</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun moveSelectedToTrash</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun previewSelectedModpackUpdate</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun removeInstalledContent</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun saveInstanceSettings</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun toggleInstalledContent</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$override fun updateInstalledContent</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$private fun installSelectedResource</ID>
+    <ID>ReturnCount:LauncherViewModel.kt:LauncherViewModel$private fun launchSelected</ID>
+    <ID>ReturnCount:MetadataResolver.kt:MinecraftMetadataResolver$private fun mergeArguments: ModernArguments?</ID>
+    <ID>ReturnCount:MetadataRules.kt:MojangRuleEvaluator$private fun matches: Boolean</ID>
+    <ID>ReturnCount:MinecraftClientSettings.kt:private fun String.isAtLeast: Boolean</ID>
+    <ID>ReturnCount:ModpackCatalogPlatforms.kt:LegacyFtbResourcePlatform$override suspend fun versions: List&lt;ResourceVersion&gt;</ID>
+    <ID>ReturnCount:ModpackInstaller.kt:ModpackInstaller$private fun detectExternalLoader: Pair&lt;ModLoader, String&gt;?</ID>
+    <ID>ReturnCount:ModpackInstaller.kt:ModpackInstaller$private suspend fun ensureRuntimeSupported</ID>
+    <ID>ReturnCount:ReleaseVersion.kt:ReleaseVersion$override fun compareTo: Int</ID>
+    <ID>ReturnCount:ReleaseVersion.kt:ReleaseVersion.Companion$fun parse: ReleaseVersion?</ID>
+    <ID>ReturnCount:ResourceInstaller.kt:ResourceInstaller$private suspend fun downloadableFile: ResourceFile</ID>
+    <ID>ReturnCount:ResourceInstaller.kt:ResourceInstaller$suspend fun latestCompatibleVersion: ResourceVersion?</ID>
+    <ID>ReturnCount:ResourceInstaller.kt:ResourceInstaller$suspend fun setEnabled: Boolean</ID>
+    <ID>ReturnCount:ResourceInstaller.kt:ResourceInstaller$suspend fun uninstall: Boolean</ID>
+    <ID>ReturnCount:UpdateChecker.kt:UpdateChecker$suspend fun availableUpdate: LauncherUpdate?</ID>
+    <ID>ReturnCount:local-file-drop.desktop.kt:&lt;no name provided&gt;$override fun onDrop: Boolean</ID>
+    <ID>SwallowedException:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator$error: MicrosoftAuthorizationPending</ID>
+    <ID>SwallowedException:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator$error: MicrosoftAuthorizationSlowDown</ID>
+    <ID>SwallowedException:MetadataRules.kt:MojangRuleEvaluator$error: IllegalArgumentException</ID>
+    <ID>ThrowsCount:AccountManagement.kt:FileAccountManager$override suspend fun initialize</ID>
+    <ID>ThrowsCount:AndroidBundledRuntimeAssets.kt:AndroidBundledRuntimeAssets$private fun copyVerified</ID>
+    <ID>ThrowsCount:AndroidGameComponents.kt:AndroidGameComponentManager$suspend fun resolve: AndroidGameComponents</ID>
+    <ID>ThrowsCount:AndroidJavaRuntimeManager.kt:AndroidJavaRuntimeManager$suspend fun resolve: AndroidJavaRuntime</ID>
+    <ID>ThrowsCount:AndroidJavaRuntimeManager.kt:AndroidTarXzExtractor$fun extract</ID>
+    <ID>ThrowsCount:DownloadPipeline.kt:DownloadPipeline$private suspend fun downloadWithRetry</ID>
+    <ID>ThrowsCount:DownloadPipeline.kt:DownloadPipeline$suspend fun download</ID>
+    <ID>ThrowsCount:IosArchiveExtractor.kt:IosArchiveExtractor$override fun extract</ID>
+    <ID>ThrowsCount:JvmArchiveExtractor.kt:JvmArchiveExtractor$override fun extract</ID>
+    <ID>ThrowsCount:LauncherViewModel.kt:LauncherViewModel$override fun importRemoteModpack</ID>
+    <ID>ThrowsCount:MetadataRules.kt:MojangArguments$private fun decodeRules: List&lt;MojangRule&gt;</ID>
+    <ID>ThrowsCount:MinecraftInstaller.kt:MinecraftInstaller$suspend fun install: GameInstance</ID>
+    <ID>ThrowsCount:MinecraftMetadataClient.kt:FabricMetadataClient$private suspend inline fun &lt;reified T&gt; getJson: T</ID>
+    <ID>ThrowsCount:MinecraftMetadataClient.kt:MinecraftMetadataClient$private suspend inline fun &lt;reified T&gt; getJson: T</ID>
+    <ID>ThrowsCount:MinecraftMetadataClient.kt:PrismComponentMetadataClient$private suspend fun get: String</ID>
+    <ID>ThrowsCount:MinecraftMetadataClient.kt:PrismComponentMetadataClient$suspend fun profile: PrismInstallProfile</ID>
+    <ID>ThrowsCount:MinecraftMetadataClient.kt:QuiltMetadataClient$private suspend inline fun &lt;reified T&gt; getJson: T</ID>
+    <ID>ThrowsCount:MinecraftProfileClient.kt:MinecraftProfileClient$private suspend inline fun &lt;T&gt; execute: T</ID>
+    <ID>ThrowsCount:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$override suspend fun version: ResourceVersion</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$private fun readPrismPlan: ModpackPlan</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$private suspend fun ensureRuntimeSupported</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$private suspend fun installArchive: GameInstance</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$private suspend fun installExternal: GameInstance</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$private suspend fun readCurseForgePlan: ModpackPlan</ID>
+    <ID>ThrowsCount:ModpackInstaller.kt:ModpackInstaller$suspend fun install: GameInstance</ID>
+    <ID>ThrowsCount:MojangJavaResolver.kt:MojangJavaResolver$private suspend fun provision</ID>
+    <ID>ThrowsCount:MojangJavaResolver.kt:MojangJavaResolver$private suspend inline fun &lt;reified T&gt; getJson: T</ID>
+    <ID>ThrowsCount:ResourceInstaller.kt:ResourceInstaller$private suspend fun downloadableFile: ResourceFile</ID>
+    <ID>ThrowsCount:ResourceInstaller.kt:ResourceInstaller$private suspend fun resolveDependencies: List&lt;ResolvedResourceVersion&gt;</ID>
+    <ID>ThrowsCount:ResourcePlatforms.kt:private suspend inline fun &lt;reified T&gt; resourceApiRequest: T</ID>
+    <ID>ThrowsCount:SkinLibrary.kt:fun inspectMinecraftSkin: MinecraftSkinImage</ID>
+    <ID>TooGenericExceptionCaught:AccountManagement.kt:FileAccountManager$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:AndroidGameComponents.kt:AndroidGameComponentManager$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:AndroidJavaRuntimeManager.kt:AndroidJavaRuntimeManager$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ContentTransaction.kt:ContentTransaction$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ContentTransaction.kt:ContentTransaction$restoreError: Exception</ID>
+    <ID>TooGenericExceptionCaught:DesktopMinecraftRuntime.kt:DesktopMinecraftRuntime$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DownloadPipeline.kt:DownloadPipeline$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:FileInstanceRepository.kt:FileInstanceRepository$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:IosArchiveExtractor.kt:IosArchiveExtractor$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:JvmArchiveExtractor.kt:JvmArchiveExtractor$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:JvmGameDataManager.kt:JvmGameDataManager$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:JvmInstanceExporter.kt:JvmInstanceExporter$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:JvmMinecraftAuthenticator.kt:JvmMinecraftAuthenticator$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:LauncherViewModel.kt:LauncherViewModel$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftInstaller.kt:MinecraftInstaller$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftMetadataClient.kt:FabricMetadataClient$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftMetadataClient.kt:MinecraftMetadataClient$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftMetadataClient.kt:PrismComponentMetadataClient$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftMetadataClient.kt:QuiltMetadataClient$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MinecraftProfileClient.kt:MinecraftProfileClient$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ModpackCatalogPlatforms.kt:FtbResourcePlatform$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ModpackCatalogPlatforms.kt:TechnicResourcePlatform$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ModpackInstaller.kt:ModpackInstaller$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:MojangJavaResolver.kt:MojangJavaResolver$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ResourceInstaller.kt:ResourceInstaller$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ResourcePlatforms.kt:ModrinthResourcePlatform$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:ResourcePlatforms.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:SkinLibrary.kt:SkinLibrary$error: Exception</ID>
+    <ID>TooManyFunctions:AccountManagement.kt:FileAccountManager : AccountManager</ID>
+    <ID>TooManyFunctions:AndroidMinecraftRuntime.kt:AndroidMinecraftRuntime : MinecraftRuntime</ID>
+    <ID>TooManyFunctions:DownloadPipeline.kt:DownloadPipeline</ID>
+    <ID>TooManyFunctions:FileInstanceRepository.kt:FileInstanceRepository : InstanceRepository</ID>
+    <ID>TooManyFunctions:GameDataManager.kt:GameDataManager</ID>
+    <ID>TooManyFunctions:IosInstanceServices.kt:IosGameDataManager : GameDataManager</ID>
+    <ID>TooManyFunctions:IosMinecraftAuthenticator.kt:IosMinecraftAuthenticator : MinecraftAuthenticator</ID>
+    <ID>TooManyFunctions:JvmGameDataManager.kt:JvmGameDataManager : GameDataManager</ID>
+    <ID>TooManyFunctions:JvmMinecraftAuthenticator.kt:JvmMinecraftAuthenticator : MinecraftAuthenticator</ID>
+    <ID>TooManyFunctions:LauncherUiActions.kt:LauncherUiActions</ID>
+    <ID>TooManyFunctions:LauncherViewModel.kt:LauncherViewModel : LauncherUiActions</ID>
+    <ID>TooManyFunctions:ModpackCatalogPlatforms.kt:AtLauncherResourcePlatform : ResourcePlatform</ID>
+    <ID>TooManyFunctions:ModpackInstaller.kt:ModpackInstaller</ID>
+    <ID>TooManyFunctions:ModpackUpdates.kt:ModpackUpdates</ID>
+    <ID>TooManyFunctions:ResourceInstaller.kt:ResourceInstaller</ID>
+    <ID>TooManyFunctions:ResourcePlatforms.kt:net.blockhost.trestle.resources.ResourcePlatforms.kt</ID>
+    <ID>TooManyFunctions:TrestleApp.kt:net.blockhost.trestle.ui.TrestleApp.kt</ID>
+    <ID>TooManyFunctions:TrestlePreviews.kt:net.blockhost.trestle.ui.TrestlePreviews.kt</ID>
+    <ID>UnusedPrivateClass:MojangJavaResolver.kt:JavaRuntimeRelease</ID>
+  </CurrentIssues>
+</SmellBaseline>

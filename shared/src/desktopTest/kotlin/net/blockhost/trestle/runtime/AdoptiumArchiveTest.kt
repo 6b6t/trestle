@@ -1,12 +1,15 @@
 package net.blockhost.trestle.runtime
 
-import java.nio.file.Files
-import java.util.zip.GZIPOutputStream
+import okio.Path.Companion.toPath
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.archivers.tar.TarConstants
-import okio.Path.Companion.toPath
-import kotlin.test.*
+import java.nio.file.Files
+import java.util.zip.GZIPOutputStream
+import kotlin.test.Test
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class AdoptiumArchiveTest {
     @Test fun extractsExecutablesAndConfinesSymlinksToTheRuntime() {
@@ -15,8 +18,13 @@ class AdoptiumArchiveTest {
             fun archive(link: String): java.nio.file.Path {
                 val path = root.resolve("runtime.tar.gz")
                 TarArchiveOutputStream(GZIPOutputStream(Files.newOutputStream(path))).use { tar ->
-                    val java = TarArchiveEntry("jdk/bin/java").apply { size = 1; mode = 493 }
-                    tar.putArchiveEntry(java); tar.write(byteArrayOf(1)); tar.closeArchiveEntry()
+                    val java = TarArchiveEntry("jdk/bin/java").apply {
+                        size = 1
+                        mode = 493
+                    }
+                    tar.putArchiveEntry(java)
+                    tar.write(byteArrayOf(1))
+                    tar.closeArchiveEntry()
                     tar.putArchiveEntry(TarArchiveEntry("jdk/lib/java-link", TarConstants.LF_SYMLINK).apply { linkName = link })
                     tar.closeArchiveEntry()
                 }
@@ -33,6 +41,8 @@ class AdoptiumArchiveTest {
                 extractTemurinArchive(archive("../../../outside").toString().toPath(), invalid.toString().toPath())
             }
             assertFalse(Files.exists(root.resolve("outside")))
-        } finally { root.toFile().deleteRecursively() }
+        } finally {
+            root.toFile().deleteRecursively()
+        }
     }
 }

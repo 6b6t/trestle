@@ -1,7 +1,5 @@
 package net.blockhost.trestle.resources
 
-import java.io.ByteArrayOutputStream
-import java.util.zip.ZipInputStream
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -13,10 +11,13 @@ import okio.FileSystem
 import okio.Path
 import okio.buffer
 import org.tomlj.Toml
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
 
 internal actual fun readEmbeddedMetadata(fileSystem: FileSystem, path: Path): ContentMetadata {
     val documents = mutableMapOf<String, String>()
-    val wanted = setOf("fabric.mod.json", "quilt.mod.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml", "mcmod.info", "pack.mcmeta")
+    val wanted =
+        setOf("fabric.mod.json", "quilt.mod.json", "META-INF/neoforge.mods.toml", "META-INF/mods.toml", "mcmod.info", "pack.mcmeta")
     ZipInputStream(fileSystem.source(path).buffer().inputStream()).use { zip ->
         var total = 0L
         val buffer = ByteArray(8192)
@@ -35,16 +36,23 @@ internal actual fun readEmbeddedMetadata(fileSystem: FileSystem, path: Path): Co
     }
     fun json(name: String) = documents[name]?.let { Json.parseToJsonElement(it) }
     (json("fabric.mod.json") as? JsonObject)?.let { mod ->
-        return ContentMetadata(mod.string("name") ?: mod.string("id"), mod.string("version"),
-            mod["authors"].names(), (mod["depends"] as? JsonObject)?.keys?.toList().orEmpty(),
-            (mod["contact"] as? JsonObject)?.string("homepage"))
+        return ContentMetadata(
+            mod.string("name") ?: mod.string("id"),
+            mod.string("version"),
+            mod["authors"].names(),
+            (mod["depends"] as? JsonObject)?.keys?.toList().orEmpty(),
+            (mod["contact"] as? JsonObject)?.string("homepage"),
+        )
     }
     (json("quilt.mod.json")?.jsonObject?.get("quilt_loader") as? JsonObject)?.let { mod ->
         val metadata = mod["metadata"] as? JsonObject
-        return ContentMetadata(metadata?.string("name") ?: mod.string("id"), mod.string("version"),
+        return ContentMetadata(
+            metadata?.string("name") ?: mod.string("id"),
+            mod.string("version"),
             (metadata?.get("contributors") as? JsonObject)?.keys?.toList().orEmpty(),
             (mod["depends"] as? JsonArray)?.mapNotNull { (it as? JsonObject)?.string("id") }.orEmpty(),
-            (metadata?.get("contact") as? JsonObject)?.string("homepage"))
+            (metadata?.get("contact") as? JsonObject)?.string("homepage"),
+        )
     }
     (documents["META-INF/neoforge.mods.toml"] ?: documents["META-INF/mods.toml"])?.let { text ->
         val toml = Toml.parse(text)
@@ -54,18 +62,29 @@ internal actual fun readEmbeddedMetadata(fileSystem: FileSystem, path: Path): Co
             if (mod != null) {
                 val id = mod.getString("modId")
                 val deps = id?.let { toml.getTable("dependencies")?.getArray(listOf(it)) }
-                return ContentMetadata(mod.getString("displayName") ?: id,
+                return ContentMetadata(
+                    mod.getString("displayName") ?: id,
                     mod.getString("version")?.takeUnless { it.contains("\${") },
                     mod.getString("authors")?.split(',')?.map(String::trim).orEmpty(),
                     (0 until (deps?.size() ?: 0)).mapNotNull { deps?.getTable(it)?.getString("modId") },
-                    mod.getString("displayURL"))
+                    mod.getString("displayURL"),
+                )
             }
         }
     }
     json("mcmod.info")?.let { value ->
         val mods = (value as? JsonArray) ?: (value as? JsonObject)?.get("modList") as? JsonArray
         val mod = mods?.firstOrNull() as? JsonObject
-        if (mod != null) return ContentMetadata(mod.string("name") ?: mod.string("modid"), mod.string("version"), mod["authorList"].names(), websiteUrl = mod.string("url"))
+        if (mod !=
+            null
+        ) {
+            return ContentMetadata(
+                mod.string("name") ?: mod.string("modid"),
+                mod.string("version"),
+                mod["authorList"].names(),
+                websiteUrl = mod.string("url"),
+            )
+        }
     }
     return ContentMetadata()
 }

@@ -1,8 +1,8 @@
 package net.blockhost.trestle.instance
 
 import kotlinx.coroutines.test.runTest
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test

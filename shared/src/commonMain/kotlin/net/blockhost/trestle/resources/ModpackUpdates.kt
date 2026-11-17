@@ -30,7 +30,10 @@ data class ModpackUpdatePreview(
 
 /** Three-way updates preserve unowned files and require explicit choices for modified pack files. */
 class ModpackUpdates(private val fileSystem: FileSystem) {
-    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val json = Json {
+        ignoreUnknownKeys = true
+        encodeDefaults = true
+    }
 
     internal fun record(instance: GameInstance) {
         val root = instance.instanceDirectory.toPath()
@@ -151,12 +154,15 @@ class ModpackUpdates(private val fileSystem: FileSystem) {
     }
 }
 
-internal fun planPackChanges(original: Map<String, String>, current: Map<String, String?>, incoming: Map<String, String>): List<PackFileChange> =
-    (original.keys + incoming.keys).filterNot(::protectedPackPath).sorted().mapNotNull { name ->
-        val before = original[name]
-        val after = incoming[name]
-        if (before == after || current[name] == after) null else PackFileChange(name, before, current[name], after)
-    }
+internal fun planPackChanges(
+    original: Map<String, String>,
+    current: Map<String, String?>,
+    incoming: Map<String, String>,
+): List<PackFileChange> = (original.keys + incoming.keys).filterNot(::protectedPackPath).sorted().mapNotNull { name ->
+    val before = original[name]
+    val after = incoming[name]
+    if (before == after || current[name] == after) null else PackFileChange(name, before, current[name], after)
+}
 
 private fun protectedPackPath(path: String): Boolean = path.substringBefore('/') in setOf(
     "saves", "screenshots", "logs", "crash-reports", "backups", "options.txt", "optionsof.txt", "servers.dat", "servers.dat_old",

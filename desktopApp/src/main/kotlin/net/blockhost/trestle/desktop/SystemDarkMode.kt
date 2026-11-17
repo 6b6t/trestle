@@ -53,8 +53,11 @@ internal class SystemDarkMode(
 private fun readSystemHighContrast(): Boolean = when {
     Platform.isWindows() -> java.awt.Toolkit.getDefaultToolkit()
         .getDesktopProperty("win.highContrast.on") as? Boolean ?: false
+
     Platform.isMac() -> readDefaultsBoolean("com.apple.universalaccess", "increaseContrast")
+
     Platform.isLinux() -> System.getenv("GTK_THEME").orEmpty().contains("highcontrast", ignoreCase = true)
+
     else -> false
 }
 
@@ -66,7 +69,9 @@ private fun readSystemReducedMotion(): Boolean = when {
             "Animation",
         ) == "0"
     }.getOrDefault(false)
+
     Platform.isMac() -> readDefaultsBoolean("com.apple.universalaccess", "reduceMotion")
+
     Platform.isLinux() -> runCatching {
         ProcessBuilder("gsettings", "get", "org.gnome.desktop.interface", "enable-animations")
             .redirectErrorStream(true)
@@ -74,6 +79,7 @@ private fun readSystemReducedMotion(): Boolean = when {
             .inputStream.bufferedReader().use { it.readText() }
             .trim() == "false"
     }.getOrDefault(false)
+
     else -> false
 }
 
@@ -93,6 +99,7 @@ private fun readSystemDarkMode(): Boolean = when {
             "AppsUseLightTheme",
         ) == 0
     }.getOrDefault(true)
+
     Platform.isMac() -> runCatching {
         ProcessBuilder("defaults", "read", "-g", "AppleInterfaceStyle")
             .redirectErrorStream(true)
@@ -100,6 +107,7 @@ private fun readSystemDarkMode(): Boolean = when {
             .inputStream.bufferedReader().use { it.readText() }
             .contains("dark", ignoreCase = true)
     }.getOrDefault(false)
+
     Platform.isLinux() -> {
         val theme = System.getenv("GTK_THEME").orEmpty()
         theme.contains("dark", ignoreCase = true) || runCatching {
@@ -110,5 +118,6 @@ private fun readSystemDarkMode(): Boolean = when {
                 .contains("prefer-dark", ignoreCase = true)
         }.getOrDefault(false)
     }
+
     else -> true
 }

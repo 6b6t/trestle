@@ -1,10 +1,10 @@
 package net.blockhost.trestle.desktop
 
+import net.blockhost.trestle.ui.LauncherUiState
+import net.blockhost.trestle.ui.OperationStatus
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import net.blockhost.trestle.ui.LauncherUiState
-import net.blockhost.trestle.ui.OperationStatus
 
 class DesktopIndicatorTest {
     @Test

@@ -24,7 +24,9 @@ class NeoForgeMetadataClientTest {
                     indexJson(profileSha256),
                     headers = jsonHeaders,
                 )
+
                 "/v1/net.neoforged/21.1.1.json" -> respond(profileJson, headers = jsonHeaders)
+
                 else -> error("Unexpected request: ${request.url}")
             }
         }
@@ -64,11 +66,9 @@ class NeoForgeMetadataClientTest {
         }
     }
 
-    private fun indexJson(sha256: String) =
-        """{"versions":[{"version":"21.1.1","recommended":true,"releaseTime":"2026-01-02T00:00:00Z","sha256":"$sha256","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]},{"version":"21.0.1","sha256":"unused","requires":[{"uid":"net.minecraft","equals":"1.21"}]}]}"""
+    private fun indexJson(sha256: String) = """{"versions":[{"version":"21.1.1","recommended":true,"releaseTime":"2026-01-02T00:00:00Z","sha256":"$sha256","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]},{"version":"21.0.1","sha256":"unused","requires":[{"uid":"net.minecraft","equals":"1.21"}]}]}"""
 
-    private fun profileJson(version: String) =
-        """{"version":"$version","mainClass":"io.example.Wrapper","libraries":[{"name":"example:launch:1.0","downloads":{"artifact":{"url":"https://cdn.test/launch.jar","sha1":"abc","size":1}}}],"mavenFiles":[{"name":"example:generated:1.0","downloads":{"artifact":{"url":"https://cdn.test/generated.jar","sha1":"def","size":2}}}],"minecraftArguments":"--launchTarget neoforgeclient","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}"""
+    private fun profileJson(version: String) = """{"version":"$version","mainClass":"io.example.Wrapper","libraries":[{"name":"example:launch:1.0","downloads":{"artifact":{"url":"https://cdn.test/launch.jar","sha1":"abc","size":1}}}],"mavenFiles":[{"name":"example:generated:1.0","downloads":{"artifact":{"url":"https://cdn.test/generated.jar","sha1":"def","size":2}}}],"minecraftArguments":"--launchTarget neoforgeclient","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}"""
 
     private companion object {
         val jsonHeaders = headersOf(HttpHeaders.ContentType, "application/json")

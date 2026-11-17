@@ -28,8 +28,10 @@ internal data class AndroidGraphicsCompatibility(
         get() = when {
             vulkanVersion == null ->
                 "Minecraft 26.2 requires a hardware Vulkan device. ${deviceLabel()} does not report Vulkan support."
+
             vulkanVersion < MINIMUM_VULKAN_VERSION ->
                 "Minecraft 26.2 requires Vulkan 1.2 or newer. ${deviceLabel()} reports ${formatVulkanVersion(vulkanVersion)}."
+
             else -> null
         }
 
@@ -143,8 +145,5 @@ internal object AndroidGraphicsCompatibilityProbe {
         }
     }
 
-    private data class GraphicsStrings(
-        val renderer: String? = null,
-        val vendor: String? = null,
-    )
+    private data class GraphicsStrings(val renderer: String? = null, val vendor: String? = null)
 }

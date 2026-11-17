@@ -16,9 +16,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.sync.withLock
-import kotlin.concurrent.Volatile
+import kotlinx.coroutines.sync.withPermit
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
@@ -26,6 +25,7 @@ import net.blockhost.trestle.platform.useOkio
 import okio.FileSystem
 import okio.Path
 import okio.buffer
+import kotlin.concurrent.Volatile
 
 data class DownloadRequest(
     val url: String,
@@ -73,11 +73,7 @@ class DownloadPipeline(
         this.maxAttempts = maxAttempts
     }
 
-    suspend fun download(
-        requests: List<DownloadRequest>,
-        stagingDirectory: Path,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-    ) {
+    suspend fun download(requests: List<DownloadRequest>, stagingDirectory: Path, onProgress: suspend (DownloadProgress) -> Unit = {}) {
         fileSystem.createDirectories(stagingDirectory)
         val required = requests.distinctBy { it.destination }
         val totalBytes = required.mapNotNull { it.size }.takeIf { it.size == required.size }?.sum()
@@ -211,7 +207,9 @@ class DownloadPipeline(
         onBytes: suspend (Long) -> Unit,
     ) {
         request.localSource?.let { source ->
-            require(request.sha1 != null || request.sha256 != null || request.sha512 != null) { "Local download substitutions need a checksum." }
+            require(request.sha1 != null || request.sha256 != null || request.sha512 != null) {
+                "Local download substitutions need a checksum."
+            }
             fileSystem.copy(source, stagedPath)
             validateCompleted(stagedPath, request)
             onBytes(fileSize(stagedPath))
@@ -323,11 +321,7 @@ class DownloadPipeline(
         throw LauncherException.Network("Download failed after $maxAttempts attempts.", lastError)
     }
 
-    private suspend fun isValid(
-        path: Path,
-        request: DownloadRequest,
-        allowUnverified: Boolean,
-    ): Boolean {
+    private suspend fun isValid(path: Path, request: DownloadRequest, allowUnverified: Boolean): Boolean {
         if (!fileSystem.exists(path)) return false
         if (
             request.md5 == null &&
@@ -335,7 +329,9 @@ class DownloadPipeline(
             request.sha256 == null &&
             request.sha512 == null &&
             request.size == null
-        ) return allowUnverified
+        ) {
+            return allowUnverified
+        }
         return try {
             validateCompleted(path, request)
             true
@@ -383,11 +379,7 @@ class DownloadPipeline(
         }
     }
 
-    private suspend fun resetStaged(
-        path: Path,
-        accountedBytes: Long,
-        onBytes: suspend (Long) -> Unit,
-    ) {
+    private suspend fun resetStaged(path: Path, accountedBytes: Long, onBytes: suspend (Long) -> Unit) {
         if (accountedBytes > 0L) onBytes(-accountedBytes)
         fileSystem.delete(path, mustExist = false)
     }
@@ -398,8 +390,7 @@ class DownloadPipeline(
         return if (request.size == null || size < request.size) size else 0L
     }
 
-    private fun fileSize(path: Path): Long =
-        if (fileSystem.exists(path)) fileSystem.metadata(path).size ?: 0L else 0L
+    private fun fileSize(path: Path): Long = if (fileSystem.exists(path)) fileSystem.metadata(path).size ?: 0L else 0L
 
     private fun deleteTree(path: Path) {
         if (!fileSystem.exists(path)) return

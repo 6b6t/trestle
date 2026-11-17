@@ -18,10 +18,7 @@ enum class ModLoader(val label: String) {
 }
 
 @Serializable
-data class MemorySettings(
-    val minimumMiB: Int = 512,
-    val maximumMiB: Int = 2048,
-) {
+data class MemorySettings(val minimumMiB: Int = 512, val maximumMiB: Int = 2048) {
     init {
         require(minimumMiB > 0) { "Minimum memory must be positive." }
         require(maximumMiB >= minimumMiB) { "Maximum memory must not be less than minimum memory." }
@@ -36,21 +33,13 @@ sealed interface InstallationState {
 
     @Serializable
     @SerialName("installing")
-    data class Installing(
-        val completedBytes: Long,
-        val totalBytes: Long?,
-        val completedFiles: Int,
-        val totalFiles: Int,
-    ) : InstallationState
+    data class Installing(val completedBytes: Long, val totalBytes: Long?, val completedFiles: Int, val totalFiles: Int) :
+        InstallationState
 
     @Serializable
     @SerialName("interrupted")
-    data class Interrupted(
-        val completedBytes: Long,
-        val totalBytes: Long?,
-        val completedFiles: Int,
-        val totalFiles: Int,
-    ) : InstallationState
+    data class Interrupted(val completedBytes: Long, val totalBytes: Long?, val completedFiles: Int, val totalFiles: Int) :
+        InstallationState
 
     @Serializable
     @SerialName("installed")

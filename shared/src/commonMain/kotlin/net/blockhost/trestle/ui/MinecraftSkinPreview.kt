@@ -2,8 +2,8 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.focusable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -15,20 +15,20 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PixelMap
 import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -104,7 +104,7 @@ fun MinecraftSkinPreview(
     val pixels = remember(texture) {
         texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap().toPixelMap() }.getOrNull() }
     }
-    var yaw by remember(texture) { mutableFloatStateOf(DefaultYaw) }
+    var yaw by remember(texture) { mutableFloatStateOf(DEFAULT_YAW) }
     var animationTime by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pixels, shouldAnimate) {
@@ -127,15 +127,15 @@ fun MinecraftSkinPreview(
                 if (interactive) {
                     customActions = listOf(
                         CustomAccessibilityAction("Rotate left") {
-                            yaw -= KeyboardRotationStep
+                            yaw -= KEYBOARD_ROTATION_STEP
                             true
                         },
                         CustomAccessibilityAction("Rotate right") {
-                            yaw += KeyboardRotationStep
+                            yaw += KEYBOARD_ROTATION_STEP
                             true
                         },
                         CustomAccessibilityAction("Reset rotation") {
-                            yaw = DefaultYaw
+                            yaw = DEFAULT_YAW
                             true
                         },
                     )
@@ -148,17 +148,20 @@ fun MinecraftSkinPreview(
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when (event.key) {
                                 Key.DirectionLeft -> {
-                                    yaw -= KeyboardRotationStep
+                                    yaw -= KEYBOARD_ROTATION_STEP
                                     true
                                 }
+
                                 Key.DirectionRight -> {
-                                    yaw += KeyboardRotationStep
+                                    yaw += KEYBOARD_ROTATION_STEP
                                     true
                                 }
+
                                 Key.MoveHome -> {
-                                    yaw = DefaultYaw
+                                    yaw = DEFAULT_YAW
                                     true
                                 }
+
                                 else -> false
                             }
                         }
@@ -224,13 +227,7 @@ private data class Cuboid(
 
 private data class UvBox(val u: Int, val v: Int, val width: Int, val height: Int, val depth: Int)
 private data class UvFace(val x: Int, val y: Int, val width: Int, val height: Int, val mirrorU: Boolean = false)
-private data class Face(
-    val origin: Vec3,
-    val horizontal: Vec3,
-    val vertical: Vec3,
-    val uv: UvFace,
-    val brightness: Float,
-)
+private data class Face(val origin: Vec3, val horizontal: Vec3, val vertical: Vec3, val uv: UvFace, val brightness: Float)
 
 private data class Polygon(val points: List<Offset>, val color: Color, val depth: Float)
 
@@ -247,10 +244,48 @@ private fun buildSkinPolygons(
     val cuboids = listOf(
         Cuboid(Vec3(-4f, 24f, -4f), Vec3(4f, 32f, 4f), UvBox(0, 0, 8, 8, 8), UvBox(32, 0, 8, 8, 8), 24f, head = true),
         Cuboid(Vec3(-4f, 12f, -2f), Vec3(4f, 24f, 2f), UvBox(16, 16, 8, 12, 4), UvBox(16, 32, 8, 12, 4).takeIf { modern }, 24f),
-        Cuboid(Vec3(-4f - armWidth, 12f, -2f), Vec3(-4f, 24f, 2f), UvBox(40, 16, armWidth.toInt(), 12, 4), UvBox(40, 32, armWidth.toInt(), 12, 4).takeIf { modern }, 24f, rotationX = pose),
-        Cuboid(Vec3(4f, 12f, -2f), Vec3(4f + armWidth, 24f, 2f), if (modern) UvBox(32, 48, armWidth.toInt(), 12, 4) else UvBox(40, 16, armWidth.toInt(), 12, 4), UvBox(48, 48, armWidth.toInt(), 12, 4).takeIf { modern }, 24f, rotationX = -pose, mirrorU = !modern),
-        Cuboid(Vec3(-4f, 0f, -2f), Vec3(0f, 12f, 2f), UvBox(0, 16, 4, 12, 4), UvBox(0, 32, 4, 12, 4).takeIf { modern }, 12f, rotationX = -pose),
-        Cuboid(Vec3(0f, 0f, -2f), Vec3(4f, 12f, 2f), if (modern) UvBox(16, 48, 4, 12, 4) else UvBox(0, 16, 4, 12, 4), UvBox(0, 48, 4, 12, 4).takeIf { modern }, 12f, rotationX = pose, mirrorU = !modern),
+        Cuboid(
+            Vec3(-4f - armWidth, 12f, -2f),
+            Vec3(-4f, 24f, 2f),
+            UvBox(40, 16, armWidth.toInt(), 12, 4),
+            UvBox(40, 32, armWidth.toInt(), 12, 4).takeIf {
+                modern
+            },
+            24f,
+            rotationX = pose,
+        ),
+        Cuboid(
+            Vec3(4f, 12f, -2f),
+            Vec3(4f + armWidth, 24f, 2f),
+            if (modern) UvBox(32, 48, armWidth.toInt(), 12, 4) else UvBox(40, 16, armWidth.toInt(), 12, 4),
+            UvBox(48, 48, armWidth.toInt(), 12, 4).takeIf {
+                modern
+            },
+            24f,
+            rotationX = -pose,
+            mirrorU = !modern,
+        ),
+        Cuboid(
+            Vec3(-4f, 0f, -2f),
+            Vec3(0f, 12f, 2f),
+            UvBox(0, 16, 4, 12, 4),
+            UvBox(0, 32, 4, 12, 4).takeIf {
+                modern
+            },
+            12f,
+            rotationX = -pose,
+        ),
+        Cuboid(
+            Vec3(0f, 0f, -2f),
+            Vec3(4f, 12f, 2f),
+            if (modern) UvBox(16, 48, 4, 12, 4) else UvBox(0, 16, 4, 12, 4),
+            UvBox(0, 48, 4, 12, 4).takeIf {
+                modern
+            },
+            12f,
+            rotationX = pose,
+            mirrorU = !modern,
+        ),
     )
     val scale = min(canvasWidth / 22f, canvasHeight / 38f)
     val center = Offset(canvasWidth / 2f, canvasHeight * 0.52f)
@@ -351,5 +386,5 @@ private fun Color.shade(amount: Float): Color = Color(
 )
 
 private val PreviewBackground = Color(0xFF171613)
-private const val DefaultYaw = -0.42f
-private const val KeyboardRotationStep = 0.18f
+private const val DEFAULT_YAW = -0.42f
+private const val KEYBOARD_ROTATION_STEP = 0.18f

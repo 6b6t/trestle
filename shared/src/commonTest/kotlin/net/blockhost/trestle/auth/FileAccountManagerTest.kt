@@ -14,8 +14,8 @@ import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -37,10 +37,12 @@ class FileAccountManagerTest {
             val registry = "/data/accounts.json".toPath()
             fileSystem.createDirectories(requireNotNull(registry.parent))
             fileSystem.write(registry) {
-                writeUtf8(buildJsonObject {
-                    put("activeProfileId", selected.profileId)
-                    put("accounts", JsonArray(records))
-                }.toString())
+                writeUtf8(
+                    buildJsonObject {
+                        put("activeProfileId", selected.profileId)
+                        put("accounts", JsonArray(records))
+                    }.toString(),
+                )
             }
 
             val manager = FileAccountManager(fileSystem, registry)

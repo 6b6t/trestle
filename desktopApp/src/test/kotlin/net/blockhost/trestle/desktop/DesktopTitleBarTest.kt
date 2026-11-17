@@ -11,10 +11,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
-import kotlin.test.Test
-import kotlin.test.assertEquals
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherUiState
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class DesktopTitleBarTest {

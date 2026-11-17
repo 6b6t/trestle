@@ -11,8 +11,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import net.blockhost.trestle.auth.NoSessionProvider
 import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.metadata.Architecture

@@ -11,10 +11,7 @@ import okio.Path
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermission
 
-internal data class AndroidGameComponents(
-    val classpath: List<Path>,
-    val nativeDirectory: Path,
-)
+internal data class AndroidGameComponents(val classpath: List<Path>, val nativeDirectory: Path)
 
 internal class AndroidGameComponentManager(
     private val directories: LauncherDirectories,
@@ -22,10 +19,7 @@ internal class AndroidGameComponentManager(
     private val fileSystem: FileSystem,
     private val logger: LauncherLogger,
 ) {
-    suspend fun resolve(
-        abi: AndroidRuntimeAbi,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-    ): AndroidGameComponents {
+    suspend fun resolve(abi: AndroidRuntimeAbi, onProgress: suspend (DownloadProgress) -> Unit = {}): AndroidGameComponents {
         val componentSetId = "minecraft-26.2-android-${abi.releaseName}-5"
         val root = directories.runtimes / componentSetId
         val jars = root / "jars"

@@ -83,8 +83,7 @@ private class FakeCredentialStore : AccountCredentialStore {
     override val protection = CredentialProtection(true, "HARDWARE", "HARDWARE", emptyList())
     val states = mutableMapOf<Pair<String, MinecraftEdition>, SecretValue>()
 
-    override suspend fun read(profileId: String, edition: MinecraftEdition): SecretValue? =
-        states[profileId to edition]
+    override suspend fun read(profileId: String, edition: MinecraftEdition): SecretValue? = states[profileId to edition]
 
     override suspend fun write(profileId: String, edition: MinecraftEdition, state: SecretValue) {
         states[profileId to edition] = state

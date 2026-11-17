@@ -39,9 +39,9 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.snapshotFlow
@@ -104,6 +104,7 @@ internal fun TrestleSearchField(
         trailingIcon = {
             when {
                 searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+
                 value.isNotEmpty() -> TrestleTooltipIconButton(
                     label = stringResource(Res.string.ui_clear_search),
                     onClick = { onValueChange("") },
@@ -161,6 +162,7 @@ internal fun TrestleSearchBar(
                 trailingIcon = {
                     when {
                         searching -> CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+
                         textFieldState.text.isNotEmpty() -> TrestleTooltipIconButton(
                             label = stringResource(Res.string.ui_clear_search),
                             onClick = { textFieldState.setTextAndPlaceCursorAtEnd("") },
@@ -184,11 +186,7 @@ internal fun TrestleSearchBar(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun TrestleTooltip(
-    label: String,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit,
-) {
+internal fun TrestleTooltip(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
     TooltipBox(
         positionProvider = TooltipDefaults.rememberTooltipPositionProvider(
             TooltipAnchorPosition.Above,
@@ -279,11 +277,7 @@ internal fun TrestleDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun TrestleDialogHeader(
-    title: String,
-    onClose: () -> Unit,
-    closeEnabled: Boolean = true,
-) {
+internal fun TrestleDialogHeader(title: String, onClose: () -> Unit, closeEnabled: Boolean = true) {
     TopAppBar(
         title = { Text(title) },
         actions = {
@@ -315,11 +309,7 @@ internal fun TrestleDialogActions(content: @Composable RowScope.() -> Unit) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun PageHeader(
-    title: String,
-    navigationIcon: @Composable () -> Unit = {},
-    actions: @Composable RowScope.() -> Unit = {},
-) {
+internal fun PageHeader(title: String, navigationIcon: @Composable () -> Unit = {}, actions: @Composable RowScope.() -> Unit = {}) {
     TopAppBar(
         title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
         navigationIcon = navigationIcon,

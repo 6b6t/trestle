@@ -1,11 +1,11 @@
 package net.blockhost.trestle.auth
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
@@ -29,11 +29,7 @@ enum class SkinVariant(val apiValue: String) {
 }
 
 @Serializable
-data class AccountSkin(
-    val id: String,
-    val url: String,
-    val variant: SkinVariant = SkinVariant.CLASSIC,
-)
+data class AccountSkin(val id: String, val url: String, val variant: SkinVariant = SkinVariant.CLASSIC)
 
 @Serializable
 data class LauncherAccount(
@@ -46,11 +42,7 @@ data class LauncherAccount(
     val lastAuthenticatedAtEpochMillis: Long? = null,
 )
 
-data class ManagedAccount(
-    val profile: LauncherAccount,
-    val isActive: Boolean,
-    val isAuthenticated: Boolean,
-) {
+data class ManagedAccount(val profile: LauncherAccount, val isActive: Boolean, val isAuthenticated: Boolean) {
     val isReady: Boolean
         get() = isAuthenticated || profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE
 }
@@ -67,10 +59,7 @@ interface AccountManager : SessionProvider {
 
     suspend fun initialize()
     suspend fun register(session: AuthSession, profile: LauncherAccount)
-    suspend fun addAccount(
-        request: AccountLoginRequest,
-        onDeviceAuthorization: (DeviceAuthorization) -> Unit,
-    )
+    suspend fun addAccount(request: AccountLoginRequest, onDeviceAuthorization: (DeviceAuthorization) -> Unit)
     suspend fun select(profileId: String)
     suspend fun signOut(profileId: String)
     suspend fun remove(profileId: String)
@@ -132,10 +121,7 @@ class FileAccountManager(
         logger.info("accounts", "Registered account", mapOf("player" to profile.playerName))
     }
 
-    override suspend fun addAccount(
-        request: AccountLoginRequest,
-        onDeviceAuthorization: (DeviceAuthorization) -> Unit,
-    ) {
+    override suspend fun addAccount(request: AccountLoginRequest, onDeviceAuthorization: (DeviceAuthorization) -> Unit) {
         val availableAuthenticator = checkNotNull(authenticator) { "Account authentication is not available." }
         register(availableAuthenticator.authenticate(request, onDeviceAuthorization), select = true)
     }

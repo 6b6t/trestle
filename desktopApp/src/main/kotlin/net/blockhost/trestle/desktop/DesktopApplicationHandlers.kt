@@ -7,10 +7,8 @@ import java.awt.desktop.OpenURIHandler
 import java.awt.desktop.PreferencesHandler
 import javax.swing.JOptionPane
 
-internal class DesktopApplicationHandlers(
-    private val desktop: Desktop,
-    private val reopenedListener: AppReopenedListener,
-) : AutoCloseable {
+internal class DesktopApplicationHandlers(private val desktop: Desktop, private val reopenedListener: AppReopenedListener) :
+    AutoCloseable {
     override fun close() {
         runCatching { desktop.removeAppEventListener(reopenedListener) }
         runCatching { desktop.setOpenFileHandler(null) }
@@ -26,19 +24,25 @@ internal class DesktopApplicationHandlers(
             val reopenedListener = AppReopenedListener { onActivation(DesktopActivation.Show) }
             runCatching { desktop.addAppEventListener(reopenedListener) }
             if (desktop.isSupported(Desktop.Action.APP_OPEN_FILE)) {
-                desktop.setOpenFileHandler(OpenFilesHandler { event ->
-                    onActivation(DesktopActivation.ImportFiles(event.files.map { it.toPath() }))
-                })
+                desktop.setOpenFileHandler(
+                    OpenFilesHandler { event ->
+                        onActivation(DesktopActivation.ImportFiles(event.files.map { it.toPath() }))
+                    },
+                )
             }
             if (desktop.isSupported(Desktop.Action.APP_OPEN_URI)) {
-                desktop.setOpenURIHandler(OpenURIHandler { event ->
-                    DesktopActivationParser.parse(listOf(event.uri.toString())).forEach(onActivation)
-                })
+                desktop.setOpenURIHandler(
+                    OpenURIHandler { event ->
+                        DesktopActivationParser.parse(listOf(event.uri.toString())).forEach(onActivation)
+                    },
+                )
             }
             if (desktop.isSupported(Desktop.Action.APP_PREFERENCES)) {
-                desktop.setPreferencesHandler(PreferencesHandler {
-                    onActivation(DesktopActivation.OpenSettings)
-                })
+                desktop.setPreferencesHandler(
+                    PreferencesHandler {
+                        onActivation(DesktopActivation.OpenSettings)
+                    },
+                )
             }
             if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
                 desktop.setAboutHandler {

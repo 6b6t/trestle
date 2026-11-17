@@ -1,9 +1,9 @@
 package net.blockhost.trestle.logging
 
-import kotlin.concurrent.Volatile
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.concurrent.Volatile
 
 enum class LogLevel {
     DEBUG,
@@ -36,11 +36,7 @@ interface LauncherLogger {
     fun configure(capacity: Int, stopOnOverflow: Boolean) {}
 }
 
-class BufferedLauncherLogger(
-    private val nowMillis: () -> Long,
-    private val sink: LogSink,
-    capacity: Int = 300,
-) : LauncherLogger {
+class BufferedLauncherLogger(private val nowMillis: () -> Long, private val sink: LogSink, capacity: Int = 300) : LauncherLogger {
     @Volatile
     private var capacity: Int = capacity
 
@@ -79,13 +75,7 @@ class BufferedLauncherLogger(
         }
     }
 
-    private fun append(
-        level: LogLevel,
-        category: String,
-        message: String,
-        cause: Throwable?,
-        details: Map<String, Any?>,
-    ) {
+    private fun append(level: LogLevel, category: String, message: String, cause: Throwable?, details: Map<String, Any?>) {
         val entry = LogEntry(
             id = nextId++,
             timestampEpochMillis = nowMillis(),

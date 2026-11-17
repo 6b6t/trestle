@@ -73,7 +73,8 @@ class ModpackInstaller(
         val archiveUrl = archiveFile.url ?: throw LauncherException.InvalidMetadata(
             "${version.name} blocks downloads from third-party launchers.",
         )
-        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
+        val staging =
+            directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
         resetDirectory(staging)
         val archive = staging / safeFileName(archiveFile.fileName)
         downloadPipeline.download(
@@ -94,10 +95,16 @@ class ModpackInstaller(
     }
 
     private suspend fun recordOrigin(instance: GameInstance, project: ResourceProject, version: ResourceVersion): GameInstance {
-        val updated = instance.copy(modpackOrigin = ModpackOrigin(
-            provider = project.provider.name, projectId = project.id, versionId = version.id,
-            versionName = version.versionNumber, name = project.name, websiteUrl = project.websiteUrl,
-        ))
+        val updated = instance.copy(
+            modpackOrigin = ModpackOrigin(
+                provider = project.provider.name,
+                projectId = project.id,
+                versionId = version.id,
+                versionName = version.versionNumber,
+                name = project.name,
+                websiteUrl = project.websiteUrl,
+            ),
+        )
         ModpackUpdates(fileSystem).record(updated)
         return repository.update(updated)
     }
@@ -113,14 +120,18 @@ class ModpackInstaller(
         val staging = instance.instanceDirectory.toPath() / ".trestle" / "pack-preview"
         resetDirectory(staging)
         val isolatedRepository = FileInstanceRepository(
-            fileSystem, staging / "instances.json", staging / "instances",
+            fileSystem,
+            staging / "instances.json",
+            staging / "instances",
             InstanceIdFactory { InstanceId("pack-candidate") },
         )
         isolatedRepository.initialize()
-        val isolatedInstaller = ModpackInstaller(platforms, isolatedRepository, metadataClient, fabricMetadataClient,
+        val isolatedInstaller = ModpackInstaller(
+            platforms, isolatedRepository, metadataClient, fabricMetadataClient,
             neoForgeMetadataClient, forgeMetadataClient, quiltMetadataClient,
             minecraftInstaller.withRepository(isolatedRepository), downloadPipeline, fileSystem,
-            directories.copy(staging = staging / "downloads"), archiveExtractor, systemProfile)
+            directories.copy(staging = staging / "downloads"), archiveExtractor, systemProfile,
+        )
         try {
             val candidate = isolatedInstaller.install(project, version, onProgress)
             return ModpackUpdates(fileSystem).preview(instance, candidate)
@@ -139,7 +150,8 @@ class ModpackInstaller(
         if (external.isUnresolved()) {
             throw LauncherException.InvalidMetadata("${project.name} does not provide downloadable client files.")
         }
-        val staging = directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
+        val staging =
+            directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
         resetDirectory(staging)
         val resolvedFiles = staging / "resolved-files"
         fileSystem.createDirectories(resolvedFiles)
@@ -269,11 +281,7 @@ class ModpackInstaller(
         return null
     }
 
-    suspend fun installLocal(
-        fileName: String,
-        bytes: ByteArray,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-    ): GameInstance {
+    suspend fun installLocal(fileName: String, bytes: ByteArray, onProgress: suspend (DownloadProgress) -> Unit = {}): GameInstance {
         require(bytes.isNotEmpty()) { "The selected modpack is empty." }
         require(bytes.size <= MAX_LOCAL_MODPACK_BYTES) { "Local modpacks must be smaller than 1 GiB." }
         val safeName = safeFileName(fileName)
@@ -353,8 +361,11 @@ class ModpackInstaller(
         archiveExtractor.extract(archive, extracted)
         val plan = when {
             fileSystem.exists(extracted / "modrinth.index.json") -> readModrinthPlan(extracted)
+
             fileSystem.exists(extracted / "manifest.json") -> readCurseForgePlan(extracted)
+
             fileSystem.exists(extracted / "mmc-pack.json") -> readPrismPlan(extracted)
+
             else -> throw LauncherException.InvalidMetadata(
                 "The archive is not a supported Modrinth, CurseForge, Prism Launcher, or MultiMC pack.",
             )
@@ -403,18 +414,21 @@ class ModpackInstaller(
             val restored = if (fileSystem.exists(extracted / "trestle-instance.json")) {
                 val exported = decode<GameInstance>(extracted / "trestle-instance.json", "Trestle instance settings")
                 repository.update(
-                    ModpackUpdates(fileSystem).restoreOrigin(installed.copy(
-                        modpackOrigin = exported.modpackOrigin,
-                        displayName = exported.displayName,
-                        jvmArguments = exported.jvmArguments,
-                        memory = exported.memory,
-                        gameArguments = exported.gameArguments,
-                        javaExecutable = exported.javaExecutable,
-                        environmentVariables = exported.environmentVariables,
-                        iconReference = exported.iconReference,
-                        pinned = exported.pinned,
-                        group = exported.group,
-                    ), extracted / "trestle-metadata" / "modpack.json"),
+                    ModpackUpdates(fileSystem).restoreOrigin(
+                        installed.copy(
+                            modpackOrigin = exported.modpackOrigin,
+                            displayName = exported.displayName,
+                            jvmArguments = exported.jvmArguments,
+                            memory = exported.memory,
+                            gameArguments = exported.gameArguments,
+                            javaExecutable = exported.javaExecutable,
+                            environmentVariables = exported.environmentVariables,
+                            iconReference = exported.iconReference,
+                            pinned = exported.pinned,
+                            group = exported.group,
+                        ),
+                        extracted / "trestle-metadata" / "modpack.json",
+                    ),
                 )
             } else {
                 installed
@@ -518,17 +532,29 @@ class ModpackInstaller(
                     "CurseForge file ${reference.fileId} has no downloadable artifact.",
                 )
             if (file.url == null && file.sha1 != null) {
-                val alternative = try { platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(file.sha1)?.files?.firstOrNull { it.sha1.equals(file.sha1, ignoreCase = true) }
-                } catch (error: CancellationException) { throw error
-                } catch (_: Exception) { null }
+                val alternative = try {
+                    platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(file.sha1)?.files?.firstOrNull {
+                        it.sha1.equals(file.sha1, ignoreCase = true)
+                    }
+                } catch (error: CancellationException) {
+                    throw error
+                } catch (_: Exception) {
+                    null
+                }
                 if (alternative?.url != null && alternative.sha1.equals(file.sha1, ignoreCase = true)) file = alternative
             }
             PackFile(
                 path = "${resourceType.packInstallFolder()}/${file.fileName}",
                 url = file.url.orEmpty(),
-                localSource = if (file.url == null) restrictedDownloads.requireFile(file,
-                    referencedProjects[reference.projectId.toString()]?.websiteUrl?.let { "$it/files/${reference.fileId}" }
-                        ?: "https://www.curseforge.com/minecraft/mc-mods/${reference.projectId}/files/${reference.fileId}") else null,
+                localSource = if (file.url == null) {
+                    restrictedDownloads.requireFile(
+                        file,
+                        referencedProjects[reference.projectId.toString()]?.websiteUrl?.let { "$it/files/${reference.fileId}" }
+                            ?: "https://www.curseforge.com/minecraft/mc-mods/${reference.projectId}/files/${reference.fileId}",
+                    )
+                } else {
+                    null
+                },
                 sha1 = file.sha1,
                 size = file.size,
                 sha512 = file.sha512,
@@ -551,10 +577,15 @@ class ModpackInstaller(
         val loaderComponent = pack.components.firstOrNull { it.uid in PRISM_LOADER_COMPONENTS }
         val loader = when (loaderComponent?.uid) {
             "net.fabricmc.fabric-loader" -> ModLoader.FABRIC
+
             "net.neoforged" -> ModLoader.NEOFORGE
+
             "net.minecraftforge" -> ModLoader.FORGE
+
             "org.quiltmc.quilt-loader" -> ModLoader.QUILT
+
             null -> ModLoader.VANILLA
+
             else -> throw LauncherException.InvalidMetadata(
                 "The Prism pack uses unsupported component ${loaderComponent.uid}.",
             )
@@ -585,6 +616,7 @@ class ModpackInstaller(
     private suspend fun ensureRuntimeSupported(plan: ModpackPlan) {
         when (plan.loader) {
             ModLoader.VANILLA -> Unit
+
             ModLoader.FABRIC -> {
                 val requested = plan.loaderVersion ?: return
                 val available = fabricMetadataClient.loaderVersions(plan.minecraftVersion)
@@ -594,6 +626,7 @@ class ModpackInstaller(
                     )
                 }
             }
+
             ModLoader.NEOFORGE -> {
                 val requested = plan.loaderVersion ?: return
                 val available = neoForgeMetadataClient.loaderVersions(plan.minecraftVersion)
@@ -603,6 +636,7 @@ class ModpackInstaller(
                     )
                 }
             }
+
             ModLoader.FORGE -> {
                 val requested = plan.loaderVersion ?: return
                 val available = forgeMetadataClient.loaderVersions(plan.minecraftVersion)
@@ -612,6 +646,7 @@ class ModpackInstaller(
                     )
                 }
             }
+
             ModLoader.QUILT -> {
                 val requested = plan.loaderVersion ?: return
                 val available = quiltMetadataClient.loaderVersions(plan.minecraftVersion)
@@ -656,7 +691,6 @@ class ModpackInstaller(
         if (metadata.isDirectory) fileSystem.list(path).forEach(::deleteTree)
         fileSystem.delete(path, mustExist = false)
     }
-
 }
 
 private data class ModpackPlan(
@@ -677,15 +711,10 @@ private data class PackFile(
     val sha512: String? = null,
 )
 
-private fun ExternalModpackPlan.isUnresolved(): Boolean =
-    files.isEmpty() && archiveUrl == null && componentArchives.isEmpty()
+private fun ExternalModpackPlan.isUnresolved(): Boolean = files.isEmpty() && archiveUrl == null && componentArchives.isEmpty()
 
 @Serializable
-private data class ModrinthPackIndex(
-    val name: String,
-    val files: List<ModrinthPackFile>,
-    val dependencies: Map<String, String>,
-)
+private data class ModrinthPackIndex(val name: String, val files: List<ModrinthPackFile>, val dependencies: Map<String, String>)
 
 @Serializable
 private data class ModrinthPackFile(
@@ -697,10 +726,7 @@ private data class ModrinthPackFile(
 )
 
 @Serializable
-private data class ModrinthPackEnvironment(
-    val client: String = "required",
-    val server: String = "required",
-)
+private data class ModrinthPackEnvironment(val client: String = "required", val server: String = "required")
 
 @Serializable
 private data class CurseForgePackManifest(
@@ -711,16 +737,10 @@ private data class CurseForgePackManifest(
 )
 
 @Serializable
-private data class CurseForgePackMinecraft(
-    val version: String,
-    val modLoaders: List<CurseForgePackLoader> = emptyList(),
-)
+private data class CurseForgePackMinecraft(val version: String, val modLoaders: List<CurseForgePackLoader> = emptyList())
 
 @Serializable
-private data class CurseForgePackLoader(
-    val id: String,
-    val primary: Boolean = false,
-)
+private data class CurseForgePackLoader(val id: String, val primary: Boolean = false)
 
 @Serializable
 private data class CurseForgePackFile(
@@ -730,28 +750,16 @@ private data class CurseForgePackFile(
 )
 
 @Serializable
-private data class PrismPackManifest(
-    val components: List<PrismPackComponent>,
-)
+private data class PrismPackManifest(val components: List<PrismPackComponent>)
 
 @Serializable
-private data class PrismPackComponent(
-    val uid: String,
-    val version: String,
-)
+private data class PrismPackComponent(val uid: String, val version: String)
 
 @Serializable
-private data class FtbAppInstance(
-    val name: String,
-    val mcVersion: String,
-    val modLoader: String = "",
-    val totalPlayTime: Long = 0,
-)
+private data class FtbAppInstance(val name: String, val mcVersion: String, val modLoader: String = "", val totalPlayTime: Long = 0)
 
 @Serializable
-private data class ExternalPackProfile(
-    val libraries: List<ExternalPackLibrary> = emptyList(),
-)
+private data class ExternalPackProfile(val libraries: List<ExternalPackLibrary> = emptyList())
 
 @Serializable
 private data class ExternalPackLibrary(val name: String)

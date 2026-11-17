@@ -1,16 +1,16 @@
 package net.blockhost.trestle.ui
 
+import net.blockhost.trestle.app.LauncherPreferences
+import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.auth.AccountAuthenticationMethod
 import net.blockhost.trestle.auth.SkinVariant
-import net.blockhost.trestle.app.ThemePreference
-import net.blockhost.trestle.app.LauncherPreferences
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.instance.MinecraftClientSettings
-import net.blockhost.trestle.resources.ResourceProvider
-import net.blockhost.trestle.resources.ResourceType
-import net.blockhost.trestle.resources.ResourceSearchSort
 import net.blockhost.trestle.resources.ReleaseChannel
+import net.blockhost.trestle.resources.ResourceProvider
+import net.blockhost.trestle.resources.ResourceSearchSort
+import net.blockhost.trestle.resources.ResourceType
 
 /**
  * Events emitted by the Compose UI.
@@ -102,12 +102,7 @@ interface LauncherUiActions {
     fun confirmInstanceRemoval() {}
     fun confirmInstanceDeletion() {}
     fun undoInstanceRemoval() {}
-    fun queueLocalFileImport(
-        fileName: String,
-        bytes: ByteArray,
-        type: ResourceType? = null,
-        sourceOrigin: String? = null,
-    ) {}
+    fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType? = null, sourceOrigin: String? = null) {}
     fun reportLocalFileReadFailure(fileName: String) {}
     fun reportLocalFileTooLarge(fileName: String) {}
     fun setLocalFileImportType(type: ResourceType) {}

@@ -1,10 +1,10 @@
 package net.blockhost.trestle.auth
 
 import io.ktor.client.HttpClient
+import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
-import io.ktor.client.request.forms.FormDataContent
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -44,37 +44,41 @@ internal class IosMinecraftAuthenticator(
                 }
                 deviceCodeResult(onDeviceAuthorization)
             }
+
             is AccountLoginRequest.SecretImport -> when (request.method) {
                 AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN ->
                     microsoftResult(refreshMicrosoftToken(request.secret.reveal()), request.method)
+
                 AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(request.secret)
+
                 else -> unsupported(request.method)
             }
+
             is AccountLoginRequest.Offline -> offlineResult(request.username)
+
             is AccountLoginRequest.Credentials -> unsupported(request.method)
         }
     }
 
-    override suspend fun restore(
-        profile: LauncherAccount,
-        serializedState: SecretValue,
-    ): AuthenticatedMinecraftAccount = execute("restore") {
-        when (profile.authenticationMethod) {
-            AccountAuthenticationMethod.OFFLINE -> offlineResult(profile.playerName)
-            AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(serializedState)
-            AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
-            AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
-            -> {
-                val state = authJson.decodeFromString<IosAuthenticationState>(serializedState.reveal())
-                microsoftResult(refreshMicrosoftToken(state.refreshToken), profile.authenticationMethod)
-            }
-            else -> unsupported(profile.authenticationMethod)
-        }
-    }
+    override suspend fun restore(profile: LauncherAccount, serializedState: SecretValue): AuthenticatedMinecraftAccount =
+        execute("restore") {
+            when (profile.authenticationMethod) {
+                AccountAuthenticationMethod.OFFLINE -> offlineResult(profile.playerName)
 
-    private suspend fun deviceCodeResult(
-        callback: (DeviceAuthorization) -> Unit,
-    ): AuthenticatedMinecraftAccount {
+                AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(serializedState)
+
+                AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
+                AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
+                -> {
+                    val state = authJson.decodeFromString<IosAuthenticationState>(serializedState.reveal())
+                    microsoftResult(refreshMicrosoftToken(state.refreshToken), profile.authenticationMethod)
+                }
+
+                else -> unsupported(profile.authenticationMethod)
+            }
+        }
+
+    private suspend fun deviceCodeResult(callback: (DeviceAuthorization) -> Unit): AuthenticatedMinecraftAccount {
         val response = postForm(
             DEVICE_CODE_ENDPOINT,
             "client_id" to OfficialMinecraftApplications.java.clientId,
@@ -127,11 +131,14 @@ internal class IosMinecraftAuthenticator(
         val xbox = postJson(
             XBOX_AUTH_ENDPOINT,
             buildJsonObject {
-                put("Properties", buildJsonObject {
-                    put("AuthMethod", JsonPrimitive("RPS"))
-                    put("SiteName", JsonPrimitive("user.auth.xboxlive.com"))
-                    put("RpsTicket", JsonPrimitive("d=${microsoftToken.accessToken}"))
-                })
+                put(
+                    "Properties",
+                    buildJsonObject {
+                        put("AuthMethod", JsonPrimitive("RPS"))
+                        put("SiteName", JsonPrimitive("user.auth.xboxlive.com"))
+                        put("RpsTicket", JsonPrimitive("d=${microsoftToken.accessToken}"))
+                    },
+                )
                 put("RelyingParty", JsonPrimitive("http://auth.xboxlive.com"))
                 put("TokenType", JsonPrimitive("JWT"))
             },
@@ -142,10 +149,13 @@ internal class IosMinecraftAuthenticator(
         val xsts = postJson(
             XSTS_ENDPOINT,
             buildJsonObject {
-                put("Properties", buildJsonObject {
-                    put("SandboxId", JsonPrimitive("RETAIL"))
-                    put("UserTokens", buildJsonArray { add(JsonPrimitive(xboxToken)) })
-                })
+                put(
+                    "Properties",
+                    buildJsonObject {
+                        put("SandboxId", JsonPrimitive("RETAIL"))
+                        put("UserTokens", buildJsonArray { add(JsonPrimitive(xboxToken)) })
+                    },
+                )
                 put("RelyingParty", JsonPrimitive("rp://api.minecraftservices.com/"))
                 put("TokenType", JsonPrimitive("JWT"))
             },
@@ -289,20 +299,15 @@ internal class IosMinecraftAuthenticator(
         refreshToken = requiredString("refresh_token"),
     )
 
-    private fun JsonObject.xui(): JsonObject =
-        getValue("DisplayClaims").jsonObject.getValue("xui").jsonArray.first().jsonObject
+    private fun JsonObject.xui(): JsonObject = getValue("DisplayClaims").jsonObject.getValue("xui").jsonArray.first().jsonObject
 
-    private fun JsonObject.requiredString(name: String): String =
-        optionalString(name) ?: error("Authentication response is missing $name.")
+    private fun JsonObject.requiredString(name: String): String = optionalString(name) ?: error("Authentication response is missing $name.")
 
-    private fun JsonObject.optionalString(name: String): String? =
-        (get(name) as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
+    private fun JsonObject.optionalString(name: String): String? = (get(name) as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
 
-    private fun JsonObject.requiredLong(name: String): Long =
-        optionalLong(name) ?: error("Authentication response is missing $name.")
+    private fun JsonObject.requiredLong(name: String): Long = optionalLong(name) ?: error("Authentication response is missing $name.")
 
-    private fun JsonObject.optionalLong(name: String): Long? =
-        (get(name) as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
+    private fun JsonObject.optionalLong(name: String): Long? = (get(name) as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
 
     private data class MicrosoftToken(val accessToken: String, val refreshToken: String)
     private data class MinecraftProfile(val id: String, val name: String)
@@ -310,10 +315,7 @@ internal class IosMinecraftAuthenticator(
     private class MicrosoftAuthorizationSlowDown : Exception()
 
     @Serializable
-    private data class IosAuthenticationState(
-        val refreshToken: String,
-        val expiresAtEpochMillis: Long,
-    )
+    private data class IosAuthenticationState(val refreshToken: String, val expiresAtEpochMillis: Long)
 
     private companion object {
         val authJson = Json { ignoreUnknownKeys = true }

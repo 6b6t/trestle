@@ -125,6 +125,16 @@ Compile the desktop app:
 ./gradlew :desktopApp:classes
 ```
 
+Check Kotlin style and static analysis:
+
+```bash
+./gradlew ktlintCheck detekt
+```
+
+Fix formatting with `./gradlew ktlintFormat`. ktlint reads its rules from `.editorconfig`.
+detekt reads `config/detekt/detekt.yml` and ignores the existing findings listed in each module's `detekt-baseline.xml`.
+Fix new detekt findings instead of adding them to the baseline.
+
 GitHub Actions runs these checks for each pull request and each push to `main`.
 
 ## Architecture references

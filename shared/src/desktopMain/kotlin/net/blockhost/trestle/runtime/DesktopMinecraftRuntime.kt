@@ -1,16 +1,16 @@
 package net.blockhost.trestle.runtime
 
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
+import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.auth.AuthSession
 import net.blockhost.trestle.auth.SessionProvider
-import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
@@ -49,89 +49,88 @@ class DesktopMinecraftRuntime(
         instance: GameInstance,
         options: LaunchOptions,
         onProgress: suspend (RuntimePreparationProgress) -> Unit,
-    ): PreparedLaunch =
-        withContext(Dispatchers.IO) {
-            val session = sessionProvider.currentSession(instance.accountProfileId)
-            val installed = installedVersionReader(instance)
-            val java = instance.javaExecutable ?: javaResolver.resolve(
-                component = installed.metadata.javaVersion?.component,
-                requiredMajor = installed.requiredJavaMajor,
-            )
-            if (instance.javaExecutable != null) {
-                val executable = Path.of(java)
-                if (!Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
-                    throw LauncherException.RuntimeUnavailable("The custom Java executable is not usable: $java")
-                }
-            }
-            val nativeDirectory = extractNatives(instance, installed)
-            val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
-            val classpathEntries = installed.libraries.filter { !it.native && it.classpath }
-                .map { (directories.libraries / it.path).toString() } + clientJar.toString()
-            val separator = if (environment.operatingSystem == OperatingSystem.WINDOWS) ";" else ":"
-            val classpath = classpathEntries.joinToString(separator)
-            val values = launchValues(instance, installed, session, nativeDirectory.toString(), classpath, separator)
-
-            val jvmArguments = buildList {
-                add("-Xms${instance.memory.minimumMiB}M")
-                add("-Xmx${instance.memory.maximumMiB}M")
-                if (installed.jvmArguments.isEmpty()) {
-                    add("-Djava.library.path=$nativeDirectory")
-                    add("-cp")
-                    add(classpath)
-                } else {
-                    addAll(installed.jvmArguments.map { substitutePublic(it, values) })
-                }
-                installed.loggingPath?.let { loggingPath ->
-                    val configuration = installed.metadata.logging["client"]
-                    if (configuration != null) {
-                        add(configuration.argument.replace("\${path}", (directories.logging / loggingPath).toString()))
-                    }
-                }
-                addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted)
-                addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted)
-                addAll(loaderBootstrapArguments(instance, installed, clientJar))
-            }
-            val gameArguments = installed.gameArguments + instance.gameArguments + options.additionalGameArguments
-            val commandArguments = buildList {
-                jvmArguments.forEach { add(CommandArgument.Public(it)) }
-                add(CommandArgument.Public(installed.metadata.mainClass))
-                gameArguments.forEach { argument -> add(substituteArgument(argument, values, session)) }
-                if (options.demo) add(CommandArgument.Public("--demo"))
-            }
-            val hookEnvironment = instance.environmentVariables + mapOf(
-                "INST_NAME" to instance.displayName,
-                "INST_ID" to instance.id.value,
-                "INST_DIR" to instance.instanceDirectory,
-                "INST_MC_DIR" to (instance.instanceDirectory.toPath() / "game").toString(),
-                "INST_JAVA" to java,
-                "INST_JAVA_ARGS" to jvmArguments.joinToString(" "),
-            )
-            PreparedLaunch(
-                instanceId = instance.id.value,
-                executable = java,
-                arguments = commandArguments,
-                workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
-                environment = hookEnvironment,
-                mainClass = installed.metadata.mainClass,
-                classpathEntries = classpathEntries,
-                nativeDirectory = nativeDirectory.toString(),
-                missingRequirements = if (session == null) listOf("Java account") else emptyList(),
-                preLaunchCommand = instance.preLaunchCommand,
-                wrapperCommand = instance.wrapperCommand,
-                postExitCommand = instance.postExitCommand,
-            ).also { prepared ->
-                logger.info(
-                    "runtime",
-                    "Prepared Minecraft launch",
-                    mapOf(
-                        "instanceId" to instance.id.value,
-                        "mainClass" to prepared.mainClass,
-                        "classpathEntries" to prepared.classpathEntries.size,
-                        "authenticated" to (session != null),
-                    ),
-                )
+    ): PreparedLaunch = withContext(Dispatchers.IO) {
+        val session = sessionProvider.currentSession(instance.accountProfileId)
+        val installed = installedVersionReader(instance)
+        val java = instance.javaExecutable ?: javaResolver.resolve(
+            component = installed.metadata.javaVersion?.component,
+            requiredMajor = installed.requiredJavaMajor,
+        )
+        if (instance.javaExecutable != null) {
+            val executable = Path.of(java)
+            if (!Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
+                throw LauncherException.RuntimeUnavailable("The custom Java executable is not usable: $java")
             }
         }
+        val nativeDirectory = extractNatives(instance, installed)
+        val clientJar = directories.versions / instance.minecraftVersionId / "${instance.minecraftVersionId}.jar"
+        val classpathEntries = installed.libraries.filter { !it.native && it.classpath }
+            .map { (directories.libraries / it.path).toString() } + clientJar.toString()
+        val separator = if (environment.operatingSystem == OperatingSystem.WINDOWS) ";" else ":"
+        val classpath = classpathEntries.joinToString(separator)
+        val values = launchValues(instance, installed, session, nativeDirectory.toString(), classpath, separator)
+
+        val jvmArguments = buildList {
+            add("-Xms${instance.memory.minimumMiB}M")
+            add("-Xmx${instance.memory.maximumMiB}M")
+            if (installed.jvmArguments.isEmpty()) {
+                add("-Djava.library.path=$nativeDirectory")
+                add("-cp")
+                add(classpath)
+            } else {
+                addAll(installed.jvmArguments.map { substitutePublic(it, values) })
+            }
+            installed.loggingPath?.let { loggingPath ->
+                val configuration = installed.metadata.logging["client"]
+                if (configuration != null) {
+                    add(configuration.argument.replace("\${path}", (directories.logging / loggingPath).toString()))
+                }
+            }
+            addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted)
+            addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted)
+            addAll(loaderBootstrapArguments(instance, installed, clientJar))
+        }
+        val gameArguments = installed.gameArguments + instance.gameArguments + options.additionalGameArguments
+        val commandArguments = buildList {
+            jvmArguments.forEach { add(CommandArgument.Public(it)) }
+            add(CommandArgument.Public(installed.metadata.mainClass))
+            gameArguments.forEach { argument -> add(substituteArgument(argument, values, session)) }
+            if (options.demo) add(CommandArgument.Public("--demo"))
+        }
+        val hookEnvironment = instance.environmentVariables + mapOf(
+            "INST_NAME" to instance.displayName,
+            "INST_ID" to instance.id.value,
+            "INST_DIR" to instance.instanceDirectory,
+            "INST_MC_DIR" to (instance.instanceDirectory.toPath() / "game").toString(),
+            "INST_JAVA" to java,
+            "INST_JAVA_ARGS" to jvmArguments.joinToString(" "),
+        )
+        PreparedLaunch(
+            instanceId = instance.id.value,
+            executable = java,
+            arguments = commandArguments,
+            workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
+            environment = hookEnvironment,
+            mainClass = installed.metadata.mainClass,
+            classpathEntries = classpathEntries,
+            nativeDirectory = nativeDirectory.toString(),
+            missingRequirements = if (session == null) listOf("Java account") else emptyList(),
+            preLaunchCommand = instance.preLaunchCommand,
+            wrapperCommand = instance.wrapperCommand,
+            postExitCommand = instance.postExitCommand,
+        ).also { prepared ->
+            logger.info(
+                "runtime",
+                "Prepared Minecraft launch",
+                mapOf(
+                    "instanceId" to instance.id.value,
+                    "mainClass" to prepared.mainClass,
+                    "classpathEntries" to prepared.classpathEntries.size,
+                    "authenticated" to (session != null),
+                ),
+            )
+        }
+    }
 
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = channelFlow {
         var process: Process? = null
@@ -212,11 +211,7 @@ class DesktopMinecraftRuntime(
         }
     }
 
-    private suspend fun runAuxiliaryCommand(
-        command: List<String>,
-        preparedLaunch: PreparedLaunch,
-        onLine: suspend (String) -> Unit,
-    ): Int {
+    private suspend fun runAuxiliaryCommand(command: List<String>, preparedLaunch: PreparedLaunch, onLine: suspend (String) -> Unit): Int {
         val process = ProcessBuilder(command)
             .directory(File(preparedLaunch.workingDirectory))
             .redirectErrorStream(true)
@@ -299,21 +294,19 @@ class DesktopMinecraftRuntime(
     private fun substitutePublic(argument: String, values: Map<String, String>): String =
         PLACEHOLDER.replace(argument) { match -> values[match.groupValues[1]] ?: match.value }
 
-    private fun loaderBootstrapArguments(
-        instance: GameInstance,
-        installed: InstalledVersion,
-        clientJar: okio.Path,
-    ): List<String> {
+    private fun loaderBootstrapArguments(instance: GameInstance, installed: InstalledVersion, clientJar: okio.Path): List<String> {
         if (instance.modLoader !in setOf(ModLoader.NEOFORGE, ModLoader.FORGE)) return emptyList()
         val loaderVersion = instance.loaderVersion
             ?: throw LauncherException.InvalidMetadata("The ${instance.modLoader.label} instance has no loader version.")
         val installerCoordinate = when (instance.modLoader) {
             ModLoader.FORGE -> "net.minecraftforge:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
+
             ModLoader.NEOFORGE -> if ("--fml.neoForgeVersion" in installed.gameArguments) {
                 "net.neoforged:neoforge:$loaderVersion:installer"
             } else {
                 "net.neoforged:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
             }
+
             else -> error("Loader bootstrap arguments were requested for an unsupported loader.")
         }
         val installer = directories.libraries /
@@ -325,11 +318,7 @@ class DesktopMinecraftRuntime(
         )
     }
 
-    private fun substituteArgument(
-        argument: String,
-        values: Map<String, String>,
-        session: AuthSession?,
-    ): CommandArgument {
+    private fun substituteArgument(argument: String, values: Map<String, String>, session: AuthSession?): CommandArgument {
         if (session == null && AUTH_PLACEHOLDERS.any(argument::contains)) {
             return CommandArgument.RequiredCredential("Java account")
         }

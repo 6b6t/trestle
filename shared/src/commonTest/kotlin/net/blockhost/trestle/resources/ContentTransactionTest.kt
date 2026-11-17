@@ -5,7 +5,12 @@ import okio.IOException
 import okio.Path
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ContentTransactionTest {
     @Test fun restoresChangesWithoutTouchingUserFiles() {
@@ -18,8 +23,10 @@ class ContentTransactionTest {
         fs.write("/stage/new.jar".toPath()) { write(byteArrayOf(3, 4)) }
         val original = fs.sha256(root / "game/old.jar")
         val transaction = ContentTransaction(fs, root, root / ".trestle/backup")
-        transaction.apply(mapOf("game/old.jar" to null, "game/new.jar" to "/stage/new.jar".toPath()),
-            mapOf("game/old.jar" to original, "game/new.jar" to null))
+        transaction.apply(
+            mapOf("game/old.jar" to null, "game/new.jar" to "/stage/new.jar".toPath()),
+            mapOf("game/old.jar" to original, "game/new.jar" to null),
+        )
         assertFalse(fs.exists(root / "game/old.jar"))
         assertTrue(transaction.canRollback())
         transaction.rollback()
@@ -39,14 +46,19 @@ class ContentTransactionTest {
         var fail = true
         val fs = object : ForwardingFileSystem(storage) {
             override fun atomicMove(source: Path, target: Path) {
-                if (target == root / "second" && fail) { fail = false; throw IOException("Injected disk error") }
+                if (target == root / "second" && fail) {
+                    fail = false
+                    throw IOException("Injected disk error")
+                }
                 super.atomicMove(source, target)
             }
         }
         val transaction = ContentTransaction(fs, root, root / ".trestle/backup")
         assertFailsWith<IOException> {
-            transaction.apply(mapOf("first" to "/stage/new".toPath(), "second" to "/stage/new".toPath()),
-                mapOf("first" to fs.sha256(root / "first"), "second" to fs.sha256(root / "second")))
+            transaction.apply(
+                mapOf("first" to "/stage/new".toPath(), "second" to "/stage/new".toPath()),
+                mapOf("first" to fs.sha256(root / "first"), "second" to fs.sha256(root / "second")),
+            )
         }
         assertEquals(1, fs.read(root / "first") { readByte().toInt() })
         assertEquals(2, fs.read(root / "second") { readByte().toInt() })

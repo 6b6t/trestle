@@ -10,16 +10,12 @@ import okio.Path.Companion.toPath
 import okio.buffer
 
 internal class IosInstanceExporter : InstanceExporter {
-    override fun export(instance: GameInstance, destination: Path): Path {
-        throw LauncherException.RuntimeUnavailable(
-            "Portable ZIP export is not available in the iOS host yet.",
-        )
-    }
+    override fun export(instance: GameInstance, destination: Path): Path = throw LauncherException.RuntimeUnavailable(
+        "Portable ZIP export is not available in the iOS host yet.",
+    )
 }
 
-internal class IosGameDataManager(
-    private val fileSystem: FileSystem = FileSystem.SYSTEM,
-) : GameDataManager {
+internal class IosGameDataManager(private val fileSystem: FileSystem = FileSystem.SYSTEM) : GameDataManager {
     override suspend fun inventory(instance: GameInstance): GameDataInventory {
         val game = gameDirectory(instance)
         return GameDataInventory(
@@ -73,11 +69,7 @@ internal class IosGameDataManager(
         fileSystem.delete(safeChild(gameDirectory(instance) / "screenshots", screenshotKey), mustExist = false)
     }
 
-    override suspend fun renameScreenshot(
-        instance: GameInstance,
-        screenshotKey: String,
-        newName: String,
-    ): ManagedScreenshot {
+    override suspend fun renameScreenshot(instance: GameInstance, screenshotKey: String, newName: String): ManagedScreenshot {
         val screenshots = gameDirectory(instance) / "screenshots"
         val source = safeChild(screenshots, screenshotKey)
         val extension = source.name.substringAfterLast('.', "")
@@ -115,12 +107,8 @@ internal class IosGameDataManager(
     override suspend fun copyWorld(instance: GameInstance, worldKey: String): ManagedWorld = unsupported()
     override suspend fun renameWorld(instance: GameInstance, worldKey: String, newName: String): ManagedWorld = unsupported()
     override suspend fun resetWorldIcon(instance: GameInstance, worldKey: String) = unsupported<Unit>()
-    override suspend fun setDataPackEnabled(
-        instance: GameInstance,
-        worldKey: String,
-        dataPackKey: String,
-        enabled: Boolean,
-    ) = unsupported<Unit>()
+    override suspend fun setDataPackEnabled(instance: GameInstance, worldKey: String, dataPackKey: String, enabled: Boolean) =
+        unsupported<Unit>()
     override suspend fun upsertServer(instance: GameInstance, server: SavedServer) = unsupported<Unit>()
     override suspend fun removeServer(instance: GameInstance, serverKey: String) = unsupported<Unit>()
     override suspend fun moveServer(instance: GameInstance, serverKey: String, offset: Int) = unsupported<Unit>()

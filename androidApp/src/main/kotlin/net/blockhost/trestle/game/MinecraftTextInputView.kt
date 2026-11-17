@@ -1,7 +1,7 @@
 package net.blockhost.trestle.game
 
-import android.content.Context
 import android.annotation.SuppressLint
+import android.content.Context
 import android.graphics.Color
 import android.text.InputType
 import android.view.View

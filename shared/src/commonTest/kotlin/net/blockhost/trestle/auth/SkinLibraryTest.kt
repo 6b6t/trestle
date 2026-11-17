@@ -72,11 +72,10 @@ class SkinLibraryTest {
     }
 }
 
-internal fun minecraftSkinPng(width: Int = 64, height: Int = 64, marker: Int = 0): ByteArray =
-    byteArrayOf(
-        0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-        0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-        (width ushr 24).toByte(), (width ushr 16).toByte(), (width ushr 8).toByte(), width.toByte(),
-        (height ushr 24).toByte(), (height ushr 16).toByte(), (height ushr 8).toByte(), height.toByte(),
-        marker.toByte(),
-    )
+internal fun minecraftSkinPng(width: Int = 64, height: Int = 64, marker: Int = 0): ByteArray = byteArrayOf(
+    0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+    0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+    (width ushr 24).toByte(), (width ushr 16).toByte(), (width ushr 8).toByte(), width.toByte(),
+    (height ushr 24).toByte(), (height ushr 16).toByte(), (height ushr 8).toByte(), height.toByte(),
+    marker.toByte(),
+)

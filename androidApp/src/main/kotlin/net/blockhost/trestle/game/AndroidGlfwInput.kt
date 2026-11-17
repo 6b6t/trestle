@@ -61,11 +61,10 @@ internal object AndroidGlfwInput {
         else -> null
     }
 
-    fun modifiers(metaState: Int): Int =
-        (if (metaState and KeyEvent.META_SHIFT_ON != 0) 0x0001 else 0) or
-            (if (metaState and KeyEvent.META_CTRL_ON != 0) 0x0002 else 0) or
-            (if (metaState and KeyEvent.META_ALT_ON != 0) 0x0004 else 0) or
-            (if (metaState and KeyEvent.META_META_ON != 0) 0x0008 else 0) or
-            (if (metaState and KeyEvent.META_CAPS_LOCK_ON != 0) 0x0010 else 0) or
-            (if (metaState and KeyEvent.META_NUM_LOCK_ON != 0) 0x0020 else 0)
+    fun modifiers(metaState: Int): Int = (if (metaState and KeyEvent.META_SHIFT_ON != 0) 0x0001 else 0) or
+        (if (metaState and KeyEvent.META_CTRL_ON != 0) 0x0002 else 0) or
+        (if (metaState and KeyEvent.META_ALT_ON != 0) 0x0004 else 0) or
+        (if (metaState and KeyEvent.META_META_ON != 0) 0x0008 else 0) or
+        (if (metaState and KeyEvent.META_CAPS_LOCK_ON != 0) 0x0010 else 0) or
+        (if (metaState and KeyEvent.META_NUM_LOCK_ON != 0) 0x0020 else 0)
 }

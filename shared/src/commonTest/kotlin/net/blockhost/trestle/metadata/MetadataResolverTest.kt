@@ -77,18 +77,28 @@ class MetadataResolverTest {
     @Test
     fun resolvesConditionalArgumentObjects() {
         val values = buildJsonArray {
-            add(buildJsonObject {
-                put("rules", buildJsonArray {
-                    add(buildJsonObject {
-                        put("action", "allow")
-                        put("os", buildJsonObject { put("name", "linux") })
-                    })
-                })
-                put("value", buildJsonArray {
-                    add("--width")
-                    add("1280")
-                })
-            })
+            add(
+                buildJsonObject {
+                    put(
+                        "rules",
+                        buildJsonArray {
+                            add(
+                                buildJsonObject {
+                                    put("action", "allow")
+                                    put("os", buildJsonObject { put("name", "linux") })
+                                },
+                            )
+                        },
+                    )
+                    put(
+                        "value",
+                        buildJsonArray {
+                            add("--width")
+                            add("1280")
+                        },
+                    )
+                },
+            )
         }
         assertEquals(listOf("--width", "1280"), MojangArguments.resolve(values, linux))
     }

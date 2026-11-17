@@ -1,0 +1,42 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:Main.kt:@OptIn(ExperimentalComposeUiApi::class, FlowPreview::class) fun main</ID>
+    <ID>CyclomaticComplexMethod:Main.kt:internal suspend fun runCli: Int</ID>
+    <ID>FunctionNaming:SystemAccentSources.kt:WindowsSystemAccentSource.DwmApi$@Suppress("ktlint:standard:function-naming") // JNA binds the native function name. fun DwmGetColorizationColor: Int</ID>
+    <ID>FunctionNaming:WindowsIntegration.kt:WindowsIntegration.DwmApi$@Suppress("ktlint:standard:function-naming") // JNA binds the native function name. fun DwmSetWindowAttribute: Int</ID>
+    <ID>LongMethod:DesktopTitleBar.kt:@Composable internal fun DesktopTitleBarContent</ID>
+    <ID>LongMethod:Main.kt:@OptIn(ExperimentalComposeUiApi::class, FlowPreview::class) fun main</ID>
+    <ID>LongMethod:Main.kt:internal suspend fun runCli: Int</ID>
+    <ID>MagicNumber:DesktopActivation.kt:DesktopActivationBroker.Companion$1_000</ID>
+    <ID>MagicNumber:DesktopActivation.kt:DesktopActivationBroker.Companion$50</ID>
+    <ID>MagicNumber:DesktopFileOrigin.kt:DesktopFileOrigin$120</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$0x15</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$0x17</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$0xED</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$0xF5</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$0xF8</ID>
+    <ID>MagicNumber:DesktopIntegration.kt:DesktopIntegration$38</ID>
+    <ID>MagicNumber:DesktopWindowPreferences.kt:DesktopWindowPreferences$40</ID>
+    <ID>MagicNumber:DesktopWindowPreferences.kt:DesktopWindowPreferences$80</ID>
+    <ID>MagicNumber:Main.kt:130</ID>
+    <ID>MagicNumber:Main.kt:3</ID>
+    <ID>MagicNumber:Main.kt:500</ID>
+    <ID>MagicNumber:SystemAccentSources.kt:16</ID>
+    <ID>MagicNumber:SystemAccentSources.kt:255</ID>
+    <ID>MagicNumber:SystemAccentSources.kt:8</ID>
+    <ID>MagicNumber:SystemAccentSources.kt:LinuxSystemAccentSource$3</ID>
+    <ID>MagicNumber:SystemDarkMode.kt:SystemDarkMode$5</ID>
+    <ID>MatchingDeclarationName:DesktopTray.kt:DesktopTrayMenuEntry</ID>
+    <ID>MultipleEmitters:DesktopTitleBar.kt:@Composable private fun FileMenu</ID>
+    <ID>MultipleEmitters:DesktopTitleBar.kt:@Composable private fun InstanceMenu</ID>
+    <ID>MultipleEmitters:DesktopTitleBar.kt:@Composable private fun ViewMenu</ID>
+    <ID>ReturnCount:DesktopActivation.kt:DesktopActivationParser$private fun parseTrestleUri: DesktopActivation?</ID>
+    <ID>ReturnCount:DesktopIndicator.kt:internal fun LauncherUiState.desktopIndicator: DesktopIndicator</ID>
+    <ID>ReturnCount:SystemAccentSources.kt:LinuxSystemAccentSource$override fun read: Int?</ID>
+    <ID>TooGenericExceptionCaught:Main.kt:error: Exception</ID>
+    <ID>TooGenericExceptionCaught:SystemAccentSources.kt:LinuxSystemAccentSource$throwable: Throwable</ID>
+    <ID>TooManyFunctions:DesktopTitleBar.kt:net.blockhost.trestle.desktop.DesktopTitleBar.kt</ID>
+  </CurrentIssues>
+</SmellBaseline>

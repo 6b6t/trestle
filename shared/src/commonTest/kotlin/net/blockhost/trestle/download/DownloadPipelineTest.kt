@@ -15,13 +15,13 @@ import net.blockhost.trestle.logging.BufferedLauncherLogger
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.logging.LogLevel
 import net.blockhost.trestle.logging.LogSink
-import okio.Path.Companion.toPath
 import okio.ByteString.Companion.encodeUtf8
+import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class DownloadPipelineTest {
@@ -45,10 +45,12 @@ class DownloadPipelineTest {
         fileSystem.write(destination) { writeUtf8("stale") }
         var requestCount = 0
         val pipeline = DownloadPipeline(
-            HttpClient(MockEngine {
-                requestCount++
-                respond("fresh")
-            }),
+            HttpClient(
+                MockEngine {
+                    requestCount++
+                    respond("fresh")
+                },
+            ),
             fileSystem,
         )
 
@@ -74,10 +76,12 @@ class DownloadPipelineTest {
         fileSystem.write(destination) { writeUtf8("stale") }
         var requestCount = 0
         val pipeline = DownloadPipeline(
-            HttpClient(MockEngine {
-                requestCount++
-                respond("fresh")
-            }),
+            HttpClient(
+                MockEngine {
+                    requestCount++
+                    respond("fresh")
+                },
+            ),
             fileSystem,
         )
 
@@ -139,10 +143,12 @@ class DownloadPipelineTest {
     @Test
     fun cancellationPreservesStaging() = runTest {
         val fileSystem = FakeFileSystem()
-        val client = HttpClient(MockEngine {
-            delay(Long.MAX_VALUE)
-            respond("")
-        })
+        val client = HttpClient(
+            MockEngine {
+                delay(Long.MAX_VALUE)
+                respond("")
+            },
+        )
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
         val staging = "/staging".toPath()
         val job = async {
@@ -165,10 +171,12 @@ class DownloadPipelineTest {
         fileSystem.createDirectories(requireNotNull(cached.parent))
         fileSystem.write(cached) { writeUtf8("cached") }
         val requested = mutableListOf<String>()
-        val client = HttpClient(MockEngine { request ->
-            requested += request.url.toString()
-            respond("missing")
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                requested += request.url.toString()
+                respond("missing")
+            },
+        )
         val progress = mutableListOf<DownloadProgress>()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
 
@@ -201,10 +209,12 @@ class DownloadPipelineTest {
         fileSystem.createDirectories(staging)
         fileSystem.write(staging / "0.part") { writeUtf8("cached") }
         var requestCount = 0
-        val client = HttpClient(MockEngine {
-            requestCount++
-            respond("unexpected")
-        })
+        val client = HttpClient(
+            MockEngine {
+                requestCount++
+                respond("unexpected")
+            },
+        )
         val destination = "/downloads/cached.jar".toPath()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
 
@@ -227,14 +237,16 @@ class DownloadPipelineTest {
         fileSystem.createDirectories(staging)
         fileSystem.write(staging / "0.part") { writeUtf8("part") }
         val requestedRanges = mutableListOf<String?>()
-        val client = HttpClient(MockEngine { request ->
-            requestedRanges += request.headers[HttpHeaders.Range]
-            respond(
-                content = "ial",
-                status = HttpStatusCode.PartialContent,
-                headers = headersOf(HttpHeaders.ContentRange, "bytes 4-6/7"),
-            )
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                requestedRanges += request.headers[HttpHeaders.Range]
+                respond(
+                    content = "ial",
+                    status = HttpStatusCode.PartialContent,
+                    headers = headersOf(HttpHeaders.ContentRange, "bytes 4-6/7"),
+                )
+            },
+        )
         val destination = "/downloads/partial.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
@@ -260,10 +272,12 @@ class DownloadPipelineTest {
         fileSystem.createDirectories(staging)
         fileSystem.write(staging / "0.part") { writeUtf8("old") }
         val requestedRanges = mutableListOf<String?>()
-        val client = HttpClient(MockEngine { request ->
-            requestedRanges += request.headers[HttpHeaders.Range]
-            respond("replacement")
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                requestedRanges += request.headers[HttpHeaders.Range]
+                respond("replacement")
+            },
+        )
         val destination = "/downloads/replacement.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()
         val pipeline = DownloadPipeline(client, fileSystem, maxConcurrency = 1)
@@ -289,14 +303,16 @@ class DownloadPipelineTest {
         fileSystem.write(staging / "0.part") { writeUtf8("old") }
         fileSystem.write(staging / "1.part") { writeUtf8("old") }
         val requestedRanges = mutableListOf<String?>()
-        val client = HttpClient(MockEngine { request ->
-            requestedRanges += request.headers[HttpHeaders.Range]
-            if (requestedRanges.size == 1) {
-                respond("", HttpStatusCode.RequestedRangeNotSatisfiable)
-            } else {
-                respond(if (request.url.encodedPath.endsWith("first")) "replacement" else "second-file")
-            }
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                requestedRanges += request.headers[HttpHeaders.Range]
+                if (requestedRanges.size == 1) {
+                    respond("", HttpStatusCode.RequestedRangeNotSatisfiable)
+                } else {
+                    respond(if (request.url.encodedPath.endsWith("first")) "replacement" else "second-file")
+                }
+            },
+        )
         val first = "/downloads/replacement.jar".toPath()
         val second = "/downloads/second.jar".toPath()
         val progress = mutableListOf<DownloadProgress>()

@@ -14,7 +14,4 @@ enum class LauncherCommand {
     SHOW_SHORTCUTS,
 }
 
-data class LauncherCommandRequest(
-    val sequence: Long,
-    val command: LauncherCommand,
-)
+data class LauncherCommandRequest(val sequence: Long, val command: LauncherCommand)

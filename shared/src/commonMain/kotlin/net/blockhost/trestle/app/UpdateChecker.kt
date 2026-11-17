@@ -28,11 +28,7 @@ data class ReleaseArtifact(
 )
 
 @Serializable
-data class ReleaseManifest(
-    val schemaVersion: Int,
-    val version: String,
-    val artifacts: List<ReleaseArtifact>,
-)
+data class ReleaseManifest(val schemaVersion: Int, val version: String, val artifacts: List<ReleaseArtifact>)
 
 data class LauncherUpdate(
     val version: String,
@@ -47,15 +43,15 @@ class UpdateChecker(
     private val environment: PlatformEnvironment? = null,
     private val isMobile: Boolean = false,
 ) {
-    suspend fun availableUpdate(
-        currentVersion: String = BuildInfo.VERSION,
-        includePrereleases: Boolean = false,
-    ): LauncherUpdate? {
+    suspend fun availableUpdate(currentVersion: String = BuildInfo.VERSION, includePrereleases: Boolean = false): LauncherUpdate? {
         val current = ReleaseVersion.parse(currentVersion) ?: return null
         val url = if (includePrereleases) endpoint.removeSuffix("/latest") + "?per_page=30" else endpoint
         val body = fetch(url) ?: return null
-        val releases = if (includePrereleases) updateJson.decodeFromString<List<GitHubRelease>>(body)
-        else listOf(updateJson.decodeFromString<GitHubRelease>(body))
+        val releases = if (includePrereleases) {
+            updateJson.decodeFromString<List<GitHubRelease>>(body)
+        } else {
+            listOf(updateJson.decodeFromString<GitHubRelease>(body))
+        }
         val release = releases.filter { !it.draft && (includePrereleases || !it.prerelease) }
             .mapNotNull { release -> ReleaseVersion.parse(release.tagName)?.let { it to release } }
             .filter { (version, _) -> (includePrereleases || version.prerelease.isEmpty()) && version > current }
@@ -77,14 +73,18 @@ class UpdateChecker(
                 }
             }
         }
-        val platform = if (isMobile) when (environment?.operatingSystem) {
-            OperatingSystem.IOS -> "ios"
-            else -> "android"
-        } else when (environment?.operatingSystem) {
-            OperatingSystem.MACOS -> "macos"
-            OperatingSystem.WINDOWS -> "windows"
-            OperatingSystem.LINUX -> "linux"
-            else -> null
+        val platform = if (isMobile) {
+            when (environment?.operatingSystem) {
+                OperatingSystem.IOS -> "ios"
+                else -> "android"
+            }
+        } else {
+            when (environment?.operatingSystem) {
+                OperatingSystem.MACOS -> "macos"
+                OperatingSystem.WINDOWS -> "windows"
+                OperatingSystem.LINUX -> "linux"
+                else -> null
+            }
         }
         val architecture = when (environment?.architecture) {
             Architecture.X86_64 -> "x64"

@@ -47,8 +47,8 @@ import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_arrow_back
-import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_appearance
+import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_content
 import net.blockhost.trestle.resources.ui_folders
 import net.blockhost.trestle.resources.ui_general
@@ -86,8 +86,11 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
     val showCategories: () -> Unit = {
         sectionName = null
         scope.launch {
-            if (navigator.canNavigateBack()) navigator.navigateBack()
-            else navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+            if (navigator.canNavigateBack()) {
+                navigator.navigateBack()
+            } else {
+                navigator.navigateTo(ListDetailPaneScaffoldRole.List)
+            }
         }
     }
 
@@ -225,12 +228,7 @@ private enum class SettingsSection(val label: StringResource, val group: Setting
 }
 
 @Composable
-private fun SettingsSectionButton(
-    section: SettingsSection,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
+private fun SettingsSectionButton(section: SettingsSection, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     ListItem(
         headlineContent = { Text(stringResource(section.label)) },
         colors = ListItemDefaults.colors(

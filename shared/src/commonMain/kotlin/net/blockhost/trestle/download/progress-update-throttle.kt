@@ -4,10 +4,7 @@ import kotlin.time.Duration
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 
-internal class ProgressUpdateThrottle(
-    private val interval: Duration,
-    private val timeSource: TimeSource = TimeSource.Monotonic,
-) {
+internal class ProgressUpdateThrottle(private val interval: Duration, private val timeSource: TimeSource = TimeSource.Monotonic) {
     private var lastUpdate: TimeMark? = null
 
     init {

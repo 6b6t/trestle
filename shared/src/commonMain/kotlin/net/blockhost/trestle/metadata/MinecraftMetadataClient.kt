@@ -28,8 +28,7 @@ class MinecraftMetadataClient(
 ) {
     suspend fun fetchVersionManifest(): VersionManifest = getJson(manifestUrl)
 
-    suspend fun fetchVersion(reference: VersionReference): VersionMetadata =
-        getJson(reference.url, reference.sha1, "${reference.id}.json")
+    suspend fun fetchVersion(reference: VersionReference): VersionMetadata = getJson(reference.url, reference.sha1, "${reference.id}.json")
 
     suspend fun resolveVersion(versionId: String): VersionMetadata {
         val reference = fetchVersionManifest().versions.firstOrNull { it.id == versionId }
@@ -37,14 +36,9 @@ class MinecraftMetadataClient(
         return fetchVersion(reference)
     }
 
-    suspend fun fetchAssetIndex(reference: AssetIndexReference): AssetIndex =
-        getJson(reference.url, reference.sha1, "${reference.id}.json")
+    suspend fun fetchAssetIndex(reference: AssetIndexReference): AssetIndex = getJson(reference.url, reference.sha1, "${reference.id}.json")
 
-    private suspend inline fun <reified T> getJson(
-        url: String,
-        expectedSha1: String? = null,
-        artifactName: String = safeHost(url),
-    ): T {
+    private suspend inline fun <reified T> getJson(url: String, expectedSha1: String? = null, artifactName: String = safeHost(url)): T {
         try {
             val response = httpClient.get(url)
             if (!response.status.isSuccess()) {
@@ -88,10 +82,7 @@ data class FabricLoaderVersion(
 @Serializable
 data class FabricLoaderEntry(val loader: FabricLoaderVersion)
 
-class FabricMetadataClient(
-    private val httpClient: HttpClient,
-    private val baseUrl: String = "https://meta.fabricmc.net/v2",
-) {
+class FabricMetadataClient(private val httpClient: HttpClient, private val baseUrl: String = "https://meta.fabricmc.net/v2") {
     suspend fun loaderVersions(gameVersion: String): List<FabricLoaderVersion> =
         getJson<List<FabricLoaderEntry>>("$baseUrl/versions/loader/$gameVersion").map { it.loader }
 
@@ -116,22 +107,14 @@ class FabricMetadataClient(
 }
 
 @Serializable
-data class QuiltLoaderVersion(
-    val separator: String = ".",
-    val build: Int = 0,
-    val maven: String,
-    val version: String,
-) {
+data class QuiltLoaderVersion(val separator: String = ".", val build: Int = 0, val maven: String, val version: String) {
     val stable: Boolean get() = '-' !in version
 }
 
 @Serializable
 private data class QuiltLoaderEntry(val loader: QuiltLoaderVersion)
 
-class QuiltMetadataClient(
-    private val httpClient: HttpClient,
-    private val baseUrl: String = "https://meta.quiltmc.org/v3",
-) {
+class QuiltMetadataClient(private val httpClient: HttpClient, private val baseUrl: String = "https://meta.quiltmc.org/v3") {
     suspend fun loaderVersions(gameVersion: String): List<QuiltLoaderVersion> =
         getJson<List<QuiltLoaderEntry>>("$baseUrl/versions/loader/$gameVersion").map { it.loader }
 
@@ -156,37 +139,21 @@ class QuiltMetadataClient(
 }
 
 @Serializable
-data class NeoForgeLoaderVersion(
-    val version: String,
-    val recommended: Boolean = false,
-    val releaseTime: String = "",
-) {
+data class NeoForgeLoaderVersion(val version: String, val recommended: Boolean = false, val releaseTime: String = "") {
     val stable: Boolean get() = '-' !in version
 }
 
-data class NeoForgeInstallProfile(
-    val metadata: VersionMetadata,
-    val mavenFiles: List<MojangLibrary>,
-)
+data class NeoForgeInstallProfile(val metadata: VersionMetadata, val mavenFiles: List<MojangLibrary>)
 
 @Serializable
-data class ForgeLoaderVersion(
-    val version: String,
-    val recommended: Boolean = false,
-    val releaseTime: String = "",
-) {
+data class ForgeLoaderVersion(val version: String, val recommended: Boolean = false, val releaseTime: String = "") {
     val stable: Boolean get() = '-' !in version
 }
 
-data class ForgeInstallProfile(
-    val metadata: VersionMetadata,
-    val mavenFiles: List<MojangLibrary>,
-)
+data class ForgeInstallProfile(val metadata: VersionMetadata, val mavenFiles: List<MojangLibrary>)
 
 @Serializable
-private data class PrismComponentVersionIndex(
-    val versions: List<PrismComponentVersionReference>,
-)
+private data class PrismComponentVersionIndex(val versions: List<PrismComponentVersionReference>)
 
 @Serializable
 private data class PrismComponentVersionReference(
@@ -212,10 +179,7 @@ private data class PrismComponentProfile(
 )
 
 @Serializable
-private data class ComponentRequirement(
-    val uid: String,
-    @SerialName("equals") val exactVersion: String? = null,
-)
+private data class ComponentRequirement(val uid: String, @SerialName("equals") val exactVersion: String? = null)
 
 class NeoForgeMetadataClient(
     private val httpClient: HttpClient,
@@ -224,10 +188,9 @@ class NeoForgeMetadataClient(
 ) {
     private val delegate = PrismComponentMetadataClient(httpClient, userAgent, baseUrl, "NeoForge")
 
-    suspend fun loaderVersions(gameVersion: String): List<NeoForgeLoaderVersion> =
-        delegate.versionReferences(gameVersion).map {
-            NeoForgeLoaderVersion(it.version, it.recommended, it.releaseTime)
-        }
+    suspend fun loaderVersions(gameVersion: String): List<NeoForgeLoaderVersion> = delegate.versionReferences(gameVersion).map {
+        NeoForgeLoaderVersion(it.version, it.recommended, it.releaseTime)
+    }
 
     suspend fun profile(gameVersion: String, loaderVersion: String): NeoForgeInstallProfile {
         val profile = delegate.profile(gameVersion, loaderVersion)
@@ -245,10 +208,9 @@ class ForgeMetadataClient(
 ) {
     private val delegate = PrismComponentMetadataClient(httpClient, userAgent, baseUrl, "Forge")
 
-    suspend fun loaderVersions(gameVersion: String): List<ForgeLoaderVersion> =
-        delegate.versionReferences(gameVersion).map {
-            ForgeLoaderVersion(it.version, it.recommended, it.releaseTime)
-        }
+    suspend fun loaderVersions(gameVersion: String): List<ForgeLoaderVersion> = delegate.versionReferences(gameVersion).map {
+        ForgeLoaderVersion(it.version, it.recommended, it.releaseTime)
+    }
 
     suspend fun profile(gameVersion: String, loaderVersion: String): ForgeInstallProfile {
         val profile = delegate.profile(gameVersion, loaderVersion)
@@ -259,10 +221,7 @@ class ForgeMetadataClient(
     }
 }
 
-private data class PrismInstallProfile(
-    val metadata: VersionMetadata,
-    val mavenFiles: List<MojangLibrary>,
-)
+private data class PrismInstallProfile(val metadata: VersionMetadata, val mavenFiles: List<MojangLibrary>)
 
 private class PrismComponentMetadataClient(
     private val httpClient: HttpClient,

@@ -3,10 +3,7 @@ package net.blockhost.trestle.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 
-internal data class LocalDroppedFile(
-    val name: String,
-    val bytes: ByteArray,
-)
+internal data class LocalDroppedFile(val name: String, val bytes: ByteArray)
 
 @Composable
 internal expect fun Modifier.localFileDropTarget(

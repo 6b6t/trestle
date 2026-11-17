@@ -47,23 +47,43 @@ internal class AdoptiumJavaResolver(
             parameter("os", "linux")
             parameter("vendor", "eclipse")
         }
-        if (!response.status.isSuccess()) throw LauncherException.RuntimeUnavailable("Temurin Java $major for Linux ARM64 could not be found. Configure a compatible Java executable in instance settings.")
+        if (!response.status.isSuccess()) {
+            throw LauncherException.RuntimeUnavailable(
+                "Temurin Java $major for Linux ARM64 could not be found. Configure a compatible Java executable in instance settings.",
+            )
+        }
         val release = json.decodeFromString<List<Release>>(response.bodyAsText()).firstOrNull {
             it.version.major == major && it.binary.architecture == "aarch64" && it.binary.os == "linux" && it.binary.imageType == "jre"
         } ?: throw LauncherException.RuntimeUnavailable("No Temurin Java $major runtime is available for Linux ARM64.")
         val artifact = release.binary.artifact
-        require(artifact.checksum.matches(Regex("[0-9a-f]{64}")) && artifact.size in 1..1024L * 1024 * 1024) { "Invalid Temurin package metadata." }
-        require(artifact.link.startsWith("https://github.com/adoptium/") && artifact.link.endsWith(".tar.gz")) { "Untrusted Temurin package URL." }
+        require(artifact.checksum.matches(Regex("[0-9a-f]{64}")) && artifact.size in 1..1024L * 1024 * 1024) {
+            "Invalid Temurin package metadata."
+        }
+        require(artifact.link.startsWith("https://github.com/adoptium/") && artifact.link.endsWith(".tar.gz")) {
+            "Untrusted Temurin package URL."
+        }
         val staging = directories.staging / "temurin" / artifact.checksum
         val archive = staging / "runtime.tar.gz"
-        downloads.download(listOf(DownloadRequest(artifact.link, archive, sha256 = artifact.checksum, size = artifact.size,
-            progressLabel = "Downloading Temurin Java $major")), staging / "downloads")
+        downloads.download(
+            listOf(
+                DownloadRequest(
+                    artifact.link,
+                    archive,
+                    sha256 = artifact.checksum,
+                    size = artifact.size,
+                    progressLabel = "Downloading Temurin Java $major",
+                ),
+            ),
+            staging / "downloads",
+        )
         val extracted = staging / "extracted"
         if (fileSystem.exists(extracted)) fileSystem.deleteRecursively(extracted)
         fileSystem.createDirectories(extracted)
         extractTemurinArchive(archive, extracted)
         val java = extracted / "bin/java"
-        require(Files.isRegularFile(java.toNioPath()) && Files.isExecutable(java.toNioPath())) { "The Temurin runtime has no executable Java binary." }
+        require(Files.isRegularFile(java.toNioPath()) && Files.isExecutable(java.toNioPath())) {
+            "The Temurin runtime has no executable Java binary."
+        }
         fileSystem.write(extracted / ".complete") { writeUtf8(artifact.checksum) }
         val target = cache / artifact.checksum
         fileSystem.createDirectories(cache)
@@ -74,9 +94,16 @@ internal class AdoptiumJavaResolver(
     }
 
     @Serializable private data class Release(val binary: Binary, val version: Version)
+
     @Serializable private data class Version(val major: Int)
-    @Serializable private data class Binary(val architecture: String, val os: String,
-        @SerialName("image_type") val imageType: String, @SerialName("package") val artifact: Artifact)
+
+    @Serializable private data class Binary(
+        val architecture: String,
+        val os: String,
+        @SerialName("image_type") val imageType: String,
+        @SerialName("package") val artifact: Artifact,
+    )
+
     @Serializable private data class Artifact(val link: String, val checksum: String, val size: Long)
 }
 
@@ -92,7 +119,11 @@ internal fun extractTemurinArchive(archive: Path, destination: Path) {
                 val entry = tar.nextEntry ?: break
                 require(++entries <= 20000) { "The runtime archive contains too many entries." }
                 val name = entry.name.removeSuffix("/")
-                require(!name.startsWith('/') && '\\' !in name && name.split('/').none { it == "." || it == ".." }) { "Unsafe runtime archive path." }
+                require(
+                    !name.startsWith('/') && '\\' !in name && name.split('/').none {
+                        it == "." || it == ".."
+                    },
+                ) { "Unsafe runtime archive path." }
                 val prefix = name.substringBefore('/')
                 if (rootName == null) rootName = prefix
                 require(rootName == prefix) { "The runtime archive has multiple roots." }
@@ -103,12 +134,19 @@ internal fun extractTemurinArchive(archive: Path, destination: Path) {
                 expanded += entry.size
                 when {
                     entry.isDirectory -> fs.createDirectories(target)
+
                     entry.isSymbolicLink -> links += target to entry.linkName
+
                     entry.isFile -> {
                         fs.createDirectories(requireNotNull(target.parent))
                         Files.newOutputStream(target.toNioPath()).use { tar.copyTo(it) }
-                        if (entry.mode and 0b001001001 != 0) require(target.toNioPath().toFile().setExecutable(true, false)) { "Cannot set Java runtime permissions." }
+                        if (entry.mode and 0b001001001 !=
+                            0
+                        ) {
+                            require(target.toNioPath().toFile().setExecutable(true, false)) { "Cannot set Java runtime permissions." }
+                        }
                     }
+
                     else -> error("Unsupported entry in the runtime archive.")
                 }
             }

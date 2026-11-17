@@ -16,21 +16,12 @@ internal enum class GameFileType {
     OTHER,
 }
 
-internal data class GameFileEntry(
-    val path: String,
-    val name: String,
-    val type: GameFileType,
-    val sizeBytes: Long?,
-) {
+internal data class GameFileEntry(val path: String, val name: String, val type: GameFileType, val sizeBytes: Long?) {
     val isDirectory: Boolean
         get() = type == GameFileType.DIRECTORY
 }
 
-internal data class GameFileDirectory(
-    val path: String,
-    val relativeSegments: List<String>,
-    val entries: List<GameFileEntry>,
-)
+internal data class GameFileDirectory(val path: String, val relativeSegments: List<String>, val entries: List<GameFileEntry>)
 
 internal data class GameTextDocument(
     val path: String,
@@ -43,16 +34,9 @@ internal data class GameTextDocument(
     val lastModifiedAtMillis: Long?,
 )
 
-internal data class GameFileLocation(
-    val directoryPath: String,
-    val filePath: String?,
-    val fileType: GameFileType?,
-)
+internal data class GameFileLocation(val directoryPath: String, val filePath: String?, val fileType: GameFileType?)
 
-internal class GameFileBrowserFiles(
-    rootPath: String,
-    private val fileSystem: FileSystem = FileSystem.SYSTEM,
-) {
+internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: FileSystem = FileSystem.SYSTEM) {
     private val root: Path = fileSystem.canonicalize(rootPath.toPath()).also { path ->
         require(fileSystem.metadata(path).isDirectory) { "The game file root is not a directory." }
     }
@@ -210,8 +194,7 @@ internal fun formatGameFileSize(bytes: Long): String = when {
     else -> "$bytes B"
 }
 
-private fun isEditableTextFile(path: Path): Boolean =
-    path.name.substringAfterLast('.', "").lowercase() in EDITABLE_TEXT_FILE_EXTENSIONS
+private fun isEditableTextFile(path: Path): Boolean = path.name.substringAfterLast('.', "").lowercase() in EDITABLE_TEXT_FILE_EXTENSIONS
 
 private fun fileType(path: Path, isDirectory: Boolean): GameFileType {
     if (isDirectory) return GameFileType.DIRECTORY

@@ -8,10 +8,10 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
-import io.ktor.http.isSuccess
-import io.ktor.http.HttpStatusCode
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.isSuccess
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -30,11 +30,7 @@ enum class ResourceProvider(val label: String) {
     TECHNIC("Technic"),
 }
 
-enum class ResourceType(
-    val label: String,
-    internal val modrinthFacet: String?,
-    internal val curseForgeClassId: Int?,
-) {
+enum class ResourceType(val label: String, internal val modrinthFacet: String?, internal val curseForgeClassId: Int?) {
     MOD("Mods", "project_type:mod", 6),
     MODPACK("Modpacks", "project_type:modpack", 4471),
     RESOURCE_PACK("Resource packs", "project_type:resourcepack", 12),
@@ -86,11 +82,7 @@ data class ResourceSearchRequest(
     }
 }
 
-data class ResourceSearchResult(
-    val projects: List<ResourceProject>,
-    val offset: Int,
-    val total: Int,
-)
+data class ResourceSearchResult(val projects: List<ResourceProject>, val offset: Int, val total: Int)
 
 data class ResourceProject(
     val provider: ResourceProvider,
@@ -173,12 +165,7 @@ data class ResourceFile(
     val sha512: String? = null,
 )
 
-data class ResourceDependency(
-    val projectId: String?,
-    val versionId: String?,
-    val fileName: String?,
-    val kind: DependencyKind,
-) {
+data class ResourceDependency(val projectId: String?, val versionId: String?, val fileName: String?, val kind: DependencyKind) {
     val selectionKey: String
         get() = versionId ?: projectId ?: fileName.orEmpty()
 }
@@ -191,11 +178,7 @@ interface ResourcePlatform {
 
     suspend fun search(request: ResourceSearchRequest): ResourceSearchResult
 
-    suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion>
+    suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion>
 
     suspend fun version(projectId: String, versionId: String): ResourceVersion
 
@@ -220,13 +203,8 @@ class ResourcePlatformRegistry(platforms: List<ResourcePlatform>) {
         requireNotNull(byProvider[provider]) { "${provider.label} is not registered." }
 }
 
-
 @Serializable
-private data class ModrinthSearchResponse(
-    val hits: List<ModrinthSearchHit>,
-    val offset: Int,
-    @SerialName("total_hits") val totalHits: Int,
-)
+private data class ModrinthSearchResponse(val hits: List<ModrinthSearchHit>, val offset: Int, @SerialName("total_hits") val totalHits: Int)
 
 @Serializable
 private data class ModrinthSearchHit(
@@ -363,11 +341,7 @@ class ModrinthResourcePlatform(
         )
     }
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> {
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> {
         val versions: List<ModrinthVersion> = request("$baseUrl/project/${project.id}/version") {
             gameVersion?.takeIf(String::isNotBlank)?.let {
                 parameter("game_versions", resourceJson.encodeToString(listOf(it)))
@@ -409,8 +383,11 @@ class ModrinthResourcePlatform(
                 "shader" -> ResourceType.SHADER_PACK
                 else -> ResourceType.MOD
             }
-            project.id to ResourceProject(provider, project.id, project.slug, project.title, project.description,
-                "", type, project.downloads, project.iconUrl, "https://modrinth.com/${type.modrinthPath()}/${project.slug}", project.categories)
+            project.id to ResourceProject(
+                provider, project.id, project.slug, project.title, project.description,
+                "", type, project.downloads, project.iconUrl,
+                "https://modrinth.com/${type.modrinthPath()}/${project.slug}", project.categories,
+            )
         }
 
     override suspend fun versionBySha1(sha1: String): ResourceVersion? {
@@ -476,10 +453,7 @@ private fun ModrinthVersion.toResourceVersion() = ResourceVersion(
 )
 
 @Serializable
-private data class CurseForgeSearchResponse(
-    val data: List<CurseForgeProject>,
-    val pagination: CurseForgePagination,
-)
+private data class CurseForgeSearchResponse(val data: List<CurseForgeProject>, val pagination: CurseForgePagination)
 
 @Serializable
 private data class CurseForgeProjectsResponse(val data: List<CurseForgeProject>)
@@ -488,10 +462,7 @@ private data class CurseForgeProjectsResponse(val data: List<CurseForgeProject>)
 private data class CurseForgeDescriptionResponse(val data: String)
 
 @Serializable
-private data class CurseForgePagination(
-    val index: Int,
-    val totalCount: Int,
-)
+private data class CurseForgePagination(val index: Int, val totalCount: Int)
 
 @Serializable
 private data class CurseForgeProject(
@@ -606,11 +577,7 @@ class CurseForgeResourcePlatform(
         )
     }
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> {
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> {
         ensureAvailable()
         val response: CurseForgeFilesResponse = request("$baseUrl/mods/${project.id}/files") {
             gameVersion?.takeIf(String::isNotBlank)?.let { parameter("gameVersion", it) }
@@ -777,10 +744,7 @@ private fun CurseForgeFile.toResourceVersion(): ResourceVersion {
     )
 }
 
-private suspend inline fun <reified T> resourceApiRequest(
-    provider: ResourceProvider,
-    request: () -> HttpResponse,
-): T {
+private suspend inline fun <reified T> resourceApiRequest(provider: ResourceProvider, request: () -> HttpResponse): T {
     try {
         val response = request()
         val body = response.bodyAsText()
@@ -866,9 +830,12 @@ private val resourceJson = Json { ignoreUnknownKeys = true }
 
 @Serializable
 private data class CurseForgeFingerprintRequest(val fingerprints: List<Long>)
+
 @Serializable
 private data class CurseForgeFingerprintResponse(val data: CurseForgeFingerprintMatches)
+
 @Serializable
 private data class CurseForgeFingerprintMatches(val exactMatches: List<CurseForgeFingerprintMatch> = emptyList())
+
 @Serializable
 private data class CurseForgeFingerprintMatch(val file: CurseForgeFile)

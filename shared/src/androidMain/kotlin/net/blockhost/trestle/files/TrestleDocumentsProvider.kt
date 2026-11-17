@@ -33,7 +33,10 @@ class TrestleDocumentsProvider : DocumentsProvider() {
                 add(DocumentsContract.Root.COLUMN_TITLE, "Trestle")
                 add(DocumentsContract.Root.COLUMN_SUMMARY, "Minecraft instances and game files")
                 add(DocumentsContract.Root.COLUMN_ICON, providerContext.applicationInfo.icon)
-                add(DocumentsContract.Root.COLUMN_FLAGS, DocumentsContract.Root.FLAG_LOCAL_ONLY or DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD)
+                add(
+                    DocumentsContract.Root.COLUMN_FLAGS,
+                    DocumentsContract.Root.FLAG_LOCAL_ONLY or DocumentsContract.Root.FLAG_SUPPORTS_IS_CHILD,
+                )
                 add(DocumentsContract.Root.COLUMN_MIME_TYPES, "*/*")
                 add(DocumentsContract.Root.COLUMN_AVAILABLE_BYTES, rootDirectory.usableSpace)
             }
@@ -47,23 +50,13 @@ class TrestleDocumentsProvider : DocumentsProvider() {
         }
     }
 
-    override fun queryChildDocuments(
-        parentDocumentId: String,
-        projection: Array<out String>?,
-        sortOrder: String?,
-    ): Cursor = queryChildren(parentDocumentId, projection)
+    override fun queryChildDocuments(parentDocumentId: String, projection: Array<out String>?, sortOrder: String?): Cursor =
+        queryChildren(parentDocumentId, projection)
 
-    override fun queryChildDocuments(
-        parentDocumentId: String,
-        projection: Array<out String>?,
-        queryArgs: Bundle?,
-    ): Cursor = queryChildren(parentDocumentId, projection)
+    override fun queryChildDocuments(parentDocumentId: String, projection: Array<out String>?, queryArgs: Bundle?): Cursor =
+        queryChildren(parentDocumentId, projection)
 
-    override fun openDocument(
-        documentId: String,
-        mode: String,
-        signal: CancellationSignal?,
-    ): ParcelFileDescriptor {
+    override fun openDocument(documentId: String, mode: String, signal: CancellationSignal?): ParcelFileDescriptor {
         if (mode != "r") throw UnsupportedOperationException("Trestle game files are read-only.")
         val file = resolve(documentId)
         if (!file.isFile) throw FileNotFoundException("The requested document is not a file.")

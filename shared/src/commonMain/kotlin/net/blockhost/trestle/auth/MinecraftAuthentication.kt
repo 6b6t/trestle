@@ -26,10 +26,7 @@ sealed interface AccountLoginRequest {
     val method: AccountAuthenticationMethod
     val edition: MinecraftEdition get() = method.edition
 
-    data class DeviceCode(
-        override val method: AccountAuthenticationMethod,
-        val bedrockGameVersion: String? = null,
-    ) : AccountLoginRequest {
+    data class DeviceCode(override val method: AccountAuthenticationMethod, val bedrockGameVersion: String? = null) : AccountLoginRequest {
         init {
             require(
                 method == AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE ||
@@ -52,10 +49,7 @@ sealed interface AccountLoginRequest {
         }
     }
 
-    data class SecretImport(
-        override val method: AccountAuthenticationMethod,
-        val secret: SecretValue,
-    ) : AccountLoginRequest {
+    data class SecretImport(override val method: AccountAuthenticationMethod, val secret: SecretValue) : AccountLoginRequest {
         init {
             require(
                 method == AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN ||
@@ -70,11 +64,7 @@ sealed interface AccountLoginRequest {
     }
 }
 
-data class MinecraftApplicationConfiguration(
-    val clientId: String,
-    val scope: String,
-    val deviceType: String,
-)
+data class MinecraftApplicationConfiguration(val clientId: String, val scope: String, val deviceType: String)
 
 object OfficialMinecraftApplications {
     const val TITLE_AUTH_SCOPE = "service::user.auth.xboxlive.com::MBI_SSL"
@@ -116,10 +106,7 @@ interface MinecraftAuthenticator {
         onDeviceAuthorization: (DeviceAuthorization) -> Unit,
     ): AuthenticatedMinecraftAccount
 
-    suspend fun restore(
-        profile: LauncherAccount,
-        serializedState: SecretValue,
-    ): AuthenticatedMinecraftAccount
+    suspend fun restore(profile: LauncherAccount, serializedState: SecretValue): AuthenticatedMinecraftAccount
 }
 
 interface AccountCredentialStore {
@@ -137,10 +124,8 @@ data class CredentialProtection(
     val notes: List<String>,
 )
 
-class KSafeAccountCredentialStore(
-    private val vault: KSafe,
-    private val logger: LauncherLogger = NoopLauncherLogger,
-) : AccountCredentialStore {
+class KSafeAccountCredentialStore(private val vault: KSafe, private val logger: LauncherLogger = NoopLauncherLogger) :
+    AccountCredentialStore {
     override val protection: CredentialProtection
         get() = vault.protectionInfo.let {
             CredentialProtection(

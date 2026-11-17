@@ -11,7 +11,11 @@ import okio.fakefilesystem.FakeFileSystem
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class ContentMetadataTest {
     @Test fun parsesEmbeddedNamesAuthorsAndDependencyIdentities() {
@@ -20,7 +24,11 @@ class ContentMetadataTest {
         val fabric = readEmbeddedMetadata(fs, "/fabric.jar".toPath())
         assertEquals(listOf("Alex", "Sam"), fabric.authors)
         assertEquals(setOf("fabricloader", "minecraft"), fabric.dependencies.toSet())
-        fs.write("/forge.jar".toPath()) { write(archive("META-INF/mods.toml", """
+        fs.write("/forge.jar".toPath()) {
+            write(
+                archive(
+                    "META-INF/mods.toml",
+                    """
             modLoader="javafml"
             [[mods]]
             modId="sample"
@@ -30,7 +38,10 @@ class ContentMetadataTest {
             [[dependencies.sample]]
             modId="minecraft"
             mandatory=true
-        """.trimIndent())) }
+                    """.trimIndent(),
+                ),
+            )
+        }
         val forge = readEmbeddedMetadata(fs, "/forge.jar".toPath())
         assertEquals(fabric.authors, forge.authors)
         assertEquals(listOf("minecraft"), forge.dependencies)
@@ -44,11 +55,19 @@ class ContentMetadataTest {
         fs.write(path) { write(archive("fabric.mod.json", """{"id":"sample","name":"Embedded","version":"1"}""")) }
         val hash = fs.sha1(path)
         var requests = 0
-        val platform = ModrinthResourcePlatform(HttpClient(MockEngine { request ->
-            requests++
-            if (request.url.encodedPath.endsWith("/projects")) respond("""[{"id":"project","slug":"sample","title":"Catalog name","project_type":"mod"}]""")
-            else respond("""{"id":"version","project_id":"project","name":"v1","version_number":"1","game_versions":["1.21"],"loaders":["fabric"],"version_type":"release","date_published":"2026-01-01","files":[{"hashes":{"sha1":"$hash"},"url":"https://example.test/a.jar","filename":"a.jar"}]}""")
-        }), "test")
+        val platform = ModrinthResourcePlatform(
+            HttpClient(
+                MockEngine { request ->
+                    requests++
+                    if (request.url.encodedPath.endsWith("/projects")) {
+                        respond("""[{"id":"project","slug":"sample","title":"Catalog name","project_type":"mod"}]""")
+                    } else {
+                        respond("""{"id":"version","project_id":"project","name":"v1","version_number":"1","game_versions":["1.21"],"loaders":["fabric"],"version_type":"release","date_published":"2026-01-01","files":[{"hashes":{"sha1":"$hash"},"url":"https://example.test/a.jar","filename":"a.jar"}]}""")
+                    }
+                },
+            ),
+            "test",
+        )
         val identifier = ContentIdentifier(ResourcePlatformRegistry(listOf(platform)), fs) { 10_000L }
         val instance = GameInstance(InstanceId("instance"), "Instance", "1.21", instanceDirectory = root.toString())
         val item = InstalledContent("local:mods/renamed.jar", "renamed.jar", ResourceType.MOD, listOf("renamed.jar"), true, true)
@@ -72,6 +91,10 @@ class ContentMetadataTest {
     }
 
     private fun archive(name: String, body: String): ByteArray = ByteArrayOutputStream().also { bytes ->
-        ZipOutputStream(bytes).use { zip -> zip.putNextEntry(ZipEntry(name)); zip.write(body.toByteArray()); zip.closeEntry() }
+        ZipOutputStream(bytes).use { zip ->
+            zip.putNextEntry(ZipEntry(name))
+            zip.write(body.toByteArray())
+            zip.closeEntry()
+        }
     }.toByteArray()
 }
