@@ -26,6 +26,22 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_apply_pack_change
+import net.blockhost.trestle.resources.ui_back_up_and_update
+import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_check_pack_updates
+import net.blockhost.trestle.resources.ui_install_separate_copy
+import net.blockhost.trestle.resources.ui_pack_already_installed
+import net.blockhost.trestle.resources.ui_pack_already_installed_explanation
+import net.blockhost.trestle.resources.ui_pack_backup_explanation
+import net.blockhost.trestle.resources.ui_pack_page
+import net.blockhost.trestle.resources.ui_restore_previous_pack_version
+import net.blockhost.trestle.resources.ui_roll_back
+import net.blockhost.trestle.resources.ui_roll_back_pack_update
+import net.blockhost.trestle.resources.ui_rollback_explanation
+import net.blockhost.trestle.resources.ui_update_named
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun ModpackOriginPanel(instance: GameInstance, state: LauncherUiState, actions: LauncherUiActions) {
@@ -36,30 +52,32 @@ internal fun ModpackOriginPanel(instance: GameInstance, state: LauncherUiState, 
         Text("${origin.name} ${origin.versionName}", style = MaterialTheme.typography.titleMedium)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             origin.websiteUrl?.takeIf { it.startsWith("https://") }?.let { url ->
-                TextButton(onClick = { uri.openUri(url) }) { Text("Pack page") }
+                TextButton(onClick = { uri.openUri(url) }) { Text(stringResource(Res.string.ui_pack_page)) }
             }
-            OutlinedButton(onClick = actions::checkModpackUpdate, enabled = state.operation == null) { Text("Check pack updates") }
+            OutlinedButton(onClick = actions::checkModpackUpdate, enabled = state.operation == null) {
+                Text(stringResource(Res.string.ui_check_pack_updates))
+            }
             if (state.canRollbackModpack) {
                 TextButton(onClick = {
                     confirmRollback = true
-                }, enabled = state.operation == null) { Text("Roll back pack update") }
+                }, enabled = state.operation == null) { Text(stringResource(Res.string.ui_roll_back_pack_update)) }
             }
         }
     }
     if (confirmRollback) {
         AlertDialog(
             onDismissRequest = { confirmRollback = false },
-            title = { Text("Restore the previous pack version?") },
+            title = { Text(stringResource(Res.string.ui_restore_previous_pack_version)) },
             text = {
-                Text("Worlds and personal settings stay in place. Rollback will stop if an updated file has changed since installation.")
+                Text(stringResource(Res.string.ui_rollback_explanation))
             },
             confirmButton = {
                 TextButton(onClick = {
                     confirmRollback = false
                     actions.rollbackModpackUpdate()
-                }) { Text("Roll back") }
+                }) { Text(stringResource(Res.string.ui_roll_back)) }
             },
-            dismissButton = { TextButton(onClick = { confirmRollback = false }) { Text("Cancel") } },
+            dismissButton = { TextButton(onClick = { confirmRollback = false }) { Text(stringResource(Res.string.ui_cancel)) } },
         )
     }
 }
@@ -69,10 +87,10 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
     if (state.suggestedPackInstances.isNotEmpty()) {
         AlertDialog(
             onDismissRequest = actions::cancelModpackUpdate,
-            title = { Text("This pack is already installed") },
+            title = { Text(stringResource(Res.string.ui_pack_already_installed)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Preview an update to an existing instance, or install a separate copy.")
+                    Text(stringResource(Res.string.ui_pack_already_installed_explanation))
                     state.suggestedPackInstances.forEach { instance ->
                         OutlinedButton(onClick = { actions.previewSelectedModpackUpdate(instance.id) }) {
                             Text("${instance.displayName} (${instance.modpackOrigin?.versionName})")
@@ -80,15 +98,17 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = actions::installSelectedModpackAsNew) { Text("Install separate copy") } },
-            dismissButton = { TextButton(onClick = actions::cancelModpackUpdate) { Text("Cancel") } },
+            confirmButton = {
+                TextButton(onClick = actions::installSelectedModpackAsNew) { Text(stringResource(Res.string.ui_install_separate_copy)) }
+            },
+            dismissButton = { TextButton(onClick = actions::cancelModpackUpdate) { Text(stringResource(Res.string.ui_cancel)) } },
         )
     }
     val preview = state.modpackUpdatePreview ?: return
     var replace by remember(preview) { mutableStateOf(emptySet<String>()) }
     AlertDialog(
         onDismissRequest = actions::cancelModpackUpdate,
-        title = { Text("Update ${preview.original.displayName}") },
+        title = { Text(stringResource(Res.string.ui_update_named, preview.original.displayName)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${preview.original.modpackOrigin?.versionName} → ${preview.candidate.modpackOrigin?.versionName}")
@@ -106,13 +126,15 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
                         replace = if (checked) replace + change.path else replace - change.path
                     }
                 }
-                Text("Trestle keeps one backup of changed files. Applying another update replaces that rollback backup.")
+                Text(stringResource(Res.string.ui_pack_backup_explanation))
             }
         },
         confirmButton = {
-            TextButton(onClick = { actions.applyModpackUpdate(replace) }, enabled = state.operation == null) { Text("Back up and update") }
+            TextButton(onClick = {
+                actions.applyModpackUpdate(replace)
+            }, enabled = state.operation == null) { Text(stringResource(Res.string.ui_back_up_and_update)) }
         },
-        dismissButton = { TextButton(onClick = actions::cancelModpackUpdate) { Text("Cancel") } },
+        dismissButton = { TextButton(onClick = actions::cancelModpackUpdate) { Text(stringResource(Res.string.ui_cancel)) } },
     )
 }
 
@@ -127,7 +149,7 @@ private fun PackChangeRow(action: String, path: String, conflict: Boolean, repla
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Checkbox(checked = replace, onCheckedChange = null)
-                Text("Apply pack change to my modified file")
+                Text(stringResource(Res.string.ui_apply_pack_change))
             }
         }
     }

@@ -13,6 +13,8 @@ import net.blockhost.trestle.runtime.IosRuntimeBridge
 import net.blockhost.trestle.runtime.UnavailableIosRuntimeBridge
 import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
+import platform.UIKit.UIAccessibilityDarkerSystemColorsEnabled
+import platform.UIKit.UIAccessibilityIsReduceMotionEnabled
 import platform.UIKit.UIViewController
 
 fun MainViewController(): UIViewController = TrestleViewController(UnavailableIosRuntimeBridge())
@@ -25,5 +27,10 @@ fun TrestleViewController(runtimeBridge: IosRuntimeBridge): UIViewController = C
         onDispose(viewModel::close)
     }
     val state by viewModel.state.collectAsState()
-    TrestleApp(state = state, actions = viewModel)
+    TrestleApp(
+        state = state,
+        actions = viewModel,
+        highContrast = UIAccessibilityDarkerSystemColorsEnabled(),
+        reducedMotion = UIAccessibilityIsReduceMotionEnabled(),
+    )
 }

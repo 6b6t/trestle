@@ -13,10 +13,25 @@ class TrestleThemeTest {
     }
 
     @Test
-    fun `dark system accent remains visible on the theme surface`() {
+    fun `dark system accent stays readable as text on raised surfaces`() {
         val scheme = trestleColorScheme(Color(0xFF050505))
 
-        assertTrue(contrastRatio(scheme.primary, scheme.surface) >= 3f)
+        assertTrue(contrastRatio(scheme.primary, scheme.surfaceContainerHigh) >= 4.5f)
+    }
+
+    @Test
+    fun `dark outlines are visible against every surface`() {
+        val scheme = trestleColorScheme(darkTheme = true)
+
+        listOf(scheme.surface, scheme.surfaceContainer, scheme.surfaceContainerHigh, scheme.surfaceContainerHighest)
+            .forEach { surface -> assertTrue(contrastRatio(scheme.outline, surface) >= 3f) }
+    }
+
+    @Test
+    fun `high contrast makes secondary text as strong as primary text`() {
+        val scheme = trestleColorScheme(highContrast = true)
+
+        assertEquals(scheme.onSurface, scheme.onSurfaceVariant)
     }
 
     @Test

@@ -45,6 +45,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.isMetaPressed
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
@@ -289,29 +290,27 @@ fun TrestleApp(
                     val primary = event.isCtrlPressed || event.isMetaPressed
                     val command = when {
                         primary && event.key == Key.N -> LauncherCommand.NEW_INSTANCE
-
                         primary && event.key == Key.O -> LauncherCommand.IMPORT_LOCAL_FILE
-
                         primary && event.key == Key.F -> LauncherCommand.FOCUS_SEARCH
-
                         primary && event.key == Key.Comma -> LauncherCommand.SHOW_SETTINGS
-
                         primary && event.key == Key.One -> LauncherCommand.SHOW_LIBRARY
-
                         primary && event.key == Key.Two -> LauncherCommand.SHOW_DISCOVER
-
                         primary && event.key == Key.Three -> LauncherCommand.SHOW_ACCOUNTS
-
                         primary && event.key == Key.Four -> LauncherCommand.SHOW_SETTINGS
-
                         event.key == Key.F1 -> LauncherCommand.SHOW_SHORTCUTS
-
-                        event.key == Key.Escape && destination == LauncherDestination.INSTANCE ->
-                            LauncherCommand.SHOW_LIBRARY
-
                         else -> null
                     }
                     command?.let(handleCommand) ?: false
+                }
+                // Escape is handled after focused children, so a text field or pane can use it first.
+                .onKeyEvent { event ->
+                    val escape = event.type == KeyEventType.KeyDown && event.key == Key.Escape && !modalVisible
+                    when {
+                        !escape -> false
+                        EscapeBackRegistry.handle() -> true
+                        destination == LauncherDestination.INSTANCE -> handleCommand(LauncherCommand.SHOW_LIBRARY)
+                        else -> false
+                    }
                 }
                 .testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,

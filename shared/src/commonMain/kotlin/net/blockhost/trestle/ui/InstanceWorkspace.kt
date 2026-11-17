@@ -87,11 +87,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -129,11 +134,17 @@ import net.blockhost.trestle.resources.ic_add
 import net.blockhost.trestle.resources.ic_arrow_back
 import net.blockhost.trestle.resources.ic_more_vert
 import net.blockhost.trestle.resources.ic_play
+import net.blockhost.trestle.resources.ui_add_content
+import net.blockhost.trestle.resources.ui_add_content_hint
 import net.blockhost.trestle.resources.ui_add_mods
 import net.blockhost.trestle.resources.ui_add_server
+import net.blockhost.trestle.resources.ui_add_server_hint
 import net.blockhost.trestle.resources.ui_address
+import net.blockhost.trestle.resources.ui_all_worlds
 import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_back_to_library
+import net.blockhost.trestle.resources.ui_backup_hint
+import net.blockhost.trestle.resources.ui_backups
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_change
 import net.blockhost.trestle.resources.ui_clear
@@ -149,6 +160,7 @@ import net.blockhost.trestle.resources.ui_discard
 import net.blockhost.trestle.resources.ui_discard_changes_explanation
 import net.blockhost.trestle.resources.ui_discard_changes_title
 import net.blockhost.trestle.resources.ui_edit_instance_settings
+import net.blockhost.trestle.resources.ui_edit_server
 import net.blockhost.trestle.resources.ui_enable_named
 import net.blockhost.trestle.resources.ui_file_name
 import net.blockhost.trestle.resources.ui_find_in_log
@@ -160,27 +172,41 @@ import net.blockhost.trestle.resources.ui_homepage
 import net.blockhost.trestle.resources.ui_import_world
 import net.blockhost.trestle.resources.ui_inspect_launch_plan
 import net.blockhost.trestle.resources.ui_installed_content
+import net.blockhost.trestle.resources.ui_installed_content_hint
 import net.blockhost.trestle.resources.ui_instance
 import net.blockhost.trestle.resources.ui_instance_logs
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_instance_version_loader
 import net.blockhost.trestle.resources.ui_join
+import net.blockhost.trestle.resources.ui_jump_back_in
+import net.blockhost.trestle.resources.ui_jump_back_in_hint
 import net.blockhost.trestle.resources.ui_keep_editing
+import net.blockhost.trestle.resources.ui_last_played_on
 import net.blockhost.trestle.resources.ui_launch_plan
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_logs
 import net.blockhost.trestle.resources.ui_logs_crash_reports_screenshots_and_more
 import net.blockhost.trestle.resources.ui_manage
+import net.blockhost.trestle.resources.ui_mods
 import net.blockhost.trestle.resources.ui_more
 import net.blockhost.trestle.resources.ui_name
 import net.blockhost.trestle.resources.ui_no_instance_selected
+import net.blockhost.trestle.resources.ui_no_logs_explanation
+import net.blockhost.trestle.resources.ui_no_logs_yet
+import net.blockhost.trestle.resources.ui_no_worlds_import_hint
+import net.blockhost.trestle.resources.ui_no_worlds_overview
 import net.blockhost.trestle.resources.ui_notes
 import net.blockhost.trestle.resources.ui_open
+import net.blockhost.trestle.resources.ui_open_game_folder
 import net.blockhost.trestle.resources.ui_open_log_file
 import net.blockhost.trestle.resources.ui_overview
 import net.blockhost.trestle.resources.ui_play
+import net.blockhost.trestle.resources.ui_play_time
+import net.blockhost.trestle.resources.ui_played_duration
+import net.blockhost.trestle.resources.ui_played_on
 import net.blockhost.trestle.resources.ui_reading_installed_content
 import net.blockhost.trestle.resources.ui_reading_the_game_directory
+import net.blockhost.trestle.resources.ui_recent_screenshots
 import net.blockhost.trestle.resources.ui_refresh
 import net.blockhost.trestle.resources.ui_reload
 import net.blockhost.trestle.resources.ui_remove
@@ -192,21 +218,33 @@ import net.blockhost.trestle.resources.ui_rename_screenshot
 import net.blockhost.trestle.resources.ui_rename_world
 import net.blockhost.trestle.resources.ui_restore_copy
 import net.blockhost.trestle.resources.ui_return_to_library
+import net.blockhost.trestle.resources.ui_running
 import net.blockhost.trestle.resources.ui_save_notes
+import net.blockhost.trestle.resources.ui_screenshot_hint
 import net.blockhost.trestle.resources.ui_screenshots
+import net.blockhost.trestle.resources.ui_screenshots_count
+import net.blockhost.trestle.resources.ui_screenshots_summary
+import net.blockhost.trestle.resources.ui_see_all_count
 import net.blockhost.trestle.resources.ui_seed_value
 import net.blockhost.trestle.resources.ui_server_status
 import net.blockhost.trestle.resources.ui_servers
+import net.blockhost.trestle.resources.ui_servers_summary
+import net.blockhost.trestle.resources.ui_sessions
 import net.blockhost.trestle.resources.ui_settings
+import net.blockhost.trestle.resources.ui_setup
 import net.blockhost.trestle.resources.ui_update
 import net.blockhost.trestle.resources.ui_update_to_version
+import net.blockhost.trestle.resources.ui_updates_available
 import net.blockhost.trestle.resources.ui_version_components
 import net.blockhost.trestle.resources.ui_world_name
 import net.blockhost.trestle.resources.ui_worlds
+import net.blockhost.trestle.resources.ui_worlds_count
+import net.blockhost.trestle.resources.ui_worlds_summary
 import net.blockhost.trestle.resources.ui_wrap_lines
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
 private enum class InstanceSection(val label: StringResource) {
@@ -260,6 +298,9 @@ internal fun InstanceWorkspace(
         }
     }
     val back: () -> Unit = { leaveSettings(onBack) }
+    PlatformBackHandler(enabled = instance != null, onBack = back)
+    val focusManager = LocalFocusManager.current
+    var tabHasFocus by remember { mutableStateOf(false) }
     LaunchedEffect(section, settingsForm.visible, instance?.id) {
         if (section == InstanceSection.SETTINGS && !settingsForm.visible && instance != null) {
             actions.openInstanceSettings(inline = true)
@@ -300,7 +341,17 @@ internal fun InstanceWorkspace(
         // Phones keep the header short on every tab except Overview, where the stats belong.
         InstanceWorkspaceHeader(state, instance, actions, back, showStats = !compact || section == InstanceSection.OVERVIEW)
         InstanceSectionTabs(section, compact, selectSection)
-        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        Box(
+            Modifier.weight(1f).fillMaxWidth()
+                .onFocusChanged { tabHasFocus = it.hasFocus }
+                // The first Escape leaves a focused field; only the next one goes back to the library.
+                .onKeyEvent { event ->
+                    val clearFocus = event.type == KeyEventType.KeyDown && event.key == Key.Escape && tabHasFocus
+                    if (clearFocus) focusManager.clearFocus()
+                    clearFocus
+                },
+            contentAlignment = Alignment.TopCenter,
+        ) {
             val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
             tabStates.SaveableStateProvider("${instance.id.value}:${section.name}") {
                 when (section) {
@@ -450,9 +501,9 @@ private fun InstanceGameData(
             ) {
                 Text(
                     when (view) {
-                        GameDataView.WORLDS -> "Local worlds, data packs, and backups for ${instance.displayName}."
-                        GameDataView.SERVERS -> "Multiplayer servers saved in ${instance.displayName}."
-                        GameDataView.SCREENSHOTS -> "Screenshots taken in ${instance.displayName}."
+                        GameDataView.WORLDS -> stringResource(Res.string.ui_worlds_summary, instance.displayName)
+                        GameDataView.SERVERS -> stringResource(Res.string.ui_servers_summary, instance.displayName)
+                        GameDataView.SCREENSHOTS -> stringResource(Res.string.ui_screenshots_summary, instance.displayName)
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -474,8 +525,14 @@ private fun InstanceGameData(
             item("worlds") {
                 val worlds = state.gameData.worlds.sortedByDescending { it.lastModifiedEpochMillis ?: Long.MIN_VALUE }
                 GameDataSection(
-                    title = if (worlds.isEmpty()) "Worlds" else "Worlds (${worlds.size})",
-                    emptyMessage = if (worlds.isEmpty()) "No worlds yet. Start the game to create one, or import a world." else null,
+                    title = if (worlds.isEmpty()) {
+                        stringResource(
+                            Res.string.ui_worlds,
+                        )
+                    } else {
+                        stringResource(Res.string.ui_worlds_count, worlds.size)
+                    },
+                    emptyMessage = if (worlds.isEmpty()) stringResource(Res.string.ui_no_worlds_import_hint) else null,
                     action = { WorldImportButton(actions) },
                 ) {
                     worlds.forEach { world ->
@@ -494,8 +551,8 @@ private fun InstanceGameData(
             }
             item("backups") {
                 GameDataSection(
-                    title = "Backups",
-                    emptyMessage = "Back up a world from its menu to keep a restorable copy."
+                    title = stringResource(Res.string.ui_backups),
+                    emptyMessage = stringResource(Res.string.ui_backup_hint)
                         .takeIf { state.gameData.backups.isEmpty() },
                 ) {
                     state.gameData.backups.forEach { backup ->
@@ -518,12 +575,12 @@ private fun InstanceGameData(
             item("servers") {
                 GameDataSection(
                     title = stringResource(Res.string.ui_servers),
-                    emptyMessage = if (state.gameData.servers.isEmpty()) "Add a server here or in the game's multiplayer menu." else null,
+                    emptyMessage = if (state.gameData.servers.isEmpty()) stringResource(Res.string.ui_add_server_hint) else null,
                     action = {
                         TextButton(onClick = { actions.openServerEditor() }) {
                             Icon(painterResource(Res.drawable.ic_add), contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
-                            Text("Add server")
+                            Text(stringResource(Res.string.ui_add_server))
                         }
                     },
                 ) {
@@ -544,8 +601,14 @@ private fun InstanceGameData(
             item("screenshots") {
                 val screenshots = state.gameData.screenshots.sortedByDescending { it.createdAtEpochMillis ?: Long.MIN_VALUE }
                 GameDataSection(
-                    title = if (screenshots.isEmpty()) "Screenshots" else "Screenshots (${screenshots.size})",
-                    emptyMessage = if (screenshots.isEmpty()) "Press F2 in game to take a screenshot. They appear here." else null,
+                    title = if (screenshots.isEmpty()) {
+                        stringResource(
+                            Res.string.ui_screenshots,
+                        )
+                    } else {
+                        stringResource(Res.string.ui_screenshots_count, screenshots.size)
+                    },
+                    emptyMessage = if (screenshots.isEmpty()) stringResource(Res.string.ui_screenshot_hint) else null,
                 ) {
                     BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
                         val columns = (maxWidth / 240.dp).toInt().coerceIn(1, 5)
@@ -812,9 +875,9 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
                     verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("No logs yet", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(Res.string.ui_no_logs_yet), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Minecraft output, archived logs, and crash reports appear here after you play.",
+                        stringResource(Res.string.ui_no_logs_explanation),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -918,7 +981,7 @@ private fun WorldCard(
                 world.gameMode?.replaceFirstChar { it.uppercase() },
                 formatFileSize(world.sizeBytes),
                 world.dataPacks.size.takeIf { it > 0 }?.let { if (it == 1) "1 data pack" else "$it data packs" },
-                world.lastModifiedEpochMillis?.let { "Played ${formatLocalDateTime(it)}" },
+                world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
             ).joinToString(" · "),
             leading = { WorldThumbnail(world.iconPath, world.name, instance) },
         ) {
@@ -1071,7 +1134,7 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
     val valid = editor.name.isNotBlank() && editor.address.isNotBlank()
     AlertDialog(
         onDismissRequest = { if (!editor.isSaving) actions.closeServerEditor() },
-        title = { Text(if (editor.key == null) "Add server" else "Edit server") },
+        title = { Text(if (editor.key == null) stringResource(Res.string.ui_add_server) else stringResource(Res.string.ui_edit_server)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedTextField(
@@ -1191,21 +1254,21 @@ private fun InstanceHeaderStats(state: LauncherUiState, instance: GameInstance, 
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(8.dp).background(color, CircleShape))
             Text(
-                if (running) "Running" else stateLabel(instance.installationState),
+                if (running) stringResource(Res.string.ui_running) else stateLabel(instance.installationState),
                 color = color,
                 style = MaterialTheme.typography.labelLarge,
             )
         }
         if (instance.playTimeMillis > 0) {
             Text(
-                "${formatPlayTime(instance.playTimeMillis)} played",
+                stringResource(Res.string.ui_played_duration, formatPlayTime(instance.playTimeMillis)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
             )
         }
         instance.lastLaunchAtEpochMillis?.let {
             Text(
-                "Last played ${formatLocalDateTime(it)}",
+                stringResource(Res.string.ui_last_played_on, formatLocalDateTime(it)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -1270,14 +1333,14 @@ private fun InstanceOverview(
 private fun OverviewStats(instance: GameInstance, state: LauncherUiState, stacked: Boolean) {
     val stats = listOf(
         Triple(
-            "Play time",
+            stringResource(Res.string.ui_play_time),
             if (instance.playTimeMillis > 0) formatPlayTime(instance.playTimeMillis) else "0 min",
             MaterialTheme.colorScheme.primary,
         ),
-        Triple("Sessions", instance.launchCount.toString(), MaterialTheme.colorScheme.tertiary),
-        Triple("Worlds", state.gameData.worlds.size.toString(), instanceAccent(instance)),
+        Triple(stringResource(Res.string.ui_sessions), instance.launchCount.toString(), MaterialTheme.colorScheme.tertiary),
+        Triple(stringResource(Res.string.ui_worlds), state.gameData.worlds.size.toString(), instanceAccent(instance)),
         Triple(
-            "Mods",
+            stringResource(Res.string.ui_mods),
             state.installedContent.count { it.type == ResourceType.MOD && it.direct }.toString(),
             MaterialTheme.colorScheme.secondary,
         ),
@@ -1302,17 +1365,17 @@ private fun OverviewWorlds(
 ) {
     val worlds = state.gameData.worlds.sortedByDescending { it.lastModifiedEpochMillis ?: Long.MIN_VALUE }
     SectionCard(
-        title = "Jump back in",
-        supportingText = if (worlds.isEmpty()) null else "Open a world directly from here.",
+        title = stringResource(Res.string.ui_jump_back_in),
+        supportingText = if (worlds.isEmpty()) null else stringResource(Res.string.ui_jump_back_in_hint),
         action = {
             if (worlds.isNotEmpty()) {
-                TextButton(onClick = { onOpenSection(InstanceSection.WORLDS) }) { Text("All worlds") }
+                TextButton(onClick = { onOpenSection(InstanceSection.WORLDS) }) { Text(stringResource(Res.string.ui_all_worlds)) }
             }
         },
     ) {
         if (worlds.isEmpty()) {
             EmptyHint(
-                "No worlds yet. Start the game to create one, or bring in a world you already have.",
+                stringResource(Res.string.ui_no_worlds_overview),
             ) { WorldImportButton(actions) }
             return@SectionCard
         }
@@ -1335,7 +1398,7 @@ private fun OverviewWorlds(
                             Text(
                                 listOfNotNull(
                                     world.gameMode?.replaceFirstChar { it.uppercase() },
-                                    world.lastModifiedEpochMillis?.let { "Played ${formatLocalDateTime(it)}" },
+                                    world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
                                 ).joinToString(" · "),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1413,8 +1476,12 @@ private fun OverviewScreenshots(state: LauncherUiState, openPath: (String) -> Un
     val screenshots = state.gameData.screenshots.sortedByDescending { it.createdAtEpochMillis ?: Long.MIN_VALUE }
     if (screenshots.isEmpty()) return
     SectionCard(
-        title = "Recent screenshots",
-        action = { TextButton(onClick = { onOpenSection(InstanceSection.SCREENSHOTS) }) { Text("See all ${screenshots.size}") } },
+        title = stringResource(Res.string.ui_recent_screenshots),
+        action = {
+            TextButton(onClick = {
+                onOpenSection(InstanceSection.SCREENSHOTS)
+            }) { Text(stringResource(Res.string.ui_see_all_count, screenshots.size)) }
+        },
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             screenshots.take(4).forEach { screenshot ->
@@ -1457,14 +1524,14 @@ private fun OverviewContentSummary(
         }
         if (updates > 0) {
             Surface(
+                onClick = { onOpenSection(InstanceSection.CONTENT) },
                 color = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                 shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-                    .clickable { onOpenSection(InstanceSection.CONTENT) },
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(
-                    if (updates == 1) "1 update available" else "$updates updates available",
+                    pluralStringResource(Res.plurals.ui_updates_available, updates, updates),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                 )
@@ -1493,7 +1560,7 @@ private fun OverviewSetup(
     onChangeComponents: () -> Unit,
 ) {
     SectionCard(
-        title = "Setup",
+        title = stringResource(Res.string.ui_setup),
         action = {
             TextButton(
                 onClick = onChangeComponents,
@@ -1522,7 +1589,7 @@ private fun OverviewSetup(
                     onClick = {
                         openPath("${instance.instanceDirectory}/game")
                     },
-                ) { Text("Open game folder") }
+                ) { Text(stringResource(Res.string.ui_open_game_folder)) }
             }
             TextButton(
                 onClick = actions::inspectLaunchPlan,
@@ -1632,8 +1699,8 @@ private fun InstanceContent(
             item("add-content") {
                 val installed = instance.installationState is InstallationState.Installed
                 SectionCard(
-                    title = "Add content",
-                    supportingText = "Browse compatible content or add a file. Trestle installs required dependencies for you.",
+                    title = stringResource(Res.string.ui_add_content),
+                    supportingText = stringResource(Res.string.ui_add_content_hint),
                 ) {
                     browsableResourceTypes.filterNot { it == ResourceType.MODPACK }.forEach { type ->
                         ContentTypeRow(
@@ -1669,7 +1736,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
     }
     SectionCard(
         title = stringResource(Res.string.ui_installed_content),
-        supportingText = "Turn content on or off, update it, or remove it.",
+        supportingText = stringResource(Res.string.ui_installed_content_hint),
         action = {
             TextButton(
                 onClick = actions::refreshInstalledContent,
@@ -1695,7 +1762,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                         },
                     )
                     if (supportsOpenPath) {
-                        add("Open game folder" to { openPath("${instance.instanceDirectory}/game") })
+                        add(stringResource(Res.string.ui_open_game_folder) to { openPath("${instance.instanceDirectory}/game") })
                         add("Open config folder" to { openPath("${instance.instanceDirectory}/game/config") })
                     }
                 },

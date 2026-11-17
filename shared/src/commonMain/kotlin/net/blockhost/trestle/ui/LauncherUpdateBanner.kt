@@ -22,6 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.app.LauncherUpdate
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_close
+import net.blockhost.trestle.resources.ui_download_format
+import net.blockhost.trestle.resources.ui_open_release_page
+import net.blockhost.trestle.resources.ui_release_notes
+import net.blockhost.trestle.resources.ui_remind_me_tomorrow
+import net.blockhost.trestle.resources.ui_trestle_version
+import net.blockhost.trestle.resources.ui_trestle_version_available
+import net.blockhost.trestle.resources.ui_view_release
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiActions) {
@@ -32,18 +42,20 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("Trestle ${update.version} is available", modifier = Modifier.padding(vertical = 12.dp))
-            TextButton(onClick = { showNotes = true }) { Text("Release notes") }
+            Text(stringResource(Res.string.ui_trestle_version_available, update.version), modifier = Modifier.padding(vertical = 12.dp))
+            TextButton(onClick = { showNotes = true }) { Text(stringResource(Res.string.ui_release_notes)) }
             update.downloads.firstOrNull()?.let { download ->
-                TextButton(onClick = { uriHandler.openUri(download.url) }) { Text("Download .${download.format}") }
-            } ?: TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text("View release") }
-            TextButton(onClick = actions::remindAboutLauncherUpdateLater) { Text("Remind me tomorrow") }
+                TextButton(onClick = {
+                    uriHandler.openUri(download.url)
+                }) { Text(stringResource(Res.string.ui_download_format, download.format)) }
+            } ?: TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text(stringResource(Res.string.ui_view_release)) }
+            TextButton(onClick = actions::remindAboutLauncherUpdateLater) { Text(stringResource(Res.string.ui_remind_me_tomorrow)) }
         }
     }
     if (showNotes) {
         AlertDialog(
             onDismissRequest = { showNotes = false },
-            title = { Text("Trestle ${update.version}") },
+            title = { Text(stringResource(Res.string.ui_trestle_version, update.version)) },
             text = {
                 SelectionContainer {
                     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -57,8 +69,10 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
                     }
                 }
             },
-            confirmButton = { TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text("Open release page") } },
-            dismissButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },
+            confirmButton = {
+                TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text(stringResource(Res.string.ui_open_release_page)) }
+            },
+            dismissButton = { TextButton(onClick = { showNotes = false }) { Text(stringResource(Res.string.ui_close)) } },
         )
     }
 }

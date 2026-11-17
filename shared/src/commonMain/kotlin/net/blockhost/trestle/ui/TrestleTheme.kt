@@ -37,8 +37,8 @@ private val InkHighest = Color(0xFF2A303C)
 private val Brass = Color(0xFFF0A93E)
 private val Chalk = Color(0xFFE9ECF2)
 private val Muted = Color(0xFF9BA3B4)
-private val Rule = Color(0xFF3B4250)
-private val SoftRule = Color(0xFF242934)
+private val Rule = Color(0xFF737B8D)
+private val SoftRule = Color(0xFF2B313D)
 private val Mint = Color(0xFF5BD6A8)
 
 // Light palette: cool paper surfaces with the same brass and mint roles.
@@ -165,7 +165,8 @@ internal fun trestleColorScheme(accentColor: Color? = null, darkTheme: Boolean =
     val base = if (darkTheme) TrestleDarkColors else TrestleLightColors
     val contrastedBase = base.withHighContrast(highContrast)
     if (accentColor == null) return contrastedBase
-    val primary = primaryAccent(accentColor, contrastedBase.surface, if (darkTheme) Chalk else Ink)
+    // Primary is also used for small text, so it must stay readable on the raised surfaces it sits on.
+    val primary = primaryAccent(accentColor, contrastedBase.surfaceContainerHigh, if (darkTheme) Chalk else Ink)
     val primaryContainer = lerp(contrastedBase.surface, primary, if (darkTheme) 0.32f else 0.18f)
     val fixedDim = primaryAccent(accentColor, Ink, Chalk)
     val fixed = lerp(Chalk, fixedDim, 0.24f)
@@ -191,6 +192,7 @@ internal fun ColorScheme.withHighContrast(enabled: Boolean): ColorScheme = if (e
     copy(
         outline = onSurface,
         outlineVariant = lerp(surface, onSurface, 0.62f),
+        onSurfaceVariant = onSurface,
     )
 } else {
     this
@@ -226,7 +228,7 @@ internal fun contrastRatio(first: Color, second: Color): Float {
     return (lighter + 0.05f) / (darker + 0.05f)
 }
 
-private const val MINIMUM_ACCENT_CONTRAST = 3f
+private const val MINIMUM_ACCENT_CONTRAST = 4.5f
 private const val MINIMUM_CONTENT_CONTRAST = 4.5f
 
 private val TrestleShapes = Shapes(

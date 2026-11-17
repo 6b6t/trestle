@@ -168,14 +168,15 @@ private fun InstanceIconFallback(instance: GameInstance, size: Dp) {
     Box(
         Modifier.fillMaxSize().background(
             Brush.linearGradient(
-                listOf(Color.hsl(hue, saturation = 0.55f, lightness = 0.42f), Color.hsl(hue, saturation = 0.5f, lightness = 0.24f)),
+                // Dark enough that the light initial keeps at least 4.5:1 contrast for every hue.
+                listOf(Color.hsl(hue, saturation = 0.5f, lightness = 0.3f), Color.hsl(hue, saturation = 0.45f, lightness = 0.18f)),
             ),
         ),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             initial,
-            color = Color.hsl(hue, saturation = 0.7f, lightness = 0.9f),
+            color = Color.hsl(hue, saturation = 0.35f, lightness = 0.95f),
             style = when {
                 size >= 96.dp -> MaterialTheme.typography.displaySmall
                 size >= 56.dp -> MaterialTheme.typography.headlineMedium

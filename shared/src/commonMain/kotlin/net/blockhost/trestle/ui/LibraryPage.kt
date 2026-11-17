@@ -137,6 +137,7 @@ import net.blockhost.trestle.resources.ui_no_matching_instances
 import net.blockhost.trestle.resources.ui_open_named
 import net.blockhost.trestle.resources.ui_open_operation_details
 import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_pinned
 import net.blockhost.trestle.resources.ui_play
 import net.blockhost.trestle.resources.ui_play_named
 import net.blockhost.trestle.resources.ui_playing_as
@@ -144,6 +145,7 @@ import net.blockhost.trestle.resources.ui_resume_install
 import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_retry_install
 import net.blockhost.trestle.resources.ui_retry_launch
+import net.blockhost.trestle.resources.ui_running
 import net.blockhost.trestle.resources.ui_search_instances
 import net.blockhost.trestle.resources.ui_select_an_instance
 import net.blockhost.trestle.resources.ui_sign_in_required_for
@@ -369,14 +371,7 @@ private fun InstanceCollection(
             }
         }
         instanceSections(instances, state).forEach { section ->
-            item(key = section.key, span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    section.title ?: stringResource(Res.string.ui_all_instances),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.titleSmall,
-                )
-            }
+            item(key = section.key, span = { GridItemSpan(maxLineSpan) }) { LibrarySectionHeader(section) }
             gridItems(section.instances, key = { it.id.value }) { instance ->
                 InstanceTile(
                     instance = instance,
@@ -391,11 +386,28 @@ private fun InstanceCollection(
     }
 }
 
+private const val PINNED_SECTION_KEY = "pinned"
+
+@Composable
+private fun LibrarySectionHeader(section: LibrarySection) {
+    Text(
+        section.title ?: if (section.key == PINNED_SECTION_KEY) {
+            stringResource(Res.string.ui_pinned)
+        } else {
+            stringResource(Res.string.ui_all_instances)
+        },
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.titleSmall,
+    )
+}
+
 private class LibrarySection(val key: String, val title: String?, val instances: List<GameInstance>)
 
 /**
  * Splits instances into the sections shown in the library.
- * Only pinned instances and groups the player named get their own section; a null title is the remaining instances.
+ * Only pinned instances and groups the player named get their own section. Pinned and ungrouped sections have a
+ * null title and are labeled when drawn.
  * Keys carry the section kind, so a group named "Pinned" cannot collide with the pinned section.
  */
 private fun instanceSections(instances: List<GameInstance>, state: LauncherUiState): List<LibrarySection> {
@@ -405,7 +417,7 @@ private fun instanceSections(instances: List<GameInstance>, state: LauncherUiSta
     val named = rest.filter { !it.group.isNullOrBlank() }.groupBy { it.group.orEmpty().trim() }
     val ungrouped = rest.filter { it.group.isNullOrBlank() }
     return buildList {
-        if (pinned.isNotEmpty()) add(LibrarySection("pinned", "Pinned", pinned))
+        if (pinned.isNotEmpty()) add(LibrarySection(PINNED_SECTION_KEY, null, pinned))
         named.entries.sortedBy { it.key.lowercase() }.forEach { (group, members) ->
             add(LibrarySection("group:$group", group, members))
         }
@@ -577,7 +589,7 @@ private fun instanceSubtitle(instance: GameInstance): String = "Minecraft ${inst
 private fun InstallationStatusLine(instance: GameInstance, state: LauncherUiState) {
     val installationState = instance.installationState
     val running = state.activeLaunch?.instanceId == instance.id && state.activeLaunch.status is LaunchStatus.Running
-    val label = if (running) "Running" else stateLabel(installationState)
+    val label = if (running) stringResource(Res.string.ui_running) else stateLabel(installationState)
     val color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState)
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         Box(Modifier.size(8.dp).background(color, CircleShape))

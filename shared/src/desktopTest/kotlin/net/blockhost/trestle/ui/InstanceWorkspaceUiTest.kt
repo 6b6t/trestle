@@ -4,16 +4,20 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -42,6 +46,19 @@ class InstanceWorkspaceUiTest {
         onNodeWithTag(LauncherTestTags.instanceSection("notes")).performClick()
 
         onNodeWithText("Seed is 42").assertIsDisplayed()
+    }
+
+    @Test
+    fun escapeWhileTypingLeavesTheFieldInsteadOfThePage() = runComposeUiTest {
+        setContent(instancePage(LauncherPreviewFixtures.played, NoopLauncherUiActions))
+
+        onNodeWithTag(LauncherTestTags.instanceSection("notes")).performClick()
+        val notes = onNodeWithText("Write notes for Building world")
+        notes.performTextInput("Seed is 42")
+        onNodeWithText("Seed is 42").performKeyInput { pressKey(Key.Escape) }
+
+        onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
+        onNodeWithText("Seed is 42").assertIsNotFocused()
     }
 
     @Test
