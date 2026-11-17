@@ -99,6 +99,7 @@ fun MinecraftSkinPreview(
     interactive: Boolean = true,
     animate: Boolean = true,
     emptyLabel: String = "Skin preview unavailable",
+    background: Color = MaterialTheme.colorScheme.surfaceContainerLowest,
 ) {
     val shouldAnimate = animate && !LocalReduceMotion.current
     val pixels = remember(texture) {
@@ -117,7 +118,7 @@ fun MinecraftSkinPreview(
 
     Box(
         modifier
-            .background(PreviewBackground)
+            .background(background)
             .semantics {
                 contentDescription = if (interactive) {
                     "Interactive 3D Minecraft skin preview. Use Left and Right to rotate, or Home to reset."
@@ -385,6 +386,5 @@ private fun Color.shade(amount: Float): Color = Color(
     alpha = alpha,
 )
 
-private val PreviewBackground = Color(0xFF171613)
 private const val DEFAULT_YAW = -0.42f
 private const val KEYBOARD_ROTATION_STEP = 0.18f

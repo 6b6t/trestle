@@ -114,7 +114,7 @@
     <string name="ui_launch">Launch</string>
     <string name="ui_launch_plan">Launch plan</string>
     <string name="ui_launcher_log">Launcher log</string>
-    <string name="ui_leave_blank_to_group_this_instance_by_loader">Leave blank to group this instance by loader.</string>
+    <string name="ui_leave_blank_to_list_under_all_instances">Leave blank to list it under All instances.</string>
     <string name="ui_leave_blank_to_use_trestles_managed_mojang_runtime">Leave blank to use Trestle&#39;s managed Mojang runtime.</string>
     <string name="ui_library">Library</string>
     <string name="ui_loader">Loader</string>
@@ -263,4 +263,13 @@
     <string name="ui_open_with">Open with…</string>
     <string name="ui_reload_file">Reload file</string>
     <string name="ui_text_file">Text file</string>
+    <string name="ui_all_instances">All instances</string>
+    <string name="ui_playing_as">Playing as %1$s</string>
+    <string name="ui_sign_in_required_for">%1$s needs to sign in again</string>
+    <string name="ui_no_account_to_play">No account. Add one to play.</string>
+    <string name="ui_add_mods">Add mods</string>
+    <string name="ui_last_played_on">Last played %1$s</string>
+    <string name="ui_never_played">Not played yet</string>
+    <string name="ui_play_named">Play %1$s</string>
+    <string name="ui_import_hint">Import a Modrinth, CurseForge, Prism, or MultiMC pack, or drop a file here.</string>
 </resources>

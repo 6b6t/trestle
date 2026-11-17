@@ -4,6 +4,7 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,9 +39,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.app.BuildInfo
@@ -106,14 +109,10 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
     )
 
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS)) {
-        PageHeader(
-            title = if (listPaneHidden && section != null) {
-                stringResource(section.label)
-            } else {
-                stringResource(Res.string.ui_settings)
-            },
-            navigationIcon = {
-                if (listPaneHidden && section != null) {
+        if (listPaneHidden && section != null) {
+            PageHeader(
+                title = stringResource(section.label),
+                navigationIcon = {
                     TrestleTooltipIconButton(
                         label = stringResource(Res.string.ui_back),
                         onClick = showCategories,
@@ -123,22 +122,25 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
                             contentDescription = stringResource(Res.string.ui_back),
                         )
                     }
-                }
-            },
-        )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        } else {
+            PageHero(
+                title = stringResource(Res.string.ui_settings),
+                subtitle = "$currentPlatform build ${BuildInfo.VERSION}",
+                accent = MaterialTheme.colorScheme.secondary,
+            )
+        }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
             scaffoldState = navigator.scaffoldState,
             modifier = Modifier.fillMaxSize(),
             listPane = {
-                AnimatedPane {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS_CATEGORIES),
-                    ) {
+                AnimatedPane(Modifier.preferredWidth(300.dp)) {
+                    Box(Modifier.fillMaxSize().testTag(LauncherTestTags.SETTINGS_CATEGORIES)) {
                         LazyColumn(
-                            contentPadding = PaddingValues(12.dp),
+                            contentPadding = PaddingValues(start = 16.dp, end = 4.dp, bottom = 24.dp),
                             verticalArrangement = Arrangement.spacedBy(2.dp),
                         ) {
                             SettingsGroup.entries.forEach { group ->
@@ -161,14 +163,6 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
                                         onClick = { selectSection(item) },
                                     )
                                 }
-                            }
-                            item("build-info") {
-                                Text(
-                                    "$currentPlatform build ${BuildInfo.VERSION}",
-                                    modifier = Modifier.padding(16.dp),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
                             }
                         }
                     }
@@ -213,24 +207,27 @@ private enum class SettingsGroup(val label: String) {
     DIAGNOSTICS("Diagnostics"),
 }
 
-private enum class SettingsSection(val label: StringResource, val group: SettingsGroup) {
-    GENERAL(Res.string.ui_general, SettingsGroup.APP),
-    APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP),
-    LANGUAGE(Res.string.ui_language, SettingsGroup.APP),
-    FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE),
-    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE),
-    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK),
-    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK),
-    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK),
-    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS),
-    LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS),
-    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS),
+private enum class SettingsSection(val label: StringResource, val group: SettingsGroup, val summary: String) {
+    GENERAL(Res.string.ui_general, SettingsGroup.APP, "Library sorting"),
+    APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP, "Light, dark, or system theme"),
+    LANGUAGE(Res.string.ui_language, SettingsGroup.APP, "Launcher and game language"),
+    FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE, "Where instances and files live"),
+    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, "Downloads and installs"),
+    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, "Connections and timeouts"),
+    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, "Route traffic through a proxy"),
+    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, "Content and account services"),
+    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, "Java and system details"),
+    LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS, "What the launcher did"),
+    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS, "Maintenance and repair"),
 }
 
 @Composable
 private fun SettingsSectionButton(section: SettingsSection, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     ListItem(
-        headlineContent = { Text(stringResource(section.label)) },
+        headlineContent = { Text(stringResource(section.label), style = MaterialTheme.typography.titleSmall) },
+        supportingContent = {
+            Text(section.summary, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        },
         colors = ListItemDefaults.colors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.secondaryContainer
@@ -238,7 +235,7 @@ private fun SettingsSectionButton(section: SettingsSection, selected: Boolean, m
                 Color.Transparent
             },
         ),
-        modifier = modifier.selectable(
+        modifier = modifier.clip(MaterialTheme.shapes.medium).selectable(
             selected = selected,
             role = Role.RadioButton,
             onClick = onClick,

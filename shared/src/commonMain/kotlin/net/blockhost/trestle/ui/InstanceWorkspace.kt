@@ -5,14 +5,24 @@
 
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -28,6 +38,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -37,6 +49,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -44,12 +57,13 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.PrimaryScrollableTabRow
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.AnimatedPane
@@ -69,6 +83,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
@@ -79,6 +94,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -93,13 +110,20 @@ import kotlinx.coroutines.launch
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.instance.ManagedScreenshot
+import net.blockhost.trestle.instance.ManagedWorld
+import net.blockhost.trestle.instance.SavedServer
 import net.blockhost.trestle.instance.ServerStatus
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
+import net.blockhost.trestle.resources.ic_add
 import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ic_more_vert
+import net.blockhost.trestle.resources.ic_play
+import net.blockhost.trestle.resources.ui_add_mods
 import net.blockhost.trestle.resources.ui_add_server
 import net.blockhost.trestle.resources.ui_address
 import net.blockhost.trestle.resources.ui_back
@@ -194,72 +218,20 @@ internal fun InstanceWorkspace(
     val serversListState = rememberLazyListState()
     val screenshotsListState = rememberLazyListState()
     val configurationScrollState = rememberScrollState()
-    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
-    val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
-        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
-    )
-    val scope = rememberCoroutineScope()
-    val listPaneHidden = navigator.scaffoldValue[ListDetailPaneScaffoldRole.List] == PaneAdaptedValue.Hidden
+    val compact = layoutMode == TrestleLayoutMode.COMPACT
     val selectSection: (InstanceSection) -> Unit = { selectedSection ->
         sectionName = selectedSection.name
         if (selectedSection == InstanceSection.SETTINGS && !state.instanceSettings.visible) {
             actions.openInstanceSettings()
         }
-        scope.launch {
-            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, selectedSection.name)
-        }
     }
-    val showSections: () -> Unit = {
-        scope.launch {
-            if (navigator.canNavigateBack()) {
-                navigator.navigateBack()
-            } else {
-                navigator.navigateTo(ListDetailPaneScaffoldRole.List)
-            }
-        }
-    }
-
-    LaunchedEffect(instance?.id) {
-        if (instance != null) {
-            sectionName = InstanceSection.OVERVIEW.name
-            navigator.navigateTo(ListDetailPaneScaffoldRole.Detail, InstanceSection.OVERVIEW.name)
-        }
-    }
-    PlatformBackHandler(
-        enabled = instance != null && listPaneHidden && navigator.canNavigateBack(),
-        onBack = showSections,
-    )
 
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.INSTANCE_WORKSPACE)) {
-        if (layoutMode == TrestleLayoutMode.EXPANDED && instance != null) {
-            InstanceWorkspaceHeader(state, instance, actions, onBack)
-        } else {
-            PageHeader(
-                title = if (listPaneHidden && instance != null) {
-                    stringResource(section.label)
-                } else {
-                    instance?.displayName ?: stringResource(Res.string.ui_instance)
-                },
-                navigationIcon = {
-                    TrestleTooltipIconButton(
-                        label = if (listPaneHidden && instance != null) {
-                            stringResource(Res.string.ui_back)
-                        } else {
-                            stringResource(Res.string.ui_back_to_library)
-                        },
-                        onClick = if (listPaneHidden && instance != null) showSections else onBack,
-                        modifier = Modifier.testTag(LauncherTestTags.INSTANCE_BACK),
-                    ) {
-                        Icon(
-                            painterResource(Res.drawable.ic_arrow_back),
-                            contentDescription = null,
-                        )
-                    }
-                },
-            )
-        }
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (instance == null) {
+            PageHeader(
+                title = stringResource(Res.string.ui_instance),
+                navigationIcon = { InstanceBackButton(onBack) },
+            )
             Column(
                 Modifier.fillMaxSize().padding(24.dp),
                 verticalArrangement = Arrangement.Center,
@@ -270,119 +242,114 @@ internal fun InstanceWorkspace(
             }
             return@Column
         }
-        ListDetailPaneScaffold(
-            directive = navigator.scaffoldDirective,
-            scaffoldState = navigator.scaffoldState,
-            modifier = Modifier.weight(1f).fillMaxWidth(),
-            listPane = {
-                AnimatedPane(Modifier.preferredWidth(232.dp)) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainer,
-                        modifier = Modifier.fillMaxSize(),
-                    ) {
-                        LazyColumn(
-                            contentPadding = PaddingValues(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(2.dp),
-                        ) {
-                            items(InstanceSection.entries, key = InstanceSection::name) { item ->
-                                ListItem(
-                                    headlineContent = { Text(stringResource(item.label)) },
-                                    colors = ListItemDefaults.colors(
-                                        containerColor = if (section == item) {
-                                            MaterialTheme.colorScheme.secondaryContainer
-                                        } else {
-                                            Color.Transparent
-                                        },
-                                    ),
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .selectable(
-                                            selected = section == item,
-                                            role = Role.RadioButton,
-                                            onClick = { selectSection(item) },
-                                        )
-                                        .testTag(LauncherTestTags.instanceSection(item.name)),
-                                )
-                            }
-                        }
-                    }
+        InstanceWorkspaceHeader(state, instance, actions, onBack, compact)
+        InstanceSectionTabs(section, compact, selectSection)
+        Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
+            when (section) {
+                InstanceSection.OVERVIEW -> InstanceOverview(
+                    state,
+                    instance,
+                    actions,
+                    overviewListState,
+                    onChangeComponents = { selectSection(InstanceSection.SETTINGS) },
+                    onOpenSection = selectSection,
+                    onDiscover = onDiscover,
+                    modifier = contentModifier,
+                )
+
+                InstanceSection.CONTENT -> InstanceContent(
+                    state,
+                    instance,
+                    actions,
+                    onDiscover,
+                    contentListState,
+                    contentModifier,
+                )
+
+                InstanceSection.WORLDS -> InstanceGameData(
+                    state,
+                    instance,
+                    actions,
+                    GameDataView.WORLDS,
+                    worldsListState,
+                    contentModifier,
+                )
+
+                InstanceSection.SERVERS -> InstanceGameData(
+                    state,
+                    instance,
+                    actions,
+                    GameDataView.SERVERS,
+                    serversListState,
+                    contentModifier,
+                )
+
+                InstanceSection.SCREENSHOTS -> InstanceGameData(
+                    state,
+                    instance,
+                    actions,
+                    GameDataView.SCREENSHOTS,
+                    screenshotsListState,
+                    contentModifier,
+                )
+
+                InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
+
+                InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
+
+                InstanceSection.SETTINGS -> if (state.instanceSettings.visible) {
+                    InstanceSettingsContent(
+                        state = state,
+                        actions = actions,
+                        modifier = contentModifier,
+                        showHeader = false,
+                    )
+                } else {
+                    InstanceConfiguration(
+                        instance = instance,
+                        actions = actions,
+                        scrollState = configurationScrollState,
+                        modifier = contentModifier,
+                    )
                 }
-            },
-            detailPane = {
-                AnimatedPane {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-                        val contentModifier = Modifier.widthIn(max = WideContentWidth).fillMaxSize()
-                        when (section) {
-                            InstanceSection.OVERVIEW -> InstanceOverview(
-                                state,
-                                instance,
-                                actions,
-                                overviewListState,
-                                contentModifier,
-                                layoutMode == TrestleLayoutMode.COMPACT,
-                                onChangeComponents = { selectSection(InstanceSection.SETTINGS) },
-                            )
+            }
+        }
+    }
+}
 
-                            InstanceSection.CONTENT -> InstanceContent(
-                                state,
-                                instance,
-                                actions,
-                                onDiscover,
-                                contentListState,
-                                contentModifier,
-                            )
+@Composable
+private fun InstanceSectionTabs(section: InstanceSection, compact: Boolean, onSelect: (InstanceSection) -> Unit) {
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+        PrimaryScrollableTabRow(
+            selectedTabIndex = section.ordinal,
+            edgePadding = if (compact) 8.dp else 12.dp,
+            containerColor = Color.Transparent,
+            divider = { HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant) },
+            modifier = Modifier.widthIn(max = WideContentWidth).fillMaxWidth(),
+        ) {
+            InstanceSection.entries.forEach { item ->
+                Tab(
+                    selected = section == item,
+                    onClick = { onSelect(item) },
+                    text = { Text(stringResource(item.label), style = MaterialTheme.typography.titleSmall) },
+                    selectedContentColor = MaterialTheme.colorScheme.primary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag(LauncherTestTags.instanceSection(item.name)),
+                )
+            }
+        }
+    }
+}
 
-                            InstanceSection.WORLDS -> InstanceGameData(
-                                state,
-                                instance,
-                                actions,
-                                GameDataView.WORLDS,
-                                worldsListState,
-                                contentModifier,
-                            )
-
-                            InstanceSection.SERVERS -> InstanceGameData(
-                                state,
-                                instance,
-                                actions,
-                                GameDataView.SERVERS,
-                                serversListState,
-                                contentModifier,
-                            )
-
-                            InstanceSection.SCREENSHOTS -> InstanceGameData(
-                                state,
-                                instance,
-                                actions,
-                                GameDataView.SCREENSHOTS,
-                                screenshotsListState,
-                                contentModifier,
-                            )
-
-                            InstanceSection.NOTES -> InstanceNotes(instance, actions, contentModifier)
-
-                            InstanceSection.LOGS -> InstanceLogs(state, instance, actions, contentModifier)
-
-                            InstanceSection.SETTINGS -> if (state.instanceSettings.visible) {
-                                InstanceSettingsContent(
-                                    state = state,
-                                    actions = actions,
-                                    modifier = contentModifier,
-                                    showHeader = false,
-                                )
-                            } else {
-                                InstanceConfiguration(
-                                    instance = instance,
-                                    actions = actions,
-                                    scrollState = configurationScrollState,
-                                    modifier = contentModifier,
-                                )
-                            }
-                        }
-                    }
-                }
-            },
-        )
+@Composable
+private fun InstanceBackButton(onBack: () -> Unit) {
+    TrestleTooltipIconButton(
+        label = stringResource(Res.string.ui_back_to_library),
+        onClick = onBack,
+        modifier = Modifier.testTag(LauncherTestTags.INSTANCE_BACK),
+    ) {
+        Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = stringResource(Res.string.ui_back_to_library))
     }
 }
 
@@ -410,33 +377,24 @@ private fun InstanceGameData(
     LazyColumn(
         state = listState,
         modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         item("game-data-heading") {
             Row(
-                Modifier.widthIn(max = 820.dp).fillMaxWidth(),
+                Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(
-                        when (view) {
-                            GameDataView.WORLDS -> stringResource(Res.string.ui_worlds)
-                            GameDataView.SERVERS -> stringResource(Res.string.ui_servers)
-                            GameDataView.SCREENSHOTS -> stringResource(Res.string.ui_screenshots)
-                        },
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        when (view) {
-                            GameDataView.WORLDS -> "Manage local worlds, data packs, and backups for ${instance.displayName}."
-                            GameDataView.SERVERS -> "Manage multiplayer servers saved in ${instance.displayName}."
-                            GameDataView.SCREENSHOTS -> "Review and organize screenshots from ${instance.displayName}."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                Text(
+                    when (view) {
+                        GameDataView.WORLDS -> "Local worlds, data packs, and backups for ${instance.displayName}."
+                        GameDataView.SERVERS -> "Multiplayer servers saved in ${instance.displayName}."
+                        GameDataView.SCREENSHOTS -> "Screenshots taken in ${instance.displayName}."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
                 TextButton(onClick = actions::refreshGameData, enabled = !state.isLoadingGameData) {
                     Text(stringResource(Res.string.ui_refresh))
                 }
@@ -452,194 +410,96 @@ private fun InstanceGameData(
         }
         if (view == GameDataView.WORLDS) {
             item("worlds") {
-                GameDataSection("Worlds", if (state.gameData.worlds.isEmpty()) "No local worlds yet." else null) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        WorldImportButton(actions)
-                    }
-                    state.gameData.worlds.forEach { world ->
-                        ListItem(
-                            leadingContent = world.iconPath?.let { iconPath ->
-                                {
-                                    AsyncImage(
-                                        model = iconPath,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(48.dp).clip(MaterialTheme.shapes.small),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                }
+                val worlds = state.gameData.worlds.sortedByDescending { it.lastModifiedEpochMillis ?: Long.MIN_VALUE }
+                GameDataSection(
+                    title = if (worlds.isEmpty()) "Worlds" else "Worlds (${worlds.size})",
+                    emptyMessage = if (worlds.isEmpty()) "No worlds yet. Start the game to create one, or import a world." else null,
+                    action = { WorldImportButton(actions) },
+                ) {
+                    worlds.forEach { world ->
+                        WorldCard(
+                            world = world,
+                            instance = instance,
+                            actions = actions,
+                            onRename = {
+                                worldToRename = world.key
+                                worldName = world.name
                             },
-                            headlineContent = { Text(world.name) },
-                            supportingContent = {
-                                val details = listOfNotNull(
-                                    world.gameMode,
-                                    formatFileSize(world.sizeBytes),
-                                    "${world.dataPacks.size} data packs",
-                                )
-                                Text(details.joinToString(" · "))
-                            },
-                            trailingContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(onClick = { actions.launchWorld(world.key) }) { Text(stringResource(Res.string.ui_play)) }
-                                    InstanceItemActions(
-                                        buildList {
-                                            add(
-                                                "Rename" to {
-                                                    worldToRename = world.key
-                                                    worldName = world.name
-                                                },
-                                            )
-                                            add("Copy" to { actions.copyWorld(world.key) })
-                                            add("Back up" to { actions.backupWorld(world.key) })
-                                            if (world.iconPath != null) add("Reset icon" to { actions.resetWorldIcon(world.key) })
-                                            add("Delete" to { actions.deleteWorld(world.key) })
-                                        },
-                                    )
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            onCopySeed = { seed -> copyText(seed.toString()) },
                         )
-                        world.seed?.let { seed ->
-                            Row(
-                                Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Text(
-                                    stringResource(Res.string.ui_seed_value, seed),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                TextButton(onClick = { copyText(seed.toString()) }) { Text(stringResource(Res.string.ui_copy_seed)) }
+                    }
+                }
+            }
+            item("backups") {
+                GameDataSection(
+                    title = "Backups",
+                    emptyMessage = "Back up a world from its menu to keep a restorable copy."
+                        .takeIf { state.gameData.backups.isEmpty() },
+                ) {
+                    state.gameData.backups.forEach { backup ->
+                        GameDataRow(
+                            title = backup.fileName,
+                            details = listOfNotNull(
+                                formatFileSize(backup.sizeBytes),
+                                backup.createdAtEpochMillis?.let(::formatLocalDateTime),
+                            ).joinToString(" · "),
+                        ) {
+                            FilledTonalButton(onClick = { actions.restoreWorldBackup(backup.key) }) {
+                                Text(stringResource(Res.string.ui_restore_copy))
                             }
                         }
-                        world.dataPacks.forEach { pack ->
-                            ListItem(
-                                headlineContent = { Text(pack.fileName) },
-                                supportingContent = { Text(formatFileSize(pack.sizeBytes)) },
-                                trailingContent = {
-                                    Switch(
-                                        checked = pack.enabled,
-                                        onCheckedChange = null,
-                                    )
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                modifier = Modifier.fillMaxWidth().padding(start = 16.dp).toggleable(
-                                    value = pack.enabled,
-                                    role = Role.Switch,
-                                    onValueChange = { actions.toggleDataPack(world.key, pack.key) },
-                                ),
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
                 }
             }
         }
         if (view == GameDataView.SERVERS) {
             item("servers") {
-                GameDataSection("Servers", if (state.gameData.servers.isEmpty()) "No saved multiplayer servers." else null) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        TextButton(onClick = { actions.openServerEditor() }) { Text(stringResource(Res.string.ui_add_server)) }
-                    }
-                    state.gameData.servers.forEach { server ->
-                        ListItem(
-                            leadingContent = server.iconDataUrl?.let { iconDataUrl ->
-                                {
-                                    AsyncImage(
-                                        model = iconDataUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(42.dp).clip(MaterialTheme.shapes.small),
-                                        contentScale = ContentScale.Crop,
-                                    )
-                                }
-                            },
-                            headlineContent = { Text(server.name) },
-                            supportingContent = {
-                                val status = when (server.status) {
-                                    ServerStatus.ONLINE -> listOfNotNull(
-                                        server.onlinePlayers?.let { online ->
-                                            server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
-                                        },
-                                        server.pingMillis?.let { "$it ms" },
-                                    ).joinToString(" · ")
-
-                                    ServerStatus.OFFLINE -> "Offline"
-
-                                    ServerStatus.UNKNOWN -> "Not checked"
-                                }
-                                Text(stringResource(Res.string.ui_server_status, server.address, status))
-                            },
-                            trailingContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(onClick = { actions.joinServer(server.key) }) { Text(stringResource(Res.string.ui_join)) }
-                                    InstanceItemActions(
-                                        listOf(
-                                            "Move up" to { actions.moveServer(server.key, -1) },
-                                            "Move down" to { actions.moveServer(server.key, 1) },
-                                            "Edit" to { actions.openServerEditor(server.key) },
-                                            "Remove" to { actions.removeServer(server.key) },
-                                        ),
-                                    )
-                                }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        )
-                    }
-                }
-            }
-        }
-        if (view == GameDataView.WORLDS) {
-            item("backups") {
-                GameDataSection("Backups", if (state.gameData.backups.isEmpty()) "No world backups yet." else null) {
-                    state.gameData.backups.forEach { backup ->
-                        ListItem(
-                            headlineContent = { Text(backup.fileName) },
-                            supportingContent = { Text(formatFileSize(backup.sizeBytes)) },
-                            trailingContent = {
-                                TextButton(onClick = {
-                                    actions.restoreWorldBackup(backup.key)
-                                }) { Text(stringResource(Res.string.ui_restore_copy)) }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        )
-                    }
+                GameDataSection(
+                    title = stringResource(Res.string.ui_servers),
+                    emptyMessage = if (state.gameData.servers.isEmpty()) "Add a server here or in the game's multiplayer menu." else null,
+                    action = {
+                        TextButton(onClick = { actions.openServerEditor() }) {
+                            Icon(painterResource(Res.drawable.ic_add), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Add server")
+                        }
+                    },
+                ) {
+                    state.gameData.servers.forEach { server -> ServerCard(server, actions) }
                 }
             }
         }
         if (view == GameDataView.SCREENSHOTS) {
             item("screenshots") {
-                GameDataSection("Screenshots", if (state.gameData.screenshots.isEmpty()) "No screenshots yet." else null) {
-                    state.gameData.screenshots.forEach { screenshot ->
-                        ListItem(
-                            leadingContent = {
-                                AsyncImage(
-                                    model = screenshot.path,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(72.dp).clip(MaterialTheme.shapes.small),
-                                    contentScale = ContentScale.Crop,
-                                )
-                            },
-                            headlineContent = { Text(screenshot.fileName) },
-                            supportingContent = { Text(formatFileSize(screenshot.sizeBytes)) },
-                            trailingContent = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    TextButton(
-                                        onClick = { openPath(screenshot.path) },
-                                        enabled = supportsOpenPath,
-                                    ) { Text(stringResource(Res.string.ui_open)) }
-                                    InstanceItemActions(
-                                        listOf(
-                                            "Copy file path" to { copyText(screenshot.path) },
-                                            "Rename" to {
-                                                screenshotToRename = screenshot.key
-                                                screenshotName = screenshot.fileName.substringBeforeLast('.')
-                                            },
-                                            "Delete" to { actions.deleteScreenshot(screenshot.key) },
-                                        ),
-                                    )
+                val screenshots = state.gameData.screenshots.sortedByDescending { it.createdAtEpochMillis ?: Long.MIN_VALUE }
+                GameDataSection(
+                    title = if (screenshots.isEmpty()) "Screenshots" else "Screenshots (${screenshots.size})",
+                    emptyMessage = if (screenshots.isEmpty()) "Press F2 in game to take a screenshot. They appear here." else null,
+                ) {
+                    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp)) {
+                        val columns = (maxWidth / 240.dp).toInt().coerceIn(1, 5)
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            screenshots.chunked(columns).forEach { row ->
+                                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    row.forEach { screenshot ->
+                                        ScreenshotTile(
+                                            screenshot = screenshot,
+                                            onOpen = { openPath(screenshot.path) },
+                                            menu = listOf(
+                                                "Copy file path" to { copyText(screenshot.path) },
+                                                "Rename" to {
+                                                    screenshotToRename = screenshot.key
+                                                    screenshotName = screenshot.fileName.substringBeforeLast('.')
+                                                },
+                                                "Delete" to { actions.deleteScreenshot(screenshot.key) },
+                                            ),
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                    }
+                                    repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
                                 }
-                            },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        )
+                            }
+                        }
                     }
                 }
             }
@@ -725,10 +585,9 @@ private fun InstanceNotes(instance: GameInstance, actions: LauncherUiActions, mo
         modifier.verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Column(Modifier.widthIn(max = 820.dp).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(Res.string.ui_notes), style = MaterialTheme.typography.titleLarge)
                     Text(
                         "Keep setup details, server information, or reminders with this instance.",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -796,101 +655,93 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
         if (followLaunch) outputScroll.scrollTo(outputScroll.maxValue)
     }
     Column(modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.widthIn(max = 1000.dp).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text(stringResource(Res.string.ui_instance_logs), style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        "Review Minecraft output, archived logs, and crash reports.",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                TextButton(
-                    onClick = { selectedKey?.let(actions::selectInstanceLog) },
-                    enabled = selectedKey != null && !state.isLoadingInstanceLog,
-                ) { Text(stringResource(Res.string.ui_reload)) }
-                InstanceItemActions(
-                    buildList {
-                        if (supportsOpenPath && selectedLogPath != null) {
-                            add(openLogFileLabel to { openPath(selectedLogPath) })
-                        }
-                        if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
-                        if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
-                        if (selectedKey != null && !launchActive) {
-                            add("Delete log file" to { actions.deleteInstanceLog(selectedKey) })
-                        }
-                    },
-                )
-            }
-            if (state.gameData.logs.isEmpty()) {
-                Text(
-                    "Logs appear here after Minecraft starts.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            if (state.gameData.logs.isNotEmpty()) {
                 Selector(
                     label = "Log file",
                     value = selectedKey.orEmpty(),
                     values = state.gameData.logs.map { it.key },
                     enabled = !state.isLoadingInstanceLog,
                     onSelect = actions::selectInstanceLog,
+                    modifier = Modifier.weight(1f),
                 )
             }
-            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    label = { Text(stringResource(Res.string.ui_find_in_log)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(
-                        Modifier.toggleable(followLaunch, role = Role.Checkbox) { followLaunch = it },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(followLaunch, onCheckedChange = null)
-                        Text(stringResource(Res.string.ui_follow_launch))
+            TrestleSearchField(
+                value = query,
+                onValueChange = { query = it },
+                placeholder = { Text(stringResource(Res.string.ui_find_in_log)) },
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = { selectedKey?.let(actions::selectInstanceLog) },
+                enabled = selectedKey != null && !state.isLoadingInstanceLog,
+            ) { Text(stringResource(Res.string.ui_reload)) }
+            InstanceItemActions(
+                buildList {
+                    if (supportsOpenPath && selectedLogPath != null) {
+                        add(openLogFileLabel to { openPath(selectedLogPath) })
                     }
-                    Row(
-                        Modifier.toggleable(wrapLines, role = Role.Checkbox) { wrapLines = it },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Checkbox(wrapLines, onCheckedChange = null)
-                        Text(stringResource(Res.string.ui_wrap_lines))
+                    if (visibleText.isNotEmpty()) add("Copy visible log" to { copyText(visibleText) })
+                    if (state.gameLogLines.isNotEmpty()) add("Clear streamed log" to actions::clearGameLog)
+                    if (selectedKey != null && !launchActive) {
+                        add("Delete log file" to { actions.deleteInstanceLog(selectedKey) })
                     }
+                },
+            )
+        }
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = followLaunch,
+                onClick = { followLaunch = !followLaunch },
+                label = { Text(stringResource(Res.string.ui_follow_launch)) },
+            )
+            FilterChip(
+                selected = wrapLines,
+                onClick = { wrapLines = !wrapLines },
+                label = { Text(stringResource(Res.string.ui_wrap_lines)) },
+            )
+            FilterChip(
+                selected = colorLines,
+                onClick = { colorLines = !colorLines },
+                label = { Text(stringResource(Res.string.ui_color_warnings_and_errors)) },
+            )
+        }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = MaterialTheme.shapes.large,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth().weight(1f),
+        ) {
+            when {
+                state.isLoadingInstanceLog -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
                 }
-                Row(
-                    Modifier.toggleable(colorLines, role = Role.Checkbox) { colorLines = it },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(colorLines, onCheckedChange = null)
-                    Text(stringResource(Res.string.ui_color_warnings_and_errors))
-                }
-            }
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                shape = MaterialTheme.shapes.small,
-                modifier = Modifier.fillMaxWidth().weight(1f),
-            ) {
-                when {
-                    state.isLoadingInstanceLog -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
 
-                    else -> androidx.compose.foundation.text.selection.SelectionContainer {
-                        Text(
-                            if (renderedText.isEmpty()) AnnotatedString("No matching log lines.") else renderedText,
-                            modifier = Modifier.fillMaxSize().verticalScroll(outputScroll).padding(12.dp),
-                            fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                            style = MaterialTheme.typography.bodySmall,
-                            softWrap = wrapLines,
-                        )
-                    }
+                state.gameData.logs.isEmpty() && rawText.isEmpty() -> Column(
+                    Modifier.fillMaxSize().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text("No logs yet", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "Minecraft output, archived logs, and crash reports appear here after you play.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                else -> SelectionContainer {
+                    Text(
+                        if (renderedText.isEmpty()) AnnotatedString("No matching log lines.") else renderedText,
+                        modifier = Modifier.fillMaxSize().verticalScroll(outputScroll).padding(16.dp),
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                        softWrap = wrapLines,
+                    )
                 }
             }
         }
@@ -898,17 +749,226 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
 }
 
 @Composable
-private fun GameDataSection(title: String, emptyMessage: String?, content: @Composable ColumnScope.() -> Unit) {
-    Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
+private fun GameDataSection(
+    title: String,
+    emptyMessage: String?,
+    action: @Composable RowScope.() -> Unit = {},
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    SectionCard(title = title, action = action) {
         if (emptyMessage != null) {
             Text(
                 emptyMessage,
-                modifier = Modifier.padding(vertical = 12.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        content()
+        Column(
+            Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            content = content,
+        )
+    }
+}
+
+@Composable
+private fun GameDataRow(
+    title: String,
+    details: String,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: @Composable RowScope.() -> Unit,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            Modifier.padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            leading?.invoke()
+            Column(
+                Modifier.weight(1f).padding(
+                    start = if (leading ==
+                        null
+                    ) {
+                        6.dp
+                    } else {
+                        0.dp
+                    },
+                ),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (details.isNotBlank()) {
+                    Text(
+                        details,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp), content = trailing)
+        }
+    }
+}
+
+@Composable
+private fun WorldCard(
+    world: ManagedWorld,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    onRename: () -> Unit,
+    onCopySeed: (Long) -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        GameDataRow(
+            title = world.name,
+            details = listOfNotNull(
+                world.gameMode?.replaceFirstChar { it.uppercase() },
+                formatFileSize(world.sizeBytes),
+                world.dataPacks.size.takeIf { it > 0 }?.let { if (it == 1) "1 data pack" else "$it data packs" },
+                world.lastModifiedEpochMillis?.let { "Played ${formatLocalDateTime(it)}" },
+            ).joinToString(" · "),
+            leading = { WorldThumbnail(world.iconPath, world.name, instance) },
+        ) {
+            FilledTonalButton(
+                onClick = { actions.launchWorld(world.key) },
+                enabled = instance.installationState is InstallationState.Installed,
+            ) {
+                Icon(painterResource(Res.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(Res.string.ui_play))
+            }
+            InstanceItemActions(
+                buildList {
+                    add("Rename" to onRename)
+                    add("Copy" to { actions.copyWorld(world.key) })
+                    add("Back up" to { actions.backupWorld(world.key) })
+                    world.seed?.let { seed -> add("Copy seed" to { onCopySeed(seed) }) }
+                    if (world.iconPath != null) add("Reset icon" to { actions.resetWorldIcon(world.key) })
+                    add("Delete" to { actions.deleteWorld(world.key) })
+                },
+            )
+        }
+        world.dataPacks.forEach { pack ->
+            Row(
+                Modifier.fillMaxWidth().padding(start = 72.dp, end = 12.dp).clip(MaterialTheme.shapes.small).toggleable(
+                    value = pack.enabled,
+                    role = Role.Switch,
+                    onValueChange = { actions.toggleDataPack(world.key, pack.key) },
+                ).padding(vertical = 4.dp, horizontal = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(pack.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        "Data pack · ${formatFileSize(pack.sizeBytes)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Switch(checked = pack.enabled, onCheckedChange = null)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ServerCard(server: SavedServer, actions: LauncherUiActions) {
+    val statusColor = when (server.status) {
+        ServerStatus.ONLINE -> MaterialTheme.colorScheme.tertiary
+        ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
+        ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
+    }
+    val status = when (server.status) {
+        ServerStatus.ONLINE -> listOfNotNull(
+            server.onlinePlayers?.let { online ->
+                server.maximumPlayers?.let { maximum -> "$online/$maximum online" } ?: "$online online"
+            },
+            server.pingMillis?.let { "$it ms" },
+        ).joinToString(" · ").ifBlank { "Online" }
+
+        ServerStatus.OFFLINE -> "Offline"
+
+        ServerStatus.UNKNOWN -> "Not checked"
+    }
+    GameDataRow(
+        title = server.name,
+        details = "${server.address} · $status",
+        leading = {
+            Box(
+                Modifier.size(48.dp).clip(MaterialTheme.shapes.small).background(statusColor.copy(alpha = 0.18f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (server.iconDataUrl != null) {
+                    AsyncImage(
+                        model = server.iconDataUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                } else {
+                    Text(server.name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge, color = statusColor)
+                }
+                Box(
+                    Modifier.align(Alignment.BottomEnd).padding(3.dp).size(10.dp)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, CircleShape).padding(2.dp)
+                        .background(statusColor, CircleShape),
+                )
+            }
+        },
+    ) {
+        FilledTonalButton(onClick = { actions.joinServer(server.key) }, enabled = server.status != ServerStatus.OFFLINE) {
+            Text(stringResource(Res.string.ui_join))
+        }
+        InstanceItemActions(
+            listOf(
+                "Move up" to { actions.moveServer(server.key, -1) },
+                "Move down" to { actions.moveServer(server.key, 1) },
+                "Edit" to { actions.openServerEditor(server.key) },
+                "Remove" to { actions.removeServer(server.key) },
+            ),
+        )
+    }
+}
+
+@Composable
+private fun ScreenshotTile(
+    screenshot: ManagedScreenshot,
+    onOpen: () -> Unit,
+    menu: List<Pair<String, () -> Unit>>,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        AsyncImage(
+            model = screenshot.path,
+            contentDescription = screenshot.fileName,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium)
+                .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                .clickable(enabled = supportsOpenPath, onClickLabel = stringResource(Res.string.ui_open), onClick = onOpen),
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f).padding(start = 4.dp)) {
+                Text(screenshot.fileName, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    listOfNotNull(
+                        screenshot.createdAtEpochMillis?.let(::formatLocalDateTime),
+                        formatFileSize(screenshot.sizeBytes),
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                )
+            }
+            InstanceItemActions(menu)
+        }
     }
 }
 
@@ -917,7 +977,9 @@ private fun InstanceItemActions(actions: List<Pair<String, () -> Unit>>) {
     if (actions.isEmpty()) return
     var expanded by remember { mutableStateOf(false) }
     Box {
-        TextButton(onClick = { expanded = true }) { Text(stringResource(Res.string.ui_more)) }
+        TrestleTooltipIconButton(label = stringResource(Res.string.ui_more), onClick = { expanded = true }) {
+            Icon(painterResource(Res.drawable.ic_more_vert), contentDescription = stringResource(Res.string.ui_more))
+        }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             actions.forEach { (label, action) ->
                 DropdownMenuItem(
@@ -941,14 +1003,14 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
         title = { Text(if (editor.key == null) "Add server" else "Edit server") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                TextField(
+                OutlinedTextField(
                     value = editor.name,
                     onValueChange = actions::setServerName,
                     label = { Text(stringResource(Res.string.ui_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextField(
+                OutlinedTextField(
                     value = editor.address,
                     onValueChange = actions::setServerAddress,
                     label = { Text(stringResource(Res.string.ui_address)) },
@@ -980,33 +1042,100 @@ internal fun ServerEditorDialog(state: LauncherUiState, actions: LauncherUiActio
 }
 
 @Composable
-private fun InstanceWorkspaceHeader(state: LauncherUiState, instance: GameInstance, actions: LauncherUiActions, onBack: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(88.dp), contentAlignment = Alignment.Center) {
-        Row(
-            Modifier.widthIn(max = WideContentWidth).fillMaxWidth().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+private fun InstanceWorkspaceHeader(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    onBack: () -> Unit,
+    compact: Boolean,
+) {
+    val accent = instanceAccent(instance)
+    Box(
+        Modifier.fillMaxWidth().background(
+            Brush.verticalGradient(listOf(accent.copy(alpha = 0.2f), Color.Transparent)),
+        ),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Column(
+            Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
+                .padding(start = 12.dp, end = 24.dp, top = 20.dp, bottom = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            TextButton(onClick = onBack) {
-                Icon(painterResource(Res.drawable.ic_arrow_back), contentDescription = null)
-                Spacer(Modifier.width(6.dp))
-                Text(stringResource(Res.string.ui_library))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                InstanceBackButton(onBack)
+                InstanceArtwork(instance, if (compact) 64.dp else 88.dp)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        instance.displayName,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                    )
+                    Text(
+                        "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    if (!compact) InstanceHeaderStats(state, instance)
+                }
+                if (!compact) {
+                    PrimaryInstanceAction(
+                        instance,
+                        state,
+                        actions,
+                        Modifier.width(220.dp),
+                        buttonModifier = Modifier.heightIn(min = 52.dp),
+                    )
+                }
             }
-            InstanceArtwork(instance, 52.dp)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(
-                    instance.displayName,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text(
-                    "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label} · ${stateLabel(instance.installationState)}",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium,
+            if (compact) {
+                InstanceHeaderStats(state, instance, Modifier.padding(start = 12.dp))
+                PrimaryInstanceAction(
+                    instance,
+                    state,
+                    actions,
+                    Modifier.fillMaxWidth().padding(start = 12.dp),
+                    buttonModifier = Modifier.heightIn(min = 52.dp),
                 )
             }
-            PrimaryInstanceAction(instance, state, actions, Modifier.widthIn(min = 132.dp, max = 196.dp))
+        }
+    }
+}
+
+@Composable
+private fun InstanceHeaderStats(state: LauncherUiState, instance: GameInstance, modifier: Modifier = Modifier) {
+    val running = state.activeLaunch?.instanceId == instance.id && state.activeLaunch.status is LaunchStatus.Running
+    FlowRow(
+        modifier,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        itemVerticalAlignment = Alignment.CenterVertically,
+    ) {
+        val color = if (running) MaterialTheme.colorScheme.primary else stateColor(instance.installationState)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Box(Modifier.size(8.dp).background(color, CircleShape))
+            Text(
+                if (running) "Running" else stateLabel(instance.installationState),
+                color = color,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        if (instance.playTimeMillis > 0) {
+            Text(
+                "${formatPlayTime(instance.playTimeMillis)} played",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge,
+            )
+        }
+        instance.lastLaunchAtEpochMillis?.let {
+            Text(
+                "Last played ${formatLocalDateTime(it)}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelLarge,
+            )
         }
     }
 }
@@ -1017,158 +1146,393 @@ private fun InstanceOverview(
     instance: GameInstance,
     actions: LauncherUiActions,
     listState: LazyListState,
-    modifier: Modifier,
-    compact: Boolean,
     onChangeComponents: () -> Unit,
+    onOpenSection: (InstanceSection) -> Unit,
+    onDiscover: (ResourceType) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val openPath = rememberOpenPath()
-    LazyColumn(state = listState, modifier = modifier, contentPadding = PaddingValues(24.dp)) {
-        if (compact) {
-            item("identity") {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                        InstanceArtwork(instance, 64.dp)
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(instance.displayName, style = MaterialTheme.typography.headlineMedium)
-                            Text(
-                                stringResource(
-                                    Res.string.ui_instance_version_loader,
-                                    instance.minecraftVersionId,
-                                    instance.modLoader.label,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(stateLabel(instance.installationState), color = stateColor(instance.installationState))
-                        }
-                    }
-                    PrimaryInstanceAction(instance, state, actions, Modifier.fillMaxWidth())
-                }
-                Spacer(Modifier.height(24.dp))
-            }
-        }
-        item("properties") {
-            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                Text(stringResource(Res.string.ui_instance), style = MaterialTheme.typography.titleLarge)
-                Spacer(Modifier.height(8.dp))
-                PropertyRow("Java", instance.requiredJavaMajor.toString())
-                PropertyRow("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
-                instance.group?.let { PropertyRow("Group", it) }
-                PropertyRow("Launches", instance.launchCount.toString())
-                PropertyRow("Play time", formatPlayTime(instance.playTimeMillis))
-                if (currentPlatform == "Android") {
-                    PropertyRow(
-                        stringResource(Res.string.ui_game_files),
-                        stringResource(Res.string.ui_logs_crash_reports_screenshots_and_more),
-                        actionLabel = stringResource(Res.string.ui_open),
-                        onClick = { openPath("${instance.instanceDirectory}/game") },
-                        actionEnabled = supportsOpenPath,
-                    )
-                } else {
-                    PropertyRow(
-                        "Directory",
-                        instance.instanceDirectory,
-                        actionLabel = "Open",
-                        onClick = { openPath(instance.instanceDirectory) },
-                        actionEnabled = supportsOpenPath,
-                    )
-                }
-                PropertyRow(
-                    "Last launch",
-                    instance.lastLaunchAtEpochMillis?.let(::formatLocalDateTime) ?: "Never",
-                )
-                Spacer(Modifier.height(24.dp))
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        stringResource(Res.string.ui_version_components),
-                        style = MaterialTheme.typography.titleLarge,
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(
-                        onClick = onChangeComponents,
-                        modifier = Modifier.testTag(LauncherTestTags.VERSION_COMPONENTS_CHANGE),
-                    ) { Text(stringResource(Res.string.ui_change)) }
-                }
-                PropertyRow("Minecraft", instance.minecraftVersionId)
-                if (instance.modLoader == ModLoader.VANILLA) {
-                    PropertyRow("Loader", "Vanilla")
-                } else {
-                    PropertyRow(instance.modLoader.label, instance.loaderVersion ?: "Select during installation")
-                }
-                PropertyRow("Java runtime", "Java ${instance.requiredJavaMajor}")
-            }
-        }
-        state.launchPlan?.let { plan ->
-            item("launch-plan") {
-                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                    Spacer(Modifier.height(24.dp))
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stringResource(Res.string.ui_launch_plan),
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.titleLarge,
-                        )
-                        TextButton(onClick = actions::inspectLaunchPlan) { Text(stringResource(Res.string.ui_refresh)) }
-                    }
-                    PropertyRow("Main class", plan.mainClass)
-                    PropertyRow("Classpath", "${plan.classpathEntries} entries")
-                    PropertyRow("Natives", "${plan.nativeLibraries} libraries")
-                    PropertyRow("Account", plan.authentication)
-                }
-            }
-        } ?: item("inspect") {
-            Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                Spacer(Modifier.height(20.dp))
-                OutlinedButton(
-                    onClick = actions::inspectLaunchPlan,
-                    enabled = instance.installationState is InstallationState.Installed,
-                ) { Text(stringResource(Res.string.ui_inspect_launch_plan)) }
-            }
-        }
-        if (state.gameLogLines.isNotEmpty() || state.lastCrashReport != null) {
-            item("game-console") {
-                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 24.dp)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            stringResource(Res.string.ui_game_console),
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.weight(1f),
-                        )
+    BoxWithConstraints(modifier) {
+        val twoColumns = maxWidth >= 900.dp
+        val stackedStats = maxWidth < 600.dp
+        val main: @Composable ColumnScope.() -> Unit = {
+            OverviewStats(instance, state, stacked = stackedStats)
+            OverviewWorlds(state, instance, actions, onOpenSection)
+            OverviewServers(state, actions, onOpenSection)
+            OverviewScreenshots(state, openPath, onOpenSection)
+            if (state.gameLogLines.isNotEmpty() || state.lastCrashReport != null) {
+                SectionCard(
+                    title = stringResource(Res.string.ui_game_console),
+                    action = {
                         TextButton(onClick = actions::clearGameLog, enabled = state.gameLogLines.isNotEmpty()) {
                             Text(stringResource(Res.string.ui_clear))
                         }
+                    },
+                ) { GameConsole(state, openPath) }
+            }
+        }
+        val side: @Composable ColumnScope.() -> Unit = {
+            OverviewContentSummary(state, instance, onOpenSection, onDiscover)
+            OverviewSetup(state, instance, actions, openPath, onChangeComponents)
+        }
+        LazyColumn(state = listState, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(24.dp)) {
+            item("dashboard") {
+                if (twoColumns) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
+                        Column(Modifier.weight(1.65f), verticalArrangement = Arrangement.spacedBy(20.dp), content = main)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(20.dp), content = side)
                     }
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                        shape = MaterialTheme.shapes.small,
-                        modifier = Modifier.fillMaxWidth().heightIn(max = 280.dp),
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                        main()
+                        side()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewStats(instance: GameInstance, state: LauncherUiState, stacked: Boolean) {
+    val stats = listOf(
+        Triple(
+            "Play time",
+            if (instance.playTimeMillis > 0) formatPlayTime(instance.playTimeMillis) else "0 min",
+            MaterialTheme.colorScheme.primary,
+        ),
+        Triple("Sessions", instance.launchCount.toString(), MaterialTheme.colorScheme.tertiary),
+        Triple("Worlds", state.gameData.worlds.size.toString(), instanceAccent(instance)),
+        Triple(
+            "Mods",
+            state.installedContent.count { it.type == ResourceType.MOD && it.direct }.toString(),
+            MaterialTheme.colorScheme.secondary,
+        ),
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        stats.chunked(if (stacked) 2 else stats.size).forEach { row ->
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                row.forEach { (label, value, accent) ->
+                    StatTile(label, value, accent = accent, modifier = Modifier.weight(1f).fillMaxHeight())
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewWorlds(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    onOpenSection: (InstanceSection) -> Unit,
+) {
+    val worlds = state.gameData.worlds.sortedByDescending { it.lastModifiedEpochMillis ?: Long.MIN_VALUE }
+    SectionCard(
+        title = "Jump back in",
+        supportingText = if (worlds.isEmpty()) null else "Open a world directly from here.",
+        action = {
+            if (worlds.isNotEmpty()) {
+                TextButton(onClick = { onOpenSection(InstanceSection.WORLDS) }) { Text("All worlds") }
+            }
+        },
+    ) {
+        if (worlds.isEmpty()) {
+            EmptyHint(
+                "No worlds yet. Start the game to create one, or bring in a world you already have.",
+            ) { WorldImportButton(actions) }
+            return@SectionCard
+        }
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            worlds.take(3).forEach { world ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface,
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        Modifier.padding(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        androidx.compose.foundation.text.selection.SelectionContainer {
+                        WorldThumbnail(world.iconPath, world.name, instance)
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(world.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
-                                state.gameLogLines.takeLast(120).joinToString("\n").ifBlank { "No process output." },
-                                modifier = Modifier.padding(12.dp),
-                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                                style = MaterialTheme.typography.bodySmall,
+                                listOfNotNull(
+                                    world.gameMode?.replaceFirstChar { it.uppercase() },
+                                    world.lastModifiedEpochMillis?.let { "Played ${formatLocalDateTime(it)}" },
+                                ).joinToString(" · "),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
                         }
-                    }
-                    state.lastCrashReport?.let { report ->
-                        Row(
-                            Modifier.fillMaxWidth().padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        FilledTonalButton(
+                            onClick = { actions.launchWorld(world.key) },
+                            enabled = instance.installationState is InstallationState.Installed,
                         ) {
-                            Text(
-                                stringResource(Res.string.ui_crash_report_value, report),
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.weight(1f),
-                            )
-                            TextButton(
-                                onClick = { openPath(report) },
-                                enabled = supportsOpenPath,
-                            ) { Text(stringResource(Res.string.ui_open)) }
+                            Icon(painterResource(Res.drawable.ic_play), contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(Res.string.ui_play))
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorldThumbnail(iconPath: String?, name: String, instance: GameInstance) {
+    Box(
+        Modifier.size(48.dp).clip(MaterialTheme.shapes.small)
+            .background(instanceAccent(instance).copy(alpha = 0.35f)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (iconPath != null) {
+            AsyncImage(model = iconPath, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Text(name.take(1).uppercase(), style = MaterialTheme.typography.titleLarge)
+        }
+    }
+}
+
+@Composable
+private fun OverviewServers(state: LauncherUiState, actions: LauncherUiActions, onOpenSection: (InstanceSection) -> Unit) {
+    val servers = state.gameData.servers
+    if (servers.isEmpty()) return
+    SectionCard(
+        title = stringResource(Res.string.ui_servers),
+        action = { TextButton(onClick = { onOpenSection(InstanceSection.SERVERS) }) { Text("Manage") } },
+    ) {
+        servers.take(3).forEach { server ->
+            val online = server.status == ServerStatus.ONLINE
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Box(
+                    Modifier.size(10.dp).background(
+                        when (server.status) {
+                            ServerStatus.ONLINE -> MaterialTheme.colorScheme.tertiary
+                            ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
+                            ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
+                        },
+                        CircleShape,
+                    ),
+                )
+                Column(Modifier.weight(1f)) {
+                    Text(server.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        listOfNotNull(
+                            server.address,
+                            server.onlinePlayers?.let { online -> "$online/${server.maximumPlayers ?: "?"} online" },
+                            server.pingMillis?.let { "$it ms" },
+                        ).joinToString(" · "),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                TextButton(onClick = { actions.joinServer(server.key) }, enabled = online || server.status == ServerStatus.UNKNOWN) {
+                    Text(stringResource(Res.string.ui_join))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewScreenshots(state: LauncherUiState, openPath: (String) -> Unit, onOpenSection: (InstanceSection) -> Unit) {
+    val screenshots = state.gameData.screenshots.sortedByDescending { it.createdAtEpochMillis ?: Long.MIN_VALUE }
+    if (screenshots.isEmpty()) return
+    SectionCard(
+        title = "Recent screenshots",
+        action = { TextButton(onClick = { onOpenSection(InstanceSection.SCREENSHOTS) }) { Text("See all ${screenshots.size}") } },
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            screenshots.take(4).forEach { screenshot ->
+                AsyncImage(
+                    model = screenshot.path,
+                    contentDescription = screenshot.fileName,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.weight(1f).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.small)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        .clickable(enabled = supportsOpenPath, onClickLabel = stringResource(Res.string.ui_open)) {
+                            openPath(screenshot.path)
+                        },
+                )
+            }
+            repeat((4 - screenshots.size).coerceAtLeast(0)) { Spacer(Modifier.weight(1f)) }
+        }
+    }
+}
+
+@Composable
+private fun OverviewContentSummary(
+    state: LauncherUiState,
+    instance: GameInstance,
+    onOpenSection: (InstanceSection) -> Unit,
+    onDiscover: (ResourceType) -> Unit,
+) {
+    val direct = state.installedContent.filter { it.direct }
+    val updates = state.installedContentUpdates.size
+    SectionCard(
+        title = stringResource(Res.string.ui_content),
+        action = { TextButton(onClick = { onOpenSection(InstanceSection.CONTENT) }) { Text("Manage") } },
+    ) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            listOf(ResourceType.MOD, ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK).forEach { type ->
+                Column(Modifier.weight(1f)) {
+                    Text(direct.count { it.type == type }.toString(), style = MaterialTheme.typography.headlineMedium)
+                    Text(type.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+        if (updates > 0) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialTheme.shapes.small,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
+                    .clickable { onOpenSection(InstanceSection.CONTENT) },
+            ) {
+                Text(
+                    if (updates == 1) "1 update available" else "$updates updates available",
+                    style = MaterialTheme.typography.labelLarge,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                )
+            }
+        }
+        if (instance.modLoader != ModLoader.VANILLA) {
+            Button(
+                onClick = { onDiscover(ResourceType.MOD) },
+                enabled = instance.installationState is InstallationState.Installed,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(Res.string.ui_add_mods))
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverviewSetup(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    openPath: (String) -> Unit,
+    onChangeComponents: () -> Unit,
+) {
+    SectionCard(
+        title = "Setup",
+        action = {
+            TextButton(
+                onClick = onChangeComponents,
+                modifier = Modifier.testTag(LauncherTestTags.VERSION_COMPONENTS_CHANGE),
+            ) { Text(stringResource(Res.string.ui_change)) }
+        },
+    ) {
+        CompactProperty("Minecraft", instance.minecraftVersionId)
+        CompactProperty(
+            if (instance.modLoader == ModLoader.VANILLA) "Loader" else instance.modLoader.label,
+            if (instance.modLoader == ModLoader.VANILLA) "Vanilla" else instance.loaderVersion ?: "Chosen at install",
+        )
+        CompactProperty("Java", "Java ${instance.requiredJavaMajor}")
+        CompactProperty("Memory", "${instance.memory.minimumMiB}–${instance.memory.maximumMiB} MiB")
+        instance.group?.let { CompactProperty("Group", it) }
+        state.launchPlan?.let { plan ->
+            CompactProperty("Classpath", "${plan.classpathEntries} entries")
+            CompactProperty("Account", plan.authentication)
+        }
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            if (supportsOpenPath) {
+                TextButton(
+                    onClick = {
+                        openPath(if (currentPlatform == "Android") "${instance.instanceDirectory}/game" else instance.instanceDirectory)
+                    },
+                ) { Text("Open folder") }
+            }
+            TextButton(
+                onClick = actions::inspectLaunchPlan,
+                enabled = instance.installationState is InstallationState.Installed,
+            ) { Text(stringResource(Res.string.ui_inspect_launch_plan)) }
+        }
+    }
+}
+
+@Composable
+private fun CompactProperty(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            textAlign = TextAlign.End,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun EmptyHint(message: String, action: @Composable () -> Unit = {}) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+        action()
+    }
+}
+
+@Composable
+private fun GameConsole(state: LauncherUiState, openPath: (String) -> Unit) {
+    Column {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shape = MaterialTheme.shapes.small,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(max = 280.dp),
+        ) {
+            SelectionContainer {
+                Text(
+                    state.gameLogLines.takeLast(120).joinToString("\n").ifBlank { "No process output." },
+                    modifier = Modifier.padding(12.dp),
+                    fontFamily = FontFamily.Monospace,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+        }
+        state.lastCrashReport?.let { report ->
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    stringResource(Res.string.ui_crash_report_value, report),
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(
+                    onClick = { openPath(report) },
+                    enabled = supportsOpenPath,
+                ) { Text(stringResource(Res.string.ui_open)) }
             }
         }
     }
@@ -1198,37 +1562,30 @@ private fun InstanceContent(
         LazyColumn(
             state = listState,
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp),
+            contentPadding = PaddingValues(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             item("modpack-origin") {
                 ModpackOriginPanel(instance, state, actions)
             }
+            item("add-content") {
+                val installed = instance.installationState is InstallationState.Installed
+                SectionCard(
+                    title = "Add content",
+                    supportingText = "Browse compatible content or add a file. Trestle installs required dependencies for you.",
+                ) {
+                    browsableResourceTypes.filterNot { it == ResourceType.MODPACK }.forEach { type ->
+                        ContentTypeRow(
+                            type = type,
+                            enabled = installed,
+                            onClick = { onDiscover(type) },
+                            localFileAction = { LocalFileButton(type = type, enabled = installed, actions = actions) },
+                        )
+                    }
+                }
+            }
             item("installed-content") {
                 InstalledContentPanel(state, instance, actions)
-            }
-            item("intro") {
-                Text(
-                    "Add compatible content to ${instance.displayName}. Required dependencies are resolved during installation.",
-                    modifier = Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 28.dp, bottom = 16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            items(browsableResourceTypes.filterNot { it == ResourceType.MODPACK }, key = { it.name }) { type ->
-                Column(Modifier.widthIn(max = 820.dp).fillMaxWidth()) {
-                    ContentTypeRow(
-                        type = type,
-                        enabled = instance.installationState is InstallationState.Installed,
-                        onClick = { onDiscover(type) },
-                        localFileAction = {
-                            LocalFileButton(
-                                type = type,
-                                enabled = instance.installationState is InstallationState.Installed,
-                                actions = actions,
-                            )
-                        },
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                }
             }
         }
         if (dropActive) DropOverlay("Drop to add content to ${instance.displayName}")
@@ -1239,22 +1596,10 @@ private fun InstanceContent(
 private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance, actions: LauncherUiActions) {
     val openPath = rememberOpenPath()
     val copyText = rememberCopyText()
-    Column(
-        Modifier.widthIn(max = 820.dp).fillMaxWidth().padding(top = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(Res.string.ui_installed_content), style = MaterialTheme.typography.titleLarge)
-                Text(
-                    "Manage Trestle installs and compatible files already in ${instance.displayName}.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+    SectionCard(
+        title = stringResource(Res.string.ui_installed_content),
+        supportingText = "Turn content on or off, update it, or remove it.",
+        action = {
             TextButton(
                 onClick = actions::refreshInstalledContent,
                 enabled = !state.isLoadingInstalledContent,
@@ -1284,7 +1629,8 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                     }
                 },
             )
-        }
+        },
+    ) {
         when {
             state.isLoadingInstalledContent -> Row(
                 Modifier.fillMaxWidth().padding(vertical = 18.dp),
@@ -1295,17 +1641,11 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                 Text(stringResource(Res.string.ui_reading_installed_content), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
-            state.installedContent.isEmpty() -> Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = MaterialTheme.shapes.medium,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    "No mods, resource packs, or shaders are installed yet.",
-                    modifier = Modifier.padding(16.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            state.installedContent.isEmpty() -> Text(
+                "No mods, resource packs, or shaders are installed yet.",
+                modifier = Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
 
             else -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 browsableResourceTypes.filterNot { it == ResourceType.MODPACK }.forEach { type ->

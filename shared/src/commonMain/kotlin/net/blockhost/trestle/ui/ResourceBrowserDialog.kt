@@ -5,8 +5,11 @@
 
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -22,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -37,8 +41,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
@@ -46,11 +53,11 @@ import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
@@ -67,6 +74,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -100,6 +108,8 @@ import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.ic_arrow_back
 import net.blockhost.trestle.resources.ic_close
+import net.blockhost.trestle.resources.ic_expand_more
+import net.blockhost.trestle.resources.ic_extension
 import net.blockhost.trestle.resources.ui_any_category
 import net.blockhost.trestle.resources.ui_any_version
 import net.blockhost.trestle.resources.ui_apply
@@ -226,6 +236,12 @@ internal fun ResourceBrowserContent(
         }
     }
 
+    SelectFirstResultWhenSideBySide(
+        browser = browser,
+        sideBySide = !listPaneHidden &&
+            navigator.scaffoldValue[ListDetailPaneScaffoldRole.Detail] != PaneAdaptedValue.Hidden,
+        onSelect = actions::selectResource,
+    )
     val clearSelection = {
         actions.clearResourceSelection()
     }
@@ -234,7 +250,7 @@ internal fun ResourceBrowserContent(
         onBack = clearSelection,
     )
     Column(modifier) {
-        ResourceBrowserToolbar(browser, state.selectedInstance, actions, searchFocusRequester)
+        ResourceBrowserToolbar(browser, state, actions, searchFocusRequester)
         browser.error?.let { InlineMessage(it, true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
@@ -282,105 +298,43 @@ internal fun ResourceBrowserContent(
 @Composable
 private fun ResourceBrowserToolbar(
     browser: ResourceBrowserState,
-    instance: GameInstance?,
+    state: LauncherUiState,
     actions: LauncherUiActions,
     searchFocusRequester: FocusRequester,
 ) {
     var showFilters by rememberSaveable { mutableStateOf(false) }
     val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    Column(
-        Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TrestleSearchBar(
-            value = browser.query,
-            onValueChange = actions::setResourceQuery,
-            searching = browser.isSearching,
-            onSearch = { actions.searchResources() },
-            placeholder = { Text(stringResource(Res.string.ui_search_mods_packs_and_shaders)) },
-            modifier = Modifier.widthIn(max = 720.dp).fillMaxWidth(),
-            inputModifier = Modifier.focusRequester(searchFocusRequester)
-                .testTag(LauncherTestTags.RESOURCE_SEARCH),
-        )
-        if (browser.type != ResourceType.MODPACK && instance != null) {
-            Text(
-                "Installing into ${instance.displayName} · ${instance.minecraftVersionId} · ${instance.modLoader.label}",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelMedium,
-            )
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp)) {
+        val wide = maxWidth >= 840.dp
+        val filtersButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+            OutlinedButton(
+                onClick = { showFilters = !showFilters },
+                modifier = buttonModifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
+            ) {
+                Text(stringResource(Res.string.ui_filters))
+            }
         }
-        BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val toolbarWidth = maxWidth
-            val compactFilterSheet = toolbarWidth < 840.dp
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (toolbarWidth < 840.dp) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ResourceProviderButtons(browser, actions, Modifier.fillMaxWidth())
-                        if (toolbarWidth < 520.dp) {
-                            OutlinedButton(
-                                onClick = { showFilters = !showFilters },
-                                modifier = Modifier.fillMaxWidth().testTag(LauncherTestTags.RESOURCE_FILTERS),
-                            ) {
-                                Text(stringResource(Res.string.ui_filters))
-                            }
-                            Selector(
-                                label = "Content type",
-                                value = browser.type.label,
-                                values = browsableResourceTypes.map { it.label },
-                                modifier = Modifier.fillMaxWidth(),
-                                onSelect = { label ->
-                                    actions.setResourceType(browsableResourceTypes.first { it.label == label })
-                                },
-                            )
-                        } else {
-                            Row(
-                                Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                OutlinedButton(
-                                    onClick = { showFilters = !showFilters },
-                                    modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
-                                ) {
-                                    Text(stringResource(Res.string.ui_filters))
-                                }
-                                Selector(
-                                    label = "Content type",
-                                    value = browser.type.label,
-                                    values = browsableResourceTypes.map { it.label },
-                                    modifier = Modifier.weight(1f),
-                                    onSelect = { label ->
-                                        actions.setResourceType(browsableResourceTypes.first { it.label == label })
-                                    },
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ResourceProviderButtons(browser, actions, Modifier.weight(1f))
-                        OutlinedButton(
-                            onClick = { showFilters = !showFilters },
-                            modifier = Modifier.testTag(LauncherTestTags.RESOURCE_FILTERS),
-                        ) {
-                            Text(stringResource(Res.string.ui_filters))
-                        }
-                        Selector(
-                            label = "Content type",
-                            value = browser.type.label,
-                            values = browsableResourceTypes.map { it.label },
-                            modifier = Modifier.width(190.dp),
-                            onSelect = { label ->
-                                actions.setResourceType(browsableResourceTypes.first { it.label == label })
-                            },
-                        )
-                    }
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                TrestleSearchBar(
+                    value = browser.query,
+                    onValueChange = actions::setResourceQuery,
+                    searching = browser.isSearching,
+                    onSearch = { actions.searchResources() },
+                    placeholder = { Text(stringResource(Res.string.ui_search_mods_packs_and_shaders)) },
+                    modifier = Modifier.weight(1f),
+                    inputModifier = Modifier.focusRequester(searchFocusRequester)
+                        .testTag(LauncherTestTags.RESOURCE_SEARCH),
+                )
+                if (wide) InstallTarget(browser, state, actions, Modifier.widthIn(max = 360.dp))
+            }
+            if (wide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.weight(1f)) { ResourceTypeChips(browser, actions) }
+                    ResourceProviderButtons(browser, actions)
+                    filtersButton(Modifier)
                 }
-                if (showFilters && !compactFilterSheet) {
+                if (showFilters) {
                     ResourceFilterFields(
                         browser = browser,
                         actions = actions,
@@ -388,33 +342,34 @@ private fun ResourceBrowserToolbar(
                         onApply = actions::searchResources,
                     )
                 }
-            }
-            if (showFilters && compactFilterSheet) {
-                ModalBottomSheet(
-                    onDismissRequest = { showFilters = false },
-                    sheetState = filterSheetState,
-                ) {
-                    ResourceFilterFields(
-                        browser = browser,
-                        actions = actions,
-                        compact = true,
-                        onApply = {
-                            actions.searchResources()
-                            showFilters = false
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .verticalScroll(rememberScrollState())
-                            .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
-                    )
+            } else {
+                ResourceTypeChips(browser, actions)
+                InstallTarget(browser, state, actions, Modifier.fillMaxWidth())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ResourceProviderButtons(browser, actions, Modifier.weight(1f))
+                    filtersButton(Modifier)
                 }
             }
         }
-        if (!browser.curseForgeAvailable) {
-            Text(
-                stringResource(Res.string.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        if (showFilters && !wide) {
+            ModalBottomSheet(
+                onDismissRequest = { showFilters = false },
+                sheetState = filterSheetState,
+            ) {
+                ResourceFilterFields(
+                    browser = browser,
+                    actions = actions,
+                    compact = true,
+                    onApply = {
+                        actions.searchResources()
+                        showFilters = false
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState())
+                        .padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                )
+            }
         }
     }
 }
@@ -428,7 +383,7 @@ private fun ResourceFilterFields(
     modifier: Modifier = Modifier,
 ) {
     val gameVersionField: @Composable (Modifier) -> Unit = { fieldModifier ->
-        TextField(
+        OutlinedTextField(
             value = browser.gameVersionFilter,
             onValueChange = actions::setResourceGameVersionFilter,
             label = { Text(stringResource(Res.string.ui_minecraft_version)) },
@@ -449,7 +404,7 @@ private fun ResourceFilterFields(
         )
     }
     val categoryField: @Composable (Modifier) -> Unit = { fieldModifier ->
-        TextField(
+        OutlinedTextField(
             value = browser.categoryFilter,
             onValueChange = actions::setResourceCategoryFilter,
             label = { Text(stringResource(Res.string.ui_category)) },
@@ -506,6 +461,127 @@ private fun ResourceFilterFields(
     }
 }
 
+/** Side-by-side layouts show the first result instead of an empty detail pane. */
+@Composable
+private fun SelectFirstResultWhenSideBySide(browser: ResourceBrowserState, sideBySide: Boolean, onSelect: (String) -> Unit) {
+    val firstProjectId = browser.projects.firstOrNull()?.id
+    val nothingSelected = browser.selectedProjectId == null
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    LaunchedEffect(firstProjectId, sideBySide, nothingSelected) {
+        if (sideBySide && nothingSelected && firstProjectId != null) currentOnSelect(firstProjectId)
+    }
+}
+
+@Composable
+private fun ResourceTypeChips(browser: ResourceBrowserState, actions: LauncherUiActions) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        browsableResourceTypes.forEach { type ->
+            val selected = browser.type == type
+            FilterChip(
+                selected = selected,
+                onClick = { if (!selected) actions.setResourceType(type) },
+                label = { Text(type.label, style = MaterialTheme.typography.labelLarge) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                ),
+                modifier = Modifier.heightIn(min = 40.dp),
+            )
+        }
+    }
+}
+
+/** Shows which instance new content goes into, and lets the player switch it without leaving Discover. */
+@Composable
+private fun InstallTarget(
+    browser: ResourceBrowserState,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    modifier: Modifier = Modifier,
+) {
+    val instance = state.selectedInstance
+    var expanded by remember { mutableStateOf(false) }
+    val targets = state.instances.filter { it.installationState is InstallationState.Installed }
+    val creatingInstance = browser.type == ResourceType.MODPACK
+    Box(modifier) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = MaterialTheme.shapes.extraLarge,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+            onClick = { expanded = true },
+            enabled = !creatingInstance && targets.isNotEmpty(),
+        ) {
+            Row(
+                Modifier.padding(start = 6.dp, end = 14.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                if (instance != null && !creatingInstance) {
+                    InstanceArtwork(instance, 28.dp)
+                    Column(Modifier.weight(1f, fill = false)) {
+                        Text(
+                            "Installing into",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "${instance.displayName} · ${instance.minecraftVersionId} ${instance.modLoader.label}",
+                            style = MaterialTheme.typography.labelLarge,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Icon(painterResource(Res.drawable.ic_expand_more), contentDescription = null, modifier = Modifier.size(18.dp))
+                } else {
+                    Text(
+                        if (creatingInstance) "Modpacks install as a new instance" else "Choose an instance to install into",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                    )
+                }
+            }
+        }
+        InstallTargetMenu(
+            expanded = expanded,
+            targets = targets,
+            onDismiss = { expanded = false },
+            onPick = { target ->
+                expanded = false
+                if (target.id != instance?.id) {
+                    actions.selectInstance(target.id)
+                    actions.openResourceBrowser(browser.type, browser.presentation)
+                }
+            },
+        )
+    }
+}
+
+@Composable
+private fun InstallTargetMenu(expanded: Boolean, targets: List<GameInstance>, onDismiss: () -> Unit, onPick: (GameInstance) -> Unit) {
+    DropdownMenu(expanded = expanded, onDismissRequest = onDismiss) {
+        targets.forEach { target ->
+            DropdownMenuItem(
+                leadingIcon = { InstanceArtwork(target, 28.dp) },
+                text = {
+                    Column {
+                        Text(target.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(
+                            "${target.minecraftVersionId} · ${target.modLoader.label}",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                },
+                onClick = { onPick(target) },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: LauncherUiActions, modifier: Modifier = Modifier) {
@@ -519,13 +595,19 @@ private fun ResourceProviderButtons(browser: ResourceBrowserState, actions: Laun
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        val unavailableReason =
+            stringResource(Res.string.ui_curseforge_requires_a_trestle_api_key_configured_by_the_application_buil)
         providers.forEach { provider ->
-            FilterChip(
-                selected = browser.provider == provider,
-                onClick = { actions.setResourceProvider(provider) },
-                enabled = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable,
-                label = { Text(provider.label, maxLines = 1) },
-            )
+            val available = provider != ResourceProvider.CURSEFORGE || browser.curseForgeAvailable
+            val chip: @Composable () -> Unit = {
+                FilterChip(
+                    selected = browser.provider == provider,
+                    onClick = { actions.setResourceProvider(provider) },
+                    enabled = available,
+                    label = { Text(provider.label, maxLines = 1) },
+                )
+            }
+            if (available) chip() else TrestleTooltip(unavailableReason) { chip() }
         }
     }
 }
@@ -553,8 +635,8 @@ private fun ResourceResultList(
         else -> LazyColumn(
             state = listState,
             modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
+            contentPadding = PaddingValues(start = 24.dp, end = 12.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(browser.projects, key = { "${it.provider.name}:${it.id}" }) { project ->
                 ResourceProjectRow(
@@ -624,11 +706,12 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.secondaryContainer
             } else {
-                Color.Transparent
+                MaterialTheme.colorScheme.surfaceContainer
             },
         ),
         modifier = Modifier
             .fillMaxWidth()
+            .selectionOutline(selected)
             .selectable(selected = selected, onClick = onClick, role = Role.RadioButton),
     )
 }
@@ -685,9 +768,16 @@ private fun ResourceSelection(
     val uriHandler = LocalUriHandler.current
     if (project == null) {
         Column(
-            modifier.fillMaxHeight().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            Icon(
+                painterResource(Res.drawable.ic_extension),
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(48.dp),
+            )
             Text(stringResource(Res.string.ui_select_a_result), style = MaterialTheme.typography.titleLarge)
             Text(
                 stringResource(Res.string.ui_available_versions_and_installation_details_will_appear_here),

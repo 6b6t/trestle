@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class TrestleThemeTest {
     @Test
     fun `theme keeps its brand accent without a system color`() {
-        assertEquals(Color(0xFFBE8F45), trestleColorScheme().primary)
+        assertEquals(Color(0xFFF0A93E), trestleColorScheme().primary)
     }
 
     @Test
@@ -61,8 +61,18 @@ class TrestleThemeTest {
         assertEquals(light.primaryFixedDim, dark.primaryFixedDim)
         assertEquals(light.secondaryFixed, dark.secondaryFixed)
         assertEquals(light.tertiaryFixed, dark.tertiaryFixed)
+        assertTrue(contrastRatio(dark.onTertiaryFixed, dark.tertiaryFixed) >= 4.5f)
         assertTrue(contrastRatio(dark.onPrimaryFixed, dark.primaryFixed) >= 4.5f)
         assertTrue(contrastRatio(dark.onSecondaryFixed, dark.secondaryFixed) >= 4.5f)
+    }
+
+    @Test
+    fun `system accent keeps the ready status color distinct from the accent`() {
+        val base = trestleColorScheme()
+        val accented = trestleColorScheme(Color(0xFF2B6E45))
+
+        assertEquals(base.tertiary, accented.tertiary)
+        assertTrue(accented.tertiary != accented.primary)
     }
 
     @Test

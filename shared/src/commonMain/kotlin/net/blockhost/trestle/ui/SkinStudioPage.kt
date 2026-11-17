@@ -35,14 +35,15 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.runtime.Composable
@@ -53,6 +54,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
@@ -112,8 +116,10 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
             .dismissOnEscape(onDismiss = actions::closeSkinStudio)
             .testTag(LauncherTestTags.SKIN_STUDIO),
     ) {
-        PageHeader(
+        PageHero(
             title = stringResource(Res.string.ui_skins),
+            subtitle = account?.let { "Change how ${it.profile.playerName} looks in game." },
+            accent = MaterialTheme.colorScheme.tertiary,
             navigationIcon = {
                 TrestleTooltipIconButton(
                     label = stringResource(Res.string.ui_back),
@@ -126,7 +132,6 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
                 }
             },
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         BoxWithConstraints(Modifier.fillMaxSize()) {
             if (maxWidth >= 720.dp) {
                 Row(Modifier.fillMaxSize()) {
@@ -136,9 +141,8 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
                         variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
                         onSave = actions::saveCurrentSkinToLibrary,
                         onReset = actions::resetActiveSkin,
-                        modifier = Modifier.width(310.dp).fillMaxHeight(),
+                        modifier = Modifier.width(320.dp).fillMaxHeight(),
                     )
-                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SkinLibraryPanel(
                         skins = state.savedSkins,
                         selected = selected,
@@ -158,9 +162,8 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
                         variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
                         onSave = actions::saveCurrentSkinToLibrary,
                         onReset = actions::resetActiveSkin,
-                        modifier = Modifier.fillMaxWidth().height(250.dp),
+                        modifier = Modifier.fillMaxWidth().height(300.dp),
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     SkinLibraryPanel(
                         skins = state.savedSkins,
                         selected = selected,
@@ -209,13 +212,28 @@ private fun CurrentSkinPanel(
     onReset: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(stringResource(Res.string.ui_current), style = MaterialTheme.typography.titleLarge, modifier = Modifier.align(Alignment.Start))
+    Column(
+        modifier.padding(start = 24.dp, end = 12.dp, top = 8.dp, bottom = 24.dp)
+            .clip(MaterialTheme.shapes.extraLarge)
+            .background(
+                Brush.verticalGradient(
+                    listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f), MaterialTheme.colorScheme.surfaceContainer),
+                ),
+            )
+            .padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            stringResource(Res.string.ui_current),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.align(Alignment.Start),
+        )
         MinecraftSkinPreview(
             texture = texture,
             variant = variant,
-            modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 16.dp),
+            modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 12.dp),
             emptyLabel = "Loading skin preview…",
+            background = Color.Transparent,
         )
         Text(playerName, style = MaterialTheme.typography.titleMedium)
         Text(
@@ -223,9 +241,11 @@ private fun CurrentSkinPanel(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = onSave, enabled = texture != null) { Text(stringResource(Res.string.ui_save_to_library)) }
-            TextButton(onClick = onReset) { Text(stringResource(Res.string.ui_reset_to_default)) }
+        Column(Modifier.fillMaxWidth().padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            FilledTonalButton(onClick = onSave, enabled = texture != null, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(Res.string.ui_save_to_library))
+            }
+            TextButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) { Text(stringResource(Res.string.ui_reset_to_default)) }
         }
     }
 }
@@ -476,7 +496,7 @@ private fun SkinEditorPreview(editor: SkinEditorState, modifier: Modifier = Modi
 @Composable
 private fun SkinEditorFields(editor: SkinEditorState, onBrowse: () -> Unit, actions: LauncherUiActions, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TextField(
+        OutlinedTextField(
             value = editor.name,
             onValueChange = actions::setSkinName,
             label = { Text(stringResource(Res.string.ui_name)) },

@@ -55,8 +55,10 @@ internal fun ResourceCatalogPage(state: LauncherUiState, modifier: Modifier, act
         }
     }
     Column(modifier.fillMaxSize().testTag(LauncherTestTags.DISCOVER)) {
-        PageHeader(stringResource(Res.string.ui_discover))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        PageHero(
+            title = stringResource(Res.string.ui_discover),
+            subtitle = "Mods, modpacks, resource packs, and shaders from Modrinth and CurseForge.",
+        )
         if (
             state.resourceBrowser.visible &&
             state.resourceBrowser.presentation == ResourceBrowserPresentation.PAGE

@@ -5,12 +5,16 @@
 
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -21,12 +25,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -66,7 +69,7 @@ import net.blockhost.trestle.resources.ui_group
 import net.blockhost.trestle.resources.ui_identity
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_launch
-import net.blockhost.trestle.resources.ui_leave_blank_to_group_this_instance_by_loader
+import net.blockhost.trestle.resources.ui_leave_blank_to_list_under_all_instances
 import net.blockhost.trestle.resources.ui_leave_blank_to_use_trestles_managed_mojang_runtime
 import net.blockhost.trestle.resources.ui_loader
 import net.blockhost.trestle.resources.ui_loading_client_settings
@@ -161,13 +164,12 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 .weight(1f)
                 .fillMaxWidth()
                 .widthIn(max = 820.dp)
-                .align(Alignment.CenterHorizontally)
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Text(stringResource(Res.string.ui_identity), style = MaterialTheme.typography.titleMedium)
-            TextField(
+            FormSectionTitle(stringResource(Res.string.ui_identity))
+            OutlinedTextField(
                 value = form.name,
                 onValueChange = actions::setInstanceName,
                 label = { Text(stringResource(Res.string.ui_name)) },
@@ -176,11 +178,11 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
-            TextField(
+            OutlinedTextField(
                 value = form.group,
                 onValueChange = actions::setInstanceGroup,
                 label = { Text(stringResource(Res.string.ui_group)) },
-                supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_group_this_instance_by_loader)) },
+                supportingText = { Text(stringResource(Res.string.ui_leave_blank_to_list_under_all_instances)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -192,8 +194,8 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 )
             }
 
-            HorizontalDivider()
-            Text(stringResource(Res.string.ui_game_components), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            FormSectionTitle(stringResource(Res.string.ui_game_components))
             if (state.supportedMinecraftVersions != null && availableVersions.size == 1) {
                 FixedOption(
                     label = stringResource(Res.string.ui_minecraft_version),
@@ -235,8 +237,8 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 )
             }
 
-            HorizontalDivider()
-            Text(stringResource(Res.string.ui_launch), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            FormSectionTitle(stringResource(Res.string.ui_launch))
             Selector(
                 label = "Account",
                 value = accountChoices.firstOrNull { it.second == form.accountProfileId }?.first
@@ -249,7 +251,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val memoryField: @Composable (Boolean, Modifier) -> Unit = { isMinimum, modifier ->
                     val error = if (isMinimum) minimumError else maximumError
-                    TextField(
+                    OutlinedTextField(
                         value = if (isMinimum) form.minimumMemoryMiB else form.maximumMemoryMiB,
                         onValueChange = if (isMinimum) actions::setMinimumMemory else actions::setMaximumMemory,
                         label = { Text(if (isMinimum) "Minimum memory (MiB)" else "Maximum memory (MiB)") },
@@ -288,7 +290,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 TextButton(onClick = actions::applyRecommendedMemory) { Text(stringResource(Res.string.ui_use_recommended)) }
             }
             form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
-            TextField(
+            OutlinedTextField(
                 value = form.jvmArguments,
                 onValueChange = actions::setJvmArguments,
                 label = { Text(stringResource(Res.string.ui_additional_jvm_arguments)) },
@@ -297,7 +299,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
-            TextField(
+            OutlinedTextField(
                 value = form.gameArguments,
                 onValueChange = actions::setGameArguments,
                 label = { Text(stringResource(Res.string.ui_additional_game_arguments)) },
@@ -307,7 +309,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
             if (state.supportsCustomJava) {
                 BoxWithConstraints(Modifier.fillMaxWidth()) {
                     val javaField: @Composable (Modifier) -> Unit = { fieldModifier ->
-                        TextField(
+                        OutlinedTextField(
                             value = form.javaExecutable,
                             onValueChange = actions::setJavaExecutable,
                             label = { Text(stringResource(Res.string.ui_custom_java_executable)) },
@@ -329,7 +331,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                     }
                 }
             }
-            TextField(
+            OutlinedTextField(
                 value = form.environmentVariables,
                 onValueChange = actions::setEnvironmentVariables,
                 label = { Text(stringResource(Res.string.ui_environment_variables)) },
@@ -340,27 +342,27 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 modifier = Modifier.fillMaxWidth(),
             )
             if (state.supportsLaunchCommands) {
-                HorizontalDivider()
-                Text(stringResource(Res.string.ui_custom_commands), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                FormSectionTitle(stringResource(Res.string.ui_custom_commands))
                 Text(
                     "Commands run directly in the game directory. Enter an executable followed by its arguments; shell operators are not expanded.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                TextField(
+                OutlinedTextField(
                     value = form.preLaunchCommand,
                     onValueChange = actions::setPreLaunchCommand,
                     label = { Text(stringResource(Res.string.ui_pre_launch_command)) },
                     supportingText = { Text(stringResource(Res.string.ui_must_exit_successfully_before_minecraft_starts)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextField(
+                OutlinedTextField(
                     value = form.wrapperCommand,
                     onValueChange = actions::setWrapperCommand,
                     label = { Text(stringResource(Res.string.ui_wrapper_command)) },
                     supportingText = { Text(stringResource(Res.string.ui_runs_before_the_java_executable_for_example_gamescope)) },
                     modifier = Modifier.fillMaxWidth(),
                 )
-                TextField(
+                OutlinedTextField(
                     value = form.postExitCommand,
                     onValueChange = actions::setPostExitCommand,
                     label = { Text(stringResource(Res.string.ui_post_exit_command)) },
@@ -369,8 +371,8 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 )
             }
 
-            HorizontalDivider()
-            Text(stringResource(Res.string.ui_minecraft_client), style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            FormSectionTitle(stringResource(Res.string.ui_minecraft_client))
             Text(
                 "Changes are written to this instance's options.txt. Other game and mod settings are kept.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -424,5 +426,14 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 showIconEditor = false
             },
         )
+    }
+}
+
+/** A form section title with a short accent bar, so long forms are easy to scan. */
+@Composable
+internal fun FormSectionTitle(title: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Box(Modifier.size(width = 4.dp, height = 18.dp).background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.extraSmall))
+        Text(title, style = MaterialTheme.typography.titleMedium)
     }
 }

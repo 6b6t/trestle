@@ -123,6 +123,7 @@ internal object LauncherTestTags {
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 
     fun instance(id: InstanceId): String = "instance-${id.value}"
+    fun instancePlay(id: InstanceId): String = "instance-play-${id.value}"
     fun account(profileId: String): String = "account-$profileId"
     fun instanceIconOption(id: String): String = "instance-icon-option-$id"
     fun instanceSection(section: String): String = "instance-section-${section.lowercase()}"
@@ -326,6 +327,7 @@ fun TrestleApp(
                                 actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
                                 changeDestination(LauncherDestination.DISCOVER)
                             },
+                            onOpenAccounts = { changeDestination(LauncherDestination.ACCOUNTS) },
                             searchFocusRequest = librarySearchFocusRequest,
                             importRequest = libraryImportRequest,
                         )

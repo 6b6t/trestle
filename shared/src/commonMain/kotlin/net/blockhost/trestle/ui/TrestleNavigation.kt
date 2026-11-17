@@ -8,16 +8,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.WideNavigationRailDefaults
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteDefaults
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
-import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.window.core.layout.WindowSizeClass
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_account
@@ -46,15 +45,8 @@ internal fun LauncherNavigationLayout(
     onOpenOperation: (InstanceId) -> Unit,
     destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit,
 ) {
-    val windowSizeClass = adaptiveInfo.windowSizeClass
     val layoutMode = adaptiveInfo.trestleLayoutMode()
-    val navigationSuiteType = when {
-        windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND) &&
-            windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) ->
-            NavigationSuiteType.WideNavigationRailExpanded
-
-        else -> NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
-    }
+    val navigationSuiteType = NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
     NavigationSuiteScaffold(
         navigationItems = {
             globalDestinations.forEach { destinationItem ->
@@ -77,7 +69,10 @@ internal fun LauncherNavigationLayout(
         modifier = modifier.testTag(LauncherTestTags.TOP_NAVIGATION),
         navigationSuiteType = navigationSuiteType,
         navigationSuiteColors = NavigationSuiteDefaults.colors(
-            shortNavigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            shortNavigationBarContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            wideNavigationRailColors = WideNavigationRailDefaults.colors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
         ),
         containerColor = MaterialTheme.colorScheme.background,
     ) {

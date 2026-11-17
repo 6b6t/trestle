@@ -6,20 +6,29 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -29,6 +38,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -36,11 +46,12 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.adaptive.layout.AnimatedPane
@@ -59,16 +70,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 import io.github.vinceglb.filekit.name
@@ -161,15 +176,11 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Column {
-                PageHeader(
-                    title = if (listPaneHidden && selectedAccount != null) {
-                        selectedAccount.profile.playerName
-                    } else {
-                        stringResource(Res.string.ui_accounts)
-                    },
-                    navigationIcon = {
-                        if (listPaneHidden) {
+            if (listPaneHidden && selectedAccount != null) {
+                Column {
+                    PageHeader(
+                        title = selectedAccount.profile.playerName,
+                        navigationIcon = {
                             TrestleTooltipIconButton(
                                 label = stringResource(Res.string.ui_back),
                                 onClick = showAccounts,
@@ -179,23 +190,24 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                                     contentDescription = stringResource(Res.string.ui_back),
                                 )
                             }
+                        },
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            } else {
+                PageHero(
+                    title = stringResource(Res.string.ui_accounts),
+                    subtitle = "The active account plays your instances.",
+                    accent = MaterialTheme.colorScheme.tertiary,
+                ) {
+                    if (layoutMode != TrestleLayoutMode.COMPACT && state.accounts.isNotEmpty()) {
+                        Button(onClick = actions::openAccountLogin) {
+                            Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(Res.string.ui_add_account))
                         }
-                    },
-                    actions = {
-                        if (layoutMode != TrestleLayoutMode.COMPACT) {
-                            TrestleTooltipIconButton(
-                                label = stringResource(Res.string.ui_add_account),
-                                onClick = actions::openAccountLogin,
-                            ) {
-                                Icon(
-                                    painterResource(Res.drawable.ic_add),
-                                    contentDescription = stringResource(Res.string.ui_add_account),
-                                )
-                            }
-                        }
-                    },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
             }
         },
         floatingActionButton = {
@@ -232,13 +244,11 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                 scaffoldState = navigator.scaffoldState,
                 modifier = Modifier.fillMaxSize().padding(contentPadding),
                 listPane = {
-                    AnimatedPane(Modifier.preferredWidth(340.dp)) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.surfaceContainer,
-                            modifier = Modifier.fillMaxSize(),
-                        ) {
+                    AnimatedPane(Modifier.preferredWidth(360.dp)) {
+                        Box(Modifier.fillMaxSize()) {
                             LazyColumn(
-                                contentPadding = PaddingValues(vertical = 8.dp),
+                                contentPadding = PaddingValues(start = 24.dp, end = 8.dp, top = 8.dp, bottom = 24.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 items(state.accounts, key = { it.profile.profileId }) { account ->
                                     AccountRow(
@@ -349,7 +359,7 @@ private fun AccountRow(
         ListItem(
             headlineContent = { Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium) },
             supportingContent = {
-                Text("${account.profile.authenticationMethod.label} · $statusText")
+                Text("$statusText · ${account.profile.authenticationMethod.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
             },
             leadingContent = { AccountMark(account, texture, compact = true) },
             trailingContent = {
@@ -374,11 +384,12 @@ private fun AccountRow(
                 containerColor = if (selected) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
-                    Color.Transparent
+                    MaterialTheme.colorScheme.surfaceContainer
                 },
             ),
             modifier = Modifier
                 .fillMaxWidth()
+                .selectionOutline(selected)
                 .trestleSelectable(
                     selected = selected,
                     onClickLabel = "Open ${account.profile.playerName}",
@@ -398,68 +409,101 @@ private fun AccountDetail(
     modifier: Modifier = Modifier,
 ) {
     val profileId = account.profile.profileId
+    val ready = account.isReady
     val statusText = when {
         account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
         !account.isAuthenticated -> "Sign-in required"
-        account.profile.edition == MinecraftEdition.JAVA -> "Ready to launch"
+        account.profile.edition == MinecraftEdition.JAVA -> "Ready to play"
         else -> "Bedrock saved"
     }
-    Column(
-        modifier.verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        if (account.profile.edition == MinecraftEdition.JAVA) {
-            MinecraftSkinPreview(
-                texture = texture,
-                variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
-                modifier = Modifier.fillMaxWidth().height(260.dp),
-                interactive = texture != null,
-                emptyLabel = "Loading skin preview…",
-            )
-        } else {
-            AccountMark(account, texture)
-        }
-        Column(
-            Modifier.fillMaxWidth().widthIn(max = 640.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(account.profile.playerName, style = MaterialTheme.typography.headlineMedium)
-            Text(
-                "${account.profile.authenticationMethod.label} · $statusText",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-            PropertyRow("Edition", account.profile.edition.name.lowercase().replaceFirstChar(Char::uppercase))
-            PropertyRow("Profile ID", profileId)
-            account.profile.skin?.let { skin -> PropertyRow("Player model", skin.variant.label) }
-            Row(
-                Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+    BoxWithConstraints(modifier) {
+        val sideBySide = maxWidth >= 640.dp
+        val preview: @Composable (Modifier) -> Unit = { previewModifier ->
+            Box(
+                previewModifier.clip(MaterialTheme.shapes.extraLarge).background(
+                    Brush.verticalGradient(
+                        listOf(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.22f), MaterialTheme.colorScheme.surfaceContainer),
+                    ),
+                ),
+                contentAlignment = Alignment.Center,
             ) {
+                if (account.profile.edition == MinecraftEdition.JAVA) {
+                    MinecraftSkinPreview(
+                        texture = texture,
+                        variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
+                        modifier = Modifier.fillMaxSize().padding(16.dp),
+                        interactive = texture != null,
+                        emptyLabel = "Loading skin preview…",
+                        background = Color.Transparent,
+                    )
+                } else {
+                    AccountMark(account, texture)
+                }
+            }
+        }
+        val details: @Composable ColumnScope.() -> Unit = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(account.profile.playerName, style = MaterialTheme.typography.headlineLarge)
+                if (account.isActive) StatusBadge(stringResource(Res.string.ui_active), MaterialTheme.colorScheme.primary)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier.size(8.dp).background(
+                        if (ready) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
+                        CircleShape,
+                    ),
+                )
+                Text(
+                    "$statusText · ${account.profile.authenticationMethod.label}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+            }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (!account.isActive) {
-                    Button(onClick = { actions.selectAccount(profileId) }) {
-                        Text(stringResource(Res.string.ui_use))
-                    }
+                    Button(onClick = { actions.selectAccount(profileId) }) { Text(stringResource(Res.string.ui_use)) }
                 }
                 if (account.canManageOfficialProfile) {
-                    Button(onClick = actions::openSkinStudio) {
-                        Text(stringResource(Res.string.ui_manage_skins))
-                    }
-                    OutlinedButton(onClick = actions::refreshActiveAccount) {
-                        Text(stringResource(Res.string.ui_refresh))
-                    }
+                    Button(onClick = actions::openSkinStudio) { Text(stringResource(Res.string.ui_manage_skins)) }
+                    FilledTonalButton(onClick = actions::refreshActiveAccount) { Text(stringResource(Res.string.ui_refresh)) }
                 }
                 if (account.isAuthenticated) {
-                    OutlinedButton(onClick = { actions.signOutAccount(profileId) }) {
+                    FilledTonalButton(onClick = { actions.signOutAccount(profileId) }) {
                         Text(stringResource(Res.string.ui_sign_out))
                     }
                 }
             }
-            TextButton(onClick = onForget, modifier = Modifier.padding(top = 8.dp)) {
+            SectionCard(title = "Profile") {
+                PropertyRow("Edition", account.profile.edition.name.lowercase().replaceFirstChar(Char::uppercase))
+                PropertyRow("Profile ID", profileId)
+                account.profile.skin?.let { skin -> PropertyRow("Player model", skin.variant.label, divider = false) }
+            }
+            TextButton(onClick = onForget) {
                 Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error)
             }
         }
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(start = 8.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
+        ) {
+            if (sideBySide) {
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    preview(Modifier.width(260.dp).height(360.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(16.dp), content = details)
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                    preview(Modifier.fillMaxWidth().height(280.dp))
+                    details()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatusBadge(label: String, color: androidx.compose.ui.graphics.Color) {
+    Surface(color = color.copy(alpha = 0.16f), contentColor = color, shape = CircleShape) {
+        Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
     }
 }
 
@@ -555,24 +599,16 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                 closeEnabled = !form.isWaiting,
             )
             Column(
-                Modifier.weight(1f).padding(24.dp).verticalScroll(rememberScrollState()),
+                Modifier.weight(1f, fill = false).padding(24.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                Text(
-                    "Choose how Trestle should create or verify this account.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Selector(
-                    label = "Login method",
-                    value = form.method.label,
-                    values = AccountAuthenticationMethod.entries.map(AccountAuthenticationMethod::label),
+                AccountMethodPicker(
+                    selected = form.method,
                     enabled = !form.isWaiting,
-                ) { selected ->
-                    AccountAuthenticationMethod.entries.firstOrNull { it.label == selected }
-                        ?.let(actions::setAccountLoginMethod)
-                }
+                    onSelect = actions::setAccountLoginMethod,
+                )
                 if (form.edition == MinecraftEdition.BEDROCK) {
-                    TextField(
+                    OutlinedTextField(
                         value = form.bedrockGameVersion,
                         onValueChange = actions::setBedrockGameVersion,
                         label = { Text(stringResource(Res.string.ui_installed_bedrock_version)) },
@@ -590,7 +626,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                     form.method == AccountAuthenticationMethod.MICROSOFT_CREDENTIALS ||
                     form.method == AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS
                 ) {
-                    TextField(
+                    OutlinedTextField(
                         value = form.email,
                         onValueChange = actions::setAccountEmail,
                         label = { Text(stringResource(Res.string.ui_microsoft_account_email)) },
@@ -605,7 +641,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
-                    TextField(
+                    OutlinedTextField(
                         value = form.password.reveal(),
                         onValueChange = actions::setAccountPassword,
                         label = { Text(stringResource(Res.string.ui_microsoft_account_password)) },
@@ -645,7 +681,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                     )
                 }
                 if (form.method.requiresImportedSecret) {
-                    TextField(
+                    OutlinedTextField(
                         value = form.importedSecret.reveal(),
                         onValueChange = actions::setImportedAccountSecret,
                         label = { Text(form.method.secretInputLabel) },
@@ -676,7 +712,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                     Text(form.method.importWarning, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (form.method == AccountAuthenticationMethod.OFFLINE) {
-                    TextField(
+                    OutlinedTextField(
                         value = form.offlineUsername,
                         onValueChange = actions::setOfflineUsername,
                         label = { Text(stringResource(Res.string.ui_offline_username)) },
@@ -806,3 +842,57 @@ private val AccountLoginState.canSubmit: Boolean
 
         AccountAuthenticationMethod.OFFLINE -> offlineUsername.matches(Regex("^[A-Za-z0-9_]{1,16}$"))
     }
+
+private val AccountAuthenticationMethod.summary: String
+    get() = when (this) {
+        AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE -> "Sign in with a code in your browser. Works with two-factor sign-in."
+        AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE -> "Sign in to a Bedrock Edition account with a browser code."
+        AccountAuthenticationMethod.MICROSOFT_CREDENTIALS -> "Enter a Microsoft email and password. Fails with two-factor sign-in."
+        AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS -> "Enter a Microsoft email and password for Bedrock Edition."
+        AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> "Import a session from another launcher with a refresh token."
+        AccountAuthenticationMethod.MICROSOFT_COOKIES -> "Import a session from exported Microsoft browser cookies."
+        AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> "Use a Minecraft access token directly. It expires within a day."
+        AccountAuthenticationMethod.OFFLINE -> "Play with any username. Servers in online mode will not accept it."
+    }
+
+/** Lists sign-in methods with what each one does, so the recommended choice is obvious. */
+@Composable
+private fun AccountMethodPicker(selected: AccountAuthenticationMethod, enabled: Boolean, onSelect: (AccountAuthenticationMethod) -> Unit) {
+    var showAll by rememberSaveable { mutableStateOf(selected != AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE) }
+    val primary = listOf(AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE, AccountAuthenticationMethod.OFFLINE)
+    val methods = if (showAll) AccountAuthenticationMethod.entries else primary
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        methods.forEach { method ->
+            val isSelected = method == selected
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.medium)
+                    .border(
+                        if (isSelected) 2.dp else 1.dp,
+                        if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        MaterialTheme.shapes.medium,
+                    )
+                    .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
+                    .selectable(selected = isSelected, enabled = enabled, role = Role.RadioButton) { onSelect(method) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                RadioButton(selected = isSelected, onClick = null, enabled = enabled)
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(method.label, style = MaterialTheme.typography.titleSmall)
+                        if (method == AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE) {
+                            StatusBadge("Recommended", MaterialTheme.colorScheme.tertiary)
+                        }
+                    }
+                    Text(method.summary, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+        if (!showAll) {
+            TextButton(onClick = { showAll = true }, enabled = enabled) { Text("More sign-in options") }
+        }
+    }
+}

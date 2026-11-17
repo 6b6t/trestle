@@ -6,36 +6,46 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -88,13 +98,18 @@ private fun SettingsColumn(
     modifier: Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+    Box(modifier.fillMaxSize(), contentAlignment = Alignment.TopStart) {
         Column(
-            Modifier.fillMaxWidth().widthIn(max = 840.dp).verticalScroll(scrollState).padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            Modifier.fillMaxWidth().widthIn(max = 840.dp).verticalScroll(scrollState)
+                .padding(start = 8.dp, end = 24.dp, top = 8.dp, bottom = 24.dp),
         ) {
-            Text(stringResource(title), style = MaterialTheme.typography.titleLarge)
-            content()
+            SectionCard(title = stringResource(title)) {
+                Column(
+                    Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    content = content,
+                )
+            }
         }
     }
 }
@@ -158,7 +173,7 @@ internal fun FolderSettings(state: LauncherUiState, actions: LauncherUiActions, 
 
 @Composable
 private fun FolderPreferenceField(label: String, value: String, defaultValue: String, onValueChange: (String) -> Unit) {
-    TextField(
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
@@ -260,7 +275,7 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
         )
         val editable = proxy.type == LauncherProxyType.HTTP || proxy.type == LauncherProxyType.SOCKS5
         Row(Modifier.fillMaxWidth().widthIn(max = 760.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            TextField(
+            OutlinedTextField(
                 value = proxy.host,
                 onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(host = it))) },
                 label = { Text(stringResource(Res.string.ui_address)) },
@@ -268,7 +283,7 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
                 singleLine = true,
                 modifier = Modifier.weight(1f),
             )
-            TextField(
+            OutlinedTextField(
                 value = proxy.port.toString(),
                 onValueChange = { value ->
                     value.toIntOrNull()?.takeIf { it in 1..65535 }?.let {
@@ -282,7 +297,7 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
                 modifier = Modifier.width(140.dp),
             )
         }
-        TextField(
+        OutlinedTextField(
             value = proxy.username,
             onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(username = it))) },
             label = { Text(stringResource(Res.string.ui_username)) },
@@ -290,7 +305,7 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
             singleLine = true,
             modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
         )
-        TextField(
+        OutlinedTextField(
             value = proxy.password,
             onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(password = it))) },
             label = { Text(stringResource(Res.string.ui_password)) },
@@ -325,7 +340,7 @@ internal fun ServiceSettings(state: LauncherUiState, actions: LauncherUiActions,
         )
         HorizontalDivider()
         Text(stringResource(Res.string.ui_technic), style = MaterialTheme.typography.titleMedium)
-        TextField(
+        OutlinedTextField(
             value = preferences.technicClientId,
             onValueChange = { actions.setLauncherPreferences(preferences.copy(technicClientId = it)) },
             label = { Text(stringResource(Res.string.ui_client_id)) },
@@ -335,7 +350,7 @@ internal fun ServiceSettings(state: LauncherUiState, actions: LauncherUiActions,
             singleLine = true,
             modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
         )
-        TextField(
+        OutlinedTextField(
             value = preferences.ftbAppInstancesPath,
             onValueChange = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
             label = { Text(stringResource(Res.string.ui_ftb_app_instances_folder)) },
@@ -370,24 +385,19 @@ internal fun ToolSettings(state: LauncherUiState, actions: LauncherUiActions, sc
     }
 
 @Composable
-internal fun AppearanceSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) {
-    Column(
-        modifier.verticalScroll(scrollState).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(stringResource(Res.string.ui_appearance), style = MaterialTheme.typography.titleLarge)
+internal fun AppearanceSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) =
+    SettingsColumn(Res.string.ui_appearance, scrollState, modifier) {
         Text(
-            "Choose how Trestle follows your device appearance. The preference applies on the next screen immediately.",
+            "Choose how Trestle looks. Changes apply right away.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.widthIn(max = 640.dp),
         )
-        SingleChoiceSegmentedButtonRow(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
-            ThemePreference.entries.forEachIndexed { index, preference ->
-                SegmentedButton(
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ThemePreference.entries.forEach { preference ->
+                ThemeOption(
+                    preference = preference,
                     selected = state.themePreference == preference,
                     onClick = { actions.setThemePreference(preference) },
-                    shape = SegmentedButtonDefaults.itemShape(index, ThemePreference.entries.size),
-                ) { Text(preference.label) }
+                )
             }
         }
         Text(
@@ -395,6 +405,41 @@ internal fun AppearanceSettings(state: LauncherUiState, actions: LauncherUiActio
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodyMedium,
         )
+    }
+
+@Composable
+private fun ThemeOption(preference: ThemePreference, selected: Boolean, onClick: () -> Unit) {
+    val dark = trestleColorScheme(darkTheme = true)
+    val light = trestleColorScheme(darkTheme = false)
+    Column(
+        Modifier.width(168.dp).clip(MaterialTheme.shapes.large)
+            .border(
+                if (selected) 2.dp else 1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                MaterialTheme.shapes.large,
+            )
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(Modifier.fillMaxWidth().height(84.dp).clip(MaterialTheme.shapes.medium)) {
+            val schemes = when (preference) {
+                ThemePreference.SYSTEM -> listOf(light, dark)
+                ThemePreference.LIGHT -> listOf(light)
+                ThemePreference.DARK -> listOf(dark)
+            }
+            schemes.forEach { scheme -> ThemeSwatch(scheme, Modifier.weight(1f).fillMaxHeight()) }
+        }
+        Text(preference.label, style = MaterialTheme.typography.titleSmall)
+    }
+}
+
+@Composable
+private fun ThemeSwatch(scheme: ColorScheme, modifier: Modifier) {
+    Column(modifier.background(scheme.background).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.fillMaxWidth(0.7f).height(8.dp).background(scheme.onBackground.copy(alpha = 0.8f), CircleShape))
+        Box(Modifier.fillMaxWidth().height(22.dp).background(scheme.surfaceContainerHigh, MaterialTheme.shapes.small))
+        Box(Modifier.fillMaxWidth(0.55f).height(14.dp).background(scheme.primary, CircleShape))
     }
 }
 

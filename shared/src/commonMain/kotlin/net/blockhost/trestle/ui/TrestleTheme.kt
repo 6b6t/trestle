@@ -28,59 +28,73 @@ import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.roboto_variable
 import org.jetbrains.compose.resources.Font
 
-private val Soot = Color(0xFF171715)
-private val Surface = Color(0xFF24231F)
-private val RaisedSurface = Color(0xFF2E2C27)
-private val Ochre = Color(0xFFBE8F45)
-private val Chalk = Color(0xFFE7E3D9)
-private val Muted = Color(0xFFA9A49A)
-private val Rule = Color(0xFF3A3833)
-private val ErrorSurface = Color(0xFF3A2520)
-private val ErrorText = Color(0xFFF0AA94)
-private val PrimaryFixed = Color(0xFFF4D9A4)
-private val PrimaryFixedDim = Color(0xFFE2BD75)
-private val OnPrimaryFixed = Color(0xFF2B200D)
-private val OnPrimaryFixedVariant = Color(0xFF55401F)
-private val SecondaryFixed = Color(0xFFE7E1D6)
-private val SecondaryFixedDim = Color(0xFFA9A49A)
-private val OnSecondaryFixed = Color(0xFF211F1B)
-private val OnSecondaryFixedVariant = Color(0xFF49453E)
+// Dark palette: cool ink surfaces, a warm brass accent, and mint for ready states.
+private val Ink = Color(0xFF0D0F14)
+private val InkLow = Color(0xFF13161D)
+private val InkContainer = Color(0xFF181C24)
+private val InkHigh = Color(0xFF20252F)
+private val InkHighest = Color(0xFF2A303C)
+private val Brass = Color(0xFFF0A93E)
+private val Chalk = Color(0xFFE9ECF2)
+private val Muted = Color(0xFF9BA3B4)
+private val Rule = Color(0xFF3B4250)
+private val SoftRule = Color(0xFF242934)
+private val Mint = Color(0xFF5BD6A8)
+
+// Light palette: cool paper surfaces with the same brass and mint roles.
+private val Paper = Color(0xFFF5F6F9)
+private val PaperText = Color(0xFF181B22)
+private val DeepBrass = Color(0xFF8A5800)
+
+private val PrimaryFixed = Color(0xFFFFDDAA)
+private val PrimaryFixedDim = Color(0xFFF0B963)
+private val OnPrimaryFixed = Color(0xFF2A1800)
+private val OnPrimaryFixedVariant = Color(0xFF5E3D00)
+private val SecondaryFixed = Color(0xFFF3E1C6)
+private val SecondaryFixedDim = Color(0xFFD6C3A6)
+private val OnSecondaryFixed = Color(0xFF241A0B)
+private val OnSecondaryFixedVariant = Color(0xFF524430)
+private val TertiaryFixed = Color(0xFFB4F4DA)
+private val TertiaryFixedDim = Color(0xFF5BD6A8)
+private val OnTertiaryFixed = Color(0xFF002117)
+private val OnTertiaryFixedVariant = Color(0xFF005139)
+
 private val TrestleDarkColors = darkColorScheme(
-    primary = Ochre,
-    onPrimary = Color(0xFF211B12),
-    primaryContainer = Color(0xFF55401F),
-    onPrimaryContainer = Color(0xFFF4D9A4),
-    secondary = Muted,
-    onSecondary = Soot,
-    secondaryContainer = RaisedSurface,
-    onSecondaryContainer = Chalk,
-    tertiary = Ochre,
-    onTertiary = Color(0xFF211B12),
-    tertiaryContainer = Color(0xFF55401F),
-    onTertiaryContainer = Color(0xFFF4D9A4),
-    background = Soot,
+    primary = Brass,
+    onPrimary = Color(0xFF2A1800),
+    primaryContainer = Color(0xFF4A3310),
+    onPrimaryContainer = PrimaryFixed,
+    secondary = Color(0xFFD6C3A6),
+    onSecondary = Color(0xFF241A0B),
+    secondaryContainer = Color(0xFF2E2719),
+    onSecondaryContainer = Color(0xFFF3E1C6),
+    tertiary = Mint,
+    onTertiary = OnTertiaryFixed,
+    tertiaryContainer = Color(0xFF123B2E),
+    onTertiaryContainer = TertiaryFixed,
+    background = Ink,
     onBackground = Chalk,
-    surface = Surface,
+    surface = InkLow,
     onSurface = Chalk,
-    surfaceVariant = RaisedSurface,
+    surfaceVariant = InkHigh,
     onSurfaceVariant = Muted,
-    surfaceTint = Ochre,
-    surfaceBright = Color(0xFF35332D),
-    surfaceDim = Soot,
-    surfaceContainerLowest = Soot,
-    surfaceContainerLow = Surface,
-    surfaceContainer = Surface,
-    surfaceContainerHigh = RaisedSurface,
-    surfaceContainerHighest = Color(0xFF35332D),
+    surfaceTint = Brass,
+    surfaceBright = InkHighest,
+    surfaceDim = Ink,
+    surfaceContainerLowest = Ink,
+    surfaceContainerLow = InkLow,
+    surfaceContainer = InkContainer,
+    surfaceContainerHigh = InkHigh,
+    surfaceContainerHighest = InkHighest,
     outline = Rule,
-    outlineVariant = Rule,
-    error = Color(0xFFE89982),
-    onError = Color(0xFF2B0B04),
-    errorContainer = ErrorSurface,
-    onErrorContainer = ErrorText,
+    outlineVariant = SoftRule,
+    error = Color(0xFFFF8A7A),
+    onError = Color(0xFF3A0905),
+    errorContainer = Color(0xFF3D1A17),
+    onErrorContainer = Color(0xFFFFB4A9),
     inverseSurface = Chalk,
-    inverseOnSurface = Soot,
-    inversePrimary = Color(0xFF765A2D),
+    inverseOnSurface = Ink,
+    inversePrimary = DeepBrass,
     scrim = Color.Black,
     primaryFixed = PrimaryFixed,
     primaryFixedDim = PrimaryFixedDim,
@@ -90,48 +104,48 @@ private val TrestleDarkColors = darkColorScheme(
     secondaryFixedDim = SecondaryFixedDim,
     onSecondaryFixed = OnSecondaryFixed,
     onSecondaryFixedVariant = OnSecondaryFixedVariant,
-    tertiaryFixed = PrimaryFixed,
-    tertiaryFixedDim = PrimaryFixedDim,
-    onTertiaryFixed = OnPrimaryFixed,
-    onTertiaryFixedVariant = OnPrimaryFixedVariant,
+    tertiaryFixed = TertiaryFixed,
+    tertiaryFixedDim = TertiaryFixedDim,
+    onTertiaryFixed = OnTertiaryFixed,
+    onTertiaryFixedVariant = OnTertiaryFixedVariant,
 )
 
 private val TrestleLightColors = lightColorScheme(
-    primary = Color(0xFF765A2D),
+    primary = DeepBrass,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFF4D9A4),
-    onPrimaryContainer = Color(0xFF2B200D),
-    secondary = Color(0xFF655F55),
+    primaryContainer = PrimaryFixed,
+    onPrimaryContainer = OnPrimaryFixed,
+    secondary = Color(0xFF6B5A40),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE7E1D6),
-    onSecondaryContainer = Color(0xFF211F1B),
-    tertiary = Color(0xFF765A2D),
+    secondaryContainer = Color(0xFFF6E7CF),
+    onSecondaryContainer = OnSecondaryFixed,
+    tertiary = Color(0xFF006C4E),
     onTertiary = Color.White,
-    tertiaryContainer = Color(0xFFF4D9A4),
-    onTertiaryContainer = Color(0xFF2B200D),
-    background = Color(0xFFF8F5ED),
-    onBackground = Color(0xFF24221E),
-    surface = Color(0xFFFFFCF5),
-    onSurface = Color(0xFF24221E),
-    surfaceVariant = Color(0xFFEDE8DE),
-    onSurfaceVariant = Color(0xFF625E56),
-    surfaceTint = Color(0xFF765A2D),
-    surfaceBright = Color(0xFFFFFCF5),
-    surfaceDim = Color(0xFFE4E0D7),
-    surfaceContainerLowest = Color(0xFFFFFCF5),
-    surfaceContainerLow = Color(0xFFF5F1E8),
-    surfaceContainer = Color(0xFFF0ECE3),
-    surfaceContainerHigh = Color(0xFFEAE6DD),
-    surfaceContainerHighest = Color(0xFFE4E0D7),
-    outline = Color(0xFF7A756C),
-    outlineVariant = Color(0xFFD0CBC1),
-    error = Color(0xFF9E3D2A),
+    tertiaryContainer = TertiaryFixed,
+    onTertiaryContainer = OnTertiaryFixed,
+    background = Paper,
+    onBackground = PaperText,
+    surface = Color(0xFFFBFBFD),
+    onSurface = PaperText,
+    surfaceVariant = Color(0xFFE6E9F0),
+    onSurfaceVariant = Color(0xFF555D6E),
+    surfaceTint = DeepBrass,
+    surfaceBright = Color.White,
+    surfaceDim = Color(0xFFDCDFE6),
+    surfaceContainerLowest = Color.White,
+    surfaceContainerLow = Color(0xFFF0F2F6),
+    surfaceContainer = Color(0xFFEAEDF2),
+    surfaceContainerHigh = Color(0xFFE3E6EC),
+    surfaceContainerHighest = Color(0xFFDCDFE6),
+    outline = Color(0xFF747C8C),
+    outlineVariant = Color(0xFFCDD2DC),
+    error = Color(0xFFB3261E),
     onError = Color.White,
-    errorContainer = Color(0xFFFFDAD1),
-    onErrorContainer = Color(0xFF3B0902),
-    inverseSurface = Color(0xFF302F2B),
-    inverseOnSurface = Color(0xFFF5F1E8),
-    inversePrimary = Color(0xFFE2BD75),
+    errorContainer = Color(0xFFFFDAD5),
+    onErrorContainer = Color(0xFF410002),
+    inverseSurface = Color(0xFF2B2F38),
+    inverseOnSurface = Color(0xFFF0F2F6),
+    inversePrimary = Brass,
     scrim = Color.Black,
     primaryFixed = PrimaryFixed,
     primaryFixedDim = PrimaryFixedDim,
@@ -141,29 +155,25 @@ private val TrestleLightColors = lightColorScheme(
     secondaryFixedDim = SecondaryFixedDim,
     onSecondaryFixed = OnSecondaryFixed,
     onSecondaryFixedVariant = OnSecondaryFixedVariant,
-    tertiaryFixed = PrimaryFixed,
-    tertiaryFixedDim = PrimaryFixedDim,
-    onTertiaryFixed = OnPrimaryFixed,
-    onTertiaryFixedVariant = OnPrimaryFixedVariant,
+    tertiaryFixed = TertiaryFixed,
+    tertiaryFixedDim = TertiaryFixedDim,
+    onTertiaryFixed = OnTertiaryFixed,
+    onTertiaryFixedVariant = OnTertiaryFixedVariant,
 )
 
 internal fun trestleColorScheme(accentColor: Color? = null, darkTheme: Boolean = true, highContrast: Boolean = false): ColorScheme {
     val base = if (darkTheme) TrestleDarkColors else TrestleLightColors
     val contrastedBase = base.withHighContrast(highContrast)
     if (accentColor == null) return contrastedBase
-    val primary = primaryAccent(accentColor, contrastedBase.surface, if (darkTheme) Chalk else Soot)
+    val primary = primaryAccent(accentColor, contrastedBase.surface, if (darkTheme) Chalk else Ink)
     val primaryContainer = lerp(contrastedBase.surface, primary, if (darkTheme) 0.32f else 0.18f)
-    val fixedDim = primaryAccent(accentColor, Soot, Chalk)
+    val fixedDim = primaryAccent(accentColor, Ink, Chalk)
     val fixed = lerp(Chalk, fixedDim, 0.24f)
     return contrastedBase.copy(
         primary = primary,
         onPrimary = contentColor(primary),
         primaryContainer = primaryContainer,
         onPrimaryContainer = contentColor(primaryContainer),
-        tertiary = primary,
-        onTertiary = contentColor(primary),
-        tertiaryContainer = primaryContainer,
-        onTertiaryContainer = contentColor(primaryContainer),
         surfaceTint = primary,
         inversePrimary = accessibleAccent(
             accentColor,
@@ -174,10 +184,6 @@ internal fun trestleColorScheme(accentColor: Color? = null, darkTheme: Boolean =
         primaryFixedDim = fixedDim,
         onPrimaryFixed = contentColor(fixed),
         onPrimaryFixedVariant = contentColor(fixedDim),
-        tertiaryFixed = fixed,
-        tertiaryFixedDim = fixedDim,
-        onTertiaryFixed = contentColor(fixed),
-        onTertiaryFixedVariant = contentColor(fixedDim),
     )
 }
 
@@ -212,8 +218,7 @@ private fun accessibleAccent(accentColor: Color, background: Color, target: Colo
     return candidate
 }
 
-private fun contentColor(background: Color): Color =
-    if (contrastRatio(Soot, background) >= contrastRatio(Chalk, background)) Soot else Chalk
+private fun contentColor(background: Color): Color = if (contrastRatio(Ink, background) >= contrastRatio(Chalk, background)) Ink else Chalk
 
 internal fun contrastRatio(first: Color, second: Color): Float {
     val lighter = maxOf(first.luminance(), second.luminance())
@@ -254,7 +259,17 @@ private fun trestleTypography(): Typography {
         Font(Res.font.roboto_variable, FontWeight.Bold),
     )
 
-    return Typography(fontFamily = roboto)
+    val base = Typography(fontFamily = roboto)
+    return base.copy(
+        displaySmall = base.displaySmall.copy(fontWeight = FontWeight.Bold),
+        headlineLarge = base.headlineLarge.copy(fontWeight = FontWeight.Bold),
+        headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold),
+        headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold),
+        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
+        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.Bold),
+        titleSmall = base.titleSmall.copy(fontWeight = FontWeight.Bold),
+        labelLarge = base.labelLarge.copy(fontWeight = FontWeight.Bold),
+    )
 }
 
 @Composable

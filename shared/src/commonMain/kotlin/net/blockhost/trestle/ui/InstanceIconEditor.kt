@@ -36,6 +36,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -151,13 +153,36 @@ internal fun InstanceIconArtwork(
     }
 }
 
+/** A stable hue for an instance, so its icon and highlights keep the same color between sessions. */
+internal fun instanceHue(instance: GameInstance): Float = instance.id.value.hashCode().mod(DEGREES_IN_HUE_CIRCLE).toFloat()
+
+private const val DEGREES_IN_HUE_CIRCLE = 360
+
+/** The instance's own color, used to tint its icon and the library highlight behind it. */
+internal fun instanceAccent(instance: GameInstance): Color = Color.hsl(instanceHue(instance), saturation = 0.6f, lightness = 0.5f)
+
 @Composable
 private fun InstanceIconFallback(instance: GameInstance, size: Dp) {
-    Text(
-        instance.modLoader.label.take(2).uppercase(),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        style = if (size >= 56.dp) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.labelLarge,
-    )
+    val initial = instance.displayName.firstOrNull { it.isLetterOrDigit() }?.uppercase() ?: "?"
+    val hue = instanceHue(instance)
+    Box(
+        Modifier.fillMaxSize().background(
+            Brush.linearGradient(
+                listOf(Color.hsl(hue, saturation = 0.55f, lightness = 0.42f), Color.hsl(hue, saturation = 0.5f, lightness = 0.24f)),
+            ),
+        ),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            initial,
+            color = Color.hsl(hue, saturation = 0.7f, lightness = 0.9f),
+            style = when {
+                size >= 96.dp -> MaterialTheme.typography.displaySmall
+                size >= 56.dp -> MaterialTheme.typography.headlineMedium
+                else -> MaterialTheme.typography.titleLarge
+            },
+        )
+    }
 }
 
 @Composable

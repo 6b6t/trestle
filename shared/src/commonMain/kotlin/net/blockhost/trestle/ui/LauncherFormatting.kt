@@ -97,6 +97,7 @@ internal fun PropertyRow(
     actionLabel: String? = null,
     onClick: (() -> Unit)? = null,
     actionEnabled: Boolean = true,
+    divider: Boolean = true,
 ) {
     ListItem(
         headlineContent = { Text(value) },
@@ -109,7 +110,7 @@ internal fun PropertyRow(
         colors = ListItemDefaults.colors(containerColor = Color.Transparent),
         modifier = Modifier.fillMaxWidth(),
     )
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    if (divider) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -123,10 +124,10 @@ internal fun stateLabel(state: InstallationState): String = when (state) {
 
 @Composable
 internal fun stateColor(state: InstallationState) = when (state) {
-    is InstallationState.Installed -> MaterialTheme.colorScheme.onSurfaceVariant
-    is InstallationState.Interrupted -> MaterialTheme.colorScheme.primary
-    is InstallationState.Failed -> MaterialTheme.colorScheme.onErrorContainer
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
+    is InstallationState.Installed -> MaterialTheme.colorScheme.tertiary
+    is InstallationState.Installing, is InstallationState.Interrupted -> MaterialTheme.colorScheme.primary
+    is InstallationState.Failed -> MaterialTheme.colorScheme.error
+    InstallationState.NotInstalled -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 internal data class InstallationProgressSnapshot(

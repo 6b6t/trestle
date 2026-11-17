@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,15 +35,19 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -68,10 +73,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -99,27 +106,42 @@ import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ic_add
+import net.blockhost.trestle.resources.ic_download
+import net.blockhost.trestle.resources.ic_play
+import net.blockhost.trestle.resources.trestle_mark
+import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_add_an_account_to_launch
+import net.blockhost.trestle.resources.ui_add_mods
+import net.blockhost.trestle.resources.ui_all_instances
 import net.blockhost.trestle.resources.ui_choose_one_from_the_library
 import net.blockhost.trestle.resources.ui_create_an_isolated_minecraft_instance
 import net.blockhost.trestle.resources.ui_create_instance
 import net.blockhost.trestle.resources.ui_import
+import net.blockhost.trestle.resources.ui_import_hint
 import net.blockhost.trestle.resources.ui_install
 import net.blockhost.trestle.resources.ui_instance_settings
+import net.blockhost.trestle.resources.ui_last_played_on
 import net.blockhost.trestle.resources.ui_launch
 import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_manage
 import net.blockhost.trestle.resources.ui_manage_content
+import net.blockhost.trestle.resources.ui_never_played
 import net.blockhost.trestle.resources.ui_new_instance
+import net.blockhost.trestle.resources.ui_no_account_to_play
 import net.blockhost.trestle.resources.ui_no_instances_yet
 import net.blockhost.trestle.resources.ui_no_matching_instances
 import net.blockhost.trestle.resources.ui_open_operation_details
 import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_play
+import net.blockhost.trestle.resources.ui_play_named
+import net.blockhost.trestle.resources.ui_playing_as
 import net.blockhost.trestle.resources.ui_resume_install
 import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_retry_install
 import net.blockhost.trestle.resources.ui_retry_launch
 import net.blockhost.trestle.resources.ui_search_instances
 import net.blockhost.trestle.resources.ui_select_an_instance
+import net.blockhost.trestle.resources.ui_sign_in_required_for
 import net.blockhost.trestle.resources.ui_stop
 import net.blockhost.trestle.resources.ui_try_another_name_version_or_loader
 import net.blockhost.trestle.resources.ui_unavailable
@@ -135,6 +157,7 @@ internal fun LibraryPage(
     compact: Boolean = false,
     onManage: () -> Unit,
     onDiscover: (ResourceType) -> Unit,
+    onOpenAccounts: () -> Unit,
     searchFocusRequest: Int,
     importRequest: Int,
 ) {
@@ -157,12 +180,7 @@ internal fun LibraryPage(
         }
     }
     val searchFocusRequester = remember { FocusRequester() }
-    val compactListState = rememberLazyListState()
     val gridState = rememberLazyGridState()
-    val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
-    val supportingPaneNavigator = rememberSupportingPaneScaffoldNavigator<InstanceId?>(
-        scaffoldDirective = calculatePaneScaffoldDirective(adaptiveInfo),
-    )
     val filteredInstances = state.instances.filter {
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
@@ -178,43 +196,24 @@ internal fun LibraryPage(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            Column {
-                PageHeader(
-                    title = stringResource(Res.string.ui_library),
-                    actions = {
-                        if (compact) {
-                            TextButton(onClick = { importPicker.launch() }) {
-                                Text(stringResource(Res.string.ui_import))
-                            }
-                        } else {
-                            OutlinedButton(onClick = { importPicker.launch() }) {
-                                Text(stringResource(Res.string.ui_import))
-                            }
-                            Button(
-                                onClick = actions::openCreate,
-                                modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                            ) {
-                                Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(Res.string.ui_new_instance))
-                            }
-                        }
-                    },
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
+            LibraryHeader(
+                compact = compact,
+                hasInstances = state.instances.isNotEmpty(),
+                query = query,
+                onQueryChange = { query = it },
+                searchFocusRequester = searchFocusRequester,
+                onImport = { importPicker.launch() },
+                onCreate = actions::openCreate,
+            )
         },
         floatingActionButton = {
             if (compact && state.instances.isNotEmpty()) {
-                FloatingActionButton(
+                ExtendedFloatingActionButton(
                     onClick = actions::openCreate,
+                    icon = { Icon(painterResource(Res.drawable.ic_add), contentDescription = null) },
+                    text = { Text(stringResource(Res.string.ui_new_instance)) },
                     modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE),
-                ) {
-                    Icon(
-                        painterResource(Res.drawable.ic_add),
-                        contentDescription = stringResource(Res.string.ui_new_instance),
-                    )
-                }
+                )
             }
         },
     ) { contentPadding ->
@@ -236,72 +235,498 @@ internal fun LibraryPage(
                 state.isInitializing -> LoadingRows(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY))
 
                 state.instances.isEmpty() -> EmptyLibrary(
-                    actions::openCreate,
-                    Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
+                    onNew = actions::openCreate,
+                    onImport = { importPicker.launch() },
+                    modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
                 )
 
-                compact -> Column(Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY)) {
-                    InstanceShelfToolbar(
-                        query,
-                        { query = it },
-                        searchFocusRequester = searchFocusRequester,
-                    )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                    InstanceCollection(
-                        instances = filteredInstances,
-                        state = state,
-                        actions = actions,
-                        compact = true,
-                        compactListState = compactListState,
-                        gridState = gridState,
-                        onOpenInstance = onManage,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-
-                else -> SupportingPaneScaffold(
-                    directive = supportingPaneNavigator.scaffoldDirective,
-                    scaffoldState = supportingPaneNavigator.scaffoldState,
+                else -> InstanceCollection(
+                    instances = filteredInstances,
+                    showFeatured = query.isBlank(),
+                    state = state,
+                    actions = actions,
+                    compact = compact,
+                    gridState = gridState,
+                    onOpenInstance = onManage,
+                    onAddMods = { onDiscover(ResourceType.MOD) },
+                    onOpenAccounts = onOpenAccounts,
                     modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
-                    mainPane = {
-                        AnimatedPane {
-                            Column(Modifier.fillMaxSize()) {
-                                InstanceShelfToolbar(
-                                    query,
-                                    { query = it },
-                                    searchFocusRequester = searchFocusRequester,
-                                )
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                                InstanceCollection(
-                                    instances = filteredInstances,
-                                    state = state,
-                                    actions = actions,
-                                    compact = false,
-                                    compactListState = compactListState,
-                                    gridState = gridState,
-                                    onOpenInstance = onManage,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
-                    },
-                    supportingPane = {
-                        AnimatedPane(Modifier.preferredWidth(380.dp)) {
-                            SelectedInstancePanel(
-                                state = state,
-                                actions = actions,
-                                onManage = onManage,
-                                onDiscover = { onDiscover(ResourceType.MOD) },
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                    },
                 )
             }
             if (dropActive) {
                 DropOverlay("Drop to import local content")
             }
         }
+    }
+}
+
+@Composable
+private fun LibraryHeader(
+    compact: Boolean,
+    hasInstances: Boolean,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    searchFocusRequester: FocusRequester,
+    onImport: () -> Unit,
+    onCreate: () -> Unit,
+) {
+    val search: @Composable (Modifier) -> Unit = { searchModifier ->
+        TrestleSearchField(
+            value = query,
+            onValueChange = onQueryChange,
+            placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
+            modifier = searchModifier.focusRequester(searchFocusRequester).testTag(LauncherTestTags.INSTANCE_SEARCH),
+        )
+    }
+    Column(
+        Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 20.dp, bottom = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                stringResource(Res.string.ui_library),
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f),
+            )
+            if (!compact && hasInstances) search(Modifier.width(320.dp))
+            // The empty library shows its own create and import actions.
+            if (hasInstances && compact) {
+                TextButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
+            } else if (hasInstances) {
+                OutlinedButton(onClick = onImport) { Text(stringResource(Res.string.ui_import)) }
+                Button(onClick = onCreate, modifier = Modifier.testTag(LauncherTestTags.NEW_INSTANCE)) {
+                    Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(Res.string.ui_new_instance))
+                }
+            }
+        }
+        if (compact && hasInstances) search(Modifier.fillMaxWidth())
+    }
+}
+
+@Composable
+private fun InstanceCollection(
+    instances: List<GameInstance>,
+    showFeatured: Boolean,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    compact: Boolean,
+    gridState: LazyGridState,
+    onOpenInstance: () -> Unit,
+    onAddMods: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    modifier: Modifier,
+) {
+    val featured = state.selectedInstance?.takeIf { showFeatured }
+    LazyVerticalGrid(
+        state = gridState,
+        columns = if (compact) GridCells.Fixed(1) else GridCells.Adaptive(280.dp),
+        modifier = modifier,
+        contentPadding = PaddingValues(start = 24.dp, top = 4.dp, end = 24.dp, bottom = if (compact) 96.dp else 32.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        if (featured != null) {
+            item(key = "featured", span = { GridItemSpan(maxLineSpan) }) {
+                FeaturedInstance(
+                    instance = featured,
+                    state = state,
+                    actions = actions,
+                    compact = compact,
+                    onManage = onOpenInstance,
+                    onAddMods = onAddMods,
+                    onOpenAccounts = onOpenAccounts,
+                    modifier = Modifier.padding(bottom = 16.dp),
+                )
+            }
+        }
+        if (instances.isEmpty()) {
+            item(key = "no-match", span = { GridItemSpan(maxLineSpan) }) {
+                Column(
+                    Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text(stringResource(Res.string.ui_no_matching_instances), style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        stringResource(Res.string.ui_try_another_name_version_or_loader),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+        instanceSections(instances, state).forEach { (section, sectionInstances) ->
+            item(key = "section-$section", span = { GridItemSpan(maxLineSpan) }) {
+                Text(
+                    section ?: stringResource(Res.string.ui_all_instances),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleSmall,
+                )
+            }
+            gridItems(sectionInstances, key = { it.id.value }) { instance ->
+                InstanceTile(
+                    instance = instance,
+                    selected = instance.id == state.selectedInstance?.id,
+                    launcherState = state,
+                    actions = actions,
+                    onOpen = onOpenInstance,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Splits instances into the sections shown in the library.
+ * Only pinned instances and groups the player named get their own section; a null key is the remaining instances.
+ */
+private fun instanceSections(instances: List<GameInstance>, state: LauncherUiState): List<Pair<String?, List<GameInstance>>> {
+    val sorted = sortInstances(instances, state)
+    val pinned = sorted.filter { it.pinned }
+    val rest = sorted.filterNot { it.pinned }
+    val named = rest.filter { !it.group.isNullOrBlank() }.groupBy { it.group.orEmpty() }
+    val ungrouped = rest.filter { it.group.isNullOrBlank() }
+    return buildList {
+        if (pinned.isNotEmpty()) add("Pinned" to pinned)
+        named.entries.sortedBy { it.key.lowercase() }.forEach { (group, members) -> add(group to members) }
+        if (ungrouped.isNotEmpty()) add(null to ungrouped)
+    }
+}
+
+@Composable
+private fun FeaturedInstance(
+    instance: GameInstance,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    compact: Boolean,
+    onManage: () -> Unit,
+    onAddMods: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = MaterialTheme.shapes.large,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier.fillMaxWidth().testTag(LauncherTestTags.SELECTED_INSTANCE),
+    ) {
+        val accent = instanceAccent(instance)
+        val backdrop = Modifier.background(
+            Brush.horizontalGradient(listOf(accent.copy(alpha = 0.22f), accent.copy(alpha = 0.04f), Color.Transparent)),
+        )
+        if (compact) {
+            Column(backdrop.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    InstanceArtwork(instance, 72.dp)
+                    FeaturedInstanceDetails(instance, state, Modifier.weight(1f))
+                }
+                FeaturedInstanceControls(instance, state, actions, onManage, onAddMods, onOpenAccounts, Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                backdrop.padding(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                InstanceArtwork(instance, 112.dp)
+                FeaturedInstanceDetails(instance, state, Modifier.weight(1f))
+                FeaturedInstanceControls(instance, state, actions, onManage, onAddMods, onOpenAccounts, Modifier.width(280.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeaturedInstanceDetails(instance: GameInstance, state: LauncherUiState, modifier: Modifier) {
+    val installationState = instance.installationState
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            instance.displayName,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.headlineSmall,
+        )
+        Text(
+            instanceSubtitle(instance),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        if (installationState is InstallationState.Installed) {
+            Text(
+                instance.lastLaunchAtEpochMillis?.let {
+                    stringResource(Res.string.ui_last_played_on, formatLocalDateTime(it))
+                } ?: stringResource(Res.string.ui_never_played),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        } else {
+            InstallationStatusLine(instance, state)
+        }
+        InstallationProgress(installationState, installationState.installationProgress())
+        LaunchReadiness(state, instance)
+    }
+}
+
+@Composable
+private fun FeaturedInstanceControls(
+    instance: GameInstance,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    onManage: () -> Unit,
+    onAddMods: () -> Unit,
+    onOpenAccounts: () -> Unit,
+    modifier: Modifier,
+) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        PrimaryInstanceAction(
+            instance,
+            state,
+            actions,
+            Modifier.fillMaxWidth(),
+            buttonModifier = Modifier.heightIn(min = 52.dp),
+        )
+        LaunchAccount(state, instance, onOpenAccounts)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilledTonalButton(onClick = onManage, modifier = Modifier.weight(1f)) {
+                Text(stringResource(Res.string.ui_manage))
+            }
+            if (instance.modLoader != ModLoader.VANILLA) {
+                FilledTonalButton(
+                    onClick = onAddMods,
+                    enabled = instance.installationState is InstallationState.Installed,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text(stringResource(Res.string.ui_add_mods))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LaunchAccount(state: LauncherUiState, instance: GameInstance, onOpenAccounts: () -> Unit) {
+    val account = instance.accountProfileId
+        ?.let { profileId -> state.accounts.firstOrNull { it.profile.profileId == profileId } }
+        ?: state.accounts.firstOrNull { it.isActive }
+    val text = when {
+        account == null -> stringResource(Res.string.ui_no_account_to_play)
+        !account.isReady -> stringResource(Res.string.ui_sign_in_required_for, account.profile.playerName)
+        else -> stringResource(Res.string.ui_playing_as, account.profile.playerName)
+    }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClickLabel = stringResource(Res.string.ui_accounts), role = Role.Button, onClick = onOpenAccounts)
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Box(
+            Modifier.size(22.dp).background(
+                if (account?.isReady == true) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer,
+                CircleShape,
+            ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                account?.profile?.playerName?.take(1)?.uppercase() ?: "!",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (account?.isReady == true) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onErrorContainer
+                },
+            )
+        }
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+private fun instanceSubtitle(instance: GameInstance): String = "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}"
+
+@Composable
+private fun InstallationStatusLine(instance: GameInstance, state: LauncherUiState) {
+    val installationState = instance.installationState
+    val running = state.activeLaunch?.instanceId == instance.id && state.activeLaunch.status is LaunchStatus.Running
+    val label = if (running) "Running" else stateLabel(installationState)
+    val color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState)
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.size(8.dp).background(color, CircleShape))
+        Text(label, color = color, style = MaterialTheme.typography.labelMedium, maxLines = 1)
+    }
+}
+
+@Composable
+private fun InstanceTile(
+    instance: GameInstance,
+    selected: Boolean,
+    launcherState: LauncherUiState,
+    actions: LauncherUiActions,
+    onOpen: () -> Unit,
+) {
+    val focusManager = LocalFocusManager.current
+    val installationState = instance.installationState
+    val progress = installationState.installationProgress()
+    val interactionModifier = Modifier
+        .fillMaxWidth()
+        .clip(MaterialTheme.shapes.medium)
+        .trestleSelectable(
+            selected = selected,
+            onClickLabel = "Open instance",
+            onClick = {
+                actions.selectInstance(instance.id)
+                onOpen()
+            },
+            onDoubleClick = {
+                actions.selectInstance(instance.id)
+                actions.launchSelected()
+            },
+        )
+        .onPreviewKeyEvent { event ->
+            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            when (event.key) {
+                Key.Enter -> {
+                    actions.selectInstance(instance.id)
+                    onOpen()
+                    true
+                }
+
+                Key.Delete -> {
+                    actions.selectInstance(instance.id)
+                    actions.deleteSelected()
+                    true
+                }
+
+                Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
+
+                Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
+
+                Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
+
+                Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
+
+                else -> false
+            }
+        }
+        .testTag(LauncherTestTags.instance(instance.id))
+    ContextActionArea(instanceContextActions(instance, actions)) {
+        Surface(
+            color = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = MaterialTheme.shapes.medium,
+            border = BorderStroke(
+                1.dp,
+                if (selected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+            ),
+            modifier = interactionModifier,
+        ) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    InstanceArtwork(instance, 52.dp)
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            instance.displayName,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            "${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                            maxLines = 1,
+                        )
+                        InstallationStatusLine(instance, launcherState)
+                    }
+                    TileQuickAction(instance, launcherState, actions)
+                }
+                if (progress != null) InstallationProgress(installationState, progress)
+            }
+        }
+    }
+}
+
+@Composable
+private fun TileQuickAction(instance: GameInstance, state: LauncherUiState, actions: LauncherUiActions) {
+    val installationState = instance.installationState
+    if (installationState is InstallationState.Installing) return
+    val status = state.launch.takeIf { it.instanceId == instance.id }?.status
+    if (status is LaunchStatus.Running || status == LaunchStatus.Starting || status == LaunchStatus.Checking) return
+    val installed = installationState is InstallationState.Installed
+    val label = when (installationState) {
+        is InstallationState.Installed -> stringResource(Res.string.ui_play_named, instance.displayName)
+        is InstallationState.Interrupted -> stringResource(Res.string.ui_resume_install)
+        is InstallationState.Failed -> stringResource(Res.string.ui_retry_install)
+        else -> stringResource(Res.string.ui_install)
+    }
+    TrestleTooltip(label) {
+        FilledIconButton(
+            onClick = {
+                actions.selectInstance(instance.id)
+                if (installed) actions.launchSelected() else actions.installSelected()
+            },
+            colors = if (installed) {
+                IconButtonDefaults.filledIconButtonColors()
+            } else {
+                IconButtonDefaults.filledTonalIconButtonColors()
+            },
+            modifier = Modifier.size(44.dp).testTag(LauncherTestTags.instancePlay(instance.id)),
+        ) {
+            Icon(
+                painterResource(if (installed) Res.drawable.ic_play else Res.drawable.ic_download),
+                contentDescription = label,
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyLibrary(onNew: () -> Unit, onImport: () -> Unit, modifier: Modifier) {
+    Column(
+        modifier = modifier.padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Icon(
+            painterResource(Res.drawable.trestle_mark),
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(64.dp),
+        )
+        Spacer(Modifier.height(20.dp))
+        Text(stringResource(Res.string.ui_no_instances_yet), style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            stringResource(Res.string.ui_create_an_isolated_minecraft_instance),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodyLarge,
+        )
+        Spacer(Modifier.height(24.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Button(onClick = onNew, modifier = Modifier.heightIn(min = 48.dp)) {
+                Icon(painterResource(Res.drawable.ic_add), contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(Res.string.ui_create_instance))
+            }
+            OutlinedButton(onClick = onImport, modifier = Modifier.heightIn(min = 48.dp)) {
+                Text(stringResource(Res.string.ui_import))
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(Res.string.ui_import_hint),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+        )
     }
 }
 
@@ -316,62 +741,6 @@ internal fun BoxScope.DropOverlay(message: String) {
         Box(contentAlignment = Alignment.Center) {
             Text(message, style = MaterialTheme.typography.titleLarge)
         }
-    }
-}
-
-@Composable
-private fun InstanceCollection(
-    instances: List<GameInstance>,
-    state: LauncherUiState,
-    actions: LauncherUiActions,
-    compact: Boolean,
-    compactListState: LazyListState,
-    gridState: LazyGridState,
-    onOpenInstance: () -> Unit,
-    modifier: Modifier,
-) {
-    if (instances.isEmpty()) {
-        Column(
-            modifier.padding(24.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(stringResource(Res.string.ui_no_matching_instances), style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(Res.string.ui_try_another_name_version_or_loader), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    } else if (compact) {
-        LazyColumn(
-            state = compactListState,
-            modifier = modifier,
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            items(sortInstances(instances, state), key = { it.id.value }) { instance ->
-                InstanceTile(
-                    instance,
-                    instance.id == state.selectedInstance?.id,
-                    state,
-                    actions,
-                    compact = true,
-                    onOpen = onOpenInstance,
-                )
-            }
-        }
-    } else {
-        InstanceGrid(instances, state, actions, gridState, modifier)
-    }
-}
-
-@Composable
-private fun InstanceShelfToolbar(query: String, onQueryChange: (String) -> Unit, searchFocusRequester: FocusRequester) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        TrestleSearchField(
-            value = query,
-            onValueChange = onQueryChange,
-            placeholder = { Text(stringResource(Res.string.ui_search_instances)) },
-            modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp).focusRequester(searchFocusRequester)
-                .testTag(LauncherTestTags.INSTANCE_SEARCH),
-        )
     }
 }
 
@@ -464,73 +833,6 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
 }
 
 @Composable
-private fun SelectedInstancePanel(
-    state: LauncherUiState,
-    actions: LauncherUiActions,
-    onManage: () -> Unit,
-    onDiscover: () -> Unit,
-    modifier: Modifier,
-) {
-    val instance = state.selectedInstance
-    if (instance == null) {
-        Surface(color = MaterialTheme.colorScheme.surfaceContainer, modifier = modifier) {
-            Column(
-                Modifier.fillMaxSize().padding(24.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(stringResource(Res.string.ui_select_an_instance), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(Res.string.ui_choose_one_from_the_library), color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        return
-    }
-
-    val installationState = instance.installationState
-    val activeAccount = state.accounts.firstOrNull { it.isActive }
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = modifier.testTag(LauncherTestTags.SELECTED_INSTANCE),
-    ) {
-        Column(
-            Modifier.verticalScroll(rememberScrollState()).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                InstanceArtwork(instance, 64.dp)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        instance.displayName,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleLarge,
-                    )
-                    Text(
-                        "${instance.minecraftVersionId} · ${instance.modLoader.label}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-            Text(stateLabel(installationState), color = stateColor(installationState), style = MaterialTheme.typography.labelLarge)
-            InstallationProgress(installationState, installationState.installationProgress())
-            LaunchContext(state = installationState, activeAccount = activeAccount)
-            LaunchReadiness(state, instance)
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            PrimaryInstanceAction(instance, state, actions, Modifier.fillMaxWidth())
-            FilledTonalButton(
-                onClick = onDiscover,
-                enabled = installationState is InstallationState.Installed,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(Res.string.ui_manage_content)) }
-            OutlinedButton(
-                onClick = onManage,
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(Res.string.ui_instance_settings)) }
-        }
-    }
-}
-
-@Composable
 private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: return
     val message = when (status) {
@@ -560,26 +862,15 @@ private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
 }
 
 @Composable
-private fun LaunchContext(state: InstallationState, activeAccount: ManagedAccount?) {
-    val accountText = when {
-        activeAccount == null -> "No account selected"
-        !activeAccount.isReady -> "${activeAccount.profile.playerName} · Sign-in required"
-        else -> "${activeAccount.profile.playerName} · Ready to play"
-    }
-    Text(
-        accountText,
-        color = if (activeAccount?.isReady == true && state is InstallationState.Installed) {
-            MaterialTheme.colorScheme.onSurface
-        } else {
-            MaterialTheme.colorScheme.onSurfaceVariant
-        },
-    )
-}
-
-@Composable
-internal fun PrimaryInstanceAction(instance: GameInstance, state: LauncherUiState, actions: LauncherUiActions, modifier: Modifier) {
+internal fun PrimaryInstanceAction(
+    instance: GameInstance,
+    state: LauncherUiState,
+    actions: LauncherUiActions,
+    modifier: Modifier,
+    buttonModifier: Modifier = Modifier,
+) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PrimaryInstanceButton(instance, state, actions, Modifier.fillMaxWidth())
+        PrimaryInstanceButton(instance, state, actions, buttonModifier.fillMaxWidth())
         if (requiresImportedAccount(state, instance)) {
             Text(
                 stringResource(Res.string.ui_add_an_account_to_launch),
@@ -674,39 +965,6 @@ internal fun Modifier.dismissOnEscape(enabled: Boolean = true, onDismiss: () -> 
     }
 }
 
-@Composable
-private fun InstanceGrid(
-    instances: List<GameInstance>,
-    state: LauncherUiState,
-    actions: LauncherUiActions,
-    gridState: LazyGridState,
-    modifier: Modifier = Modifier,
-) {
-    val grouped = instances.groupBy(::instanceGroupLabel)
-    LazyVerticalGrid(
-        state = gridState,
-        columns = GridCells.Adaptive(184.dp),
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 8.dp, end = 20.dp, bottom = 24.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        grouped.forEach { (group, groupInstances) ->
-            item(key = "group-$group", span = { GridItemSpan(maxLineSpan) }) {
-                Text(
-                    group,
-                    modifier = Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 2.dp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-            gridItems(sortInstances(groupInstances, state), key = { it.id.value }) { instance ->
-                InstanceTile(instance, instance.id == state.selectedInstance?.id, state, actions)
-            }
-        }
-    }
-}
-
 private fun sortInstances(instances: List<GameInstance>, state: LauncherUiState): List<GameInstance> =
     when (state.launcherPreferences.instanceSort) {
         net.blockhost.trestle.app.InstanceSortMode.NAME -> instances.sortedWith(
@@ -719,137 +977,6 @@ private fun sortInstances(instances: List<GameInstance>, state: LauncherUiState)
                 .thenBy { it.displayName.lowercase() },
         )
     }
-
-private fun instanceGroupLabel(instance: GameInstance): String = when {
-    instance.pinned -> "Pinned"
-    !instance.group.isNullOrBlank() -> instance.group
-    instance.iconReference?.let { it.startsWith("https://") || it.startsWith("http://") } == true -> "Modpacks"
-    instance.modLoader == ModLoader.VANILLA -> "Vanilla"
-    else -> "${instance.modLoader.label} instances"
-}
-
-@Composable
-private fun InstanceTile(
-    instance: GameInstance,
-    selected: Boolean,
-    launcherState: LauncherUiState,
-    actions: LauncherUiActions,
-    compact: Boolean = false,
-    onOpen: (() -> Unit)? = null,
-) {
-    val focusManager = LocalFocusManager.current
-    val installationState = instance.installationState
-    val running = launcherState.activeLaunch?.instanceId == instance.id &&
-        launcherState.activeLaunch.status is LaunchStatus.Running
-    val progress = installationState.installationProgress()
-    val versionLabel = "${instance.minecraftVersionId} · ${instance.modLoader.label}" +
-        if (instance.pinned) " · Pinned" else ""
-    val interactionModifier = Modifier
-        .fillMaxWidth()
-        .trestleSelectable(
-            selected = selected,
-            onClickLabel = if (onOpen == null) "Select instance" else "Open instance",
-            onClick = {
-                actions.selectInstance(instance.id)
-                onOpen?.invoke()
-            },
-            onDoubleClick = {
-                actions.selectInstance(instance.id)
-                actions.launchSelected()
-            },
-        )
-        .onFocusChanged { focusState ->
-            if (focusState.isFocused) actions.selectInstance(instance.id)
-        }
-        .onPreviewKeyEvent { event ->
-            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            when (event.key) {
-                Key.Enter -> {
-                    actions.selectInstance(instance.id)
-                    if (onOpen == null) actions.launchSelected() else onOpen()
-                    true
-                }
-
-                Key.Delete -> {
-                    actions.selectInstance(instance.id)
-                    actions.deleteSelected()
-                    true
-                }
-
-                Key.DirectionLeft -> focusManager.moveFocus(FocusDirection.Left)
-
-                Key.DirectionRight -> focusManager.moveFocus(FocusDirection.Right)
-
-                Key.DirectionUp -> focusManager.moveFocus(FocusDirection.Up)
-
-                Key.DirectionDown -> focusManager.moveFocus(FocusDirection.Down)
-
-                else -> false
-            }
-        }
-        .testTag(LauncherTestTags.instance(instance.id))
-    ContextActionArea(instanceContextActions(instance, actions)) {
-        if (compact) {
-            ListItem(
-                headlineContent = {
-                    Text(instance.displayName, style = MaterialTheme.typography.titleMedium)
-                },
-                supportingContent = { Text(versionLabel) },
-                leadingContent = { InstanceArtwork(instance, 48.dp) },
-                trailingContent = {
-                    Text(
-                        if (running) "Running" else stateLabel(installationState),
-                        color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                },
-                colors = ListItemDefaults.colors(
-                    containerColor = if (selected) {
-                        MaterialTheme.colorScheme.secondaryContainer
-                    } else {
-                        Color.Transparent
-                    },
-                ),
-                modifier = interactionModifier,
-            )
-            return@ContextActionArea
-        }
-        Card(
-            modifier = interactionModifier,
-            colors = CardDefaults.cardColors(
-                containerColor = if (selected) {
-                    MaterialTheme.colorScheme.secondaryContainer
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerLow
-                },
-            ),
-            border = if (selected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null,
-        ) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                InstanceArtwork(instance, 72.dp)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        instance.displayName,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        versionLabel,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-                Text(
-                    if (running) "Running" else stateLabel(installationState),
-                    color = if (running) MaterialTheme.colorScheme.primary else stateColor(installationState),
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                if (progress != null) InstallationProgress(installationState, progress)
-            }
-        }
-    }
-}
 
 @Composable
 internal fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.unit.Dp) {
@@ -942,7 +1069,7 @@ private fun LaunchButton(state: LauncherUiState, instance: GameInstance, actions
             onClick = {},
             enabled = false,
             modifier = modifier,
-        ) { Text(stringResource(Res.string.ui_launch)) }
+        ) { Text(stringResource(Res.string.ui_play)) }
 
         is LaunchStatus.Unavailable -> Button(
             onClick = {},
@@ -960,21 +1087,11 @@ private fun LaunchButton(state: LauncherUiState, instance: GameInstance, actions
         -> Button(
             onClick = actions::launchSelected,
             modifier = modifier,
-        ) { Text(stringResource(Res.string.ui_launch)) }
-    }
-}
-
-@Composable
-private fun EmptyLibrary(onNew: () -> Unit, modifier: Modifier) {
-    Column(
-        modifier = modifier.padding(24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(stringResource(Res.string.ui_no_instances_yet), style = MaterialTheme.typography.titleLarge)
-        Text(stringResource(Res.string.ui_create_an_isolated_minecraft_instance), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onNew) { Text(stringResource(Res.string.ui_create_instance)) }
+        ) {
+            Icon(painterResource(Res.drawable.ic_play), contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(Res.string.ui_play))
+        }
     }
 }
 

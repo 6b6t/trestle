@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
@@ -30,6 +32,7 @@ import net.blockhost.trestle.auth.SkinProfile
 import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.resources.ResourceType
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -68,6 +71,7 @@ class TrestleAppUiTest {
 
         onNodeWithTag(LauncherTestTags.LIBRARY).assertIsDisplayed()
         onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.LIBRARY).performScrollToNode(hasTestTag(LauncherTestTags.instance(InstanceId("building"))))
         onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).performClick()
 
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
@@ -112,6 +116,7 @@ class TrestleAppUiTest {
 
         onNodeWithTag(LauncherTestTags.TOP_NAVIGATION).assertIsDisplayed()
         onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.LIBRARY).performScrollToNode(hasTestTag(LauncherTestTags.instance(InstanceId("building"))))
         onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).assertIsDisplayed()
     }
 
@@ -129,6 +134,7 @@ class TrestleAppUiTest {
 
         onNodeWithTag(LauncherTestTags.TOP_NAVIGATION).assertIsDisplayed()
         onNodeWithTag(LauncherTestTags.NEW_INSTANCE).assertIsDisplayed()
+        onNodeWithTag(LauncherTestTags.LIBRARY).performScrollToNode(hasTestTag(LauncherTestTags.instance(InstanceId("building"))))
         onNodeWithTag(LauncherTestTags.instance(InstanceId("building"))).assertIsDisplayed()
     }
 
@@ -275,7 +281,7 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.ACCOUNTS).assertIsDisplayed()
-        onNodeWithContentDescription("Add account").assertIsDisplayed().assertHasClickAction()
+        onNodeWithText("Add account").assertIsDisplayed().assertHasClickAction()
     }
 
     @Test
@@ -400,6 +406,103 @@ class TrestleAppUiTest {
         onNodeWithTag(LauncherTestTags.instance(instanceId)).performMouseInput { doubleClick() }
 
         assertEquals(listOf("select:vanilla", "launch"), events)
+    }
+
+    @Test
+    fun instanceTilePlayButtonLaunchesThatInstance() = runComposeUiTest {
+        val events = mutableListOf<String>()
+        val actions = object : LauncherUiActions {
+            override fun selectInstance(id: InstanceId) {
+                events += "select:${id.value}"
+            }
+
+            override fun launchSelected() {
+                events += "launch"
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    actions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onNodeWithTag(LauncherTestTags.LIBRARY)
+            .performScrollToNode(hasTestTag(LauncherTestTags.instancePlay(InstanceId("vanilla"))))
+        onNodeWithTag(LauncherTestTags.instancePlay(InstanceId("vanilla"))).performClick()
+
+        assertEquals(listOf("select:vanilla", "launch"), events)
+    }
+
+    @Test
+    fun libraryShowsWhichAccountWillPlay() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded,
+                    NoopLauncherUiActions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onNodeWithText("Playing as Pistonmaster").assertIsDisplayed().assertHasClickAction()
+    }
+
+    @Test
+    fun discoverInstallTargetSwitchesTheInstanceAndReloadsResults() = runComposeUiTest {
+        val events = mutableListOf<String>()
+        val actions = object : LauncherUiActions {
+            override fun selectInstance(id: InstanceId) {
+                events += "select:${id.value}"
+            }
+
+            override fun openResourceBrowser(type: ResourceType, presentation: ResourceBrowserPresentation) {
+                events += "open:${type.name}"
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.discover,
+                    actions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+        events.clear()
+
+        onNodeWithText("Installing into").performClick()
+        onNodeWithText("Latest release").performClick()
+
+        assertEquals(listOf("select:vanilla", "open:MOD"), events)
+    }
+
+    @Test
+    fun createDialogShowsLoadersAsChoices() = runComposeUiTest {
+        val loaders = mutableListOf<ModLoader>()
+        val actions = object : LauncherUiActions {
+            override fun setCreateLoader(value: ModLoader) {
+                loaders += value
+            }
+        }
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.createDialog,
+                    actions,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onNodeWithText("Fabric").performScrollTo().performClick()
+
+        assertEquals(listOf(ModLoader.FABRIC), loaders)
     }
 
     @Test
@@ -548,7 +651,7 @@ class TrestleAppUiTest {
     }
 
     @Test
-    fun compactInstanceWorkspaceMovesBetweenDetailAndSectionList() = runComposeUiTest {
+    fun compactInstanceWorkspaceKeepsSectionTabsAndReturnsToLibrary() = runComposeUiTest {
         setContent {
             Box(Modifier.size(480.dp, 720.dp)) {
                 TrestleApp(
@@ -561,12 +664,13 @@ class TrestleAppUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
-        onNodeWithTag(LauncherTestTags.INSTANCE_BACK).performClick()
-
         listOf("overview", "content", "worlds", "servers", "screenshots", "notes", "logs", "settings")
             .forEach { section ->
-                onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
+                onNodeWithTag(LauncherTestTags.instanceSection(section)).performScrollTo().assertIsDisplayed().assertHasClickAction()
             }
+
+        onNodeWithTag(LauncherTestTags.INSTANCE_BACK).performClick()
+        onNodeWithTag(LauncherTestTags.LIBRARY).assertIsDisplayed()
     }
 
     @Test

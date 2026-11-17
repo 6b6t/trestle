@@ -8,8 +8,14 @@ import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.instance.GameDataInventory
+import net.blockhost.trestle.instance.ManagedScreenshot
+import net.blockhost.trestle.instance.ManagedWorld
 import net.blockhost.trestle.instance.MinecraftClientSettings
+import net.blockhost.trestle.instance.SavedServer
+import net.blockhost.trestle.instance.ServerStatus
 import net.blockhost.trestle.metadata.VersionReference
+import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
@@ -155,6 +161,59 @@ internal object LauncherPreviewFixtures {
         ),
     )
 
+    /** An instance with play history, worlds, servers, and mods, for previewing the instance overview. */
+    val played = loaded.copy(
+        instances = instances.map { instance ->
+            if (instance.id != installed.id) {
+                instance
+            } else {
+                instance.copy(playTimeMillis = 46_800_000, launchCount = 27, lastLaunchAtEpochMillis = 1_765_843_200_000)
+            }
+        },
+        installedContent = listOf(
+            content("sodium", "Sodium", ResourceType.MOD),
+            content("lithium", "Lithium", ResourceType.MOD),
+            content("iris", "Iris Shaders", ResourceType.MOD),
+            content("faithful", "Faithful 32x", ResourceType.RESOURCE_PACK),
+            content("complementary", "Complementary Reimagined", ResourceType.SHADER_PACK),
+        ),
+        gameData = GameDataInventory(
+            worlds = listOf(
+                ManagedWorld("survival", "Riverside survival", 412_000_000, 1_765_843_200_000, emptyList(), gameMode = "survival"),
+                ManagedWorld("creative", "Castle build", 96_000_000, 1_765_756_800_000, emptyList(), gameMode = "creative"),
+            ),
+            screenshots = listOf(
+                ManagedScreenshot("shot-1", "2025-12-16_20.14.02.png", "/preview/shot-1.png", 2_400_000, 1_765_843_200_000),
+                ManagedScreenshot("shot-2", "2025-12-15_18.40.55.png", "/preview/shot-2.png", 2_100_000, 1_765_756_800_000),
+                ManagedScreenshot("shot-3", "2025-12-14_21.02.11.png", "/preview/shot-3.png", 1_900_000, 1_765_670_400_000),
+            ),
+            servers = listOf(
+                SavedServer(
+                    "hub",
+                    "Community hub",
+                    "play.example.net",
+                    status = ServerStatus.ONLINE,
+                    onlinePlayers = 128,
+                    maximumPlayers = 500,
+                    pingMillis = 38,
+                ),
+                SavedServer("friends", "Friends SMP", "smp.example.org", status = ServerStatus.OFFLINE),
+            ),
+        ),
+    )
+
+    private fun content(key: String, name: String, type: ResourceType) = InstalledContent(
+        key = key,
+        name = name,
+        type = type,
+        fileNames = listOf("$key.jar"),
+        enabled = true,
+        direct = true,
+        provider = ResourceProvider.MODRINTH,
+        projectId = key,
+        versionNumber = "1.0.0",
+    )
+
     private fun instance(id: String, name: String, version: String, loader: ModLoader, state: InstallationState) = GameInstance(
         id = InstanceId(id),
         displayName = name,
@@ -272,3 +331,7 @@ private fun SkinStudioPagePreview() = LauncherPreview(
 @Preview(name = "Skin editor", group = "Dialogs", widthDp = 1000, heightDp = 760, showBackground = true)
 @Composable
 private fun SkinEditorDialogPreview() = LauncherPreview(LauncherPreviewFixtures.skinEditor)
+
+@Preview(name = "Instance overview", group = "Instance", widthDp = 1280, heightDp = 800, showBackground = true)
+@Composable
+private fun InstanceOverviewPreview() = LauncherPreview(LauncherPreviewFixtures.played, LauncherDestination.INSTANCE)

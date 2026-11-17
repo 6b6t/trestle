@@ -7,6 +7,7 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -35,7 +37,6 @@ import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -153,7 +154,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                         ) { Text(stringResource(Res.string.ui_browse_modpacks)) }
                     }
                 }
-                TextField(
+                OutlinedTextField(
                     value = form.name,
                     onValueChange = actions::setCreateName,
                     label = { Text(stringResource(Res.string.ui_name)) },
@@ -165,7 +166,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TextField(
+                    OutlinedTextField(
                         value = form.group,
                         onValueChange = actions::setCreateGroup,
                         label = { Text(stringResource(Res.string.ui_group)) },
@@ -173,7 +174,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
-                    TextField(
+                    OutlinedTextField(
                         value = form.iconReference,
                         onValueChange = actions::setCreateIconReference,
                         label = { Text(stringResource(Res.string.ui_icon_path_or_url)) },
@@ -183,7 +184,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     )
                 }
                 if (source == "import") {
-                    TextField(
+                    OutlinedTextField(
                         value = remoteUrl,
                         onValueChange = { remoteUrl = it },
                         label = { Text(stringResource(Res.string.ui_direct_download_or_curseforge_url)) },
@@ -303,14 +304,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             modifier = Modifier.fillMaxWidth(),
                         )
                     } else {
-                        Selector(
-                            label = "Loader",
-                            value = form.modLoader.label,
-                            values = loaderChoices.map { it.label },
-                            onSelect = { label ->
-                                loaderChoices.firstOrNull { it.label == label }?.let(actions::setCreateLoader)
-                            },
-                        )
+                        LoaderChoice(selected = form.modLoader, choices = loaderChoices, onSelect = actions::setCreateLoader)
                     }
                     if (form.modLoader != ModLoader.VANILLA) {
                         Selector(
@@ -641,7 +635,7 @@ internal fun Selector(
             },
         ) {
             if (values.size > 20) {
-                TextField(
+                OutlinedTextField(
                     value = filter,
                     onValueChange = { filter = it },
                     label = { Text(stringResource(Res.string.ui_filter_named_field, label)) },
@@ -664,6 +658,27 @@ internal fun Selector(
                     "No matching options",
                     modifier = Modifier.padding(16.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Shows every loader at once as a choice chip, so players can compare them without opening a menu. */
+@Composable
+private fun LoaderChoice(selected: ModLoader, choices: List<ModLoader>, onSelect: (ModLoader) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(stringResource(Res.string.ui_loader), style = MaterialTheme.typography.labelLarge)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            choices.forEach { loader ->
+                FilterChip(
+                    selected = loader == selected,
+                    onClick = { onSelect(loader) },
+                    label = { Text(loader.label) },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primary,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 )
             }
         }
