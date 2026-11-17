@@ -6,7 +6,10 @@ import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModpackOrigin
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class ModpackUpdatesTest {
     @Test fun distinguishesUpstreamChangesFromLocalEditsAndProtectsWorlds() {

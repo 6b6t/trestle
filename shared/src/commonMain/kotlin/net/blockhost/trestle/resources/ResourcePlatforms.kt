@@ -385,7 +385,8 @@ class ModrinthResourcePlatform(
             }
             project.id to ResourceProject(
                 provider, project.id, project.slug, project.title, project.description,
-                "", type, project.downloads, project.iconUrl, "https://modrinth.com/${type.modrinthPath()}/${project.slug}", project.categories,
+                "", type, project.downloads, project.iconUrl,
+                "https://modrinth.com/${type.modrinthPath()}/${project.slug}", project.categories,
             )
         }
 

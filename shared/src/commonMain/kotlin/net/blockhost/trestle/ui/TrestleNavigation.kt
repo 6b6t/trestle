@@ -60,8 +60,10 @@ internal fun LauncherNavigationLayout(
             globalDestinations.forEach { destinationItem ->
                 NavigationSuiteItem(
                     selected = destination == destinationItem ||
-                        destinationItem == LauncherDestination.LIBRARY &&
-                        destination == LauncherDestination.INSTANCE,
+                        (
+                            destinationItem == LauncherDestination.LIBRARY &&
+                                destination == LauncherDestination.INSTANCE
+                            ),
                     onClick = { onDestinationChange(destinationItem) },
                     icon = {
                         Icon(painterResource(destinationIcon(destinationItem)), contentDescription = null)

@@ -49,6 +49,7 @@ internal object WindowsIntegration {
     }
 
     private interface DwmApi : StdCallLibrary {
+        @Suppress("ktlint:standard:function-naming") // JNA binds the native function name.
         fun DwmSetWindowAttribute(windowHandle: Pointer, attribute: Int, attributeValue: Pointer, attributeSize: Int): Int
 
         companion object {

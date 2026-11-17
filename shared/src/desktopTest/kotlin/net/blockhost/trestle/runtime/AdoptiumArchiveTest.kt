@@ -6,7 +6,10 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream
 import org.apache.commons.compress.archivers.tar.TarConstants
 import java.nio.file.Files
 import java.util.zip.GZIPOutputStream
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 class AdoptiumArchiveTest {
     @Test fun extractsExecutablesAndConfinesSymlinksToTheRuntime() {

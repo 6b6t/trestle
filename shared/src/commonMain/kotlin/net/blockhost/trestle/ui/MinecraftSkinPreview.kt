@@ -104,7 +104,7 @@ fun MinecraftSkinPreview(
     val pixels = remember(texture) {
         texture?.let { bytes -> runCatching { bytes.decodeToImageBitmap().toPixelMap() }.getOrNull() }
     }
-    var yaw by remember(texture) { mutableFloatStateOf(DefaultYaw) }
+    var yaw by remember(texture) { mutableFloatStateOf(DEFAULT_YAW) }
     var animationTime by remember { mutableFloatStateOf(0f) }
 
     LaunchedEffect(pixels, shouldAnimate) {
@@ -127,15 +127,15 @@ fun MinecraftSkinPreview(
                 if (interactive) {
                     customActions = listOf(
                         CustomAccessibilityAction("Rotate left") {
-                            yaw -= KeyboardRotationStep
+                            yaw -= KEYBOARD_ROTATION_STEP
                             true
                         },
                         CustomAccessibilityAction("Rotate right") {
-                            yaw += KeyboardRotationStep
+                            yaw += KEYBOARD_ROTATION_STEP
                             true
                         },
                         CustomAccessibilityAction("Reset rotation") {
-                            yaw = DefaultYaw
+                            yaw = DEFAULT_YAW
                             true
                         },
                     )
@@ -148,17 +148,17 @@ fun MinecraftSkinPreview(
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when (event.key) {
                                 Key.DirectionLeft -> {
-                                    yaw -= KeyboardRotationStep
+                                    yaw -= KEYBOARD_ROTATION_STEP
                                     true
                                 }
 
                                 Key.DirectionRight -> {
-                                    yaw += KeyboardRotationStep
+                                    yaw += KEYBOARD_ROTATION_STEP
                                     true
                                 }
 
                                 Key.MoveHome -> {
-                                    yaw = DefaultYaw
+                                    yaw = DEFAULT_YAW
                                     true
                                 }
 
@@ -386,5 +386,5 @@ private fun Color.shade(amount: Float): Color = Color(
 )
 
 private val PreviewBackground = Color(0xFF171613)
-private const val DefaultYaw = -0.42f
-private const val KeyboardRotationStep = 0.18f
+private const val DEFAULT_YAW = -0.42f
+private const val KEYBOARD_ROTATION_STEP = 0.18f

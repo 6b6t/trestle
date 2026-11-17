@@ -11,7 +11,11 @@ import okio.fakefilesystem.FakeFileSystem
 import java.io.ByteArrayOutputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
+import kotlin.test.assertTrue
 
 class ContentMetadataTest {
     @Test fun parsesEmbeddedNamesAuthorsAndDependencyIdentities() {

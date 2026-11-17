@@ -44,6 +44,7 @@ private object WindowsSystemAccentSource : SystemAccentSource {
     }.getOrNull()
 
     private interface DwmApi : StdCallLibrary {
+        @Suppress("ktlint:standard:function-naming") // JNA binds the native function name.
         fun DwmGetColorizationColor(colorization: IntByReference, opaqueBlend: IntByReference): Int
 
         companion object {

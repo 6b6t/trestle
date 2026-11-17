@@ -1,3 +1,6 @@
+// Swift creates the root view controller through these factory functions.
+@file:Suppress("ktlint:standard:function-naming")
+
 package net.blockhost.trestle
 
 import androidx.compose.runtime.DisposableEffect

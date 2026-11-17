@@ -9,7 +9,12 @@ import net.blockhost.trestle.download.DownloadRequest
 import okio.ByteString.Companion.toByteString
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
-import kotlin.test.*
+import kotlin.test.Test
+import kotlin.test.assertContentEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 class RestrictedDownloadsTest {
     @Test fun acceptsOnlyTheRequestedArtifactAndRevalidatesBeforeInstallation() = runTest {
