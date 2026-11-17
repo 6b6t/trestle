@@ -1,5 +1,8 @@
 package net.blockhost.trestle.resources
 
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.ByteString.Companion.toByteString
 import okio.FileSystem
 import okio.Path
@@ -28,7 +31,7 @@ class RestrictedDownloads(private val fileSystem: FileSystem, private val direct
     fun locate(file: ResourceFile, websiteUrl: String, missing: MutableList<RestrictedDownload>): Path? {
         find(file.sha1)?.let { return it }
         val sha1 = file.sha1?.takeIf { it.matches(Regex("[a-fA-F0-9]{40}")) }
-            ?: error("${file.fileName} requires a manual download, but the publisher supplied no checksum. It cannot be imported safely.")
+            ?: userError(text(Res.string.msg_s_requires_a_manual_download_but_the, file.fileName))
         missing += RestrictedDownload(file.fileName, sha1, websiteUrl)
         return null
     }
@@ -40,9 +43,9 @@ class RestrictedDownloads(private val fileSystem: FileSystem, private val direct
     }
 
     fun accept(download: RestrictedDownload, bytes: ByteArray) {
-        require(bytes.size in 1..512 * 1024 * 1024) { "Choose a file smaller than 512 MiB." }
-        require(bytes.toByteString().sha1().hex().equals(download.sha1, ignoreCase = true)) {
-            "This file does not match the version requested by the pack. Download ${download.fileName} from the publisher."
+        requireUser(bytes.size in 1..512 * 1024 * 1024) { text(Res.string.msg_choose_a_file_smaller_than_mib) }
+        requireUser(bytes.toByteString().sha1().hex().equals(download.sha1, ignoreCase = true)) {
+            text(Res.string.msg_this_file_does_not_match_the_version, download.fileName)
         }
         fileSystem.createDirectories(directory)
         val path = checkedContentPath(fileSystem, directory, download.sha1.lowercase())

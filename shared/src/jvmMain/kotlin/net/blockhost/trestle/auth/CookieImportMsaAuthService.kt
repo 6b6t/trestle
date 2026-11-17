@@ -1,5 +1,14 @@
 package net.blockhost.trestle.auth
 
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_the_cookie_export_contains_no_login_live
+import net.blockhost.trestle.resources.msg_the_cookies_txt_input_contains_no_login
+import net.blockhost.trestle.resources.msg_the_microsoft_cookie_header_is_empty
+import net.blockhost.trestle.resources.msg_the_microsoft_cookie_input_is_empty
+import net.blockhost.trestle.resources.msg_the_microsoft_cookies_are_expired_or_did
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import net.lenni0451.commons.httpclient.HttpClient
 import net.lenni0451.commons.httpclient.constants.HttpHeaders
 import net.lenni0451.commons.httpclient.requests.impl.GetRequest
@@ -20,7 +29,7 @@ internal class CookieImportMsaAuthService(
 ) : MsaAuthService(httpClient, applicationConfig) {
     override fun acquireToken(): MsaToken {
         val cookies = normalizeMicrosoftCookieInput(cookieHeader)
-        require(cookies.isNotEmpty()) { "The Microsoft cookie header is empty." }
+        requireUser(cookies.isNotEmpty()) { text(Res.string.msg_the_microsoft_cookie_header_is_empty) }
         val parameters = applicationConfig.authCodeParameters.entries.joinToString("&") { (key, value) ->
             "${key.urlEncode()}=${value.urlEncode()}"
         }
@@ -40,7 +49,7 @@ internal class CookieImportMsaAuthService(
             }
             ?.firstOrNull { it.first == "code" }
             ?.second
-            ?: error("The Microsoft cookies are expired or did not produce an authorization code.")
+            ?: userError(text(Res.string.msg_the_microsoft_cookies_are_expired_or_did))
         return httpClient.executeAndHandle(MsaAuthCodeTokenRequest(applicationConfig, code))
     }
 
@@ -50,7 +59,7 @@ internal class CookieImportMsaAuthService(
 
 internal fun normalizeMicrosoftCookieInput(input: String): String {
     val trimmed = input.trim()
-    require(trimmed.isNotEmpty()) { "The Microsoft cookie input is empty." }
+    requireUser(trimmed.isNotEmpty()) { text(Res.string.msg_the_microsoft_cookie_input_is_empty) }
     if (trimmed.startsWith("[")) {
         val array = com.google.gson.JsonParser.parseString(trimmed).asJsonArray
         return array.mapNotNull { item ->
@@ -62,7 +71,7 @@ internal fun normalizeMicrosoftCookieInput(input: String): String {
                 name.isNotEmpty() && value.isNotEmpty() && (domain.isEmpty() || domain.endsWith("live.com"))
             }
         }.joinToString("; ").also {
-            require(it.isNotEmpty()) { "The cookie export contains no login.live.com cookies." }
+            requireUser(it.isNotEmpty()) { text(Res.string.msg_the_cookie_export_contains_no_login_live) }
         }
     }
     if (trimmed.lineSequence().any { it.count { character -> character == '\t' } >= 6 }) {
@@ -72,7 +81,7 @@ internal fun normalizeMicrosoftCookieInput(input: String): String {
             if (fields.size < 7 || !fields[0].lowercase().endsWith("live.com")) return@mapNotNull null
             "${fields[5]}=${fields[6]}"
         }.joinToString("; ").also {
-            require(it.isNotEmpty()) { "The cookies.txt input contains no login.live.com cookies." }
+            requireUser(it.isNotEmpty()) { text(Res.string.msg_the_cookies_txt_input_contains_no_login) }
         }
     }
     return trimmed.removePrefix("Cookie:").trim()

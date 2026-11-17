@@ -7,6 +7,10 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_the_bundled_android_game_components_could_not
+import net.blockhost.trestle.resources.msg_the_bundled_android_runtime_is_incomplete_missing
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import java.nio.file.Files
@@ -46,8 +50,10 @@ internal class AndroidGameComponentManager(
                 val missingNatives = REQUIRED_NATIVE_FILES.filterNot { fileSystem.exists(natives / it) }
                 if (missingJars.isNotEmpty() || missingNatives.isNotEmpty()) {
                     throw LauncherException.RuntimeUnavailable(
-                        "The bundled Android runtime is incomplete. Missing " +
-                            (missingJars + missingNatives).joinToString() + ".",
+                        text(
+                            Res.string.msg_the_bundled_android_runtime_is_incomplete_missing,
+                            (missingJars + missingNatives).joinToString(),
+                        ),
                     )
                 }
                 prepareLibrariesForLoading(natives, abi)
@@ -69,7 +75,7 @@ internal class AndroidGameComponentManager(
                 throw error
             } catch (error: Exception) {
                 deleteTree(root)
-                throw LauncherException.FileSystem("The bundled Android game components could not be installed.", error)
+                throw LauncherException.FileSystem(text(Res.string.msg_the_bundled_android_game_components_could_not), error)
             }
         }
         return AndroidGameComponents(classpath, natives)

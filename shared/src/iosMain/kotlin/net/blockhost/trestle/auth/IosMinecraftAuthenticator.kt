@@ -26,6 +26,18 @@ import kotlinx.serialization.json.jsonObject
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_authentication_response_is_missing_s
+import net.blockhost.trestle.resources.msg_bedrock_authentication_is_not_available_on_ios
+import net.blockhost.trestle.resources.msg_minecraft_authentication_failed_with_http_s
+import net.blockhost.trestle.resources.msg_minecraft_profile_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_offline_usernames_must_contain_to_letters_numbers
+import net.blockhost.trestle.resources.msg_s_is_not_available_on_ios_use
+import net.blockhost.trestle.resources.msg_the_microsoft_device_code_expired_before_sign
+import net.blockhost.trestle.text.checkUser
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.ByteString.Companion.encodeUtf8
 
 internal class IosMinecraftAuthenticator(
@@ -39,8 +51,8 @@ internal class IosMinecraftAuthenticator(
     ): AuthenticatedMinecraftAccount = execute("sign-in") {
         when (request) {
             is AccountLoginRequest.DeviceCode -> {
-                require(request.edition == MinecraftEdition.JAVA) {
-                    "Bedrock authentication is not available on iOS yet."
+                requireUser(request.edition == MinecraftEdition.JAVA) {
+                    text(Res.string.msg_bedrock_authentication_is_not_available_on_ios)
                 }
                 deviceCodeResult(onDeviceAuthorization)
             }
@@ -113,7 +125,7 @@ internal class IosMinecraftAuthenticator(
                 intervalMillis += 5_000L
             }
         }
-        error("The Microsoft device code expired before sign-in completed.")
+        userError(text(Res.string.msg_the_microsoft_device_code_expired_before_sign))
     }
 
     private suspend fun refreshMicrosoftToken(refreshToken: String): MicrosoftToken = postForm(
@@ -224,18 +236,14 @@ internal class IosMinecraftAuthenticator(
             header(HttpHeaders.UserAgent, BuildInfo.USER_AGENT)
         }
         val body = response.bodyAsText()
-        check(response.status.isSuccess()) {
-            "Minecraft profile request failed with HTTP ${response.status.value}."
-        }
+        checkUser(response.status.isSuccess()) { text(Res.string.msg_minecraft_profile_request_failed_with_http_s, response.status.value) }
         val profile = authJson.parseToJsonElement(body).jsonObject
         return MinecraftProfile(profile.requiredString("id"), profile.requiredString("name"))
     }
 
     private fun offlineResult(rawUsername: String): AuthenticatedMinecraftAccount {
         val username = rawUsername.trim()
-        require(OFFLINE_USERNAME.matches(username)) {
-            "Offline usernames must contain 1 to 16 letters, numbers, or underscores."
-        }
+        requireUser(OFFLINE_USERNAME.matches(username)) { text(Res.string.msg_offline_usernames_must_contain_to_letters_numbers) }
         val uuid = "OfflinePlayer:$username".encodeUtf8().md5().toByteArray().also { bytes ->
             bytes[6] = ((bytes[6].toInt() and 0x0f) or 0x30).toByte()
             bytes[8] = ((bytes[8].toInt() and 0x3f) or 0x80).toByte()
@@ -278,7 +286,7 @@ internal class IosMinecraftAuthenticator(
             setBody(document.toString())
         }
         val body = response.bodyAsText()
-        check(response.status.isSuccess()) { "Minecraft authentication failed with HTTP ${response.status.value}." }
+        checkUser(response.status.isSuccess()) { text(Res.string.msg_minecraft_authentication_failed_with_http_s, response.status.value) }
         return authJson.parseToJsonElement(body).jsonObject
     }
 
@@ -292,7 +300,7 @@ internal class IosMinecraftAuthenticator(
     }
 
     private fun unsupported(method: AccountAuthenticationMethod): Nothing =
-        error("${method.label} is not available on iOS. Use Microsoft device code, a refresh token, or an offline profile.")
+        userError(text(Res.string.msg_s_is_not_available_on_ios_use, method.label))
 
     private fun JsonObject.toMicrosoftToken() = MicrosoftToken(
         accessToken = requiredString("access_token"),
@@ -301,11 +309,13 @@ internal class IosMinecraftAuthenticator(
 
     private fun JsonObject.xui(): JsonObject = getValue("DisplayClaims").jsonObject.getValue("xui").jsonArray.first().jsonObject
 
-    private fun JsonObject.requiredString(name: String): String = optionalString(name) ?: error("Authentication response is missing $name.")
+    private fun JsonObject.requiredString(name: String): String =
+        optionalString(name) ?: userError(text(Res.string.msg_authentication_response_is_missing_s, name))
 
     private fun JsonObject.optionalString(name: String): String? = (get(name) as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
 
-    private fun JsonObject.requiredLong(name: String): Long = optionalLong(name) ?: error("Authentication response is missing $name.")
+    private fun JsonObject.requiredLong(name: String): Long =
+        optionalLong(name) ?: userError(text(Res.string.msg_authentication_response_is_missing_s, name))
 
     private fun JsonObject.optionalLong(name: String): Long? = (get(name) as? JsonPrimitive)?.contentOrNull?.toLongOrNull()
 

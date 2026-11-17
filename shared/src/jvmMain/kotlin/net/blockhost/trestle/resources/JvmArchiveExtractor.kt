@@ -1,6 +1,7 @@
 package net.blockhost.trestle.resources
 
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.text.text
 import okio.Path
 import java.nio.file.Files
 import java.util.zip.ZipInputStream
@@ -17,11 +18,11 @@ class JvmArchiveExtractor : ArchiveExtractor {
                     val entry = zip.nextEntry ?: break
                     entries++
                     if (entries > MAX_ENTRIES) {
-                        throw LauncherException.InvalidMetadata("The modpack archive contains too many files.")
+                        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_archive_contains_too_many_files))
                     }
                     val target = destinationPath.resolve(entry.name.replace('\\', '/')).normalize()
                     if (!target.startsWith(destinationPath)) {
-                        throw LauncherException.InvalidMetadata("The modpack contains an unsafe archive path.")
+                        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_contains_an_unsafe_archive_path))
                     }
                     if (entry.isDirectory) {
                         Files.createDirectories(target)
@@ -34,7 +35,7 @@ class JvmArchiveExtractor : ArchiveExtractor {
                                 if (count < 0) break
                                 extractedBytes += count
                                 if (extractedBytes > MAX_EXTRACTED_BYTES) {
-                                    throw LauncherException.InvalidMetadata("The modpack archive is too large when extracted.")
+                                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_archive_is_too_large_when))
                                 }
                                 output.write(buffer, 0, count)
                             }
@@ -46,7 +47,7 @@ class JvmArchiveExtractor : ArchiveExtractor {
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The modpack archive could not be extracted.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_modpack_archive_could_not_be_extracted), error)
         }
     }
 

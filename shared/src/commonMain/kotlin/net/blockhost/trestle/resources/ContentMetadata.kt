@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.platform.useOkio
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.HashingSource
 import okio.Path
@@ -136,14 +138,16 @@ class ContentIdentifier(
 
 /** Validate every ancestor as well as the final entry to prevent symlink escapes. */
 internal fun checkedContentPath(fileSystem: FileSystem, root: Path, relative: String): Path {
-    require(relative.isNotBlank() && !relative.startsWith('/') && '\\' !in relative && ':' !in relative) { "Unsafe content path." }
+    requireUser(relative.isNotBlank() && !relative.startsWith('/') && '\\' !in relative && ':' !in relative) {
+        text(Res.string.msg_unsafe_content_path)
+    }
     val parts = relative.split('/')
     require(parts.none { it.isBlank() || it == "." || it == ".." }) { "Unsafe content path." }
     var path = root
-    require(fileSystem.metadataOrNull(path)?.symlinkTarget == null) { "Content directories must not be symlinks." }
+    requireUser(fileSystem.metadataOrNull(path)?.symlinkTarget == null) { text(Res.string.msg_content_directories_must_not_be_symlinks) }
     parts.forEach { part ->
         path /= part
-        require(fileSystem.metadataOrNull(path)?.symlinkTarget == null) { "Content paths must not contain symlinks." }
+        requireUser(fileSystem.metadataOrNull(path)?.symlinkTarget == null) { text(Res.string.msg_content_paths_must_not_contain_symlinks) }
     }
     return path
 }

@@ -81,7 +81,7 @@ class DesktopMinecraftRuntimeTest {
         assertTrue(runtime.capabilities.supportsManagedJava)
         assertEquals("java-runtime-delta", resolvedComponent)
         assertEquals(21, resolvedMajor)
-        assertEquals(listOf("Java account"), plan.missingRequirements)
+        assertEquals(listOf(LaunchRequirement.JAVA_ACCOUNT), plan.missingRequirements)
         assertEquals(2, plan.classpathEntries.size)
         assertFalse(plan.safeCommand().joinToString(" ").contains("access-token"))
         assertEquals(2, plan.safeCommand().count { it == "<required:Java account>" })

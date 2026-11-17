@@ -73,6 +73,8 @@ import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain
 import net.blockhost.trestle.resources.ui_undo
+import net.blockhost.trestle.text.resolve
+import net.blockhost.trestle.text.text
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -251,8 +253,11 @@ fun TrestleApp(
                 )
         val retryActionLabel = stringResource(Res.string.ui_retry)
         val undoActionLabel = stringResource(Res.string.ui_undo)
-        LaunchedEffect(state.error, state.notice, retryActionLabel, undoActionLabel) {
-            val message = state.error ?: state.notice ?: return@LaunchedEffect
+        // Messages are resolved here, in composition, so the snackbar shows them in the interface language.
+        val errorText = state.error?.resolve()
+        val noticeText = state.notice?.resolve()
+        LaunchedEffect(errorText, noticeText, retryActionLabel, undoActionLabel) {
+            val message = errorText ?: noticeText ?: return@LaunchedEffect
             val action = when {
                 state.error != null && state.errorRecovery != null -> LauncherSnackbarAction.RETRY
                 state.removedInstanceUndo != null && state.notice == INSTANCE_REMOVED_NOTICE -> LauncherSnackbarAction.UNDO

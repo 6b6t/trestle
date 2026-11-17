@@ -15,6 +15,14 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_release_links_must_use_https
+import net.blockhost.trestle.resources.msg_the_release_contains_invalid_download_metadata
+import net.blockhost.trestle.resources.msg_the_release_download_manifest_does_not_match
+import net.blockhost.trestle.resources.msg_the_release_metadata_is_too_large
+import net.blockhost.trestle.resources.msg_update_check_failed_with_http_s_try
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 
 @Serializable
 data class ReleaseArtifact(
@@ -63,13 +71,13 @@ class UpdateChecker(
             fetch(asset.url)?.let { updateJson.decodeFromString<ReleaseManifest>(it) }
         }
         if (manifest != null) {
-            require(manifest.schemaVersion == 1 && manifest.version == release.tagName.removePrefix("v")) {
-                "The release download manifest does not match the release."
+            requireUser(manifest.schemaVersion == 1 && manifest.version == release.tagName.removePrefix("v")) {
+                text(Res.string.msg_the_release_download_manifest_does_not_match)
             }
             manifest.artifacts.forEach {
                 requireHttps(it.url)
-                require(it.sha256.matches(Regex("[a-fA-F0-9]{64}")) && it.size > 0) {
-                    "The release contains invalid download metadata."
+                requireUser(it.sha256.matches(Regex("[a-fA-F0-9]{64}")) && it.size > 0) {
+                    text(Res.string.msg_the_release_contains_invalid_download_metadata)
                 }
             }
         }
@@ -101,10 +109,10 @@ class UpdateChecker(
         val response = httpClient.get(url) { header(HttpHeaders.UserAgent, BuildInfo.USER_AGENT) }
         if (response.status == HttpStatusCode.NotFound) return null
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("Update check failed with HTTP ${response.status.value}. Try again later.")
+            throw LauncherException.Network(text(Res.string.msg_update_check_failed_with_http_s_try, response.status.value))
         }
         val body = response.bodyAsText()
-        require(body.length <= 2 * 1024 * 1024) { "The release metadata is too large." }
+        requireUser(body.length <= 2 * 1024 * 1024) { text(Res.string.msg_the_release_metadata_is_too_large) }
         return body
     }
 
@@ -125,8 +133,8 @@ class UpdateChecker(
         val updateJson = Json { ignoreUnknownKeys = true }
         fun requireHttps(value: String) {
             val url = Url(value)
-            require(url.protocol.name == "https" && url.host.isNotBlank() && url.user == null && url.password == null) {
-                "Release links must use HTTPS."
+            requireUser(url.protocol.name == "https" && url.host.isNotBlank() && url.user == null && url.password == null) {
+                text(Res.string.msg_release_links_must_use_https)
             }
         }
     }

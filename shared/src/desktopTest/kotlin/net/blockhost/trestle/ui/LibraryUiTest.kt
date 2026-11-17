@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.text.asUserText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -81,7 +82,7 @@ class LibraryUiTest {
         }
         onNodeWithText("Undo").assertIsDisplayed()
 
-        state = state.copy(notice = "Minecraft closed.")
+        state = state.copy(notice = "Minecraft closed.".asUserText())
         waitForIdle()
 
         onNodeWithText("Minecraft closed.").assertIsDisplayed()

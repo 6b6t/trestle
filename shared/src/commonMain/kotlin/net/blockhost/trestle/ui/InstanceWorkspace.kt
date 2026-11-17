@@ -313,6 +313,7 @@ import net.blockhost.trestle.resources.ui_worlds_summary
 import net.blockhost.trestle.resources.ui_wrap_lines
 import net.blockhost.trestle.resources.ui_wrapper
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -1726,7 +1727,7 @@ private fun OverviewSetup(
         instance.group?.let { CompactProperty(stringResource(Res.string.ui_group), it) }
         state.launchPlan?.let { plan ->
             CompactProperty(stringResource(Res.string.ui_classpath), stringResource(Res.string.ui_s_entries, plan.classpathEntries))
-            CompactProperty(stringResource(Res.string.ui_account), plan.authentication)
+            CompactProperty(stringResource(Res.string.ui_account), plan.authentication.resolve())
         }
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),

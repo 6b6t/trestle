@@ -38,6 +38,8 @@ import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.runtime.LaunchRequirement
+import net.blockhost.trestle.text.asUserText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -89,7 +91,7 @@ class TrestleAppUiTest {
             accounts = emptyList(),
             launch = InstanceLaunchState(
                 LauncherPreviewFixtures.installed.id,
-                LaunchStatus.Blocked(listOf("Java account")),
+                LaunchStatus.Blocked(listOf(LaunchRequirement.JAVA_ACCOUNT)),
             ),
         )
         setContent {
@@ -529,7 +531,7 @@ class TrestleAppUiTest {
         val instanceId = InstanceId("vanilla")
         var selectedId: InstanceId? = null
         val state = LauncherPreviewFixtures.loaded.copy(
-            operation = OperationStatus("Installing Vanilla", instanceId = instanceId),
+            operation = OperationStatus("Installing Vanilla".asUserText(), instanceId = instanceId),
         )
         val actions = object : LauncherUiActions {
             override fun selectInstance(id: InstanceId) {

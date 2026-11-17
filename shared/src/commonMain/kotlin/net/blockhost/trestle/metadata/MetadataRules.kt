@@ -6,6 +6,18 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_argument_array_contains_a_non_string_value
+import net.blockhost.trestle.resources.msg_argument_object_has_no_string_value
+import net.blockhost.trestle.resources.msg_argument_rule_has_an_unknown_action
+import net.blockhost.trestle.resources.msg_argument_rule_must_be_an_object
+import net.blockhost.trestle.resources.msg_argument_rules_must_be_an_array
+import net.blockhost.trestle.resources.msg_feature_rule_must_contain_a_boolean_value
+import net.blockhost.trestle.resources.msg_invalid_maven_coordinate_s
+import net.blockhost.trestle.resources.msg_invalid_operating_system_rule_s
+import net.blockhost.trestle.resources.msg_legacy_arguments_contain_an_unfinished_escape_or
+import net.blockhost.trestle.resources.msg_unsupported_argument_value_in_version_metadata
+import net.blockhost.trestle.text.text
 
 object MojangRuleEvaluator {
     fun allows(rules: List<MojangRule>, environment: PlatformEnvironment): Boolean {
@@ -26,7 +38,7 @@ object MojangRuleEvaluator {
                 val matches = try {
                     Regex(os.version).containsMatchIn(environment.osVersion)
                 } catch (error: IllegalArgumentException) {
-                    throw LauncherException.UnsupportedRule("Invalid operating system rule: ${os.version}")
+                    throw LauncherException.UnsupportedRule(text(Res.string.msg_invalid_operating_system_rule_s, os.version))
                 }
                 if (!matches) return false
             }
@@ -65,7 +77,7 @@ data class MavenCoordinate(
             val coordinateAndExtension = value.split('@', limit = 2)
             val parts = coordinateAndExtension[0].split(':')
             if (parts.size !in 3..4 || parts.any { it.isBlank() }) {
-                throw LauncherException.InvalidMetadata("Invalid Maven coordinate: $value")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_invalid_maven_coordinate_s, value))
             }
             return MavenCoordinate(
                 group = parts[0],
@@ -92,29 +104,31 @@ object MojangArguments {
 
                             is JsonArray -> argument.forEach { item ->
                                 (item as? JsonPrimitive)?.contentOrNull?.let(::add)
-                                    ?: throw LauncherException.InvalidMetadata("Argument array contains a non-string value.")
+                                    ?: throw LauncherException.InvalidMetadata(
+                                        text(Res.string.msg_argument_array_contains_a_non_string_value),
+                                    )
                             }
 
-                            else -> throw LauncherException.InvalidMetadata("Argument object has no string value.")
+                            else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_argument_object_has_no_string_value))
                         }
                     }
                 }
 
-                else -> throw LauncherException.InvalidMetadata("Unsupported argument value in version metadata.")
+                else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_unsupported_argument_value_in_version_metadata))
             }
         }
     }
 
     private fun decodeRules(element: kotlinx.serialization.json.JsonElement): List<MojangRule> {
         val array = element as? JsonArray
-            ?: throw LauncherException.InvalidMetadata("Argument rules must be an array.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_argument_rules_must_be_an_array))
         return array.map { item ->
             val rule = item as? JsonObject
-                ?: throw LauncherException.InvalidMetadata("Argument rule must be an object.")
+                ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_argument_rule_must_be_an_object))
             val action = when ((rule["action"] as? JsonPrimitive)?.contentOrNull) {
                 "allow" -> RuleAction.ALLOW
                 "disallow" -> RuleAction.DISALLOW
-                else -> throw LauncherException.UnsupportedRule("Argument rule has an unknown action.")
+                else -> throw LauncherException.UnsupportedRule(text(Res.string.msg_argument_rule_has_an_unknown_action))
             }
             val os = (rule["os"] as? JsonObject)?.let { osObject ->
                 RuleOs(
@@ -125,7 +139,7 @@ object MojangArguments {
             }
             val features = (rule["features"] as? JsonObject).orEmpty().mapValues { (_, feature) ->
                 (feature as? JsonPrimitive)?.booleanOrNull
-                    ?: throw LauncherException.InvalidMetadata("Feature rule must contain a Boolean value.")
+                    ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_feature_rule_must_contain_a_boolean_value))
             }
             MojangRule(action, os, features)
         }
@@ -158,7 +172,11 @@ fun parseLegacyArguments(value: String): List<String> {
             else -> current.append(character)
         }
     }
-    if (escaped || quote != null) throw LauncherException.InvalidMetadata("Legacy arguments contain an unfinished escape or quote.")
+    if (escaped ||
+        quote != null
+    ) {
+        throw LauncherException.InvalidMetadata(text(Res.string.msg_legacy_arguments_contain_an_unfinished_escape_or))
+    }
     if (current.isNotEmpty()) result += current.toString()
     return result
 }

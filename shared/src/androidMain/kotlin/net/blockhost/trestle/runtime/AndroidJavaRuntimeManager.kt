@@ -7,6 +7,16 @@ import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.Architecture
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_android_provides_java_for_arm64_and_x64
+import net.blockhost.trestle.resources.msg_the_android_java_runtime_could_not_be
+import net.blockhost.trestle.resources.msg_the_bundled_java_s_runtime_is_incomplete
+import net.blockhost.trestle.resources.msg_the_runtime_archive_contains_an_unsafe_path
+import net.blockhost.trestle.resources.msg_the_runtime_archive_contains_an_unsafe_symbolic
+import net.blockhost.trestle.resources.msg_the_runtime_archive_ended_unexpectedly
+import net.blockhost.trestle.resources.msg_the_runtime_archive_exceeds_the_extraction_limit
+import net.blockhost.trestle.resources.msg_the_runtime_archive_has_an_unnamed_entry
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import org.tukaani.xz.XZInputStream
@@ -53,7 +63,7 @@ internal class AndroidJavaRuntimeManager(
                 val releaseFile = extractionRoot / "release"
                 if (!fileSystem.exists(extractedJvm) || !fileSystem.exists(releaseFile)) {
                     throw LauncherException.RuntimeUnavailable(
-                        "The bundled Java ${artifact.javaMajor} runtime is incomplete.",
+                        text(Res.string.msg_the_bundled_java_s_runtime_is_incomplete, artifact.javaMajor),
                     )
                 }
                 abi.verifyLibrary(extractedJvm)
@@ -78,7 +88,7 @@ internal class AndroidJavaRuntimeManager(
                 throw error
             } catch (error: Exception) {
                 deleteTree(extractionRoot)
-                throw LauncherException.FileSystem("The Android Java runtime could not be installed.", error)
+                throw LauncherException.FileSystem(text(Res.string.msg_the_android_java_runtime_could_not_be), error)
             }
         }
         return AndroidJavaRuntime(runtimeRoot, jvmLibrary)
@@ -126,7 +136,7 @@ internal data class AndroidRuntimeArtifact(
         fun forPlatform(javaMajor: Int, architecture: Architecture): AndroidRuntimeArtifact =
             listOf(java25Arm64, java25X64).firstOrNull { it.javaMajor == javaMajor && it.architecture == architecture }
                 ?: throw LauncherException.RuntimeUnavailable(
-                    "Android provides Java 25 for ARM64 and x64. Java $javaMajor for ${architecture.name} is unavailable.",
+                    text(Res.string.msg_android_provides_java_for_arm64_and_x64, javaMajor, architecture.name),
                 )
     }
 }
@@ -154,15 +164,15 @@ internal object AndroidTarXzExtractor {
                     skipFully(input, padding(size))
                     continue
                 }
-                if (name.isBlank()) throw LauncherException.InvalidMetadata("The runtime archive has an unnamed entry.")
+                if (name.isBlank()) throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_has_an_unnamed_entry))
                 files++
                 extractedBytes += size
                 if (files > MAX_FILES || extractedBytes > MAX_EXTRACTED_BYTES) {
-                    throw LauncherException.InvalidMetadata("The runtime archive exceeds the extraction limit.")
+                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_exceeds_the_extraction_limit))
                 }
                 val target = root.resolve(name).normalize()
                 if (!target.startsWith(root)) {
-                    throw LauncherException.InvalidMetadata("The runtime archive contains an unsafe path.")
+                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_contains_an_unsafe_path))
                 }
                 when (type) {
                     '5' -> Files.createDirectories(target)
@@ -189,7 +199,7 @@ internal object AndroidTarXzExtractor {
         val link = java.nio.file.Path.of(rawLink)
         val resolved = requireNotNull(target.parent).resolve(link).normalize()
         if (!resolved.startsWith(root)) {
-            throw LauncherException.InvalidMetadata("The runtime archive contains an unsafe symbolic link.")
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_contains_an_unsafe_symbolic))
         }
         Files.createDirectories(requireNotNull(target.parent))
         Files.deleteIfExists(target)
@@ -216,7 +226,7 @@ internal object AndroidTarXzExtractor {
             val count = input.read(block, offset, block.size - offset)
             if (count < 0) {
                 if (offset == 0) return false
-                throw LauncherException.InvalidMetadata("The runtime archive ended unexpectedly.")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_ended_unexpectedly))
             }
             offset += count
         }
@@ -228,7 +238,7 @@ internal object AndroidTarXzExtractor {
         val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
         while (remaining > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-            if (read < 0) throw LauncherException.InvalidMetadata("The runtime archive ended unexpectedly.")
+            if (read < 0) throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_ended_unexpectedly))
             output.write(buffer, 0, read)
             remaining -= read
         }
@@ -243,7 +253,7 @@ internal object AndroidTarXzExtractor {
             } else if (input.read() >= 0) {
                 remaining--
             } else {
-                throw LauncherException.InvalidMetadata("The runtime archive ended unexpectedly.")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_the_runtime_archive_ended_unexpectedly))
             }
         }
     }

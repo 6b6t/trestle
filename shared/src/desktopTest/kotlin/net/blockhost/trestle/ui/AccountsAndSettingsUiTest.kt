@@ -15,6 +15,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.app.LauncherPreferences
 import net.blockhost.trestle.app.LauncherProxyType
+import net.blockhost.trestle.text.asUserText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -23,7 +24,7 @@ class AccountsAndSettingsUiTest {
     @Test
     fun signInErrorsShowInsideTheDialog() = runComposeUiTest {
         val state = LauncherPreviewFixtures.accountDialog.copy(
-            accountLogin = LauncherPreviewFixtures.accountDialog.accountLogin.copy(error = "The sign-in code expired."),
+            accountLogin = LauncherPreviewFixtures.accountDialog.accountLogin.copy(error = "The sign-in code expired.".asUserText()),
         )
         setContent {
             Box(Modifier.size(1000.dp, 720.dp)) {

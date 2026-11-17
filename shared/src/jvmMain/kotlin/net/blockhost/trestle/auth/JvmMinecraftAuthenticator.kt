@@ -6,6 +6,15 @@ import kotlinx.coroutines.runInterruptible
 import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_a_bedrock_game_version_is_required_for
+import net.blockhost.trestle.resources.msg_offline_usernames_must_contain_to_letters_numbers
+import net.blockhost.trestle.resources.msg_s_is_not_a_secret_import_method
+import net.blockhost.trestle.resources.msg_the_imported_minecraft_access_token_has_expired
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import net.raphimc.minecraftauth.MinecraftAuth
 import net.raphimc.minecraftauth.bedrock.BedrockAuthManager
 import net.raphimc.minecraftauth.java.JavaAuthManager
@@ -89,7 +98,7 @@ class JvmMinecraftAuthenticator(
 
                 AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(request.secret)
 
-                else -> error("${request.method.label} is not a secret-import method.")
+                else -> userError(text(Res.string.msg_s_is_not_a_secret_import_method, request.method.label))
             }
 
             is AccountLoginRequest.Offline -> offlineResult(request.username)
@@ -164,7 +173,7 @@ class JvmMinecraftAuthenticator(
     private fun accessTokenResult(secret: SecretValue): AuthenticatedMinecraftAccount {
         val token = secret.reveal().trim()
         val expiresAt = Jwt.parse(token).expireTimeMs
-        require(expiresAt > nowMillis()) { "The imported Minecraft access token has expired." }
+        requireUser(expiresAt > nowMillis()) { text(Res.string.msg_the_imported_minecraft_access_token_has_expired) }
         val profile = httpClient.executeAndHandle(MinecraftProfileRequest(MinecraftToken(expiresAt, "Bearer", token)))
         val profileId = profile.id.toString().replace("-", "")
         return AuthenticatedMinecraftAccount(
@@ -187,9 +196,7 @@ class JvmMinecraftAuthenticator(
 
     private fun offlineResult(rawUsername: String): AuthenticatedMinecraftAccount {
         val username = rawUsername.trim()
-        require(OFFLINE_USERNAME.matches(username)) {
-            "Offline usernames must contain 1 to 16 letters, numbers, or underscores."
-        }
+        requireUser(OFFLINE_USERNAME.matches(username)) { text(Res.string.msg_offline_usernames_must_contain_to_letters_numbers) }
         val profileId = UUID.nameUUIDFromBytes("OfflinePlayer:$username".toByteArray(StandardCharsets.UTF_8))
             .toString()
             .replace("-", "")
@@ -264,8 +271,8 @@ class JvmMinecraftAuthenticator(
 
     private fun MinecraftApplicationConfiguration.toMsaConfiguration() = MsaApplicationConfig(clientId, scope)
 
-    private fun requireBedrockVersion(version: String?): String = requireNotNull(version?.trim()?.takeIf(String::isNotBlank)) {
-        "A Bedrock game version is required for Bedrock authentication."
+    private fun requireBedrockVersion(version: String?): String = requireUserNotNull(version?.trim()?.takeIf(String::isNotBlank)) {
+        text(Res.string.msg_a_bedrock_game_version_is_required_for)
     }
 
     private companion object {

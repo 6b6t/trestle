@@ -1,5 +1,17 @@
 package net.blockhost.trestle.instance
 
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_brightness_must_be_between_and
+import net.blockhost.trestle.resources.msg_field_of_view_must_be_between_and
+import net.blockhost.trestle.resources.msg_gui_scale_must_be_between_and
+import net.blockhost.trestle.resources.msg_master_volume_must_be_between_and
+import net.blockhost.trestle.resources.msg_maximum_frame_rate_must_be_between_and
+import net.blockhost.trestle.resources.msg_mouse_sensitivity_must_be_between_and
+import net.blockhost.trestle.resources.msg_music_volume_must_be_between_and
+import net.blockhost.trestle.resources.msg_render_distance_must_be_between_and_chunks
+import net.blockhost.trestle.resources.msg_simulation_distance_must_be_between_and_chunks
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import kotlin.math.roundToInt
 
 enum class MinecraftNarratorMode(val optionValue: Int, val label: String) {
@@ -36,15 +48,15 @@ data class MinecraftClientSettings(
     val entityShadows: Boolean = true,
 ) {
     init {
-        require(masterVolumePercent in 0..100) { "Master volume must be between 0 and 100." }
-        require(musicVolumePercent in 0..100) { "Music volume must be between 0 and 100." }
-        require(fieldOfViewDegrees in 30..110) { "Field of view must be between 30 and 110 degrees." }
-        require(brightnessPercent in 0..100) { "Brightness must be between 0 and 100." }
-        require(mouseSensitivityPercent in 0..100) { "Mouse sensitivity must be between 0 and 100." }
-        require(maximumFrameRate in 10..260) { "Maximum frame rate must be between 10 and 260." }
-        require(guiScale in 0..8) { "GUI scale must be between 0 and 8." }
-        require(renderDistanceChunks in 2..32) { "Render distance must be between 2 and 32 chunks." }
-        require(simulationDistanceChunks in 5..32) { "Simulation distance must be between 5 and 32 chunks." }
+        requireUser(masterVolumePercent in 0..100) { text(Res.string.msg_master_volume_must_be_between_and) }
+        requireUser(musicVolumePercent in 0..100) { text(Res.string.msg_music_volume_must_be_between_and) }
+        requireUser(fieldOfViewDegrees in 30..110) { text(Res.string.msg_field_of_view_must_be_between_and) }
+        requireUser(brightnessPercent in 0..100) { text(Res.string.msg_brightness_must_be_between_and) }
+        requireUser(mouseSensitivityPercent in 0..100) { text(Res.string.msg_mouse_sensitivity_must_be_between_and) }
+        requireUser(maximumFrameRate in 10..260) { text(Res.string.msg_maximum_frame_rate_must_be_between_and) }
+        requireUser(guiScale in 0..8) { text(Res.string.msg_gui_scale_must_be_between_and) }
+        requireUser(renderDistanceChunks in 2..32) { text(Res.string.msg_render_distance_must_be_between_and_chunks) }
+        requireUser(simulationDistanceChunks in 5..32) { text(Res.string.msg_simulation_distance_must_be_between_and_chunks) }
     }
 
     internal fun toOptionsText(minecraftVersionId: String): String {

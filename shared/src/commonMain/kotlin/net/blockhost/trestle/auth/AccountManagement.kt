@@ -20,6 +20,15 @@ import kotlinx.serialization.json.jsonPrimitive
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_account_authentication_is_not_available
+import net.blockhost.trestle.resources.msg_account_registry_schema_s_is_not_supported
+import net.blockhost.trestle.resources.msg_session_and_account_profile_ids_do_not
+import net.blockhost.trestle.resources.msg_the_account_registry_could_not_be_read
+import net.blockhost.trestle.resources.msg_the_account_registry_could_not_be_saved
+import net.blockhost.trestle.text.checkUserNotNull
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 
@@ -94,7 +103,7 @@ class FileAccountManager(
                 val registry = readRegistry()
                 if (registry.schemaVersion != 1) {
                     throw LauncherException.FileSystem(
-                        "Account registry schema ${registry.schemaVersion} is not supported.",
+                        text(Res.string.msg_account_registry_schema_s_is_not_supported, registry.schemaVersion),
                     )
                 }
                 profiles = registry.accounts.distinctBy { it.profileId }
@@ -105,14 +114,14 @@ class FileAccountManager(
                 throw error
             } catch (error: Exception) {
                 logger.error("accounts", "Could not load account profiles", error)
-                throw LauncherException.FileSystem("The account registry could not be read.", error)
+                throw LauncherException.FileSystem(text(Res.string.msg_the_account_registry_could_not_be_read), error)
             }
         }
         restoreCredentials()
     }
 
     override suspend fun register(session: AuthSession, profile: LauncherAccount) = mutex.withLock {
-        require(session.profileId == profile.profileId) { "Session and account profile IDs do not match." }
+        requireUser(session.profileId == profile.profileId) { text(Res.string.msg_session_and_account_profile_ids_do_not) }
         sessions[profile.profileId] = session
         authenticatedProfiles += profile.profileId
         profiles = (profiles.filterNot { it.profileId == profile.profileId } + profile)
@@ -123,7 +132,7 @@ class FileAccountManager(
     }
 
     override suspend fun addAccount(request: AccountLoginRequest, onDeviceAuthorization: (DeviceAuthorization) -> Unit) {
-        val availableAuthenticator = checkNotNull(authenticator) { "Account authentication is not available." }
+        val availableAuthenticator = checkUserNotNull(authenticator) { text(Res.string.msg_account_authentication_is_not_available) }
         // A new Java sign-in becomes the active account. A Bedrock account cannot launch Java, so it
         // only becomes active when there is no active account yet.
         register(
@@ -210,7 +219,7 @@ class FileAccountManager(
             publish()
         } catch (error: Exception) {
             logger.error("accounts", "Could not save account profiles", error)
-            throw LauncherException.FileSystem("The account registry could not be saved.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_account_registry_could_not_be_saved), error)
         }
     }
 

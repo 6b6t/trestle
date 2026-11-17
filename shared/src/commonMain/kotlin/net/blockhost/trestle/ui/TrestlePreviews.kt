@@ -16,9 +16,14 @@ import net.blockhost.trestle.instance.SavedServer
 import net.blockhost.trestle.instance.ServerStatus
 import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.InstalledContent
+import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
+import net.blockhost.trestle.resources.msg_downloading_minecraft_libraries
+import net.blockhost.trestle.resources.msg_installing_performance_and_shaders
+import net.blockhost.trestle.resources.msg_mib_is_appropriate_for_this_instance
+import net.blockhost.trestle.text.text
 
 internal object LauncherPreviewFixtures {
     val release = VersionReference(
@@ -105,8 +110,8 @@ internal object LauncherPreviewFixtures {
     val installing = loaded.copy(
         selectedId = InstanceId("performance"),
         operation = OperationStatus(
-            title = "Installing Performance and shaders",
-            detail = "Downloading Minecraft libraries",
+            title = text(Res.string.msg_installing_performance_and_shaders),
+            detail = text(Res.string.msg_downloading_minecraft_libraries),
             completed = 168_000_000,
             total = 420_000_000,
             cancellable = true,
@@ -148,7 +153,7 @@ internal object LauncherPreviewFixtures {
             maximumMemoryMiB = "4096",
             jvmArguments = "-XX:+UseG1GC",
             clientSettings = MinecraftClientSettings(),
-            recommendation = "4096 MiB is appropriate for this instance.",
+            recommendation = text(Res.string.msg_mib_is_appropriate_for_this_instance),
         ),
     )
 

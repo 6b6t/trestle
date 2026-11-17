@@ -177,6 +177,7 @@ import net.blockhost.trestle.resources.ui_use_a_refresh_token_issued_for_the
 import net.blockhost.trestle.resources.ui_use_account
 import net.blockhost.trestle.resources.ui_use_to_letters_numbers_or_underscores
 import net.blockhost.trestle.resources.ui_waiting
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -893,7 +894,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
             }
             form.error?.let { error ->
                 Text(
-                    error,
+                    error.resolve(),
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
                         .testTag(LauncherTestTags.ACCOUNT_LOGIN_ERROR),

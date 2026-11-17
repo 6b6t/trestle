@@ -28,7 +28,7 @@ internal fun LauncherUiState.desktopIndicator(): DesktopIndicator {
             progressState = DesktopProgressState.ERROR,
             progressPercent = 100,
             badge = DesktopBadge.ERROR,
-            errorIdentity = error,
+            errorIdentity = error?.debugText,
         )
     }
 

@@ -26,8 +26,14 @@ import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.MinecraftMetadataClient
 import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.QuiltMetadataClient
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_downloading_s
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.SystemProfile
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -54,9 +60,9 @@ class ModpackInstaller(
         version: ResourceVersion,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): GameInstance {
-        require(project.type == ResourceType.MODPACK) { "The selected project is not a modpack." }
-        require(project.provider == version.provider && project.id == version.projectId) {
-            "The selected modpack and version do not match."
+        requireUser(project.type == ResourceType.MODPACK) { text(Res.string.msg_the_selected_project_is_not_a_modpack) }
+        requireUser(project.provider == version.provider && project.id == version.projectId) {
+            text(Res.string.msg_the_selected_modpack_and_version_do_not)
         }
         if (version.externalPack != null) {
             val resolvedVersion = if (version.externalPack.isUnresolved()) {
@@ -65,13 +71,13 @@ class ModpackInstaller(
                 version
             }
             val plan = resolvedVersion.externalPack
-                ?: throw LauncherException.InvalidMetadata("${version.name} has no installation plan.")
+                ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_installation_plan, version.name))
             return recordOrigin(installExternal(project, resolvedVersion, plan, onProgress), project, resolvedVersion)
         }
         val archiveFile = version.primaryFile
-            ?: throw LauncherException.InvalidMetadata("${version.name} has no modpack archive.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_modpack_archive, version.name))
         val archiveUrl = archiveFile.url ?: throw LauncherException.InvalidMetadata(
-            "${version.name} blocks downloads from third-party launchers.",
+            text(Res.string.msg_s_blocks_downloads_from_third_party_launchers, version.name),
         )
         val staging =
             directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
@@ -84,7 +90,7 @@ class ModpackInstaller(
                     destination = archive,
                     sha1 = archiveFile.sha1,
                     size = archiveFile.size,
-                    progressLabel = "Downloading ${project.name}",
+                    progressLabel = text(Res.string.msg_downloading_s, project.name),
                     sha512 = archiveFile.sha512,
                 ),
             ),
@@ -115,8 +121,10 @@ class ModpackInstaller(
         version: ResourceVersion,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): ModpackUpdatePreview {
-        val origin = requireNotNull(instance.modpackOrigin) { "This instance has no pack origin. Install a tracked pack first." }
-        require(origin.provider == project.provider.name && origin.projectId == project.id) { "Choose a version of the same modpack." }
+        val origin = requireUserNotNull(instance.modpackOrigin) { text(Res.string.msg_this_instance_has_no_pack_origin_install) }
+        requireUser(origin.provider == project.provider.name && origin.projectId == project.id) {
+            text(Res.string.msg_choose_a_version_of_the_same_modpack)
+        }
         val staging = instance.instanceDirectory.toPath() / ".trestle" / "pack-preview"
         resetDirectory(staging)
         val isolatedRepository = FileInstanceRepository(
@@ -148,7 +156,7 @@ class ModpackInstaller(
         onProgress: suspend (DownloadProgress) -> Unit,
     ): GameInstance {
         if (external.isUnresolved()) {
-            throw LauncherException.InvalidMetadata("${project.name} does not provide downloadable client files.")
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_s_does_not_provide_downloadable_client_files, project.name))
         }
         val staging =
             directories.staging / "modpacks" / project.provider.name.lowercase() / safeFileName(project.id) / safeFileName(version.id)
@@ -159,7 +167,7 @@ class ModpackInstaller(
         external.archiveUrl?.let { url ->
             val archive = staging / "pack.zip"
             downloadPipeline.download(
-                listOf(DownloadRequest(url, archive, progressLabel = "Downloading ${project.name}")),
+                listOf(DownloadRequest(url, archive, progressLabel = text(Res.string.msg_downloading_s, project.name))),
                 staging / "archive-download",
                 onProgress,
             )
@@ -179,7 +187,7 @@ class ModpackInstaller(
                     md5 = archive.md5,
                     sha1 = archive.sha1,
                     size = archive.size,
-                    progressLabel = archive.name,
+                    progressLabel = archive.name.asUserText(),
                 )
             }
             downloadPipeline.download(componentRequests, staging / "component-downloads", onProgress)
@@ -206,7 +214,7 @@ class ModpackInstaller(
                 md5 = file.md5,
                 sha1 = file.sha1,
                 size = file.size,
-                progressLabel = file.path.substringAfterLast('/'),
+                progressLabel = file.path.substringAfterLast('/').asUserText(),
                 sha512 = file.sha512,
             )
         }
@@ -282,11 +290,11 @@ class ModpackInstaller(
     }
 
     suspend fun installLocal(fileName: String, bytes: ByteArray, onProgress: suspend (DownloadProgress) -> Unit = {}): GameInstance {
-        require(bytes.isNotEmpty()) { "The selected modpack is empty." }
-        require(bytes.size <= MAX_LOCAL_MODPACK_BYTES) { "Local modpacks must be smaller than 1 GiB." }
+        requireUser(bytes.isNotEmpty()) { text(Res.string.msg_the_selected_modpack_is_empty) }
+        requireUser(bytes.size <= MAX_LOCAL_MODPACK_BYTES) { text(Res.string.msg_local_modpacks_must_be_smaller_than_gib) }
         val safeName = safeFileName(fileName)
-        require(safeName.substringAfterLast('.', "").lowercase() in setOf("mrpack", "zip")) {
-            "Choose a .mrpack or .zip modpack archive."
+        requireUser(safeName.substringAfterLast('.', "").lowercase() in setOf("mrpack", "zip")) {
+            text(Res.string.msg_choose_a_mrpack_or_zip_modpack_archive)
         }
         val importId = bytes.contentHashCode().toUInt().toString(16)
         val staging = directories.staging / "modpacks" / "local" / importId
@@ -301,14 +309,14 @@ class ModpackInstaller(
 
     suspend fun importFtbAppInstances(rootValue: String): List<GameInstance> {
         val root = rootValue.toPath()
-        require(fileSystem.metadataOrNull(root)?.isDirectory == true) { "The FTB App instances folder does not exist." }
+        requireUser(fileSystem.metadataOrNull(root)?.isDirectory == true) { text(Res.string.msg_the_ftb_app_instances_folder_does_not) }
         val candidates = buildList {
             if (fileSystem.exists(root / "instance.json")) add(root)
             fileSystem.list(root).filterTo(this) { child ->
                 fileSystem.metadataOrNull(child)?.isDirectory == true && fileSystem.exists(child / "instance.json")
             }
         }
-        require(candidates.isNotEmpty()) { "No FTB App instances were found in that folder." }
+        requireUser(candidates.isNotEmpty()) { text(Res.string.msg_no_ftb_app_instances_were_found_in) }
         return candidates.map { source -> importFtbAppInstance(source) }
     }
 
@@ -367,7 +375,7 @@ class ModpackInstaller(
             fileSystem.exists(extracted / "mmc-pack.json") -> readPrismPlan(extracted)
 
             else -> throw LauncherException.InvalidMetadata(
-                "The archive is not a supported Modrinth, CurseForge, Prism Launcher, or MultiMC pack.",
+                text(Res.string.msg_the_archive_is_not_a_supported_modrinth),
             )
         }
         ensureRuntimeSupported(plan)
@@ -380,7 +388,7 @@ class ModpackInstaller(
                 localSource = file.localSource,
                 sha1 = file.sha1,
                 size = file.size,
-                progressLabel = file.path.substringAfterLast('/'),
+                progressLabel = file.path.substringAfterLast('/').asUserText(),
                 sha512 = file.sha512,
             )
         }
@@ -467,7 +475,7 @@ class ModpackInstaller(
     private fun readModrinthPlan(extracted: Path): ModpackPlan {
         val index = decode<ModrinthPackIndex>(extracted / "modrinth.index.json", "Modrinth modpack index")
         val minecraftVersion = index.dependencies["minecraft"]
-            ?: throw LauncherException.InvalidMetadata("The Modrinth pack does not declare a Minecraft version.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modrinth_pack_does_not_declare_a))
         val loader = when {
             index.dependencies["fabric-loader"] != null -> ModLoader.FABRIC
             index.dependencies["neoforge"] != null -> ModLoader.NEOFORGE
@@ -491,7 +499,7 @@ class ModpackInstaller(
                 .filter { it.environment?.client !in setOf("unsupported", "optional") }
                 .map { file ->
                     val url = file.downloads.firstOrNull()
-                        ?: throw LauncherException.InvalidMetadata("${file.path} has no download source.")
+                        ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_download_source, file.path))
                     PackFile(
                         path = safeRelativePath(file.path),
                         url = url,
@@ -516,7 +524,7 @@ class ModpackInstaller(
             normalizedLoaderId.startsWith("forge-") -> ModLoader.FORGE
             normalizedLoaderId.startsWith("quilt-") -> ModLoader.QUILT
             loaderId.isBlank() -> ModLoader.VANILLA
-            else -> throw LauncherException.InvalidMetadata("The modpack uses unsupported loader $loaderId.")
+            else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_uses_unsupported_loader_s, loaderId))
         }
         val loaderVersion = loaderId.substringAfter('-', missingDelimiterValue = "").ifBlank { null }
         val platform = platforms.platform(ResourceProvider.CURSEFORGE)
@@ -530,7 +538,7 @@ class ModpackInstaller(
             val resourceType = referencedProjects[reference.projectId.toString()]?.type ?: ResourceType.MOD
             var file = curseForgeVersion.primaryFile
                 ?: throw LauncherException.InvalidMetadata(
-                    "CurseForge file ${reference.fileId} has no downloadable artifact.",
+                    text(Res.string.msg_curseforge_file_s_has_no_downloadable_artifact, reference.fileId),
                 )
             if (file.url == null && file.sha1 != null) {
                 val alternative = try {
@@ -576,7 +584,7 @@ class ModpackInstaller(
     private fun readPrismPlan(extracted: Path): ModpackPlan {
         val pack = decode<PrismPackManifest>(extracted / "mmc-pack.json", "Prism Launcher component manifest")
         val minecraftVersion = pack.components.firstOrNull { it.uid == "net.minecraft" }?.version
-            ?: throw LauncherException.InvalidMetadata("The Prism pack does not declare a Minecraft version.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_prism_pack_does_not_declare_a))
         val loaderComponent = pack.components.firstOrNull { it.uid in PRISM_LOADER_COMPONENTS }
         val loader = when (loaderComponent?.uid) {
             "net.fabricmc.fabric-loader" -> ModLoader.FABRIC
@@ -590,7 +598,7 @@ class ModpackInstaller(
             null -> ModLoader.VANILLA
 
             else -> throw LauncherException.InvalidMetadata(
-                "The Prism pack uses unsupported component ${loaderComponent.uid}.",
+                text(Res.string.msg_the_prism_pack_uses_unsupported_component_s, loaderComponent.uid),
             )
         }
         val name = if (fileSystem.exists(extracted / "instance.cfg")) {
@@ -605,7 +613,7 @@ class ModpackInstaller(
         }
         val gameDirectory = listOf(".minecraft", "minecraft").firstOrNull {
             fileSystem.exists(extracted / it)
-        } ?: throw LauncherException.InvalidMetadata("The Prism pack does not contain a game directory.")
+        } ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_prism_pack_does_not_contain_a))
         return ModpackPlan(
             name = name,
             minecraftVersion = minecraftVersion,
@@ -625,7 +633,7 @@ class ModpackInstaller(
                 val available = fabricMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
-                        "Fabric Loader $requested does not support Minecraft ${plan.minecraftVersion}.",
+                        text(Res.string.msg_fabric_loader_s_does_not_support_minecraft, requested, plan.minecraftVersion),
                     )
                 }
             }
@@ -635,7 +643,7 @@ class ModpackInstaller(
                 val available = neoForgeMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
-                        "NeoForge $requested does not support Minecraft ${plan.minecraftVersion}.",
+                        text(Res.string.msg_neoforge_s_does_not_support_minecraft_s, requested, plan.minecraftVersion),
                     )
                 }
             }
@@ -645,7 +653,7 @@ class ModpackInstaller(
                 val available = forgeMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
-                        "Forge $requested does not support Minecraft ${plan.minecraftVersion}.",
+                        text(Res.string.msg_forge_s_does_not_support_minecraft_s, requested, plan.minecraftVersion),
                     )
                 }
             }
@@ -655,7 +663,7 @@ class ModpackInstaller(
                 val available = quiltMetadataClient.loaderVersions(plan.minecraftVersion)
                 if (available.none { it.version == requested }) {
                     throw LauncherException.InvalidMetadata(
-                        "Quilt Loader $requested does not support Minecraft ${plan.minecraftVersion}.",
+                        text(Res.string.msg_quilt_loader_s_does_not_support_minecraft, requested, plan.minecraftVersion),
                     )
                 }
             }
@@ -667,7 +675,7 @@ class ModpackInstaller(
     } catch (error: LauncherException) {
         throw error
     } catch (error: Exception) {
-        throw LauncherException.InvalidMetadata("The $label is invalid.", error)
+        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_s_is_invalid, label), error)
     }
 
     private fun copyDirectory(source: Path, destination: Path) {

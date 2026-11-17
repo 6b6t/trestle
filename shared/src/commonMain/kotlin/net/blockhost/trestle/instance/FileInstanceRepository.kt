@@ -14,6 +14,23 @@ import net.blockhost.trestle.domain.MAX_INSTANCE_ICON_BYTES
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
 import net.blockhost.trestle.resources.ModpackUpdates
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_could_not_generate_a_unique_instance_id
+import net.blockhost.trestle.resources.msg_instance_id_contains_unsafe_characters
+import net.blockhost.trestle.resources.msg_instance_name_must_not_be_blank
+import net.blockhost.trestle.resources.msg_instance_registry_schema_s_is_not_supported
+import net.blockhost.trestle.resources.msg_instance_s_does_not_exist
+import net.blockhost.trestle.resources.msg_the_instance_contains_an_unsupported_filesystem_entry
+import net.blockhost.trestle.resources.msg_the_instance_could_not_be_cloned
+import net.blockhost.trestle.resources.msg_the_instance_directory_is_outside_trestle_s
+import net.blockhost.trestle.resources.msg_the_instance_image_is_empty
+import net.blockhost.trestle.resources.msg_the_instance_image_is_larger_than_mb
+import net.blockhost.trestle.resources.msg_the_instance_image_must_be_a_png
+import net.blockhost.trestle.resources.msg_the_instance_registry_could_not_be_read
+import net.blockhost.trestle.resources.msg_the_instance_registry_could_not_be_saved
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.ByteString.Companion.toByteString
 import okio.FileSystem
 import okio.Path
@@ -46,7 +63,7 @@ class FileInstanceRepository(
             )
             if (registry.schemaVersion != InstanceRegistry.CURRENT_SCHEMA_VERSION) {
                 throw LauncherException.FileSystem(
-                    "Instance registry schema ${registry.schemaVersion} is not supported.",
+                    text(Res.string.msg_instance_registry_schema_s_is_not_supported, registry.schemaVersion),
                 )
             }
             val recoveredCount = registry.instances.count { it.installationState is InstallationState.Installing }
@@ -79,7 +96,7 @@ class FileInstanceRepository(
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The instance registry could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_instance_registry_could_not_be_read), error)
         }
     }
 
@@ -111,7 +128,7 @@ class FileInstanceRepository(
 
     override suspend fun readClientSettings(id: InstanceId): MinecraftClientSettings? = mutex.withLock {
         val instance = mutableInstances.value.firstOrNull { it.id == id }
-            ?: error("Instance ${id.value} does not exist.")
+            ?: userError(text(Res.string.msg_instance_s_does_not_exist, id.value))
         val optionsPath = instance.optionsPath()
         val options = if (fileSystem.exists(optionsPath)) {
             fileSystem.read(optionsPath) { readUtf8() }
@@ -123,7 +140,7 @@ class FileInstanceRepository(
 
     override suspend fun updateClientSettings(id: InstanceId, settings: MinecraftClientSettings) = mutex.withLock {
         val instance = mutableInstances.value.firstOrNull { it.id == id }
-            ?: error("Instance ${id.value} does not exist.")
+            ?: userError(text(Res.string.msg_instance_s_does_not_exist, id.value))
         writeClientSettings(instance, settings, preserveExisting = true)
         logger.info("instances", "Updated client settings", mapOf("id" to id.value))
     }
@@ -131,7 +148,7 @@ class FileInstanceRepository(
     override suspend fun update(instance: GameInstance): GameInstance = mutex.withLock {
         val current = mutableInstances.value
         val previous = current.firstOrNull { it.id == instance.id }
-            ?: error("Instance ${instance.id.value} does not exist.")
+            ?: userError(text(Res.string.msg_instance_s_does_not_exist, instance.id.value))
         persist(current.map { if (it.id == instance.id) instance else it })
         deleteReplacedManagedIcon(previous, instance)
         instance
@@ -140,17 +157,13 @@ class FileInstanceRepository(
     override suspend fun updateWithIcon(instance: GameInstance, fileName: String, bytes: ByteArray): GameInstance = mutex.withLock {
         val current = mutableInstances.value
         val previous = current.firstOrNull { it.id == instance.id }
-            ?: error("Instance ${instance.id.value} does not exist.")
-        require(bytes.isNotEmpty()) { "The instance image is empty." }
-        require(bytes.size <= MAX_INSTANCE_ICON_BYTES) { "The instance image is larger than 5 MB." }
+            ?: userError(text(Res.string.msg_instance_s_does_not_exist, instance.id.value))
+        requireUser(bytes.isNotEmpty()) { text(Res.string.msg_the_instance_image_is_empty) }
+        requireUser(bytes.size <= MAX_INSTANCE_ICON_BYTES) { text(Res.string.msg_the_instance_image_is_larger_than_mb) }
         val extension = fileName.substringAfterLast('.', missingDelimiterValue = "").lowercase()
-        require(extension in SUPPORTED_INSTANCE_ICON_EXTENSIONS) {
-            "The instance image must be a PNG, JPEG, or WebP file."
-        }
+        requireUser(extension in SUPPORTED_INSTANCE_ICON_EXTENSIONS) { text(Res.string.msg_the_instance_image_must_be_a_png) }
         val directory = instance.instanceDirectory.toPath()
-        require(directory.parent == instancesDirectory) {
-            "The instance directory is outside Trestle's instance storage."
-        }
+        requireUser(directory.parent == instancesDirectory) { text(Res.string.msg_the_instance_directory_is_outside_trestle_s) }
         val digest = bytes.toByteString().sha256().hex().take(16)
         val iconName = "instance-icon-$digest.$extension"
         val iconPath = directory / iconName
@@ -187,7 +200,7 @@ class FileInstanceRepository(
         val current = mutableInstances.value
         val instance = current.firstOrNull { it.id == id } ?: return@withLock false
         val directory = instance.instanceDirectory.toPath()
-        require(directory.parent == instancesDirectory) { "The instance directory is outside Trestle's instance storage." }
+        requireUser(directory.parent == instancesDirectory) { text(Res.string.msg_the_instance_directory_is_outside_trestle_s) }
         deleteTree(directory)
         persist(current.filterNot { it.id == id })
         logger.info("instances", "Deleted instance and files", mapOf("id" to id.value))
@@ -196,13 +209,11 @@ class FileInstanceRepository(
 
     override suspend fun clone(id: InstanceId, displayName: String): GameInstance = mutex.withLock {
         val source = mutableInstances.value.firstOrNull { it.id == id }
-            ?: error("Instance ${id.value} does not exist.")
-        require(displayName.isNotBlank()) { "Instance name must not be blank." }
+            ?: userError(text(Res.string.msg_instance_s_does_not_exist, id.value))
+        requireUser(displayName.isNotBlank()) { text(Res.string.msg_instance_name_must_not_be_blank) }
         val cloneId = generateUniqueId()
         val sourceDirectory = source.instanceDirectory.toPath()
-        require(sourceDirectory.parent == instancesDirectory) {
-            "The instance directory is outside Trestle's instance storage."
-        }
+        requireUser(sourceDirectory.parent == instancesDirectory) { text(Res.string.msg_the_instance_directory_is_outside_trestle_s) }
         val temporaryDirectory = instancesDirectory / ".${cloneId.value}.clone"
         val destinationDirectory = instancesDirectory / cloneId.value
         try {
@@ -228,7 +239,7 @@ class FileInstanceRepository(
         } catch (error: Exception) {
             runCatching { deleteTree(temporaryDirectory) }
             runCatching { deleteTree(destinationDirectory) }
-            throw LauncherException.FileSystem("The instance could not be cloned.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_instance_could_not_be_cloned), error)
         }
     }
 
@@ -244,10 +255,10 @@ class FileInstanceRepository(
     private fun generateUniqueId(): InstanceId {
         repeat(20) {
             val id = idFactory.create()
-            require(id.value.matches(Regex("[a-zA-Z0-9_-]{6,80}"))) { "Instance ID contains unsafe characters." }
+            requireUser(id.value.matches(Regex("[a-zA-Z0-9_-]{6,80}"))) { text(Res.string.msg_instance_id_contains_unsafe_characters) }
             if (mutableInstances.value.none { it.id == id }) return id
         }
-        error("Could not generate a unique instance ID.")
+        userError(text(Res.string.msg_could_not_generate_a_unique_instance_id))
     }
 
     private fun persist(instances: List<GameInstance>) {
@@ -256,7 +267,7 @@ class FileInstanceRepository(
             writeRegistry(InstanceRegistry(instances = sorted))
             mutableInstances.value = sorted
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The instance registry could not be saved.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_instance_registry_could_not_be_saved), error)
         }
     }
 
@@ -328,7 +339,7 @@ class FileInstanceRepository(
                 fileSystem.copy(source, destination)
             }
 
-            else -> throw LauncherException.FileSystem("The instance contains an unsupported filesystem entry.")
+            else -> throw LauncherException.FileSystem(text(Res.string.msg_the_instance_contains_an_unsupported_filesystem_entry))
         }
     }
 

@@ -88,13 +88,17 @@ import net.blockhost.trestle.resources.ui_text_file
 import net.blockhost.trestle.resources.ui_trestle_could_not_open_this_path
 import net.blockhost.trestle.resources.ui_trestle_could_not_read_this_file
 import net.blockhost.trestle.resources.ui_trestle_could_not_save_this_file
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.resolve
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userText
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
 private sealed interface DirectoryContent {
     data object Loading : DirectoryContent
     data class Ready(val directory: GameFileDirectory) : DirectoryContent
-    data class Failed(val message: String) : DirectoryContent
+    data class Failed(val message: UserText) : DirectoryContent
 }
 
 private enum class DiscardDestination {
@@ -109,15 +113,11 @@ internal fun GameFileBrowserDialog(
     onDismiss: () -> Unit,
     onOpenExternal: (String) -> Result<Unit>,
 ) {
-    val messageNoAppCanOpenThisFile = stringResource(Res.string.ui_no_app_can_open_this_file)
-    val messageTrestleCouldNotOpenThisPath = stringResource(Res.string.ui_trestle_could_not_open_this_path)
-    val messageTrestleCouldNotReadThisFile = stringResource(Res.string.ui_trestle_could_not_read_this_file)
-    val messageTrestleCouldNotSaveThisFile = stringResource(Res.string.ui_trestle_could_not_save_this_file)
     val filesResult = remember(rootPath) { runCatching { GameFileBrowserFiles(rootPath) } }
     val files = filesResult.getOrNull()
     if (files == null) {
         FileBrowserUnavailableDialog(
-            message = filesResult.exceptionOrNull()?.message.orEmpty(),
+            message = filesResult.exceptionOrNull()?.userText(text(Res.string.ui_file_browser_read_error))?.resolve().orEmpty(),
             onDismiss = onDismiss,
         )
         return
@@ -134,7 +134,7 @@ internal fun GameFileBrowserDialog(
     var documentLoading by remember(files) { mutableStateOf(false) }
     var documentDirty by remember(files) { mutableStateOf(false) }
     var saving by remember(files) { mutableStateOf(false) }
-    var message by remember(files) { mutableStateOf<String?>(null) }
+    var message by remember(files) { mutableStateOf<UserText?>(null) }
     var discardDestination by remember(files) { mutableStateOf<DiscardDestination?>(null) }
 
     fun closeEditor() {
@@ -164,7 +164,7 @@ internal fun GameFileBrowserDialog(
     fun openExternally(path: String, dismissAfterOpening: Boolean = false) {
         onOpenExternal(path)
             .onSuccess { if (dismissAfterOpening) onDismiss() }
-            .onFailure { error -> message = error.message ?: messageNoAppCanOpenThisFile }
+            .onFailure { error -> message = error.userText(text(Res.string.ui_no_app_can_open_this_file)) }
     }
 
     LaunchedEffect(files, initialPath) {
@@ -177,7 +177,7 @@ internal fun GameFileBrowserDialog(
                     else -> location.filePath?.let { openExternally(it, dismissAfterOpening = true) }
                 }
             }
-            .onFailure { error -> message = error.message ?: messageTrestleCouldNotOpenThisPath }
+            .onFailure { error -> message = error.userText(text(Res.string.ui_trestle_could_not_open_this_path)) }
     }
 
     LaunchedEffect(currentDirectoryPath, directoryRevision) {
@@ -187,7 +187,7 @@ internal fun GameFileBrowserDialog(
             withContext(Dispatchers.Default) { files.list(currentDirectoryPath) }
         }.fold(
             onSuccess = DirectoryContent::Ready,
-            onFailure = { error -> DirectoryContent.Failed(error.message.orEmpty()) },
+            onFailure = { error -> DirectoryContent.Failed(error.userText(text(Res.string.ui_trestle_could_not_open_this_path))) },
         )
     }
 
@@ -199,7 +199,7 @@ internal fun GameFileBrowserDialog(
         message = null
         runCatching { withContext(Dispatchers.Default) { files.readText(path) } }
             .onSuccess { document = it }
-            .onFailure { error -> message = error.message ?: messageTrestleCouldNotReadThisFile }
+            .onFailure { error -> message = error.userText(text(Res.string.ui_trestle_could_not_read_this_file)) }
         documentLoading = false
     }
 
@@ -217,7 +217,7 @@ internal fun GameFileBrowserDialog(
                 loading = documentLoading,
                 dirty = documentDirty,
                 saving = saving,
-                message = message,
+                message = message?.resolve(),
                 onBack = ::requestCloseEditor,
                 onClose = ::requestDismiss,
                 onDirtyChange = { documentDirty = it },
@@ -234,7 +234,7 @@ internal fun GameFileBrowserDialog(
                                 documentDirty = false
                                 directoryRevision += 1
                             }
-                            .onFailure { error -> message = error.message ?: messageTrestleCouldNotSaveThisFile }
+                            .onFailure { error -> message = error.userText(text(Res.string.ui_trestle_could_not_save_this_file)) }
                         saving = false
                     }
                 },
@@ -243,7 +243,7 @@ internal fun GameFileBrowserDialog(
             else -> GameFileDirectoryBrowser(
                 content = directoryContent,
                 filter = filter,
-                message = message,
+                message = message?.resolve(),
                 canNavigateBack = runCatching { files.parentOf(currentDirectoryPath) != null }.getOrDefault(false),
                 pathForBreadcrumb = { count -> files.pathForBreadcrumb(currentDirectoryPath, count) },
                 onFilterChange = { filter = it },
@@ -348,7 +348,7 @@ private fun GameFileDirectoryBrowser(
                 CircularProgressIndicator()
             }
 
-            is DirectoryContent.Failed -> FileBrowserFailure(content.message, onRetry)
+            is DirectoryContent.Failed -> FileBrowserFailure(content.message.resolve(), onRetry)
 
             is DirectoryContent.Ready -> FileList(content.directory.entries, filter, onOpen)
         }

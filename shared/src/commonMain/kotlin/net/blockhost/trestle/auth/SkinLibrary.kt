@@ -8,6 +8,19 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_give_this_skin_a_name_before_saving
+import net.blockhost.trestle.resources.msg_minecraft_java_skins_must_be_or_legacy
+import net.blockhost.trestle.resources.msg_skin_library_schema_s_is_not_supported
+import net.blockhost.trestle.resources.msg_skin_names_cannot_be_longer_than_characters
+import net.blockhost.trestle.resources.msg_the_selected_png_does_not_contain_a
+import net.blockhost.trestle.resources.msg_the_selected_skin_is_not_a_png
+import net.blockhost.trestle.resources.msg_the_selected_skin_must_be_a_png
+import net.blockhost.trestle.resources.msg_the_skin_could_not_be_removed_from
+import net.blockhost.trestle.resources.msg_the_skin_could_not_be_saved
+import net.blockhost.trestle.resources.msg_the_skin_library_could_not_be_read
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 
@@ -52,7 +65,7 @@ class SkinLibrary(private val fileSystem: FileSystem, private val directory: Pat
             )
             if (registry.schemaVersion != 1) {
                 throw LauncherException.FileSystem(
-                    "Skin library schema ${registry.schemaVersion} is not supported.",
+                    text(Res.string.msg_skin_library_schema_s_is_not_supported, registry.schemaVersion),
                 )
             }
             savedSkins = registry.profiles.mapNotNull { profile ->
@@ -65,15 +78,15 @@ class SkinLibrary(private val fileSystem: FileSystem, private val directory: Pat
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The skin library could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_skin_library_could_not_be_read), error)
         }
     }
 
     suspend fun save(name: String, variant: SkinVariant, texture: ByteArray, profileId: String? = null): SavedSkin = mutex.withLock {
         inspectMinecraftSkin(texture)
         val trimmedName = name.trim()
-        require(trimmedName.isNotEmpty()) { "Give this skin a name before saving it." }
-        require(trimmedName.length <= 64) { "Skin names cannot be longer than 64 characters." }
+        requireUser(trimmedName.isNotEmpty()) { text(Res.string.msg_give_this_skin_a_name_before_saving) }
+        requireUser(trimmedName.length <= 64) { text(Res.string.msg_skin_names_cannot_be_longer_than_characters) }
 
         try {
             val existing = profileId?.let { id -> savedSkins.firstOrNull { it.profile.id == id } }
@@ -97,7 +110,7 @@ class SkinLibrary(private val fileSystem: FileSystem, private val directory: Pat
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The skin could not be saved.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_skin_could_not_be_saved), error)
         }
     }
 
@@ -109,7 +122,7 @@ class SkinLibrary(private val fileSystem: FileSystem, private val directory: Pat
             savedSkins = savedSkins.filterNot { it.profile.id == profileId }
             persist()
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The skin could not be removed from the library.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_skin_could_not_be_removed_from), error)
         }
     }
 
@@ -150,18 +163,18 @@ class SkinLibrary(private val fileSystem: FileSystem, private val directory: Pat
 
 fun inspectMinecraftSkin(bytes: ByteArray): MinecraftSkinImage {
     if (bytes.size !in 24..MAX_SKIN_BYTES) {
-        throw LauncherException.FileSystem("The selected skin must be a PNG smaller than 2 MiB.")
+        throw LauncherException.FileSystem(text(Res.string.msg_the_selected_skin_must_be_a_png))
     }
     if (!bytes.copyOfRange(0, PNG_SIGNATURE.size).contentEquals(PNG_SIGNATURE)) {
-        throw LauncherException.FileSystem("The selected skin is not a PNG image.")
+        throw LauncherException.FileSystem(text(Res.string.msg_the_selected_skin_is_not_a_png))
     }
     if (!bytes.copyOfRange(12, 16).contentEquals(IHDR_CHUNK)) {
-        throw LauncherException.FileSystem("The selected PNG does not contain a valid image header.")
+        throw LauncherException.FileSystem(text(Res.string.msg_the_selected_png_does_not_contain_a))
     }
     val width = bytes.readBigEndianInt(16)
     val height = bytes.readBigEndianInt(20)
     if (width != 64 || height !in setOf(32, 64)) {
-        throw LauncherException.FileSystem("Minecraft Java skins must be 64×64 or legacy 64×32 PNG files.")
+        throw LauncherException.FileSystem(text(Res.string.msg_minecraft_java_skins_must_be_or_legacy))
     }
     return MinecraftSkinImage(width, height)
 }

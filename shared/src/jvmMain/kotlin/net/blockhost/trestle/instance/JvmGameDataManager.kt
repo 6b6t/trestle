@@ -7,6 +7,47 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_a_data_pack_with_that_name_already
+import net.blockhost.trestle.resources.msg_a_screenshot_named_s_already_exists
+import net.blockhost.trestle.resources.msg_level_dat_contains_an_unknown_nbt_tag
+import net.blockhost.trestle.resources.msg_level_dat_does_not_contain_a_root
+import net.blockhost.trestle.resources.msg_level_dat_ended_unexpectedly
+import net.blockhost.trestle.resources.msg_server_address_must_not_be_blank
+import net.blockhost.trestle.resources.msg_server_name_must_not_be_blank
+import net.blockhost.trestle.resources.msg_servers_dat_contains_an_unknown_nbt_tag
+import net.blockhost.trestle.resources.msg_servers_dat_could_not_be_read
+import net.blockhost.trestle.resources.msg_servers_dat_ended_unexpectedly
+import net.blockhost.trestle.resources.msg_the_archive_does_not_contain_a_minecraft
+import net.blockhost.trestle.resources.msg_the_backup_escapes_the_saves_directory
+import net.blockhost.trestle.resources.msg_the_extracted_world_is_larger_than_gib
+import net.blockhost.trestle.resources.msg_the_ipv6_server_address_is_invalid
+import net.blockhost.trestle.resources.msg_the_selected_backup_does_not_exist
+import net.blockhost.trestle.resources.msg_the_selected_backup_is_empty
+import net.blockhost.trestle.resources.msg_the_selected_item_has_an_invalid_path
+import net.blockhost.trestle.resources.msg_the_selected_log_does_not_exist
+import net.blockhost.trestle.resources.msg_the_selected_log_has_an_invalid_path
+import net.blockhost.trestle.resources.msg_the_selected_screenshot_does_not_exist
+import net.blockhost.trestle.resources.msg_the_selected_world_could_not_be_copied
+import net.blockhost.trestle.resources.msg_the_selected_world_does_not_exist
+import net.blockhost.trestle.resources.msg_the_server_address_is_blank
+import net.blockhost.trestle.resources.msg_the_server_port_is_invalid
+import net.blockhost.trestle.resources.msg_the_server_returned_an_invalid_status_message
+import net.blockhost.trestle.resources.msg_the_server_returned_an_invalid_variable_length
+import net.blockhost.trestle.resources.msg_the_server_returned_an_unexpected_status_packet
+import net.blockhost.trestle.resources.msg_the_server_status_response_ended_unexpectedly
+import net.blockhost.trestle.resources.msg_the_status_response_is_too_large
+import net.blockhost.trestle.resources.msg_the_world_archive_contains_an_unsafe_path
+import net.blockhost.trestle.resources.msg_the_world_archive_contains_too_many_files
+import net.blockhost.trestle.resources.msg_the_world_archive_escapes_its_destination
+import net.blockhost.trestle.resources.msg_the_world_backup_contains_an_unsafe_path
+import net.blockhost.trestle.resources.msg_the_world_could_not_be_imported
+import net.blockhost.trestle.resources.msg_the_world_does_not_contain_level_dat
+import net.blockhost.trestle.resources.msg_the_world_name_could_not_be_updated
+import net.blockhost.trestle.resources.msg_the_world_name_must_not_be_blank
+import net.blockhost.trestle.resources.msg_world_archives_must_be_between_byte_and
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -97,7 +138,7 @@ class JvmGameDataManager(
     override suspend fun backupWorld(instance: GameInstance, worldKey: String): WorldBackup = withContext(Dispatchers.IO) {
         val game = gameDirectory(instance)
         val world = safeChild(game.resolve("saves"), worldKey)
-        if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
+        if (!Files.isDirectory(world)) throw LauncherException.FileSystem(text(Res.string.msg_the_selected_world_does_not_exist))
         val backups = game.resolve("backups")
         Files.createDirectories(backups)
         val destination = backups.resolve("${safeFileName(worldKey)}-${nowMillis()}.zip")
@@ -125,7 +166,7 @@ class JvmGameDataManager(
     override suspend fun restoreWorldBackup(instance: GameInstance, backupKey: String): ManagedWorld = withContext(Dispatchers.IO) {
         val game = gameDirectory(instance)
         val archive = safeChild(game.resolve("backups"), backupKey)
-        if (!Files.isRegularFile(archive)) throw LauncherException.FileSystem("The selected backup does not exist.")
+        if (!Files.isRegularFile(archive)) throw LauncherException.FileSystem(text(Res.string.msg_the_selected_backup_does_not_exist))
         val saves = game.resolve("saves")
         Files.createDirectories(saves)
         var restoredKey: String? = null
@@ -134,13 +175,18 @@ class JvmGameDataManager(
                 val entry = zip.nextEntry ?: break
                 val entryPath = Paths.get(entry.name).normalize()
                 if (entryPath.isAbsolute || entryPath.startsWith("..") || entryPath.nameCount < 2) {
-                    throw LauncherException.InvalidMetadata("The world backup contains an unsafe path.")
+                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_world_backup_contains_an_unsafe_path))
                 }
                 val worldKey = entryPath.getName(0).toString()
                 restoredKey = restoredKey ?: availableWorldKey(saves, worldKey)
                 val relative = entryPath.subpath(1, entryPath.nameCount)
                 val target = saves.resolve(requireNotNull(restoredKey)).resolve(relative).normalize()
-                if (!target.startsWith(saves)) throw LauncherException.InvalidMetadata("The backup escapes the saves directory.")
+                if (!target.startsWith(
+                        saves,
+                    )
+                ) {
+                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_backup_escapes_the_saves_directory))
+                }
                 if (entry.isDirectory) {
                     Files.createDirectories(target)
                 } else {
@@ -150,15 +196,15 @@ class JvmGameDataManager(
                 zip.closeEntry()
             }
         }
-        val key = restoredKey ?: throw LauncherException.InvalidMetadata("The selected backup is empty.")
+        val key = restoredKey ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_selected_backup_is_empty))
         val restored = saves.resolve(key)
         ManagedWorld(key, key, treeSize(restored), modifiedAt(restored.resolve("level.dat")), emptyList())
     }
 
     override suspend fun importWorld(instance: GameInstance, fileName: String, bytes: ByteArray): ManagedWorld =
         withContext(Dispatchers.IO) {
-            require(bytes.isNotEmpty() && bytes.size <= MAX_WORLD_ARCHIVE_BYTES) {
-                "World archives must be between 1 byte and 512 MiB."
+            requireUser(bytes.isNotEmpty() && bytes.size <= MAX_WORLD_ARCHIVE_BYTES) {
+                text(Res.string.msg_world_archives_must_be_between_byte_and)
             }
             val saves = gameDirectory(instance).resolve("saves")
             Files.createDirectories(saves)
@@ -193,18 +239,18 @@ class JvmGameDataManager(
                         }
                         val relative = Paths.get(relativeName).normalize()
                         if (relative.isAbsolute || relative.startsWith("..")) {
-                            throw LauncherException.InvalidMetadata("The world archive contains an unsafe path.")
+                            throw LauncherException.InvalidMetadata(text(Res.string.msg_the_world_archive_contains_an_unsafe_path))
                         }
                         val target = temporary.resolve(relative).normalize()
                         if (!target.startsWith(temporary)) {
-                            throw LauncherException.InvalidMetadata("The world archive escapes its destination.")
+                            throw LauncherException.InvalidMetadata(text(Res.string.msg_the_world_archive_escapes_its_destination))
                         }
                         if (entry.isDirectory) {
                             Files.createDirectories(target)
                         } else {
                             extractedFiles += 1
                             if (extractedFiles > MAX_WORLD_ARCHIVE_FILES) {
-                                throw LauncherException.InvalidMetadata("The world archive contains too many files.")
+                                throw LauncherException.InvalidMetadata(text(Res.string.msg_the_world_archive_contains_too_many_files))
                             }
                             Files.createDirectories(target.parent)
                             Files.newOutputStream(target).use { output ->
@@ -214,7 +260,7 @@ class JvmGameDataManager(
                                     if (read < 0) break
                                     extractedBytes += read
                                     if (extractedBytes > MAX_EXTRACTED_WORLD_BYTES) {
-                                        throw LauncherException.InvalidMetadata("The extracted world is larger than 2 GiB.")
+                                        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_extracted_world_is_larger_than_gib))
                                     }
                                     output.write(buffer, 0, read)
                                 }
@@ -224,12 +270,19 @@ class JvmGameDataManager(
                     }
                 }
                 if (!Files.isRegularFile(temporary.resolve("level.dat"))) {
-                    throw LauncherException.InvalidMetadata("The archive does not contain a Minecraft level.dat file.")
+                    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_archive_does_not_contain_a_minecraft))
                 }
                 Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE)
             } catch (error: Exception) {
                 runCatching { deleteTree(temporary) }
-                throw if (error is LauncherException) error else LauncherException.FileSystem("The world could not be imported.", error)
+                throw if (error is LauncherException) {
+                    error
+                } else {
+                    LauncherException.FileSystem(
+                        text(Res.string.msg_the_world_could_not_be_imported),
+                        error,
+                    )
+                }
             }
             val metadata = readWorldMetadata(destination.resolve("level.dat"))
             ManagedWorld(
@@ -251,7 +304,7 @@ class JvmGameDataManager(
     override suspend fun copyWorld(instance: GameInstance, worldKey: String): ManagedWorld = withContext(Dispatchers.IO) {
         val saves = gameDirectory(instance).resolve("saves")
         val source = safeChild(saves, worldKey)
-        if (!Files.isDirectory(source)) throw LauncherException.FileSystem("The selected world does not exist.")
+        if (!Files.isDirectory(source)) throw LauncherException.FileSystem(text(Res.string.msg_the_selected_world_does_not_exist))
         val copyKey = availableWorldKey(saves, "$worldKey Copy")
         val destination = safeChild(saves, copyKey)
         try {
@@ -260,7 +313,7 @@ class JvmGameDataManager(
             rewriteWorldName(destination.resolve("level.dat"), "${sourceMetadata.name ?: worldKey} Copy")
         } catch (error: Exception) {
             runCatching { deleteTree(destination) }
-            throw LauncherException.FileSystem("The selected world could not be copied.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_selected_world_could_not_be_copied), error)
         }
         val metadata = readWorldMetadata(destination.resolve("level.dat"))
         ManagedWorld(
@@ -277,9 +330,9 @@ class JvmGameDataManager(
 
     override suspend fun renameWorld(instance: GameInstance, worldKey: String, newName: String): ManagedWorld =
         withContext(Dispatchers.IO) {
-            require(newName.isNotBlank()) { "The world name must not be blank." }
+            requireUser(newName.isNotBlank()) { text(Res.string.msg_the_world_name_must_not_be_blank) }
             val world = safeChild(gameDirectory(instance).resolve("saves"), worldKey)
-            if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
+            if (!Files.isDirectory(world)) throw LauncherException.FileSystem(text(Res.string.msg_the_selected_world_does_not_exist))
             rewriteWorldName(world.resolve("level.dat"), newName.trim())
             val metadata = readWorldMetadata(world.resolve("level.dat"))
             ManagedWorld(
@@ -309,7 +362,12 @@ class JvmGameDataManager(
         withContext(Dispatchers.IO) {
             val screenshots = gameDirectory(instance).resolve("screenshots")
             val source = safeChild(screenshots, screenshotKey)
-            if (!Files.isRegularFile(source)) throw LauncherException.FileSystem("The selected screenshot does not exist.")
+            if (!Files.isRegularFile(
+                    source,
+                )
+            ) {
+                throw LauncherException.FileSystem(text(Res.string.msg_the_selected_screenshot_does_not_exist))
+            }
             val sourceExtension = source.fileName.toString().substringAfterLast('.', "")
             val requested = safeFileName(newName)
             val destinationName = if (requested.substringAfterLast('.', "").equals(sourceExtension, ignoreCase = true)) {
@@ -318,7 +376,12 @@ class JvmGameDataManager(
                 "${requested.substringBeforeLast('.', requested)}.$sourceExtension"
             }
             val destination = safeChild(screenshots, destinationName)
-            if (Files.exists(destination)) throw LauncherException.FileSystem("A screenshot named $destinationName already exists.")
+            if (Files.exists(
+                    destination,
+                )
+            ) {
+                throw LauncherException.FileSystem(text(Res.string.msg_a_screenshot_named_s_already_exists, destinationName))
+            }
             Files.move(source, destination)
             ManagedScreenshot(
                 key = destinationName,
@@ -337,14 +400,14 @@ class JvmGameDataManager(
             val destinationName = if (enabled) sourceName.removeSuffix(DISABLED_SUFFIX) else "$sourceName$DISABLED_SUFFIX"
             if (sourceName != destinationName) {
                 val destination = safeChild(packs, destinationName)
-                if (Files.exists(destination)) throw LauncherException.FileSystem("A data pack with that name already exists.")
+                if (Files.exists(destination)) throw LauncherException.FileSystem(text(Res.string.msg_a_data_pack_with_that_name_already))
                 Files.move(source, destination)
             }
         }
 
     override suspend fun upsertServer(instance: GameInstance, server: SavedServer) = withContext(Dispatchers.IO) {
-        require(server.name.isNotBlank()) { "Server name must not be blank." }
-        require(server.address.isNotBlank()) { "Server address must not be blank." }
+        requireUser(server.name.isNotBlank()) { text(Res.string.msg_server_name_must_not_be_blank) }
+        requireUser(server.address.isNotBlank()) { text(Res.string.msg_server_address_must_not_be_blank) }
         val path = gameDirectory(instance).resolve("servers.dat")
         val servers = readServers(path).toMutableList()
         val index = servers.indexOfFirst { it.key == server.key }
@@ -373,7 +436,7 @@ class JvmGameDataManager(
 
     override suspend fun readLog(instance: GameInstance, logKey: String): String = withContext(Dispatchers.IO) {
         val path = safeLogPath(instance, logKey)
-        if (!Files.isRegularFile(path)) throw LauncherException.FileSystem("The selected log does not exist.")
+        if (!Files.isRegularFile(path)) throw LauncherException.FileSystem(text(Res.string.msg_the_selected_log_does_not_exist))
         val input = Files.newInputStream(path)
         val stream = if (path.fileName.toString().endsWith(".gz", ignoreCase = true)) GZIPInputStream(input) else input
         stream.bufferedReader().use { reader ->
@@ -407,7 +470,7 @@ class JvmGameDataManager(
                     readRootCompound(input)
                 }
             }
-        }.getOrElse { throw LauncherException.FileSystem("servers.dat could not be read.", it) }
+        }.getOrElse { throw LauncherException.FileSystem(text(Res.string.msg_servers_dat_could_not_be_read), it) }
     }
 
     private fun readRootCompound(input: DataInputStream): List<SavedServer> {
@@ -510,7 +573,7 @@ class JvmGameDataManager(
 
             TAG_LONG_ARRAY -> skipBytes(input, input.readInt().coerceAtLeast(0) * 8L)
 
-            else -> throw LauncherException.InvalidMetadata("servers.dat contains an unknown NBT tag.")
+            else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_servers_dat_contains_an_unknown_nbt_tag))
         }
     }
 
@@ -523,14 +586,14 @@ class JvmGameDataManager(
             } else if (input.read() >= 0) {
                 remaining--
             } else {
-                throw LauncherException.InvalidMetadata("servers.dat ended unexpectedly.")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_servers_dat_ended_unexpectedly))
             }
         }
     }
 
     private fun gameDirectory(instance: GameInstance): Path = Paths.get(instance.instanceDirectory).resolve("game")
     private fun safeLogPath(instance: GameInstance, logKey: String): Path {
-        require(logKey.isNotBlank() && !Paths.get(logKey).isAbsolute) { "The selected log has an invalid path." }
+        requireUser(logKey.isNotBlank() && !Paths.get(logKey).isAbsolute) { text(Res.string.msg_the_selected_log_has_an_invalid_path) }
         val game = gameDirectory(instance).normalize()
         val path = game.resolve(logKey).normalize()
         require(path.startsWith(game) && LOG_DIRECTORIES.any { path.startsWith(game.resolve(it)) }) {
@@ -551,13 +614,13 @@ class JvmGameDataManager(
     }
 
     private fun rewriteWorldName(path: Path, newName: String) {
-        if (!Files.isRegularFile(path)) throw LauncherException.FileSystem("The world does not contain level.dat.")
+        if (!Files.isRegularFile(path)) throw LauncherException.FileSystem(text(Res.string.msg_the_world_does_not_contain_level_dat))
         val temporary = path.resolveSibling(".${path.fileName}.tmp")
         try {
             DataInputStream(GZIPInputStream(Files.newInputStream(path))).use { input ->
                 DataOutputStream(GZIPOutputStream(Files.newOutputStream(temporary))).use { output ->
                     val rootType = input.readUnsignedByte()
-                    require(rootType == TAG_COMPOUND) { "level.dat does not contain a root compound." }
+                    requireUser(rootType == TAG_COMPOUND) { text(Res.string.msg_level_dat_does_not_contain_a_root) }
                     output.writeByte(rootType)
                     output.writeUTF(input.readUTF())
                     copyNbtPayload(input, output, rootType, emptyList(), newName)
@@ -566,7 +629,7 @@ class JvmGameDataManager(
             Files.move(temporary, path, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         } catch (error: Exception) {
             runCatching { Files.deleteIfExists(temporary) }
-            throw LauncherException.FileSystem("The world name could not be updated.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_world_name_could_not_be_updated), error)
         }
     }
 
@@ -624,7 +687,7 @@ class JvmGameDataManager(
                 repeat(count) { output.writeLong(input.readLong()) }
             }
 
-            else -> throw LauncherException.InvalidMetadata("level.dat contains an unknown NBT tag.")
+            else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_level_dat_contains_an_unknown_nbt_tag))
         }
     }
 
@@ -633,7 +696,7 @@ class JvmGameDataManager(
         var remaining = count
         while (remaining > 0) {
             val read = input.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
-            if (read < 0) throw LauncherException.InvalidMetadata("level.dat ended unexpectedly.")
+            if (read < 0) throw LauncherException.InvalidMetadata(text(Res.string.msg_level_dat_ended_unexpectedly))
             output.write(buffer, 0, read)
             remaining -= read
         }
@@ -724,8 +787,8 @@ class JvmGameDataManager(
         }
     }
     private fun safeChild(parent: Path, child: String): Path {
-        require(child.isNotBlank() && '/' !in child && '\\' !in child && child !in setOf(".", "..")) {
-            "The selected item has an invalid path."
+        requireUser(child.isNotBlank() && '/' !in child && '\\' !in child && child !in setOf(".", "..")) {
+            text(Res.string.msg_the_selected_item_has_an_invalid_path)
         }
         return parent.resolve(child).normalize().also { require(it.parent == parent.normalize()) }
     }
@@ -812,14 +875,14 @@ private suspend fun queryServerStatus(server: SavedServer): SavedServer = withCo
             output.flush()
 
             val packetLength = input.readVarInt()
-            require(packetLength in 1..MAX_SERVER_STATUS_PACKET_BYTES) { "The status response is too large." }
-            require(input.readVarInt() == 0) { "The server returned an unexpected status packet." }
+            requireUser(packetLength in 1..MAX_SERVER_STATUS_PACKET_BYTES) { text(Res.string.msg_the_status_response_is_too_large) }
+            requireUser(input.readVarInt() == 0) { text(Res.string.msg_the_server_returned_an_unexpected_status_packet) }
             val jsonLength = input.readVarInt()
-            require(jsonLength in 0..packetLength && jsonLength <= MAX_SERVER_STATUS_PACKET_BYTES) {
-                "The server returned an invalid status message."
+            requireUser(jsonLength in 0..packetLength && jsonLength <= MAX_SERVER_STATUS_PACKET_BYTES) {
+                text(Res.string.msg_the_server_returned_an_invalid_status_message)
             }
             val jsonBytes = input.readNBytes(jsonLength)
-            require(jsonBytes.size == jsonLength) { "The server status response ended unexpectedly." }
+            requireUser(jsonBytes.size == jsonLength) { text(Res.string.msg_the_server_status_response_ended_unexpectedly) }
             val json = jsonBytes.decodeToString()
             val players = PLAYERS_BLOCK.find(json)?.groupValues?.get(1).orEmpty()
             val online = ONLINE_PLAYERS.find(players)?.groupValues?.get(1)?.toIntOrNull()
@@ -840,10 +903,10 @@ private data class ServerEndpoint(val host: String, val port: Int)
 
 private fun String.toServerEndpoint(): ServerEndpoint {
     val value = trim()
-    require(value.isNotBlank()) { "The server address is blank." }
+    requireUser(value.isNotBlank()) { text(Res.string.msg_the_server_address_is_blank) }
     if (value.startsWith('[')) {
         val closing = value.indexOf(']')
-        require(closing > 1) { "The IPv6 server address is invalid." }
+        requireUser(closing > 1) { text(Res.string.msg_the_ipv6_server_address_is_invalid) }
         val host = value.substring(1, closing)
         val port = value.substring(closing + 1).removePrefix(":").toIntOrNull() ?: DEFAULT_SERVER_PORT
         return ServerEndpoint(host, port.requireServerPort())
@@ -856,7 +919,7 @@ private fun String.toServerEndpoint(): ServerEndpoint {
     return ServerEndpoint(value, DEFAULT_SERVER_PORT)
 }
 
-private fun Int.requireServerPort(): Int = also { require(it in 1..65_535) { "The server port is invalid." } }
+private fun Int.requireServerPort(): Int = also { requireUser(it in 1..65_535) { text(Res.string.msg_the_server_port_is_invalid) } }
 
 private fun DataOutputStream.writePacket(payload: ByteArray) {
     writeVarInt(payload.size)
@@ -888,7 +951,7 @@ private fun DataInputStream.readVarInt(): Int {
         if (current and 0x80 == 0) return result
         shift += 7
     }
-    throw LauncherException.InvalidMetadata("The server returned an invalid variable-length integer.")
+    throw LauncherException.InvalidMetadata(text(Res.string.msg_the_server_returned_an_invalid_variable_length))
 }
 
 private const val DEFAULT_SERVER_PORT = 25_565

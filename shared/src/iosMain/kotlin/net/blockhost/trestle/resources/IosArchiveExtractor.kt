@@ -2,6 +2,7 @@ package net.blockhost.trestle.resources
 
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.platform.useOkio
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -18,11 +19,11 @@ internal class IosArchiveExtractor(private val fileSystem: FileSystem = FileSyst
                 zip.listRecursively("/".toPath()).forEach { entry ->
                     entries++
                     if (entries > MAX_ENTRIES) {
-                        throw LauncherException.InvalidMetadata("The modpack archive contains too many files.")
+                        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_archive_contains_too_many_files))
                     }
                     val relativeSegments = entry.segments
                     if (relativeSegments.any { it.isBlank() || it == "." || it == ".." }) {
-                        throw LauncherException.InvalidMetadata("The modpack contains an unsafe archive path.")
+                        throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_contains_an_unsafe_archive_path))
                     }
                     val target = relativeSegments.fold(destination) { current, segment -> current / segment }
                     val metadata = zip.metadata(entry)
@@ -31,7 +32,7 @@ internal class IosArchiveExtractor(private val fileSystem: FileSystem = FileSyst
                     } else if (metadata.isRegularFile) {
                         extractedBytes += metadata.size ?: 0L
                         if (extractedBytes > MAX_EXTRACTED_BYTES) {
-                            throw LauncherException.InvalidMetadata("The modpack archive is too large when extracted.")
+                            throw LauncherException.InvalidMetadata(text(Res.string.msg_the_modpack_archive_is_too_large_when))
                         }
                         fileSystem.createDirectories(requireNotNull(target.parent))
                         zip.source(entry).buffer().useOkio { source ->
@@ -43,7 +44,7 @@ internal class IosArchiveExtractor(private val fileSystem: FileSystem = FileSyst
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The modpack archive could not be extracted.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_modpack_archive_could_not_be_extracted), error)
         }
     }
 

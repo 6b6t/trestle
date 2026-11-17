@@ -2,6 +2,10 @@ package net.blockhost.trestle.app
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_proxy_port_must_be_between_and
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 
@@ -35,7 +39,7 @@ data class ProxyPreferences(
     val password: String = "",
 ) {
     init {
-        require(port in 1..65535) { "Proxy port must be between 1 and 65535." }
+        requireUser(port in 1..65535) { text(Res.string.msg_proxy_port_must_be_between_and) }
     }
 }
 

@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import net.blockhost.trestle.text.load
 import net.blockhost.trestle.ui.OperationStatus
 
 class LauncherOperationService : Service() {
@@ -67,11 +68,13 @@ class LauncherOperationService : Service() {
         private const val EXTRA_COMPLETED = "completed"
         private const val EXTRA_TOTAL = "total"
 
-        fun update(context: Context, operation: OperationStatus) {
+        suspend fun update(context: Context, operation: OperationStatus) {
+            val title = operation.title.load()
+            val detail = operation.detail?.load()
             context.startForegroundService(
                 Intent(context, LauncherOperationService::class.java).apply {
-                    putExtra(EXTRA_TITLE, operation.title)
-                    putExtra(EXTRA_DETAIL, operation.detail)
+                    putExtra(EXTRA_TITLE, title)
+                    putExtra(EXTRA_DETAIL, detail)
                     putExtra(EXTRA_COMPLETED, operation.completed ?: -1L)
                     putExtra(EXTRA_TOTAL, operation.total ?: -1L)
                 },

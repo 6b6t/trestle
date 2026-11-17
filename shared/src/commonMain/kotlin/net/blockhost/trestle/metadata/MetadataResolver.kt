@@ -2,6 +2,11 @@ package net.blockhost.trestle.metadata
 
 import kotlinx.serialization.Serializable
 import net.blockhost.trestle.domain.LauncherException
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_metadata_overlay_does_not_inherit_from_s
+import net.blockhost.trestle.resources.msg_version_s_has_no_client_download
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 
 @Serializable
 data class ResolvedLibrary(
@@ -40,7 +45,7 @@ data class InstalledVersion(
 object MinecraftMetadataResolver {
     fun resolve(metadata: VersionMetadata, environment: PlatformEnvironment): ResolvedVersion {
         val client = metadata.downloads.client
-            ?: throw LauncherException.InvalidMetadata("Version ${metadata.id} has no client download.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_version_s_has_no_client_download, metadata.id))
         val libraries = resolveLibraries(metadata.libraries, environment)
 
         val modern = metadata.arguments
@@ -114,8 +119,8 @@ object MinecraftMetadataResolver {
     }.distinctBy { it.path }
 
     fun merge(base: VersionMetadata, overlay: VersionMetadata): VersionMetadata {
-        require(overlay.inheritsFrom == null || overlay.inheritsFrom == base.id) {
-            "Metadata overlay does not inherit from ${base.id}."
+        requireUser(overlay.inheritsFrom == null || overlay.inheritsFrom == base.id) {
+            text(Res.string.msg_metadata_overlay_does_not_inherit_from_s, base.id)
         }
         return base.copy(
             id = overlay.id,

@@ -21,6 +21,16 @@ import net.blockhost.trestle.metadata.InstalledVersion
 import net.blockhost.trestle.metadata.MavenCoordinate
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_a_native_library_contains_an_unsafe_path
+import net.blockhost.trestle.resources.msg_loader_bootstrap_arguments_were_requested_for_an
+import net.blockhost.trestle.resources.msg_minecraft_could_not_start
+import net.blockhost.trestle.resources.msg_the_custom_java_executable_is_not_usable
+import net.blockhost.trestle.resources.msg_the_pre_launch_command_exited_with_code
+import net.blockhost.trestle.resources.msg_the_s_instance_has_no_loader_version
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
+import net.blockhost.trestle.text.userText
 import okio.Path.Companion.toPath
 import java.io.File
 import java.nio.file.Files
@@ -59,7 +69,7 @@ class DesktopMinecraftRuntime(
         if (instance.javaExecutable != null) {
             val executable = Path.of(java)
             if (!Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
-                throw LauncherException.RuntimeUnavailable("The custom Java executable is not usable: $java")
+                throw LauncherException.RuntimeUnavailable(text(Res.string.msg_the_custom_java_executable_is_not_usable, java))
             }
         }
         val nativeDirectory = extractNatives(instance, installed)
@@ -114,7 +124,7 @@ class DesktopMinecraftRuntime(
             mainClass = installed.metadata.mainClass,
             classpathEntries = classpathEntries,
             nativeDirectory = nativeDirectory.toString(),
-            missingRequirements = if (session == null) listOf("Java account") else emptyList(),
+            missingRequirements = if (session == null) listOf(LaunchRequirement.JAVA_ACCOUNT) else emptyList(),
             preLaunchCommand = instance.preLaunchCommand,
             wrapperCommand = instance.wrapperCommand,
             postExitCommand = instance.postExitCommand,
@@ -141,7 +151,7 @@ class DesktopMinecraftRuntime(
                     send(LaunchEvent.Log("[pre-launch] $line"))
                 }
                 if (exitCode != 0) {
-                    send(LaunchEvent.Failed("The pre-launch command exited with code $exitCode."))
+                    send(LaunchEvent.Failed(text(Res.string.msg_the_pre_launch_command_exited_with_code, exitCode)))
                     return@channelFlow
                 }
             }
@@ -207,7 +217,7 @@ class DesktopMinecraftRuntime(
                 error,
                 mapOf("instanceId" to preparedLaunch.instanceId),
             )
-            send(LaunchEvent.Failed(error.message ?: "Minecraft could not start."))
+            send(LaunchEvent.Failed(error.userText(text(Res.string.msg_minecraft_could_not_start))))
         }
     }
 
@@ -246,7 +256,7 @@ class DesktopMinecraftRuntime(
                     if (entry.isDirectory || library.extractionExcludes.any { entry.name.startsWith(it) }) continue
                     val target = root.resolve(entry.name).normalize()
                     if (!target.startsWith(root)) {
-                        throw LauncherException.FileSystem("A native library contains an unsafe path.")
+                        throw LauncherException.FileSystem(text(Res.string.msg_a_native_library_contains_an_unsafe_path))
                     }
                     Files.createDirectories(target.parent)
                     zip.getInputStream(entry).use { input ->
@@ -297,7 +307,7 @@ class DesktopMinecraftRuntime(
     private fun loaderBootstrapArguments(instance: GameInstance, installed: InstalledVersion, clientJar: okio.Path): List<String> {
         if (instance.modLoader !in setOf(ModLoader.NEOFORGE, ModLoader.FORGE)) return emptyList()
         val loaderVersion = instance.loaderVersion
-            ?: throw LauncherException.InvalidMetadata("The ${instance.modLoader.label} instance has no loader version.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_s_instance_has_no_loader_version, instance.modLoader.label))
         val installerCoordinate = when (instance.modLoader) {
             ModLoader.FORGE -> "net.minecraftforge:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
 
@@ -307,7 +317,7 @@ class DesktopMinecraftRuntime(
                 "net.neoforged:forge:${instance.minecraftVersionId}-$loaderVersion:installer"
             }
 
-            else -> error("Loader bootstrap arguments were requested for an unsupported loader.")
+            else -> userError(text(Res.string.msg_loader_bootstrap_arguments_were_requested_for_an))
         }
         val installer = directories.libraries /
             MavenCoordinate.parse(installerCoordinate).path()

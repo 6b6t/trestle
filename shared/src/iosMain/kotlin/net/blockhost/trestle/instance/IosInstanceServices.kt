@@ -3,6 +3,14 @@ package net.blockhost.trestle.instance
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.platform.useOkio
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_a_screenshot_with_that_name_already_exists
+import net.blockhost.trestle.resources.msg_portable_zip_export_is_not_available_in
+import net.blockhost.trestle.resources.msg_the_file_name_is_not_valid
+import net.blockhost.trestle.resources.msg_the_selected_file_name_is_not_safe
+import net.blockhost.trestle.resources.msg_this_game_data_operation_is_not_available
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.GzipSource
 import okio.Path
@@ -11,7 +19,7 @@ import okio.buffer
 
 internal class IosInstanceExporter : InstanceExporter {
     override fun export(instance: GameInstance, destination: Path): Path = throw LauncherException.RuntimeUnavailable(
-        "Portable ZIP export is not available in the iOS host yet.",
+        text(Res.string.msg_portable_zip_export_is_not_available_in),
     )
 }
 
@@ -75,7 +83,7 @@ internal class IosGameDataManager(private val fileSystem: FileSystem = FileSyste
         val extension = source.name.substringAfterLast('.', "")
         val base = safeName(newName.substringBeforeLast('.', newName))
         val destination = safeChild(screenshots, if (extension.isBlank()) base else "$base.$extension")
-        require(!fileSystem.exists(destination)) { "A screenshot with that name already exists." }
+        requireUser(!fileSystem.exists(destination)) { text(Res.string.msg_a_screenshot_with_that_name_already_exists) }
         fileSystem.atomicMove(source, destination)
         val metadata = fileSystem.metadata(destination)
         return ManagedScreenshot(
@@ -126,14 +134,14 @@ internal class IosGameDataManager(private val fileSystem: FileSystem = FileSyste
 
     private fun safeChild(parent: Path, key: String): Path {
         val name = safeName(key)
-        require(name == key) { "The selected file name is not safe." }
+        requireUser(name == key) { text(Res.string.msg_the_selected_file_name_is_not_safe) }
         return parent / name
     }
 
     private fun safeName(value: String): String {
         val trimmed = value.trim()
-        require(trimmed.isNotBlank() && trimmed !in setOf(".", "..") && '/' !in trimmed && '\\' !in trimmed) {
-            "The file name is not valid."
+        requireUser(trimmed.isNotBlank() && trimmed !in setOf(".", "..") && '/' !in trimmed && '\\' !in trimmed) {
+            text(Res.string.msg_the_file_name_is_not_valid)
         }
         return trimmed
     }
@@ -145,7 +153,7 @@ internal class IosGameDataManager(private val fileSystem: FileSystem = FileSyste
     }
 
     private fun <T> unsupported(): T = throw LauncherException.RuntimeUnavailable(
-        "This game-data operation is not available in the iOS host yet.",
+        text(Res.string.msg_this_game_data_operation_is_not_available),
     )
 
     private companion object {

@@ -3,6 +3,12 @@ package net.blockhost.trestle.runtime
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.MemorySettings
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_memory_leaves_too_little_ram
+import net.blockhost.trestle.resources.msg_mobile_memory_too_high
+import net.blockhost.trestle.resources.msg_modded_needs_more_memory
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.text
 
 data class SystemProfile(val totalMemoryMiB: Int, val availableProcessors: Int, val isMobile: Boolean) {
     init {
@@ -11,7 +17,7 @@ data class SystemProfile(val totalMemoryMiB: Int, val availableProcessors: Int, 
     }
 }
 
-data class LaunchRecommendation(val memory: MemorySettings, val warnings: List<String>)
+data class LaunchRecommendation(val memory: MemorySettings, val warnings: List<UserText>)
 
 object LaunchTuningAdvisor {
     fun recommend(instance: GameInstance, system: SystemProfile): LaunchRecommendation {
@@ -19,13 +25,13 @@ object LaunchTuningAdvisor {
         val safeMaximum = safeMaximum(system)
         val warnings = buildList {
             if (instance.memory.maximumMiB > safeMaximum) {
-                add("The configured memory leaves too little RAM for the operating system.")
+                add(text(Res.string.msg_memory_leaves_too_little_ram))
             }
             if (system.isMobile && instance.memory.maximumMiB > system.totalMemoryMiB / 2) {
-                add("High mobile memory allocation can cause the system to stop Minecraft.")
+                add(text(Res.string.msg_mobile_memory_too_high))
             }
             if (instance.memory.maximumMiB < 1_024 && instance.modLoader != ModLoader.VANILLA) {
-                add("Modded instances usually need at least 1 GiB of memory.")
+                add(text(Res.string.msg_modded_needs_more_memory))
             }
         }
         return LaunchRecommendation(memory = recommendedMemory, warnings = warnings)

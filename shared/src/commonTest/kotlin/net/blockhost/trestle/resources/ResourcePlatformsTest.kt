@@ -10,6 +10,9 @@ import io.ktor.http.headersOf
 import kotlinx.coroutines.test.runTest
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_curseforge_is_not_configured_for_this_build
+import net.blockhost.trestle.text.text
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -152,7 +155,7 @@ class ResourcePlatformsTest {
             platform.search(ResourceSearchRequest(type = ResourceType.MOD))
         }
 
-        assertTrue(error.message.orEmpty().contains("TRESTLE_CURSEFORGE_API_KEY"))
+        assertEquals(text(Res.string.msg_curseforge_is_not_configured_for_this_build), error.userText)
     }
 
     @Test

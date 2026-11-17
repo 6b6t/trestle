@@ -38,12 +38,17 @@ import net.blockhost.trestle.resources.LegacyFtbResourcePlatform
 import net.blockhost.trestle.resources.ModpackInstaller
 import net.blockhost.trestle.resources.ModpackUpdates
 import net.blockhost.trestle.resources.ModrinthResourcePlatform
+import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceInstaller
 import net.blockhost.trestle.resources.ResourcePlatformRegistry
 import net.blockhost.trestle.resources.RestrictedDownloads
 import net.blockhost.trestle.resources.TechnicResourcePlatform
+import net.blockhost.trestle.resources.msg_import_download_failed_with_http_s
+import net.blockhost.trestle.resources.msg_remote_imports_must_be_smaller_than_mib
 import net.blockhost.trestle.runtime.MinecraftRuntime
 import net.blockhost.trestle.runtime.SystemProfile
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -136,11 +141,11 @@ class LauncherServices private constructor(
         val response = httpClient.get(url)
         if (!response.status.isSuccess()) {
             throw net.blockhost.trestle.domain.LauncherException.Network(
-                "Import download failed with HTTP ${response.status.value}.",
+                text(Res.string.msg_import_download_failed_with_http_s, response.status.value),
             )
         }
         val bytes = response.body<ByteArray>()
-        require(bytes.size <= MAX_REMOTE_IMPORT_BYTES) { "Remote imports must be smaller than 512 MiB." }
+        requireUser(bytes.size <= MAX_REMOTE_IMPORT_BYTES) { text(Res.string.msg_remote_imports_must_be_smaller_than_mib) }
         val fileName = io.ktor.http.Url(url).encodedPath.substringAfterLast('/').substringBefore('?')
             .ifBlank { "download.zip" }
         return fileName to bytes

@@ -9,6 +9,13 @@ import android.os.ParcelFileDescriptor
 import android.provider.DocumentsContract
 import android.provider.DocumentsProvider
 import android.webkit.MimeTypeMap
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_the_document_path_escapes_trestle_s_instance
+import net.blockhost.trestle.resources.msg_the_document_path_is_empty
+import net.blockhost.trestle.resources.msg_the_file_is_outside_trestle_s_instance
+import net.blockhost.trestle.resources.msg_unknown_trestle_document_id
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import java.io.File
 import java.io.FileNotFoundException
 
@@ -161,8 +168,8 @@ internal object TrestleDocumentPaths {
     fun documentIdFor(root: File, target: File): String {
         val canonicalRoot = root.canonicalFile
         val canonicalTarget = target.canonicalFile
-        require(canonicalTarget.toPath().startsWith(canonicalRoot.toPath())) {
-            "The file is outside Trestle's instance storage."
+        requireUser(canonicalTarget.toPath().startsWith(canonicalRoot.toPath())) {
+            text(Res.string.msg_the_file_is_outside_trestle_s_instance)
         }
         if (canonicalTarget == canonicalRoot) return ROOT_DOCUMENT_ID
         val relativePath = canonicalTarget.relativeTo(canonicalRoot).invariantSeparatorsPath
@@ -172,12 +179,12 @@ internal object TrestleDocumentPaths {
     fun fileFor(root: File, documentId: String): File {
         val canonicalRoot = root.canonicalFile
         if (documentId == ROOT_DOCUMENT_ID) return canonicalRoot
-        require(documentId.startsWith("$ROOT_DOCUMENT_ID/")) { "Unknown Trestle document ID." }
+        requireUser(documentId.startsWith("$ROOT_DOCUMENT_ID/")) { text(Res.string.msg_unknown_trestle_document_id) }
         val relativePath = documentId.removePrefix("$ROOT_DOCUMENT_ID/")
-        require(relativePath.isNotBlank()) { "The document path is empty." }
+        requireUser(relativePath.isNotBlank()) { text(Res.string.msg_the_document_path_is_empty) }
         val target = canonicalRoot.resolve(relativePath).canonicalFile
-        require(target.toPath().startsWith(canonicalRoot.toPath())) {
-            "The document path escapes Trestle's instance storage."
+        requireUser(target.toPath().startsWith(canonicalRoot.toPath())) {
+            text(Res.string.msg_the_document_path_escapes_trestle_s_instance)
         }
         return target
     }

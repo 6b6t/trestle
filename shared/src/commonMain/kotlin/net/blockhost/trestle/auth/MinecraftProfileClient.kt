@@ -19,6 +19,14 @@ import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_minecraft_profile_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_skin_download_failed_with_http_s
+import net.blockhost.trestle.resources.msg_skin_reset_failed_with_http_s
+import net.blockhost.trestle.resources.msg_the_minecraft_profile_service_could_not_be
+import net.blockhost.trestle.resources.msg_this_account_does_not_provide_an_online
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
 
 @Serializable
 private data class ProfileSkinResponse(val id: String, val state: String = "ACTIVE", val url: String, val variant: String = "CLASSIC")
@@ -63,7 +71,7 @@ class MinecraftProfileClient(
                 bearerAuth(session.requireAccessToken().reveal())
             }
             if (!response.status.isSuccess()) {
-                throw LauncherException.Network("Skin reset failed with HTTP ${response.status.value}.")
+                throw LauncherException.Network(text(Res.string.msg_skin_reset_failed_with_http_s, response.status.value))
             }
         }
         return requestProfile(session, "refresh")
@@ -72,7 +80,7 @@ class MinecraftProfileClient(
     suspend fun fetchSkinTexture(url: String): ByteArray = execute("download") {
         val response = httpClient.get(url)
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("Skin download failed with HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_skin_download_failed_with_http_s, response.status.value))
         }
         response.bodyAsBytes().also(::inspectMinecraftSkin)
     }
@@ -85,7 +93,7 @@ class MinecraftProfileClient(
 
     private suspend fun io.ktor.client.statement.HttpResponse.toAccount(): LauncherAccount {
         if (!status.isSuccess()) {
-            throw LauncherException.Network("Minecraft profile request failed with HTTP ${status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_minecraft_profile_request_failed_with_http_s, status.value))
         }
         val response = profileJson.decodeFromString<MinecraftProfileResponse>(bodyAsText())
         val activeSkin = response.skins.firstOrNull { it.state.equals("ACTIVE", ignoreCase = true) }
@@ -115,7 +123,7 @@ class MinecraftProfileClient(
             throw error
         } catch (error: Exception) {
             logger.error("skins", "Minecraft profile operation failed", error, mapOf("operation" to operation))
-            throw LauncherException.Network("The Minecraft profile service could not be reached.", error)
+            throw LauncherException.Network(text(Res.string.msg_the_minecraft_profile_service_could_not_be), error)
         }
     }
 
@@ -125,4 +133,4 @@ class MinecraftProfileClient(
 }
 
 private fun AuthSession.requireAccessToken(): SecretValue =
-    requireNotNull(accessToken) { "This account does not provide an online Minecraft access token." }
+    requireUserNotNull(accessToken) { text(Res.string.msg_this_account_does_not_provide_an_online) }

@@ -28,6 +28,18 @@ import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.InstalledVersion
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_android_requires_arm64_or_x64
+import net.blockhost.trestle.resources.msg_installing_android_game_components
+import net.blockhost.trestle.resources.msg_installing_java_25_runtime
+import net.blockhost.trestle.resources.msg_minecraft_s_requires_java_s_but_the
+import net.blockhost.trestle.resources.msg_sign_in_with_a_minecraft_java_edition
+import net.blockhost.trestle.resources.msg_the_android_game_activity_could_not_start
+import net.blockhost.trestle.resources.msg_the_android_mvp_supports_vanilla_minecraft_s
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userText
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import java.io.File
@@ -64,7 +76,7 @@ class AndroidMinecraftRuntime internal constructor(
 
     private val supportsArchitecture = AndroidRuntimeAbi.entries.any { it.architecture == architecture }
     private val unavailableReason = when {
-        !supportsArchitecture -> "Android game launch requires an ARM64 or x64 process."
+        !supportsArchitecture -> text(Res.string.msg_android_requires_arm64_or_x64)
         !graphicsCompatibility.isSupported -> graphicsCompatibility.unavailableReason
         else -> null
     }
@@ -100,8 +112,12 @@ class AndroidMinecraftRuntime internal constructor(
         val installed = installedVersionReader(instance)
         if (installed.requiredJavaMajor != REQUIRED_JAVA_MAJOR) {
             throw LauncherException.RuntimeUnavailable(
-                "Minecraft $MVP_VERSION requires Java $REQUIRED_JAVA_MAJOR, but the installed manifest requests " +
-                    "Java ${installed.requiredJavaMajor}.",
+                text(
+                    Res.string.msg_minecraft_s_requires_java_s_but_the,
+                    MVP_VERSION,
+                    REQUIRED_JAVA_MAJOR,
+                    installed.requiredJavaMajor,
+                ),
             )
         }
         val session = sessionProvider.currentSession(instance.accountProfileId)
@@ -113,13 +129,13 @@ class AndroidMinecraftRuntime internal constructor(
                 mainClass = installed.metadata.mainClass,
                 classpathEntries = emptyList(),
                 nativeDirectory = "",
-                missingRequirements = listOf("Java account"),
+                missingRequirements = listOf(LaunchRequirement.JAVA_ACCOUNT),
             )
         val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
-            onProgress(progress.toRuntimeProgress("Installing Java 25 runtime"))
+            onProgress(progress.toRuntimeProgress(text(Res.string.msg_installing_java_25_runtime)))
         }
         val components = componentManager.resolve(AndroidRuntimeAbi.forArchitecture(architecture)) { progress ->
-            onProgress(progress.toRuntimeProgress("Installing Android game components"))
+            onProgress(progress.toRuntimeProgress(text(Res.string.msg_installing_android_game_components)))
         }
         val gameDirectory = instance.instanceDirectory.toPath() / "game"
         FileSystem.SYSTEM.createDirectories(gameDirectory)
@@ -217,7 +233,7 @@ class AndroidMinecraftRuntime internal constructor(
 
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = callbackFlow {
         if (preparedLaunch.missingRequirements.isNotEmpty()) {
-            trySend(LaunchEvent.Failed("Sign in with a Minecraft: Java Edition account before launching."))
+            trySend(LaunchEvent.Failed(text(Res.string.msg_sign_in_with_a_minecraft_java_edition)))
             close()
             return@callbackFlow
         }
@@ -231,14 +247,14 @@ class AndroidMinecraftRuntime internal constructor(
         }.getOrElse { error ->
             val message = "The Minecraft output log could not be created: ${error.message.orEmpty()}"
             logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
-            trySend(LaunchEvent.Failed(message))
+            trySend(LaunchEvent.Failed(message.asUserText()))
             close(error)
             return@callbackFlow
         }
         val outputTailer = runCatching { outputLog.tailer() }.getOrElse { error ->
             val message = "The Minecraft output log could not be monitored: ${error.message.orEmpty()}"
             logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
-            trySend(LaunchEvent.Failed(message))
+            trySend(LaunchEvent.Failed(message.asUserText()))
             close(error)
             return@callbackFlow
         }
@@ -294,7 +310,7 @@ class AndroidMinecraftRuntime internal constructor(
                         message,
                         details = mapOf("instanceId" to preparedLaunch.instanceId),
                     )
-                    trySend(LaunchEvent.Failed(message))
+                    trySend(LaunchEvent.Failed(message.asUserText()))
                     close()
                 }
             }
@@ -330,7 +346,7 @@ class AndroidMinecraftRuntime internal constructor(
                         runCatching { streamAvailableOutput(includePartialLine = true) }
                         val message = resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)
                             ?: "Minecraft could not start."
-                        trySend(LaunchEvent.Failed(message))
+                        trySend(LaunchEvent.Failed(message.asUserText()))
                         close()
                     }
                 }
@@ -365,13 +381,13 @@ class AndroidMinecraftRuntime internal constructor(
                 if (!processAnnounced.get() && terminalReceived.compareAndSet(false, true)) {
                     val message = "The Android game process did not start within 20 seconds."
                     logger.error("runtime", message, details = mapOf("instanceId" to preparedLaunch.instanceId))
-                    trySend(LaunchEvent.Failed(message))
+                    trySend(LaunchEvent.Failed(message.asUserText()))
                     close()
                 }
             }
         } catch (error: Exception) {
             logger.error("runtime", "Android game activity could not start", error)
-            trySend(LaunchEvent.Failed(error.message ?: "The Android game activity could not start."))
+            trySend(LaunchEvent.Failed(error.userText(text(Res.string.msg_the_android_game_activity_could_not_start))))
             close(error)
         }
         awaitClose {
@@ -390,12 +406,12 @@ class AndroidMinecraftRuntime internal constructor(
         unavailableReason?.let { throw LauncherException.RuntimeUnavailable(it) }
         if (instance.minecraftVersionId != MVP_VERSION || instance.modLoader != ModLoader.VANILLA) {
             throw LauncherException.RuntimeUnavailable(
-                "The Android MVP supports vanilla Minecraft $MVP_VERSION only.",
+                text(Res.string.msg_the_android_mvp_supports_vanilla_minecraft_s, MVP_VERSION),
             )
         }
     }
 
-    private fun net.blockhost.trestle.download.DownloadProgress.toRuntimeProgress(stage: String): RuntimePreparationProgress =
+    private fun net.blockhost.trestle.download.DownloadProgress.toRuntimeProgress(stage: UserText): RuntimePreparationProgress =
         RuntimePreparationProgress(
             stage = activeLabel ?: stage,
             completedBytes = completedBytes,

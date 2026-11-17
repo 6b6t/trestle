@@ -131,6 +131,7 @@ import net.blockhost.trestle.resources.ui_import_hint_touch
 import net.blockhost.trestle.resources.ui_inspect_launch_plan
 import net.blockhost.trestle.resources.ui_install
 import net.blockhost.trestle.resources.ui_instance_settings
+import net.blockhost.trestle.resources.ui_java_account
 import net.blockhost.trestle.resources.ui_last_played_on
 import net.blockhost.trestle.resources.ui_launch
 import net.blockhost.trestle.resources.ui_library
@@ -180,6 +181,8 @@ import net.blockhost.trestle.resources.ui_stop
 import net.blockhost.trestle.resources.ui_try_another_name_version_or_loader
 import net.blockhost.trestle.resources.ui_unavailable
 import net.blockhost.trestle.resources.ui_unpin_from_top
+import net.blockhost.trestle.runtime.LaunchRequirement
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -863,9 +866,9 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(status.title, style = MaterialTheme.typography.labelLarge)
+                    Text(status.title.resolve(), style = MaterialTheme.typography.labelLarge)
                     val progressDetail = buildList {
-                        status.detail?.let(::add)
+                        status.detail?.let { add(it.resolve()) }
                         if (status.completed != null && status.total != null) {
                             add(stringResource(Res.string.ui_s_of_s, formatFileSize(status.completed), formatFileSize(status.total)))
                         }
@@ -883,7 +886,7 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
                         )
                     }
                 }
-                if (status.cancellable) TextButton(onClick = onCancel) { Text(status.cancelLabel) }
+                if (status.cancellable) TextButton(onClick = onCancel) { Text(status.cancelLabel.resolve()) }
             }
         }
     }
@@ -919,12 +922,12 @@ private fun launchStatusMessage(state: LauncherUiState, instance: GameInstance, 
     is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
         null
     } else {
-        stringResource(Res.string.ui_required_before_launch_s, status.missingRequirements.joinToString())
+        stringResource(Res.string.ui_required_before_launch_s, status.missingRequirements.map { it.label() }.joinToString())
     }
 
-    is LaunchStatus.Failed -> status.message
+    is LaunchStatus.Failed -> status.message.resolve()
 
-    is LaunchStatus.Unavailable -> status.reason
+    is LaunchStatus.Unavailable -> status.reason.resolve()
 
     LaunchStatus.Checking -> stringResource(Res.string.ui_checking_launch_requirements)
 
@@ -978,7 +981,7 @@ internal fun otherRunningInstance(state: LauncherUiState, instance: GameInstance
 private fun requiresImportedAccount(state: LauncherUiState, instance: GameInstance): Boolean {
     if (state.accounts.isNotEmpty()) return false
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status
-    return status is LaunchStatus.Blocked && "Java account" in status.missingRequirements
+    return status is LaunchStatus.Blocked && LaunchRequirement.JAVA_ACCOUNT in status.missingRequirements
 }
 
 @Composable
@@ -1231,4 +1234,10 @@ internal fun LoadingRows(modifier: Modifier) {
             )
         }
     }
+}
+
+/** The name of something the player must provide before launch. */
+@Composable
+internal fun LaunchRequirement.label(): String = when (this) {
+    LaunchRequirement.JAVA_ACCOUNT -> stringResource(Res.string.ui_java_account)
 }

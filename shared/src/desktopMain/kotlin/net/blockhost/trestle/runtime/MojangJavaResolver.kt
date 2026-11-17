@@ -20,6 +20,25 @@ import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.DownloadReference
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_downloading_java_runtime
+import net.blockhost.trestle.resources.msg_ios_runtimes_are_provided_by_the_ios
+import net.blockhost.trestle.resources.msg_java_runtime_metadata_request_failed_with_http
+import net.blockhost.trestle.resources.msg_minecraft_metadata_does_not_name_a_mojang
+import net.blockhost.trestle.resources.msg_mojang_does_not_provide_a_desktop_java
+import net.blockhost.trestle.resources.msg_mojang_does_not_provide_a_java_runtime
+import net.blockhost.trestle.resources.msg_mojang_does_not_provide_s_for_s
+import net.blockhost.trestle.resources.msg_mojang_java_runtime_metadata_could_not_be
+import net.blockhost.trestle.resources.msg_mojang_runtime_file_s_has_no_raw
+import net.blockhost.trestle.resources.msg_mojang_runtime_link_s_escapes_the_runtime
+import net.blockhost.trestle.resources.msg_mojang_runtime_link_s_has_no_target
+import net.blockhost.trestle.resources.msg_mojang_runtime_metadata_contains_an_unsafe_path
+import net.blockhost.trestle.resources.msg_mojang_runtime_metadata_contains_an_unsafe_path_2
+import net.blockhost.trestle.resources.msg_mojang_runtime_wrong_java
+import net.blockhost.trestle.resources.msg_mojang_s_java_executable_is_not_usable
+import net.blockhost.trestle.resources.msg_the_managed_java_executable_permission_could_not
+import net.blockhost.trestle.resources.msg_the_managed_java_s_runtime_is_incomplete
+import net.blockhost.trestle.text.text
 import okio.ByteString.Companion.encodeUtf8
 import okio.Path.Companion.toPath
 import java.nio.file.Files
@@ -56,13 +75,12 @@ class MojangJavaResolver(
             .filter { it.availability.progress == 100 }
             .maxByOrNull { it.version.released }
             ?: throw LauncherException.RuntimeUnavailable(
-                "Mojang does not provide $runtimeComponent for $platform.",
+                text(Res.string.msg_mojang_does_not_provide_s_for_s, runtimeComponent, platform),
             )
         val actualMajor = release.version.name.substringBefore('.').substringBefore('u').toIntOrNull()
         if (actualMajor != requiredMajor) {
             throw LauncherException.InvalidMetadata(
-                "Mojang runtime $runtimeComponent provides Java ${actualMajor ?: "unknown"}, " +
-                    "but the game requires Java $requiredMajor.",
+                text(Res.string.msg_mojang_runtime_wrong_java, runtimeComponent, actualMajor?.toString() ?: "?", requiredMajor),
             )
         }
 
@@ -96,7 +114,7 @@ class MojangJavaResolver(
             )
             return@withLock executable.toString()
         }
-        throw LauncherException.RuntimeUnavailable("The managed Java $requiredMajor runtime is incomplete.")
+        throw LauncherException.RuntimeUnavailable(text(Res.string.msg_the_managed_java_s_runtime_is_incomplete, requiredMajor))
     }
 
     private suspend fun provision(runtimeRoot: Path, manifestSha1: String, manifest: JavaRuntimeManifest) {
@@ -109,13 +127,13 @@ class MojangJavaResolver(
         val downloads = manifest.files.mapNotNull { (name, entry) ->
             if (entry.type != JavaRuntimeFileType.FILE) return@mapNotNull null
             val raw = entry.downloads?.raw
-                ?: throw LauncherException.InvalidMetadata("Mojang runtime file $name has no raw download.")
+                ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_mojang_runtime_file_s_has_no_raw, name))
             DownloadRequest(
                 url = raw.url,
                 destination = safePath(runtimeRoot, name).toString().toPath(),
                 sha1 = raw.sha1,
                 size = raw.size,
-                progressLabel = "Downloading Java runtime",
+                progressLabel = text(Res.string.msg_downloading_java_runtime),
             )
         }
         downloadPipeline.download(
@@ -130,11 +148,11 @@ class MojangJavaResolver(
         manifest.files.forEach { (name, entry) ->
             if (entry.type != JavaRuntimeFileType.LINK) return@forEach
             val targetValue = entry.target
-                ?: throw LauncherException.InvalidMetadata("Mojang runtime link $name has no target.")
+                ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_mojang_runtime_link_s_has_no_target, name))
             val link = safePath(runtimeRoot, name)
             val resolvedTarget = link.parent.resolve(targetValue).normalize()
             if (!resolvedTarget.startsWith(runtimeRoot)) {
-                throw LauncherException.InvalidMetadata("Mojang runtime link $name escapes the runtime directory.")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_mojang_runtime_link_s_escapes_the_runtime, name))
             }
             Files.createDirectories(link.parent)
             if (!Files.exists(link, LinkOption.NOFOLLOW_LINKS)) {
@@ -143,7 +161,7 @@ class MojangJavaResolver(
         }
         val executable = executablePath(runtimeRoot)
         if (!Files.isRegularFile(executable) || !Files.isExecutable(executable)) {
-            throw LauncherException.RuntimeUnavailable("Mojang's Java executable is not usable: $executable")
+            throw LauncherException.RuntimeUnavailable(text(Res.string.msg_mojang_s_java_executable_is_not_usable, executable))
         }
         Files.writeString(
             runtimeRoot.resolve(COMPLETE_MARKER),
@@ -184,7 +202,7 @@ class MojangJavaResolver(
             val response = httpClient.get(url)
             if (!response.status.isSuccess()) {
                 throw LauncherException.Network(
-                    "Java runtime metadata request failed with HTTP ${response.status.value}.",
+                    text(Res.string.msg_java_runtime_metadata_request_failed_with_http, response.status.value),
                 )
             }
             val body = response.bodyAsText()
@@ -200,7 +218,7 @@ class MojangJavaResolver(
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.Network("Mojang Java runtime metadata could not be loaded.", error)
+            throw LauncherException.Network(text(Res.string.msg_mojang_java_runtime_metadata_could_not_be), error)
         }
     }
 
@@ -216,24 +234,24 @@ class MojangJavaResolver(
         25 -> "java-runtime-epsilon"
 
         else -> throw LauncherException.RuntimeUnavailable(
-            "Minecraft metadata does not name a Mojang runtime for Java $requiredMajor.",
+            text(Res.string.msg_minecraft_metadata_does_not_name_a_mojang, requiredMajor),
         )
     }
 
     private fun makeExecutable(path: Path) {
         if (!path.toFile().setExecutable(true, false) && !Files.isExecutable(path)) {
-            throw LauncherException.FileSystem("The managed Java executable permission could not be set: $path")
+            throw LauncherException.FileSystem(text(Res.string.msg_the_managed_java_executable_permission_could_not, path))
         }
     }
 
     private fun safePath(root: Path, name: String): Path {
         if (name.isBlank() || '\\' in name) {
-            throw LauncherException.InvalidMetadata("Mojang runtime metadata contains an unsafe path.")
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_mojang_runtime_metadata_contains_an_unsafe_path))
         }
         val relative = Path.of(name)
         val target = root.resolve(relative).normalize()
         if (relative.isAbsolute || relative.any { it.toString() == ".." } || !target.startsWith(root)) {
-            throw LauncherException.InvalidMetadata("Mojang runtime metadata contains an unsafe path: $name")
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_mojang_runtime_metadata_contains_an_unsafe_path_2, name))
         }
         return target
     }
@@ -261,7 +279,7 @@ internal fun mojangRuntimePlatform(environment: PlatformEnvironment): String = w
     }
 
     OperatingSystem.IOS -> throw LauncherException.RuntimeUnavailable(
-        "iOS runtimes are provided by the iOS application host.",
+        text(Res.string.msg_ios_runtimes_are_provided_by_the_ios),
     )
 
     OperatingSystem.WINDOWS -> when (environment.architecture) {
@@ -272,12 +290,12 @@ internal fun mojangRuntimePlatform(environment: PlatformEnvironment): String = w
     }
 
     OperatingSystem.UNKNOWN -> throw LauncherException.RuntimeUnavailable(
-        "Mojang does not provide a Java runtime for this operating system.",
+        text(Res.string.msg_mojang_does_not_provide_a_java_runtime),
     )
 }
 
 private fun unsupportedPlatform(os: String, architecture: Architecture): Nothing = throw LauncherException.RuntimeUnavailable(
-    "Mojang does not provide a desktop Java runtime for $os ${architecture.name.lowercase()}.",
+    text(Res.string.msg_mojang_does_not_provide_a_desktop_java, os, architecture.name.lowercase()),
 )
 
 private typealias JavaRuntimeIndex = Map<String, Map<String, List<JavaRuntimeRelease>>>

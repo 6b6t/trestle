@@ -8,6 +8,10 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -160,8 +164,8 @@ class ResourceInstaller(
         version: ResourceVersion,
         onProgress: suspend (DownloadProgress) -> Unit = {},
     ): ResourceInstallSummary {
-        val provider = requireNotNull(content.provider) { "Local files do not have an update source." }
-        val projectId = requireNotNull(content.projectId) { "Local files do not have an update source." }
+        val provider = requireUserNotNull(content.provider) { text(Res.string.msg_local_files_do_not_have_an_update) }
+        val projectId = requireUserNotNull(content.projectId) { text(Res.string.msg_local_files_do_not_have_an_update) }
         val project = ResourceProject(
             provider = provider,
             id = projectId,
@@ -179,12 +183,12 @@ class ResourceInstaller(
     }
 
     suspend fun installLocal(instance: GameInstance, fileName: String, bytes: ByteArray, type: ResourceType) {
-        require(instance.installationState is net.blockhost.trestle.domain.InstallationState.Installed) {
-            "Install the instance before adding local content."
+        requireUser(instance.installationState is net.blockhost.trestle.domain.InstallationState.Installed) {
+            text(Res.string.msg_install_the_instance_before_adding_local_content)
         }
-        require(type != ResourceType.MODPACK) { "Modpacks create new instances." }
-        require(bytes.isNotEmpty()) { "The selected file is empty." }
-        require(bytes.size <= MAX_LOCAL_RESOURCE_BYTES) { "Local content files must be smaller than 512 MiB." }
+        requireUser(type != ResourceType.MODPACK) { text(Res.string.msg_modpacks_create_new_instances) }
+        requireUser(bytes.isNotEmpty()) { text(Res.string.msg_the_selected_file_is_empty) }
+        requireUser(bytes.size <= MAX_LOCAL_RESOURCE_BYTES) { text(Res.string.msg_local_content_files_must_be_smaller_than) }
         val safeName = safeFileName(fileName)
         val extension = safeName.substringAfterLast('.', "").lowercase()
         require(extension in type.localExtensions()) {
@@ -192,9 +196,7 @@ class ResourceInstaller(
         }
         val folder = type.installFolder()
         val destination = instance.instanceDirectory.toPath() / "game" / folder / safeName
-        require(!fileSystem.exists(destination)) {
-            "$safeName already exists in ${instance.displayName}."
-        }
+        requireUser(!fileSystem.exists(destination)) { text(Res.string.msg_s_already_exists_in_s, safeName, instance.displayName) }
         try {
             fileSystem.createDirectories(requireNotNull(destination.parent))
             val temporary = destination.parent!! / ".${destination.name}.tmp"
@@ -204,7 +206,7 @@ class ResourceInstaller(
             }
             fileSystem.atomicMove(temporary, destination)
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("$safeName could not be added to the instance.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_s_could_not_be_added_to_the, safeName), error)
         }
     }
 
@@ -216,11 +218,11 @@ class ResourceInstaller(
         onProgress: suspend (DownloadProgress) -> Unit = {},
         replacing: InstalledContent? = null,
     ): ResourceInstallSummary {
-        require(project.provider == version.provider && project.id == version.projectId) {
-            "The selected resource and version do not match."
+        requireUser(project.provider == version.provider && project.id == version.projectId) {
+            text(Res.string.msg_the_selected_resource_and_version_do_not)
         }
         if (project.type == ResourceType.MODPACK) {
-            throw LauncherException.InvalidMetadata("Modpacks create new instances and cannot be added to an existing instance.")
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_modpacks_create_new_instances_and_cannot_be))
         }
         val root = instance.instanceDirectory.toPath()
         val resolved = resolveDependencies(project, version, instance, optionalDependencies)
@@ -265,8 +267,8 @@ class ResourceInstaller(
         if (replacing?.key?.startsWith("local:") == true) {
             val relative = replacing.key.removePrefix("local:")
             val source = checkedContentPath(fileSystem, root / "game", relative)
-            require(replacing.contentSha1 != null && fileSystem.sha1(source) == replacing.contentSha1) {
-                "The local file changed since identification. Refresh installed content first."
+            requireUser(replacing.contentSha1 != null && fileSystem.sha1(source) == replacing.contentSha1) {
+                text(Res.string.msg_the_local_file_changed_since_identification_refresh)
             }
             currentManifest = currentManifest.copy(
                 resources = currentManifest.resources + InstalledResource(
@@ -288,8 +290,8 @@ class ResourceInstaller(
         val oldPaths = currentManifest.resources.flatMap { it.files }.toSet()
         plannedFiles.forEach { planned ->
             val target = checkedContentPath(fileSystem, root / "game", planned.relativePath)
-            require(!fileSystem.exists(target) || planned.relativePath in oldPaths) {
-                "${planned.file.fileName} belongs to a local file. Remove or rename it before installing."
+            requireUser(!fileSystem.exists(target) || planned.relativePath in oldPaths) {
+                text(Res.string.msg_s_belongs_to_a_local_file_remove, planned.file.fileName)
             }
         }
         val expected = (oldPaths + plannedFiles.map { it.relativePath }).associate { name ->
@@ -303,7 +305,7 @@ class ResourceInstaller(
                 destination = checkedContentPath(fileSystem, stage, it.relativePath),
                 sha1 = it.file.sha1,
                 size = it.file.size,
-                progressLabel = it.file.fileName,
+                progressLabel = it.file.fileName.asUserText(),
                 sha512 = it.file.sha512,
                 localSource = it.localSource,
             )
@@ -340,7 +342,7 @@ class ResourceInstaller(
             val key = "game/$relative"
             if (key !in expected) {
                 val target = checkedContentPath(fileSystem, root, key)
-                require(!fileSystem.exists(target)) { "$relative already exists." }
+                requireUser(!fileSystem.exists(target)) { text(Res.string.msg_s_already_exists, relative) }
                 expected[key] = null
             }
             key to (checkedContentPath(fileSystem, stage, planned.relativePath) as Path?)
@@ -375,7 +377,7 @@ class ResourceInstaller(
 
     private suspend fun downloadableFile(version: ResourceVersion): ResourceFile {
         val file = version.primaryFile
-            ?: throw LauncherException.InvalidMetadata("${version.name} has no downloadable file.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_no_downloadable_file, version.name))
         if (file.url != null) return file
         val sha1 = file.sha1
         if (sha1 != null) {
@@ -391,7 +393,7 @@ class ResourceInstaller(
         }
         if (restrictedDownloads != null) return file
         throw LauncherException.InvalidMetadata(
-            "${version.name} blocks downloads from third-party launchers and has no verified Modrinth alternative.",
+            text(Res.string.msg_s_blocks_downloads_from_third_party_launchers_2, version.name),
         )
     }
 
@@ -454,14 +456,14 @@ class ResourceInstaller(
         if (!resource.direct || resource.enabled == enabled) return false
         val renamedFiles = resource.files.map { relativePath ->
             val source = safeOwnedPath(root, relativePath)
-                ?: throw LauncherException.FileSystem("The installed resource contains an unsafe file path.")
+                ?: throw LauncherException.FileSystem(text(Res.string.msg_the_installed_resource_contains_an_unsafe_file))
             val destination = if (enabled) {
                 source.parent!! / source.name.removeSuffix(DISABLED_SUFFIX)
             } else {
                 source.parent!! / "${source.name}$DISABLED_SUFFIX"
             }
             if (fileSystem.exists(source)) {
-                require(!fileSystem.exists(destination)) { "${destination.name} already exists." }
+                requireUser(!fileSystem.exists(destination)) { text(Res.string.msg_s_already_exists, destination.name) }
                 fileSystem.atomicMove(source, destination)
             }
             relativePath.substringBeforeLast('/', "")
@@ -511,7 +513,7 @@ class ResourceInstaller(
             val otherOwners = current.requiredBy.filterNot { it == rootKey }
             if (current.versionId != candidate.version.id && (otherOwners.isNotEmpty() || (!candidate.isRoot && current.direct))) {
                 throw LauncherException.InvalidMetadata(
-                    "${candidate.version.name} conflicts with version ${current.versionId}, which another installed resource uses.",
+                    text(Res.string.msg_s_conflicts_with_version_s_which_another, candidate.version.name, current.versionId),
                 )
             }
         }
@@ -534,14 +536,16 @@ class ResourceInstaller(
             if (existing != null) {
                 if (existing.version.id != current.version.id) {
                     throw LauncherException.InvalidMetadata(
-                        "Required dependencies select conflicting versions of project ${current.version.projectId}.",
+                        text(Res.string.msg_required_dependencies_select_conflicting_versions_of_project, current.version.projectId),
                     )
                 }
                 continue
             }
             resolved[currentKey] = current
             if (resolved.size > MAX_RESOLVED_RESOURCES) {
-                throw LauncherException.InvalidMetadata("The dependency graph contains more than $MAX_RESOLVED_RESOURCES resources.")
+                throw LauncherException.InvalidMetadata(
+                    text(Res.string.msg_the_dependency_graph_contains_more_than_s, MAX_RESOLVED_RESOURCES),
+                )
             }
             current.version.dependencies
                 .filter {
@@ -577,12 +581,12 @@ class ResourceInstaller(
                             versions.firstOrNull { it.channel == ReleaseChannel.RELEASE }
                                 ?: versions.firstOrNull()
                                 ?: throw LauncherException.InvalidMetadata(
-                                    "No compatible version exists for required dependency ${dependency.projectId}.",
+                                    text(Res.string.msg_no_compatible_version_exists_for_required_dependency, dependency.projectId),
                                 )
                         }
 
                         else -> throw LauncherException.InvalidMetadata(
-                            "${current.version.name} has an external required dependency that cannot be resolved automatically.",
+                            text(Res.string.msg_s_has_an_external_required_dependency_that, current.version.name),
                         )
                     }
                     queue.add(ResolvedResourceVersion(dependencyVersion, isRoot = false))
@@ -600,7 +604,7 @@ class ResourceInstaller(
                     resourceKey(resource.version.provider, dependency.projectId) in selected
             } ?: return@forEach
             throw LauncherException.InvalidMetadata(
-                "${resource.version.name} is incompatible with installed project ${incompatible.projectId}.",
+                text(Res.string.msg_s_is_incompatible_with_installed_project_s, resource.version.name, incompatible.projectId.orEmpty()),
             )
         }
     }
@@ -624,7 +628,7 @@ class ResourceInstaller(
             val distinctHashes = matches.map { it.file.sha1 ?: it.file.sha512 ?: "${it.file.size}:${it.url}" }.distinct()
             if (distinctHashes.size > 1) {
                 throw LauncherException.InvalidMetadata(
-                    "Multiple resources install different files named ${matches.first().file.fileName}.",
+                    text(Res.string.msg_multiple_resources_install_different_files_named_s, matches.first().file.fileName),
                 )
             }
         }
@@ -635,7 +639,7 @@ class ResourceInstaller(
         return try {
             installJson.decodeFromString(fileSystem.read(path) { readUtf8() })
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The installed resource registry could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_installed_resource_registry_could_not_be), error)
         }
     }
 
@@ -651,7 +655,7 @@ class ResourceInstaller(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The installed resource registry could not be saved.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_installed_resource_registry_could_not_be_2), error)
         }
     }
 
@@ -707,7 +711,7 @@ private fun ResourceType.installFolder(): String = when (this) {
     ResourceType.MOD -> "mods"
     ResourceType.RESOURCE_PACK -> "resourcepacks"
     ResourceType.SHADER_PACK -> "shaderpacks"
-    ResourceType.MODPACK -> throw LauncherException.InvalidMetadata("Modpacks create new instances.")
+    ResourceType.MODPACK -> throw LauncherException.InvalidMetadata(text(Res.string.msg_modpacks_create_new_instances))
 }
 
 private fun ResourceType.localExtensions(): Set<String> = when (this) {
@@ -747,7 +751,7 @@ private val installJson = Json {
 internal fun restoreResourceMetadata(fileSystem: FileSystem, source: Path, instance: GameInstance) {
     if (!fileSystem.exists(source)) return
     val manifest = installJson.decodeFromString<ResourceManifest>(fileSystem.read(source) { readUtf8() })
-    require(manifest.schemaVersion == 1) { "Unsupported exported resource manifest." }
+    requireUser(manifest.schemaVersion == 1) { text(Res.string.msg_unsupported_exported_resource_manifest) }
     val root = instance.instanceDirectory.toPath()
     manifest.resources.forEach { resource -> resource.files.forEach { checkedContentPath(fileSystem, root / "game", it) } }
     val target = root / ".trestle" / "resources.json"

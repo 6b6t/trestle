@@ -2,6 +2,24 @@ package net.blockhost.trestle.domain
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_environment_variable_names_must_not_be_blank
+import net.blockhost.trestle.resources.msg_instance_directory_must_not_be_blank
+import net.blockhost.trestle.resources.msg_instance_name_must_not_be_blank
+import net.blockhost.trestle.resources.msg_java_major_version_must_be_positive
+import net.blockhost.trestle.resources.msg_launch_count_must_not_be_negative
+import net.blockhost.trestle.resources.msg_maximum_memory_must_not_be_less_than
+import net.blockhost.trestle.resources.msg_minecraft_version_must_not_be_blank
+import net.blockhost.trestle.resources.msg_minimum_memory_must_be_positive
+import net.blockhost.trestle.resources.msg_play_time_must_not_be_negative
+import net.blockhost.trestle.resources.msg_post_exit_command_arguments_must_not_be
+import net.blockhost.trestle.resources.msg_pre_launch_command_arguments_must_not_be
+import net.blockhost.trestle.resources.msg_the_account_profile_id_must_not_be
+import net.blockhost.trestle.resources.msg_the_java_executable_must_not_be_blank
+import net.blockhost.trestle.resources.msg_vanilla_instances_cannot_have_a_loader_version
+import net.blockhost.trestle.resources.msg_wrapper_command_arguments_must_not_be_blank
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import kotlin.jvm.JvmInline
 
 @Serializable
@@ -20,8 +38,8 @@ enum class ModLoader(val label: String) {
 @Serializable
 data class MemorySettings(val minimumMiB: Int = 512, val maximumMiB: Int = 2048) {
     init {
-        require(minimumMiB > 0) { "Minimum memory must be positive." }
-        require(maximumMiB >= minimumMiB) { "Maximum memory must not be less than minimum memory." }
+        requireUser(minimumMiB > 0) { text(Res.string.msg_minimum_memory_must_be_positive) }
+        requireUser(maximumMiB >= minimumMiB) { text(Res.string.msg_maximum_memory_must_not_be_less_than) }
     }
 }
 
@@ -89,20 +107,20 @@ data class GameInstance(
     val modpackOrigin: ModpackOrigin? = null,
 ) {
     init {
-        require(displayName.isNotBlank()) { "Instance name must not be blank." }
-        require(minecraftVersionId.isNotBlank()) { "Minecraft version must not be blank." }
-        require(instanceDirectory.isNotBlank()) { "Instance directory must not be blank." }
-        require(requiredJavaMajor > 0) { "Java major version must be positive." }
-        require(launchCount >= 0) { "Launch count must not be negative." }
-        require(playTimeMillis >= 0) { "Play time must not be negative." }
-        require(javaExecutable?.isNotBlank() != false) { "The Java executable must not be blank." }
-        require(environmentVariables.keys.none(String::isBlank)) { "Environment variable names must not be blank." }
-        require(preLaunchCommand.none(String::isBlank)) { "Pre-launch command arguments must not be blank." }
-        require(wrapperCommand.none(String::isBlank)) { "Wrapper command arguments must not be blank." }
-        require(postExitCommand.none(String::isBlank)) { "Post-exit command arguments must not be blank." }
-        require(accountProfileId?.isNotBlank() != false) { "The account profile ID must not be blank." }
-        require(modLoader != ModLoader.VANILLA || loaderVersion == null) {
-            "Vanilla instances cannot have a loader version."
+        requireUser(displayName.isNotBlank()) { text(Res.string.msg_instance_name_must_not_be_blank) }
+        requireUser(minecraftVersionId.isNotBlank()) { text(Res.string.msg_minecraft_version_must_not_be_blank) }
+        requireUser(instanceDirectory.isNotBlank()) { text(Res.string.msg_instance_directory_must_not_be_blank) }
+        requireUser(requiredJavaMajor > 0) { text(Res.string.msg_java_major_version_must_be_positive) }
+        requireUser(launchCount >= 0) { text(Res.string.msg_launch_count_must_not_be_negative) }
+        requireUser(playTimeMillis >= 0) { text(Res.string.msg_play_time_must_not_be_negative) }
+        requireUser(javaExecutable?.isNotBlank() != false) { text(Res.string.msg_the_java_executable_must_not_be_blank) }
+        requireUser(environmentVariables.keys.none(String::isBlank)) { text(Res.string.msg_environment_variable_names_must_not_be_blank) }
+        requireUser(preLaunchCommand.none(String::isBlank)) { text(Res.string.msg_pre_launch_command_arguments_must_not_be) }
+        requireUser(wrapperCommand.none(String::isBlank)) { text(Res.string.msg_wrapper_command_arguments_must_not_be_blank) }
+        requireUser(postExitCommand.none(String::isBlank)) { text(Res.string.msg_post_exit_command_arguments_must_not_be) }
+        requireUser(accountProfileId?.isNotBlank() != false) { text(Res.string.msg_the_account_profile_id_must_not_be) }
+        requireUser(modLoader != ModLoader.VANILLA || loaderVersion == null) {
+            text(Res.string.msg_vanilla_instances_cannot_have_a_loader_version)
         }
     }
 }

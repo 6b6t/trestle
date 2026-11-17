@@ -15,6 +15,9 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 
 class AtLauncherResourcePlatform(
     private val httpClient: HttpClient,
@@ -29,7 +32,7 @@ class AtLauncherResourcePlatform(
     override fun supports(type: ResourceType) = type == ResourceType.MODPACK
 
     override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
-        require(supports(request.type)) { "ATLauncher only provides modpacks." }
+        requireUser(supports(request.type)) { text(Res.string.msg_atlauncher_only_provides_modpacks) }
         val packs = catalog()
             .filter { pack ->
                 request.query.isBlank() || listOf(pack.name, pack.description)
@@ -70,7 +73,7 @@ class AtLauncherResourcePlatform(
         val manifestUrl = packVersionUrl(projectId, versionId, "Configs.json")
         val response = httpClient.get(manifestUrl) { header(HttpHeaders.UserAgent, userAgent) }
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("ATLauncher returned HTTP ${response.status.value} for the selected version.")
+            throw LauncherException.Network(text(Res.string.msg_atlauncher_returned_http_s_for_the_selected, response.status.value))
         }
         val manifest = decode<AtLauncherManifest>(response.bodyAsText(), "ATLauncher pack manifest")
         val blocked = manifest.mods.filter { mod ->
@@ -79,12 +82,12 @@ class AtLauncherResourcePlatform(
         if (blocked.isNotEmpty()) {
             val names = blocked.take(3).joinToString { it.name }
             throw LauncherException.InvalidMetadata(
-                "This pack needs manual downloads for $names. Trestle cannot install it automatically yet.",
+                text(Res.string.msg_this_pack_needs_manual_downloads_for_s, names),
             )
         }
         if (manifest.libraries.isNotEmpty()) {
             throw LauncherException.InvalidMetadata(
-                "This ATLauncher pack uses custom launch libraries that Trestle does not support yet.",
+                text(Res.string.msg_this_atlauncher_pack_uses_custom_launch_libraries),
             )
         }
 
@@ -93,7 +96,7 @@ class AtLauncherResourcePlatform(
         if (unsupported.isNotEmpty()) {
             val names = unsupported.take(3).joinToString { it.name.ifBlank { it.file } }
             throw LauncherException.InvalidMetadata(
-                "This ATLauncher pack uses unsupported install rules for $names.",
+                text(Res.string.msg_this_atlauncher_pack_uses_unsupported_install_rules, names),
             )
         }
         val forgeMod = selectedMods.firstOrNull {
@@ -172,11 +175,11 @@ class AtLauncherResourcePlatform(
     private suspend inline fun <reified T> getApi(url: String): T {
         val response = httpClient.get(url) { header(HttpHeaders.UserAgent, userAgent) }
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("ATLauncher returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_atlauncher_returned_http_s, response.status.value))
         }
         val envelope = decode<AtLauncherResponse<T>>(response.bodyAsText(), "ATLauncher API")
         if (envelope.error || envelope.data == null) {
-            throw LauncherException.Network(envelope.message ?: "ATLauncher did not return catalog data.")
+            throw LauncherException.Network(envelope.message?.asUserText() ?: text(Res.string.msg_atlauncher_returned_no_catalog_data))
         }
         return envelope.data
     }
@@ -184,7 +187,7 @@ class AtLauncherResourcePlatform(
     private inline fun <reified T> decode(value: String, label: String): T = try {
         catalogJson.decodeFromString(value)
     } catch (error: Exception) {
-        throw LauncherException.InvalidMetadata("$label returned invalid data.", error)
+        throw LauncherException.InvalidMetadata(text(Res.string.msg_s_returned_invalid_data, label), error)
     }
 
     private fun packVersionUrl(projectId: String, versionId: String, file: String) =
@@ -224,7 +227,7 @@ class AtLauncherResourcePlatform(
     private fun AtLauncherMod.downloadUrl(): String = when (download) {
         "server" -> "${downloadBaseUrl.trimEnd('/')}/${url.trimStart('/')}"
         "direct" -> url
-        else -> throw LauncherException.InvalidMetadata("${name.ifBlank { file }} has an unsupported download type.")
+        else -> throw LauncherException.InvalidMetadata(text(Res.string.msg_s_has_an_unsupported_download_type, name.ifBlank { file }))
     }
 
     private fun AtLauncherMod.installDirectory(minecraft: String): String? = when (type) {
@@ -317,7 +320,7 @@ class FtbResourcePlatform(
     override fun supports(type: ResourceType) = type == ResourceType.MODPACK
 
     override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
-        require(supports(request.type)) { "FTB only provides modpacks." }
+        requireUser(supports(request.type)) { text(Res.string.msg_ftb_only_provides_modpacks) }
         val packs = catalog()
             .filter { pack ->
                 request.query.isBlank() || listOf(pack.name, pack.synopsis, pack.description)
@@ -375,12 +378,12 @@ class FtbResourcePlatform(
     private suspend inline fun <reified T> get(url: String): T {
         val response = httpClient.get(url)
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("FTB returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_ftb_returned_http_s, response.status.value))
         }
         return try {
             catalogJson.decodeFromString(response.bodyAsText())
         } catch (error: Exception) {
-            throw LauncherException.InvalidMetadata("FTB returned invalid catalog data.", error)
+            throw LauncherException.InvalidMetadata(text(Res.string.msg_ftb_returned_invalid_catalog_data), error)
         }
     }
 }
@@ -396,7 +399,7 @@ class TechnicResourcePlatform(
     override fun supports(type: ResourceType) = type == ResourceType.MODPACK
 
     override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
-        require(supports(request.type)) { "Technic only provides modpacks." }
+        requireUser(supports(request.type)) { text(Res.string.msg_technic_only_provides_modpacks) }
         val endpoint = if (request.query.isBlank()) "$baseUrl/trending" else "$baseUrl/search"
         val response = httpClient.get(endpoint) {
             parameter("build", "multimc")
@@ -404,7 +407,7 @@ class TechnicResourcePlatform(
             if (clientId.isNotBlank()) parameter("cid", clientId)
         }
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("Technic returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_technic_returned_http_s, response.status.value))
         }
         val entries = decode<TechnicSearchResponse>(response.bodyAsText(), "Technic search").modpacks
         val projects = entries.drop(request.offset).take(request.limit).map(TechnicSearchPack::toProject)
@@ -435,7 +438,7 @@ class TechnicResourcePlatform(
             if (clientId.isNotBlank()) parameter("cid", clientId)
         }
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("Technic returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_technic_returned_http_s, response.status.value))
         }
         return decode(response.bodyAsText(), "Technic modpack")
     }
@@ -463,7 +466,7 @@ class TechnicResourcePlatform(
     private suspend inline fun <reified T> getSolder(base: String, path: String): T {
         val response = httpClient.get("${base.trimEnd('/')}/$path")
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("Technic Solder returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_technic_solder_returned_http_s, response.status.value))
         }
         return decode(response.bodyAsText(), "Technic Solder")
     }
@@ -471,7 +474,7 @@ class TechnicResourcePlatform(
     private inline fun <reified T> decode(value: String, label: String): T = try {
         catalogJson.decodeFromString(value)
     } catch (error: Exception) {
-        throw LauncherException.InvalidMetadata("$label returned invalid catalog data.", error)
+        throw LauncherException.InvalidMetadata(text(Res.string.msg_s_returned_invalid_catalog_data, label), error)
     }
 }
 
@@ -484,7 +487,7 @@ class LegacyFtbResourcePlatform(private val httpClient: HttpClient, private val 
     override fun supports(type: ResourceType) = type == ResourceType.MODPACK
 
     override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
-        require(supports(request.type)) { "FTB Legacy only provides modpacks." }
+        requireUser(supports(request.type)) { text(Res.string.msg_ftb_legacy_only_provides_modpacks) }
         val values = catalog()
             .filter {
                 request.query.isBlank() ||
@@ -515,7 +518,7 @@ class LegacyFtbResourcePlatform(private val httpClient: HttpClient, private val 
 
     override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> {
         val pack = catalog().firstOrNull { it.directory == project.id }
-            ?: throw LauncherException.InvalidMetadata("The FTB Legacy pack no longer exists.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_ftb_legacy_pack_no_longer_exists))
         if (gameVersion != null && pack.minecraftVersion != gameVersion) return emptyList()
         if (loader != null && loader != ModLoader.FORGE) return emptyList()
         return pack.versions().map { pack.toVersion(it) }
@@ -523,8 +526,8 @@ class LegacyFtbResourcePlatform(private val httpClient: HttpClient, private val 
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion {
         val pack = catalog().firstOrNull { it.directory == projectId }
-            ?: throw LauncherException.InvalidMetadata("The FTB Legacy pack no longer exists.")
-        require(versionId in pack.versions()) { "The selected FTB Legacy version no longer exists." }
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_the_ftb_legacy_pack_no_longer_exists))
+        requireUser(versionId in pack.versions()) { text(Res.string.msg_the_selected_ftb_legacy_version_no_longer) }
         return pack.toVersion(versionId)
     }
 
@@ -539,7 +542,7 @@ class LegacyFtbResourcePlatform(private val httpClient: HttpClient, private val 
     private suspend fun fetch(url: String): List<LegacyFtbPack> {
         val response = httpClient.get(url)
         if (!response.status.isSuccess()) {
-            throw LauncherException.Network("FTB Legacy returned HTTP ${response.status.value}.")
+            throw LauncherException.Network(text(Res.string.msg_ftb_legacy_returned_http_s, response.status.value))
         }
         return legacyModpackTag.findAll(response.bodyAsText()).mapNotNull { match ->
             val attributes = legacyAttribute.findAll(match.groupValues[1])
@@ -734,7 +737,7 @@ private data class FtbVersion(
 
     fun toResourceVersion(projectId: String, includeFiles: Boolean = false): ResourceVersion {
         val minecraft = minecraftVersion()
-            ?: throw LauncherException.InvalidMetadata("FTB version $name does not declare Minecraft.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_ftb_version_s_does_not_declare_minecraft, name))
         val loaderTarget = loaderTarget()
         val planFiles = if (includeFiles) {
             files

@@ -41,6 +41,9 @@ import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
 import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.runtime.LaunchEvent
+import net.blockhost.trestle.runtime.LaunchRequirement
+import net.blockhost.trestle.text.load
+import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.ui.LaunchStatus
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherCommandRequest
@@ -192,7 +195,7 @@ fun main(arguments: Array<String>) {
             val trayMenu = buildList {
                 add(DesktopTrayMenuEntry.Item("Show Trestle", onClick = showWindow))
                 state.operation?.let { operation ->
-                    add(DesktopTrayMenuEntry.Item(operation.title, enabled = false, onClick = {}))
+                    add(DesktopTrayMenuEntry.Item(operation.title.resolve(), enabled = false, onClick = {}))
                 }
                 add(DesktopTrayMenuEntry.Separator)
                 add(
@@ -224,7 +227,7 @@ fun main(arguments: Array<String>) {
                 if (state.operation?.cancellable == true) {
                     add(
                         DesktopTrayMenuEntry.Item(
-                            state.operation?.cancelLabel ?: "Cancel operation",
+                            state.operation?.cancelLabel?.resolve() ?: "Cancel operation",
                             onClick = viewModel::cancelActiveOperation,
                         ),
                     )
@@ -232,13 +235,14 @@ fun main(arguments: Array<String>) {
                 add(DesktopTrayMenuEntry.Separator)
                 add(DesktopTrayMenuEntry.Item("Quit Trestle", onClick = ::quit))
             }
+            val operationTitle = state.operation?.title?.resolve()
             DesktopTray(
                 icon = trayIcon,
                 state = trayState,
                 tooltip = buildString {
                     append("Trestle")
                     state.activeInstance?.let { append(" · ${it.displayName} is running") }
-                    state.operation?.let { append(" · ${it.title}") }
+                    state.operation?.let { append(" · $operationTitle") }
                 },
                 onAction = showWindow,
                 menu = trayMenu,
@@ -247,16 +251,16 @@ fun main(arguments: Array<String>) {
         LaunchedEffect(state.notice, state.error, windowVisible) {
             if (windowVisible) return@LaunchedEffect
             state.error?.let {
-                trayState.sendNotification(Notification("Trestle needs attention", it, Notification.Type.Error))
+                trayState.sendNotification(Notification("Trestle needs attention", it.load(), Notification.Type.Error))
             } ?: state.notice?.let {
-                trayState.sendNotification(Notification("Trestle", it, Notification.Type.Info))
+                trayState.sendNotification(Notification("Trestle", it.load(), Notification.Type.Info))
             }
         }
         LaunchedEffect(state.launch.status, windowVisible) {
             val failed = state.launch.status as? LaunchStatus.Failed
             if (!windowVisible && failed != null) {
                 trayState.sendNotification(
-                    Notification("Minecraft stopped unexpectedly", failed.message, Notification.Type.Error),
+                    Notification("Minecraft stopped unexpectedly", failed.message.load(), Notification.Type.Error),
                 )
             }
         }
@@ -391,7 +395,7 @@ internal suspend fun runCli(
             }
             val prepared = services.runtime.prepare(instance)
             if (prepared.missingRequirements.isNotEmpty()) {
-                output("Cannot launch: ${prepared.missingRequirements.joinToString()}.")
+                output("Cannot launch: ${prepared.missingRequirements.joinToString { it.cliLabel() }}.")
                 return 3
             }
             var exitCode = 1
@@ -404,7 +408,7 @@ internal suspend fun runCli(
                     is LaunchEvent.Exited -> exitCode = event.exitCode
 
                     is LaunchEvent.Failed -> {
-                        output(event.message)
+                        output(event.message.load())
                         exitCode = 1
                     }
 
@@ -468,4 +472,8 @@ private fun configureDesktopProperties() {
     System.setProperty("apple.awt.application.name", "Trestle")
     System.setProperty("apple.awt.application.appearance", "system")
     WindowsIntegration.configureProcess()
+}
+
+private fun LaunchRequirement.cliLabel(): String = when (this) {
+    LaunchRequirement.JAVA_ACCOUNT -> "a Java account"
 }

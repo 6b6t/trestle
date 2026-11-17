@@ -12,6 +12,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.text.load
 import kotlin.test.Test
 
 @OptIn(ExperimentalTestApi::class)
@@ -33,7 +34,7 @@ class DiscoverUiTest {
             }
         }
 
-        onNodeWithTag(LauncherTestTags.INSTALL_BLOCKED_REASON).assertTextEquals(VANILLA_CONTENT_MESSAGE)
+        onNodeWithTag(LauncherTestTags.INSTALL_BLOCKED_REASON).assertTextEquals(VANILLA_CONTENT_MESSAGE.load())
         onNodeWithText("Install").assertIsNotEnabled()
     }
 

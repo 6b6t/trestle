@@ -7,6 +7,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadProgress
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_installing_bundled_android_runtime_s
+import net.blockhost.trestle.resources.msg_installing_bundled_java_runtime
+import net.blockhost.trestle.resources.msg_the_app_does_not_include_a_java
+import net.blockhost.trestle.resources.msg_the_app_does_not_include_s_runtime
+import net.blockhost.trestle.resources.msg_the_bundled_android_runtime_manifest_is_unsupported
+import net.blockhost.trestle.resources.msg_the_bundled_s_asset_is_too_large
+import net.blockhost.trestle.resources.msg_the_old_s_runtime_asset_could_not
+import net.blockhost.trestle.resources.msg_the_s_runtime_asset_could_not_be
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import java.io.File
@@ -18,7 +28,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
         val content = assets.open(MANIFEST_PATH).bufferedReader().use { it.readText() }
         JSON.decodeFromString<RuntimeAssetManifest>(content).also {
             if (it.format != MANIFEST_FORMAT || it.amethystRevision != AMETHYST_REVISION) {
-                throw LauncherException.InvalidMetadata("The bundled Android runtime manifest is unsupported.")
+                throw LauncherException.InvalidMetadata(text(Res.string.msg_the_bundled_android_runtime_manifest_is_unsupported))
             }
         }
     }
@@ -27,7 +37,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
         withContext(Dispatchers.IO) {
             val selected = manifest.files.filter { it.platform in setOf(COMMON_PLATFORM, platform) && it.kind == kind }
             if (selected.isEmpty()) {
-                throw LauncherException.RuntimeUnavailable("The app does not include $kind runtime assets for Android $platform.")
+                throw LauncherException.RuntimeUnavailable(text(Res.string.msg_the_app_does_not_include_s_runtime, kind, platform))
             }
             fileSystem.createDirectories(destination)
             val totalBytes = selected.sumOf(RuntimeAssetFile::size)
@@ -42,7 +52,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
                         totalBytes = totalBytes,
                         completedFiles = index + 1,
                         totalFiles = selected.size,
-                        activeLabel = "Installing bundled Android runtime: ${target.name}",
+                        activeLabel = text(Res.string.msg_installing_bundled_android_runtime_s, target.name),
                     ),
                 )
             }
@@ -52,7 +62,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
         withContext(Dispatchers.IO) {
             val asset = manifest.files.singleOrNull { it.platform == platform && it.kind == RUNTIME_KIND }
                 ?: throw LauncherException.RuntimeUnavailable(
-                    "The app does not include a Java runtime for Android $platform.",
+                    text(Res.string.msg_the_app_does_not_include_a_java, platform),
                 )
             copyVerified(asset, destination)
             onProgress(
@@ -61,7 +71,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
                     totalBytes = asset.size,
                     completedFiles = 1,
                     totalFiles = 1,
-                    activeLabel = "Installing bundled Java runtime",
+                    activeLabel = text(Res.string.msg_installing_bundled_java_runtime),
                 ),
             )
         }
@@ -84,7 +94,7 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
                         if (count == 0) continue
                         copied += count
                         if (copied > asset.size) {
-                            throw LauncherException.InvalidMetadata("The bundled ${asset.path} asset is too large.")
+                            throw LauncherException.InvalidMetadata(text(Res.string.msg_the_bundled_s_asset_is_too_large, asset.path))
                         }
                         digest.update(buffer, 0, count)
                         output.write(buffer, 0, count)
@@ -96,10 +106,10 @@ internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, pri
                 throw LauncherException.ChecksumMismatch(asset.path, asset.sha256, actualHash)
             }
             if (target.exists() && !target.delete()) {
-                throw LauncherException.FileSystem("The old ${target.name} runtime asset could not be replaced.")
+                throw LauncherException.FileSystem(text(Res.string.msg_the_old_s_runtime_asset_could_not, target.name))
             }
             if (!staged.renameTo(target)) {
-                throw LauncherException.FileSystem("The ${target.name} runtime asset could not be installed.")
+                throw LauncherException.FileSystem(text(Res.string.msg_the_s_runtime_asset_could_not_be, target.name))
             }
         } finally {
             staged.delete()

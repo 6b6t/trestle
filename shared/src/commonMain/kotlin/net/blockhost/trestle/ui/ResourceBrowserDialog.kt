@@ -183,6 +183,9 @@ import net.blockhost.trestle.resources.ui_version
 import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_view_on_provider
 import net.blockhost.trestle.resources.ui_wiki
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.resolve
+import net.blockhost.trestle.text.text
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -303,7 +306,7 @@ internal fun ResourceBrowserContent(
         if (!detailFillsScreen(listPaneHidden, browser)) {
             ResourceBrowserToolbar(browser, state, actions, searchFocusRequester)
         }
-        browser.error?.let { InlineMessage(it, true, null) }
+        browser.error?.let { InlineMessage(it.resolve(), true, null) }
         ListDetailPaneScaffold(
             directive = navigator.scaffoldDirective,
             scaffoldState = navigator.scaffoldState,
@@ -1090,7 +1093,7 @@ private fun targetBlockedReason(project: ResourceProject, instance: GameInstance
     project.type == ResourceType.MODPACK -> null
     instance == null -> stringResource(Res.string.ui_choose_instance_to_install_into)
     instance.installationState !is InstallationState.Installed -> stringResource(Res.string.ui_install_named_first, instance.displayName)
-    instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE
+    instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE.resolve()
     else -> null
 }
 

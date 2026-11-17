@@ -22,6 +22,16 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
 import net.blockhost.trestle.platform.useOkio
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_download_failed_after_s_attempts
+import net.blockhost.trestle.resources.msg_download_failed_with_s
+import net.blockhost.trestle.resources.msg_local_download_substitutions_need_a_checksum
+import net.blockhost.trestle.resources.msg_the_checksum_for_s_could_not_be
+import net.blockhost.trestle.resources.msg_the_download_could_not_be_activated
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.buffer
@@ -32,7 +42,7 @@ data class DownloadRequest(
     val destination: Path,
     val sha1: String? = null,
     val size: Long? = null,
-    val progressLabel: String? = null,
+    val progressLabel: UserText? = null,
     val sha256: String? = null,
     val sha512: String? = null,
     val md5: String? = null,
@@ -44,7 +54,7 @@ data class DownloadProgress(
     val totalBytes: Long?,
     val completedFiles: Int,
     val totalFiles: Int,
-    val activeLabel: String? = null,
+    val activeLabel: UserText? = null,
     val isFinalizing: Boolean = false,
 )
 
@@ -104,7 +114,7 @@ class DownloadPipeline(
                                             totalBytes,
                                             completedFiles,
                                             required.size,
-                                            request.progressLabel ?: request.destination.name,
+                                            request.progressLabel ?: request.destination.name.asUserText(),
                                         ),
                                     )
                                 } finally {
@@ -124,7 +134,7 @@ class DownloadPipeline(
                                             totalBytes,
                                             completedFiles,
                                             required.size,
-                                            request.progressLabel ?: request.destination.name,
+                                            request.progressLabel ?: request.destination.name.asUserText(),
                                         ),
                                     )
                                 } finally {
@@ -142,7 +152,7 @@ class DownloadPipeline(
                                         totalBytes,
                                         completedFiles,
                                         required.size,
-                                        request.progressLabel ?: request.destination.name,
+                                        request.progressLabel ?: request.destination.name.asUserText(),
                                     ),
                                 )
                             } finally {
@@ -172,7 +182,7 @@ class DownloadPipeline(
                 error,
                 mapOf("files" to required.size),
             )
-            throw LauncherException.FileSystem("The download could not be activated.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_download_could_not_be_activated), error)
         }
     }
 
@@ -181,7 +191,7 @@ class DownloadPipeline(
         val actual = try {
             fileSystem.read(path) { readByteString().sha1().hex() }
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_checksum_for_s_could_not_be, artifactName), error)
         }
         if (!actual.equals(expectedSha1, ignoreCase = true)) {
             throw LauncherException.ChecksumMismatch(artifactName, expectedSha1, actual)
@@ -193,7 +203,7 @@ class DownloadPipeline(
         val actual = try {
             fileSystem.read(path) { readByteString().md5().hex() }
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_checksum_for_s_could_not_be, artifactName), error)
         }
         if (!actual.equals(expectedMd5, ignoreCase = true)) {
             throw LauncherException.ChecksumMismatch(artifactName, expectedMd5, actual)
@@ -207,8 +217,8 @@ class DownloadPipeline(
         onBytes: suspend (Long) -> Unit,
     ) {
         request.localSource?.let { source ->
-            require(request.sha1 != null || request.sha256 != null || request.sha512 != null) {
-                "Local download substitutions need a checksum."
+            requireUser(request.sha1 != null || request.sha256 != null || request.sha512 != null) {
+                text(Res.string.msg_local_download_substitutions_need_a_checksum)
             }
             fileSystem.copy(source, stagedPath)
             validateCompleted(stagedPath, request)
@@ -286,7 +296,7 @@ class DownloadPipeline(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: PermanentDownloadException) {
-                throw LauncherException.Network("Download failed with ${error.message}.", error)
+                throw LauncherException.Network(text(Res.string.msg_download_failed_with_s, error.message.orEmpty()), error)
             } catch (error: LauncherException.ChecksumMismatch) {
                 lastError = error
                 resetStaged(stagedPath, accountedBytes, onBytes)
@@ -318,7 +328,7 @@ class DownloadPipeline(
                 }
             }
         }
-        throw LauncherException.Network("Download failed after $maxAttempts attempts.", lastError)
+        throw LauncherException.Network(text(Res.string.msg_download_failed_after_s_attempts, maxAttempts), lastError)
     }
 
     private suspend fun isValid(path: Path, request: DownloadRequest, allowUnverified: Boolean): Boolean {
@@ -360,7 +370,7 @@ class DownloadPipeline(
         val actual = try {
             fileSystem.read(path) { readByteString().sha256().hex() }
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_checksum_for_s_could_not_be, artifactName), error)
         }
         if (!actual.equals(expectedSha256, ignoreCase = true)) {
             throw LauncherException.ChecksumMismatch(artifactName, expectedSha256, actual)
@@ -372,7 +382,7 @@ class DownloadPipeline(
         val actual = try {
             fileSystem.read(path) { readByteString().sha512().hex() }
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The checksum for $artifactName could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_checksum_for_s_could_not_be, artifactName), error)
         }
         if (!actual.equals(expectedSha512, ignoreCase = true)) {
             throw LauncherException.ChecksumMismatch(artifactName, expectedSha512, actual)

@@ -1,5 +1,6 @@
 package net.blockhost.trestle.desktop
 
+import net.blockhost.trestle.text.asUserText
 import net.blockhost.trestle.ui.LauncherUiState
 import net.blockhost.trestle.ui.OperationStatus
 import kotlin.test.Test
@@ -19,7 +20,7 @@ class DesktopIndicatorTest {
     @Test
     fun `known operation progress is converted to a bounded percentage`() {
         val indicator = LauncherUiState(
-            operation = OperationStatus("Installing", completed = 250, total = 200),
+            operation = OperationStatus("Installing".asUserText(), completed = 250, total = 200),
         ).desktopIndicator()
 
         assertEquals(DesktopProgressState.NORMAL, indicator.progressState)
@@ -30,7 +31,7 @@ class DesktopIndicatorTest {
     @Test
     fun `operation without a total uses indeterminate progress`() {
         val indicator = LauncherUiState(
-            operation = OperationStatus("Resolving metadata", completed = 8),
+            operation = OperationStatus("Resolving metadata".asUserText(), completed = 8),
         ).desktopIndicator()
 
         assertEquals(DesktopProgressState.INDETERMINATE, indicator.progressState)
@@ -41,8 +42,8 @@ class DesktopIndicatorTest {
     @Test
     fun `error takes priority over an active operation`() {
         val indicator = LauncherUiState(
-            error = "Download failed",
-            operation = OperationStatus("Installing", completed = 50, total = 100),
+            error = "Download failed".asUserText(),
+            operation = OperationStatus("Installing".asUserText(), completed = 50, total = 100),
         ).desktopIndicator()
 
         assertEquals(DesktopProgressState.ERROR, indicator.progressState)

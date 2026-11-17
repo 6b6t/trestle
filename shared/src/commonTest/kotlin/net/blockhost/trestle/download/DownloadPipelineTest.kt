@@ -15,6 +15,7 @@ import net.blockhost.trestle.logging.BufferedLauncherLogger
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.logging.LogLevel
 import net.blockhost.trestle.logging.LogSink
+import net.blockhost.trestle.text.asUserText
 import okio.ByteString.Companion.encodeUtf8
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
@@ -187,7 +188,7 @@ class DownloadPipelineTest {
                     "https://example.test/missing",
                     missing,
                     size = 7,
-                    progressLabel = "Downloading game assets",
+                    progressLabel = "Downloading game assets".asUserText(),
                 ),
             ),
             stagingDirectory = "/staging".toPath(),
@@ -198,7 +199,7 @@ class DownloadPipelineTest {
         assertEquals("missing", fileSystem.read(missing) { readUtf8() })
         assertEquals(2, progress.last().completedFiles)
         assertEquals(13, progress.last().completedBytes)
-        assertEquals("Downloading game assets", progress.last().activeLabel)
+        assertEquals("Downloading game assets".asUserText(), progress.last().activeLabel)
         assertFalse(fileSystem.exists("/staging".toPath()))
     }
 

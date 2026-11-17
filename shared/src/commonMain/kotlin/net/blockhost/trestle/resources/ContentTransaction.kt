@@ -2,6 +2,9 @@ package net.blockhost.trestle.resources
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.FileSystem
 import okio.Path
 
@@ -14,8 +17,8 @@ internal class ContentTransaction(private val fileSystem: FileSystem, private va
         recover()
         require(replacements.keys.all { it in expected }) { "Every changed file needs a preview hash." }
         replacements.forEach { (name, source) ->
-            require(hash(name) == expected[name]) { "$name changed after the preview. Refresh the update preview." }
-            require(source == null || fileSystem.metadata(source).isRegularFile) { "$name is not a regular file." }
+            requireUser(hash(name) == expected[name]) { text(Res.string.msg_s_changed_after_the_preview_refresh_the, name) }
+            requireUser(source == null || fileSystem.metadata(source).isRegularFile) { text(Res.string.msg_s_is_not_a_regular_file, name) }
         }
         if (fileSystem.exists(backup)) fileSystem.deleteRecursively(backup)
         fileSystem.createDirectories(backup / "files")
@@ -51,12 +54,10 @@ internal class ContentTransaction(private val fileSystem: FileSystem, private va
     fun canRollback(): Boolean = read()?.committed == true
 
     fun rollback() {
-        val journal = read() ?: error("No update backup is available.")
-        require(journal.committed) { "The interrupted update must be recovered first." }
+        val journal = read() ?: userError(text(Res.string.msg_no_update_backup_is_available))
+        requireUser(journal.committed) { text(Res.string.msg_the_interrupted_update_must_be_recovered_first) }
         val modified = journal.after.keys.filter { hash(it) != journal.after[it] }
-        require(modified.isEmpty()) {
-            "These updated files changed since installation: ${modified.joinToString()}. Copy them out of the instance before rolling back."
-        }
+        requireUser(modified.isEmpty()) { text(Res.string.msg_these_updated_files_changed_since_installation_s, modified.joinToString()) }
         // Mark the journal before restoring, so interruption during rollback is recoverable too.
         write(journal.copy(committed = false))
         restore(journal)
@@ -69,7 +70,7 @@ internal class ContentTransaction(private val fileSystem: FileSystem, private va
                 fileSystem.delete(target, mustExist = false)
             } else {
                 val source = checkedContentPath(fileSystem, backup / "files", name)
-                require(fileSystem.sha256(source) == hash) { "The backup for $name is damaged." }
+                requireUser(fileSystem.sha256(source) == hash) { text(Res.string.msg_the_backup_for_s_is_damaged, name) }
                 copy(source, target)
             }
         }
@@ -79,14 +80,14 @@ internal class ContentTransaction(private val fileSystem: FileSystem, private va
     private fun hash(name: String): String? {
         val path = checkedContentPath(fileSystem, root, name)
         val metadata = fileSystem.metadataOrNull(path) ?: return null
-        require(metadata.isRegularFile) { "$name is not a regular file." }
+        requireUser(metadata.isRegularFile) { text(Res.string.msg_s_is_not_a_regular_file, name) }
         return fileSystem.sha256(path)
     }
 
     private fun copy(source: Path, target: Path) {
         fileSystem.createDirectories(requireNotNull(target.parent))
         val temporary = target.parent!! / ".${target.name}.trestle-copy"
-        require(fileSystem.metadataOrNull(temporary)?.symlinkTarget == null) { "Unsafe temporary path." }
+        requireUser(fileSystem.metadataOrNull(temporary)?.symlinkTarget == null) { text(Res.string.msg_unsafe_temporary_path) }
         fileSystem.copy(source, temporary)
         fileSystem.atomicMove(temporary, target)
     }

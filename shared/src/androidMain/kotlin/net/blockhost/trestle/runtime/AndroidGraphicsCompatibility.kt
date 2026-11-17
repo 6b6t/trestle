@@ -4,6 +4,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.opengl.EGL14
 import android.opengl.GLES20
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_requires_vulkan_1_2
+import net.blockhost.trestle.resources.msg_requires_vulkan_device
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.text
 
 internal enum class AndroidGpuFamily(val label: String) {
     ADRENO("Adreno"),
@@ -24,13 +29,12 @@ internal data class AndroidGraphicsCompatibility(
     val isSupported: Boolean
         get() = vulkanVersion != null && vulkanVersion >= MINIMUM_VULKAN_VERSION
 
-    val unavailableReason: String?
+    val unavailableReason: UserText?
         get() = when {
-            vulkanVersion == null ->
-                "Minecraft 26.2 requires a hardware Vulkan device. ${deviceLabel()} does not report Vulkan support."
+            vulkanVersion == null -> text(Res.string.msg_requires_vulkan_device, deviceLabel())
 
             vulkanVersion < MINIMUM_VULKAN_VERSION ->
-                "Minecraft 26.2 requires Vulkan 1.2 or newer. ${deviceLabel()} reports ${formatVulkanVersion(vulkanVersion)}."
+                text(Res.string.msg_requires_vulkan_1_2, deviceLabel(), formatVulkanVersion(vulkanVersion))
 
             else -> null
         }

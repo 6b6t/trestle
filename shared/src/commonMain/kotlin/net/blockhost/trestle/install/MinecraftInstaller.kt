@@ -25,6 +25,20 @@ import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.QuiltMetadataClient
 import net.blockhost.trestle.metadata.downloads
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_downloading_asset_index
+import net.blockhost.trestle.resources.msg_downloading_game_assets
+import net.blockhost.trestle.resources.msg_downloading_game_libraries
+import net.blockhost.trestle.resources.msg_downloading_logging_configuration
+import net.blockhost.trestle.resources.msg_downloading_minecraft_client
+import net.blockhost.trestle.resources.msg_finalizing_installation
+import net.blockhost.trestle.resources.msg_no_forge_version_supports_s
+import net.blockhost.trestle.resources.msg_no_neoforge_version_supports_s
+import net.blockhost.trestle.resources.msg_no_quilt_loader_version_supports_s
+import net.blockhost.trestle.resources.msg_no_stable_fabric_loader_supports_s
+import net.blockhost.trestle.resources.msg_the_installed_version_manifest_could_not_be
+import net.blockhost.trestle.resources.msg_the_installed_version_manifest_is_missing
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -97,7 +111,7 @@ class MinecraftInstaller(
                         ?: fabricMetadataClient.loaderVersions(instance.minecraftVersionId)
                             .firstOrNull { it.stable }?.version
                         ?: throw LauncherException.InvalidMetadata(
-                            "No stable Fabric loader supports ${instance.minecraftVersionId}.",
+                            text(Res.string.msg_no_stable_fabric_loader_supports_s, instance.minecraftVersionId),
                         )
                     working = working.copy(loaderVersion = loaderVersion)
                     MinecraftMetadataResolver.merge(
@@ -114,7 +128,7 @@ class MinecraftInstaller(
                             }
                             ?.version
                         ?: throw LauncherException.InvalidMetadata(
-                            "No NeoForge version supports ${instance.minecraftVersionId}.",
+                            text(Res.string.msg_no_neoforge_version_supports_s, instance.minecraftVersionId),
                         )
                     working = working.copy(loaderVersion = loaderVersion)
                     val profile = neoForgeMetadataClient.profile(instance.minecraftVersionId, loaderVersion)
@@ -132,7 +146,7 @@ class MinecraftInstaller(
                             }
                             ?.version
                         ?: throw LauncherException.InvalidMetadata(
-                            "No Forge version supports ${instance.minecraftVersionId}.",
+                            text(Res.string.msg_no_forge_version_supports_s, instance.minecraftVersionId),
                         )
                     working = working.copy(loaderVersion = loaderVersion)
                     val profile = forgeMetadataClient.profile(instance.minecraftVersionId, loaderVersion)
@@ -146,7 +160,7 @@ class MinecraftInstaller(
                             .let { versions -> versions.firstOrNull { it.stable } ?: versions.firstOrNull() }
                             ?.version
                         ?: throw LauncherException.InvalidMetadata(
-                            "No Quilt Loader version supports ${instance.minecraftVersionId}.",
+                            text(Res.string.msg_no_quilt_loader_version_supports_s, instance.minecraftVersionId),
                         )
                     working = working.copy(loaderVersion = loaderVersion)
                     MinecraftMetadataResolver.merge(
@@ -175,7 +189,7 @@ class MinecraftInstaller(
                             "${instance.minecraftVersionId}.jar",
                         sha1 = resolved.client.sha1,
                         size = resolved.client.size,
-                        progressLabel = "Downloading Minecraft client",
+                        progressLabel = text(Res.string.msg_downloading_minecraft_client),
                     ),
                 )
                 resolved.libraries.forEach { library ->
@@ -185,7 +199,7 @@ class MinecraftInstaller(
                             directories.libraries / library.path,
                             library.sha1,
                             library.size,
-                            progressLabel = "Downloading game libraries",
+                            progressLabel = text(Res.string.msg_downloading_game_libraries),
                         ),
                     )
                 }
@@ -196,7 +210,7 @@ class MinecraftInstaller(
                             directories.assets / "indexes" / "${index.id}.json",
                             index.sha1,
                             index.size,
-                            progressLabel = "Downloading asset index",
+                            progressLabel = text(Res.string.msg_downloading_asset_index),
                         ),
                     )
                 }
@@ -207,7 +221,7 @@ class MinecraftInstaller(
                             directories.assets / requireNotNull(asset.path),
                             asset.sha1,
                             asset.size,
-                            progressLabel = "Downloading game assets",
+                            progressLabel = text(Res.string.msg_downloading_game_assets),
                         ),
                     )
                 }
@@ -218,7 +232,7 @@ class MinecraftInstaller(
                             directories.logging / (logging.path ?: "${resolved.metadata.id}-client.xml"),
                             logging.sha1,
                             logging.size,
-                            progressLabel = "Downloading logging configuration",
+                            progressLabel = text(Res.string.msg_downloading_logging_configuration),
                         ),
                     )
                 }
@@ -264,7 +278,7 @@ class MinecraftInstaller(
             latestProgress?.let { progress ->
                 onProgress(
                     progress.copy(
-                        activeLabel = "Finalizing installation",
+                        activeLabel = text(Res.string.msg_finalizing_installation),
                         isFinalizing = true,
                     ),
                 )
@@ -314,12 +328,12 @@ class MinecraftInstaller(
     fun readInstalledVersion(instance: GameInstance): InstalledVersion {
         val path = installedVersionPath(instance)
         if (!fileSystem.exists(path)) {
-            throw LauncherException.FileSystem("The installed version manifest is missing.")
+            throw LauncherException.FileSystem(text(Res.string.msg_the_installed_version_manifest_is_missing))
         }
         return try {
             installationJson.decodeFromString(fileSystem.read(path) { readUtf8() })
         } catch (error: Exception) {
-            throw LauncherException.FileSystem("The installed version manifest could not be read.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_installed_version_manifest_could_not_be), error)
         }
     }
 

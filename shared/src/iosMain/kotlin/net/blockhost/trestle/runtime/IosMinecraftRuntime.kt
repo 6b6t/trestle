@@ -12,6 +12,12 @@ import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.install.LauncherDirectories
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.metadata.InstalledVersion
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_ios_runtime_bridge_unavailable
+import net.blockhost.trestle.resources.msg_sign_in_with_a_minecraft_java_edition
+import net.blockhost.trestle.resources.msg_the_ios_runtime_bundle_does_not_include
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
@@ -61,7 +67,7 @@ internal class IosMinecraftRuntime(
         canLaunch = bridge.availability.available,
         supportsManagedJava = bridge.availability.available,
         supportsNativeExtraction = bridge.availability.available,
-        unavailableReason = bridge.availability.reason,
+        unavailableReason = bridge.availability.reason?.asUserText(),
         supportedMinecraftVersions = setOf(SUPPORTED_MINECRAFT_VERSION),
         supportedModLoaders = setOf(ModLoader.VANILLA),
     )
@@ -73,13 +79,13 @@ internal class IosMinecraftRuntime(
     ): PreparedLaunch {
         if (!bridge.availability.available) {
             throw LauncherException.RuntimeUnavailable(
-                bridge.availability.reason ?: "The iOS runtime bridge is not available.",
+                bridge.availability.reason?.asUserText() ?: text(Res.string.msg_ios_runtime_bridge_unavailable),
             )
         }
         val installed = installedVersionReader(instance)
         val runtime = bridge.runtime(installed.requiredJavaMajor)
             ?: throw LauncherException.RuntimeUnavailable(
-                "The iOS runtime bundle does not include Java ${installed.requiredJavaMajor}.",
+                text(Res.string.msg_the_ios_runtime_bundle_does_not_include, installed.requiredJavaMajor),
             )
         val session = sessionProvider.currentSession(instance.accountProfileId)
         val gameDirectory = instance.instanceDirectory.toPath() / "game"
@@ -135,7 +141,7 @@ internal class IosMinecraftRuntime(
             mainClass = installed.metadata.mainClass,
             classpathEntries = classpathEntries,
             nativeDirectory = runtime.nativeDirectory,
-            missingRequirements = if (session == null) listOf("Java account") else emptyList(),
+            missingRequirements = if (session == null) listOf(LaunchRequirement.JAVA_ACCOUNT) else emptyList(),
             jvmArguments = jvmArguments,
             gameArguments = gameArguments,
         ).also {
@@ -149,7 +155,7 @@ internal class IosMinecraftRuntime(
 
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = callbackFlow {
         if (preparedLaunch.missingRequirements.isNotEmpty()) {
-            trySend(LaunchEvent.Failed("Sign in with a Minecraft: Java Edition account before launching."))
+            trySend(LaunchEvent.Failed(text(Res.string.msg_sign_in_with_a_minecraft_java_edition)))
             close()
             return@callbackFlow
         }
@@ -171,7 +177,7 @@ internal class IosMinecraftRuntime(
                 }
 
                 override fun onFailed(message: String) {
-                    trySend(LaunchEvent.Failed(message))
+                    trySend(LaunchEvent.Failed(message.asUserText()))
                     close()
                 }
             },

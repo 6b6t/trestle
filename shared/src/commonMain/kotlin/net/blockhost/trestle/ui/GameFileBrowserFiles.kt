@@ -1,6 +1,20 @@
 package net.blockhost.trestle.ui
 
 import net.blockhost.trestle.platform.useOkio
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_files_larger_than_s_cannot_be_edited
+import net.blockhost.trestle.resources.msg_the_breadcrumb_is_outside_the_current_directory
+import net.blockhost.trestle.resources.msg_the_game_file_root_is_not_a
+import net.blockhost.trestle.resources.msg_the_selected_path_is_not_a_directory
+import net.blockhost.trestle.resources.msg_the_selected_path_is_not_a_file
+import net.blockhost.trestle.resources.msg_the_selected_path_is_outside_this_instance
+import net.blockhost.trestle.resources.msg_this_file_cannot_be_edited_as_text
+import net.blockhost.trestle.resources.msg_this_file_changed_after_you_opened_it
+import net.blockhost.trestle.resources.msg_this_file_type_cannot_be_edited
+import net.blockhost.trestle.resources.ui_file_browser_read_only
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.Buffer
 import okio.FileSystem
 import okio.GzipSource
@@ -38,7 +52,7 @@ internal data class GameFileLocation(val directoryPath: String, val filePath: St
 
 internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: FileSystem = FileSystem.SYSTEM) {
     private val root: Path = fileSystem.canonicalize(rootPath.toPath()).also { path ->
-        require(fileSystem.metadata(path).isDirectory) { "The game file root is not a directory." }
+        requireUser(fileSystem.metadata(path).isDirectory) { text(Res.string.msg_the_game_file_root_is_not_a) }
     }
 
     val rootPath: String
@@ -60,7 +74,7 @@ internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: Fi
 
     fun list(directoryPath: String): GameFileDirectory {
         val directory = requireInsideRoot(directoryPath.toPath())
-        require(fileSystem.metadata(directory).isDirectory) { "The selected path is not a directory." }
+        requireUser(fileSystem.metadata(directory).isDirectory) { text(Res.string.msg_the_selected_path_is_not_a_directory) }
         val entries = fileSystem.list(directory)
             .mapNotNull { child ->
                 runCatching {
@@ -91,15 +105,15 @@ internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: Fi
     fun pathForBreadcrumb(directoryPath: String, segmentCount: Int): String {
         val directory = requireInsideRoot(directoryPath.toPath())
         val segments = directory.relativeTo(root).segments
-        require(segmentCount in 0..segments.size) { "The breadcrumb is outside the current directory." }
+        requireUser(segmentCount in 0..segments.size) { text(Res.string.msg_the_breadcrumb_is_outside_the_current_directory) }
         return segments.take(segmentCount).fold(root) { path, segment -> path.resolve(segment) }.toString()
     }
 
     fun readText(filePath: String): GameTextDocument {
         val file = requireInsideRoot(filePath.toPath())
         val metadata = fileSystem.metadata(file)
-        require(metadata.isRegularFile) { "The selected path is not a file." }
-        require(isTextFile(file)) { "This file cannot be edited as text." }
+        requireUser(metadata.isRegularFile) { text(Res.string.msg_the_selected_path_is_not_a_file) }
+        requireUser(isTextFile(file)) { text(Res.string.msg_this_file_cannot_be_edited_as_text) }
         val size = metadata.size ?: 0L
         val compressed = file.name.lowercase().endsWith(".gz")
         val (text, truncated) = if (compressed) {
@@ -120,12 +134,12 @@ internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: Fi
     }
 
     fun saveText(document: GameTextDocument, text: String): GameTextDocument {
-        require(document.editable) { "This file is read-only." }
+        requireUser(document.editable) { text(Res.string.ui_file_browser_read_only) }
         val file = requireInsideRoot(document.path.toPath())
-        require(isEditableTextFile(file)) { "This file type cannot be edited." }
+        requireUser(isEditableTextFile(file)) { text(Res.string.msg_this_file_type_cannot_be_edited) }
         val encodedSize = text.encodeToByteArray().size
-        require(encodedSize <= MAX_EDITABLE_TEXT_BYTES) {
-            "Files larger than ${formatGameFileSize(MAX_EDITABLE_TEXT_BYTES.toLong())} cannot be edited in Trestle."
+        requireUser(encodedSize <= MAX_EDITABLE_TEXT_BYTES) {
+            text(Res.string.msg_files_larger_than_s_cannot_be_edited, formatGameFileSize(MAX_EDITABLE_TEXT_BYTES.toLong()))
         }
         val currentMetadata = fileSystem.metadata(file)
         if (
@@ -133,7 +147,7 @@ internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: Fi
             currentMetadata.lastModifiedAtMillis != null &&
             document.lastModifiedAtMillis != currentMetadata.lastModifiedAtMillis
         ) {
-            error("This file changed after you opened it. Reload it before saving.")
+            userError(text(Res.string.msg_this_file_changed_after_you_opened_it))
         }
 
         val temporary = requireNotNull(file.parent).resolve(".${file.name}.trestle-edit.tmp")
@@ -173,11 +187,11 @@ internal class GameFileBrowserFiles(rootPath: String, private val fileSystem: Fi
 
     private fun requireInsideRoot(path: Path): Path {
         val canonical = fileSystem.canonicalize(path)
-        require(
+        requireUser(
             canonical.root == root.root &&
                 canonical.segments.size >= root.segments.size &&
                 canonical.segments.take(root.segments.size) == root.segments,
-        ) { "The selected path is outside this instance." }
+        ) { text(Res.string.msg_the_selected_path_is_outside_this_instance) }
         return canonical
     }
 }

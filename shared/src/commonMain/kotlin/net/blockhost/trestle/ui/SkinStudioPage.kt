@@ -121,6 +121,7 @@ import net.blockhost.trestle.resources.ui_slim
 import net.blockhost.trestle.resources.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk
 import net.blockhost.trestle.resources.ui_use_a_64x64_png_or_a_legacy_64x32_skin
 import net.blockhost.trestle.resources.ui_use_skin
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import androidx.compose.foundation.lazy.grid.items as gridItems
@@ -584,7 +585,7 @@ private fun SkinEditorFields(editor: SkinEditorState, onBrowse: () -> Unit, acti
                 style = MaterialTheme.typography.labelMedium,
             )
         }
-        editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        editor.error?.let { Text(it.resolve(), color = MaterialTheme.colorScheme.error) }
     }
 }
 

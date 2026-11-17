@@ -3,6 +3,10 @@ package net.blockhost.trestle.auth
 import eu.anifantakis.lib.ksafe.KSafe
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_the_secure_credential_vault_is_not_available
+import net.blockhost.trestle.text.checkUser
+import net.blockhost.trestle.text.text
 
 @kotlinx.serialization.Serializable
 enum class MinecraftEdition {
@@ -142,7 +146,7 @@ class KSafeAccountCredentialStore(private val vault: KSafe, private val logger: 
     }
 
     override suspend fun write(profileId: String, edition: MinecraftEdition, state: SecretValue) {
-        check(protection.encryptionOperational) { "The secure credential vault is not available." }
+        checkUser(protection.encryptionOperational) { text(Res.string.msg_the_secure_credential_vault_is_not_available) }
         vault.put(key(profileId, edition), state.reveal())
         logger.info(
             "accounts",

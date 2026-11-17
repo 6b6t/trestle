@@ -3,6 +3,8 @@ package net.blockhost.trestle.resources
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.GameInstance
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
@@ -45,11 +47,11 @@ class ModpackUpdates(private val fileSystem: FileSystem) {
     internal fun restoreOrigin(instance: GameInstance, manifestSource: Path): GameInstance {
         if (!fileSystem.exists(manifestSource)) return instance.copy(modpackOrigin = null)
         val manifest = json.decodeFromString<ModpackManifest>(fileSystem.read(manifestSource) { readUtf8() })
-        require(manifest.schemaVersion == 1) { "Unsupported exported pack manifest." }
+        requireUser(manifest.schemaVersion == 1) { text(Res.string.msg_unsupported_exported_pack_manifest) }
         val root = instance.instanceDirectory.toPath()
         manifest.files.forEach { (name, hash) ->
             checkedContentPath(fileSystem, root / "game", name)
-            require(hash.matches(Regex("[a-f0-9]{64}"))) { "Invalid exported pack hash." }
+            requireUser(hash.matches(Regex("[a-f0-9]{64}"))) { text(Res.string.msg_invalid_exported_pack_hash) }
         }
         write(root / ".trestle" / "modpack.json", json.encodeToString(ModpackManifest.serializer(), manifest))
         write(root / ".trestle" / "pack-instance.json", json.encodeToString(GameInstance.serializer(), instance))
@@ -57,7 +59,7 @@ class ModpackUpdates(private val fileSystem: FileSystem) {
     }
 
     fun preview(original: GameInstance, candidate: GameInstance): ModpackUpdatePreview {
-        require(original.id != candidate.id) { "Prepare pack updates in a separate instance." }
+        requireUser(original.id != candidate.id) { text(Res.string.msg_prepare_pack_updates_in_a_separate_instance) }
         val root = original.instanceDirectory.toPath()
         val old = readManifest(root)
         val incoming = readManifest(candidate.instanceDirectory.toPath())
@@ -76,7 +78,7 @@ class ModpackUpdates(private val fileSystem: FileSystem) {
         val replacements = changes.associate { change ->
             "game/${change.path}" to change.incomingHash?.let { expected ->
                 val source = checkedContentPath(fileSystem, candidate / "game", change.path)
-                require(fileSystem.sha256(source) == expected) { "The staged pack changed. Prepare the update again." }
+                requireUser(fileSystem.sha256(source) == expected) { text(Res.string.msg_the_staged_pack_changed_prepare_the_update) }
                 source
             }
         }.toMutableMap()
@@ -121,10 +123,10 @@ class ModpackUpdates(private val fileSystem: FileSystem) {
     private fun readManifest(root: Path): ModpackManifest {
         val path = root / ".trestle" / "modpack.json"
         val manifest = json.decodeFromString<ModpackManifest>(fileSystem.read(path) { readUtf8() })
-        require(manifest.schemaVersion == 1) { "Unsupported modpack manifest." }
+        requireUser(manifest.schemaVersion == 1) { text(Res.string.msg_unsupported_modpack_manifest) }
         manifest.files.forEach { (name, hash) ->
             checkedContentPath(fileSystem, root / "game", name)
-            require(hash.matches(Regex("[0-9a-f]{64}"))) { "Invalid pack file hash." }
+            requireUser(hash.matches(Regex("[0-9a-f]{64}"))) { text(Res.string.msg_invalid_pack_file_hash) }
         }
         return manifest
     }

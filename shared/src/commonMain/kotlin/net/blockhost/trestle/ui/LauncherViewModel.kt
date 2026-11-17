@@ -48,6 +48,7 @@ import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.ModpackUpdatePreview
 import net.blockhost.trestle.resources.ReleaseChannel
+import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceProject
 import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceSearchRequest
@@ -56,12 +57,178 @@ import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ResourceVersion
 import net.blockhost.trestle.resources.RestrictedDownload
 import net.blockhost.trestle.resources.RestrictedDownloadRequired
+import net.blockhost.trestle.resources.msg_account_added_and_set_as_active
+import net.blockhost.trestle.resources.msg_account_profile_refreshed
+import net.blockhost.trestle.resources.msg_adding_local_s
+import net.blockhost.trestle.resources.msg_adding_offline_account
+import net.blockhost.trestle.resources.msg_all_files_verified_continuing_the_installation
+import net.blockhost.trestle.resources.msg_all_files_verified_retry_the_installation_to
+import net.blockhost.trestle.resources.msg_applying_pack_update
+import net.blockhost.trestle.resources.msg_applying_s
+import net.blockhost.trestle.resources.msg_authenticating_account
+import net.blockhost.trestle.resources.msg_backing_up_world
+import net.blockhost.trestle.resources.msg_bedrock_account_added_it_can_t_launch
+import net.blockhost.trestle.resources.msg_checking_modpack_updates
+import net.blockhost.trestle.resources.msg_choose_a_jar_zip_or_mrpack_file
+import net.blockhost.trestle.resources.msg_client_settings_are_unavailable_for_minecraft_s
+import net.blockhost.trestle.resources.msg_client_settings_could_not_be_loaded
+import net.blockhost.trestle.resources.msg_cloning_instance
+import net.blockhost.trestle.resources.msg_content_update_cancelled
+import net.blockhost.trestle.resources.msg_copying_world
+import net.blockhost.trestle.resources.msg_created_s
+import net.blockhost.trestle.resources.msg_deleted_s
+import net.blockhost.trestle.resources.msg_deleted_s_2
+import net.blockhost.trestle.resources.msg_deleted_s_existing_backups_were_kept
+import net.blockhost.trestle.resources.msg_deleting_instance
+import net.blockhost.trestle.resources.msg_deleting_log
+import net.blockhost.trestle.resources.msg_deleting_screenshot
+import net.blockhost.trestle.resources.msg_deleting_world
+import net.blockhost.trestle.resources.msg_disabling_data_pack
+import net.blockhost.trestle.resources.msg_enabling_data_pack
+import net.blockhost.trestle.resources.msg_enter_an_http_https_or_curseforge_url
+import net.blockhost.trestle.resources.msg_environment_variable_line_s_must_use_name
+import net.blockhost.trestle.resources.msg_environment_variable_name_s_is_invalid
+import net.blockhost.trestle.resources.msg_exported_s_to_s
+import net.blockhost.trestle.resources.msg_exporting_instance
+import net.blockhost.trestle.resources.msg_finalizing_s
+import net.blockhost.trestle.resources.msg_finish_installing_this_instance_first
+import net.blockhost.trestle.resources.msg_ftb_app_import_cancelled
+import net.blockhost.trestle.resources.msg_imported_ftb_app_instances
+import net.blockhost.trestle.resources.msg_imported_s
+import net.blockhost.trestle.resources.msg_importing_ftb_app_instances
+import net.blockhost.trestle.resources.msg_importing_modpack
+import net.blockhost.trestle.resources.msg_importing_world
+import net.blockhost.trestle.resources.msg_install_the_selected_instance_before_adding_resources
+import net.blockhost.trestle.resources.msg_install_the_target_instance_before_adding_local
+import net.blockhost.trestle.resources.msg_installation_is_complete
+import net.blockhost.trestle.resources.msg_installation_paused_resume_it_when_you_are
+import net.blockhost.trestle.resources.msg_installed_content_is_up_to_date
+import net.blockhost.trestle.resources.msg_installing_modpack
+import net.blockhost.trestle.resources.msg_installing_s
+import net.blockhost.trestle.resources.msg_instance_created_install_its_game_files_when
+import net.blockhost.trestle.resources.msg_instance_removed_files_kept
+import net.blockhost.trestle.resources.msg_instance_settings_saved
+import net.blockhost.trestle.resources.msg_instance_settings_saved_ignored_jvm_options
+import net.blockhost.trestle.resources.msg_instance_settings_saved_install_the_new_game
+import net.blockhost.trestle.resources.msg_launch_arguments_contain_an_unmatched_quote
+import net.blockhost.trestle.resources.msg_loading_launcher_data
+import net.blockhost.trestle.resources.msg_local_file_import_cancelled
+import net.blockhost.trestle.resources.msg_minecraft_closed
+import net.blockhost.trestle.resources.msg_minecraft_could_not_start
+import net.blockhost.trestle.resources.msg_minecraft_exited_with_code_s
+import net.blockhost.trestle.resources.msg_minecraft_stopped
+import net.blockhost.trestle.resources.msg_modpack_import_cancelled
+import net.blockhost.trestle.resources.msg_modpack_installation_cancelled_no_instance_was_added
+import net.blockhost.trestle.resources.msg_no_newer_stable_version_of_this_pack
+import net.blockhost.trestle.resources.msg_no_newer_trestle_release_is_available
+import net.blockhost.trestle.resources.msg_offline_account_added_and_set_as_active
+import net.blockhost.trestle.resources.msg_one_content_update_is_available
+import net.blockhost.trestle.resources.msg_pack_updated_the_previous_files_are_backed
+import net.blockhost.trestle.resources.msg_player_offline
+import net.blockhost.trestle.resources.msg_player_sign_in_expired
+import net.blockhost.trestle.resources.msg_preparing_android_runtime
+import net.blockhost.trestle.resources.msg_preparing_installation
+import net.blockhost.trestle.resources.msg_preparing_installation_resume
+import net.blockhost.trestle.resources.msg_preparing_modpack_update
+import net.blockhost.trestle.resources.msg_recommended_maximum_s_mib
+import net.blockhost.trestle.resources.msg_refreshing_account_profile
+import net.blockhost.trestle.resources.msg_refreshing_minecraft_versions
+import net.blockhost.trestle.resources.msg_removed_s
+import net.blockhost.trestle.resources.msg_removed_server
+import net.blockhost.trestle.resources.msg_removing_server
+import net.blockhost.trestle.resources.msg_renamed_screenshot_to_s
+import net.blockhost.trestle.resources.msg_renamed_world_to_s
+import net.blockhost.trestle.resources.msg_renaming_screenshot
+import net.blockhost.trestle.resources.msg_renaming_world
+import net.blockhost.trestle.resources.msg_reordering_servers
+import net.blockhost.trestle.resources.msg_reset_the_world_icon
+import net.blockhost.trestle.resources.msg_resetting_active_skin
+import net.blockhost.trestle.resources.msg_resetting_world_icon
+import net.blockhost.trestle.resources.msg_resource_installation_cancelled
+import net.blockhost.trestle.resources.msg_resources_could_not_be_loaded
+import net.blockhost.trestle.resources.msg_restored_s
+import net.blockhost.trestle.resources.msg_restoring_pack_backup
+import net.blockhost.trestle.resources.msg_restoring_world
+import net.blockhost.trestle.resources.msg_resuming_s
+import net.blockhost.trestle.resources.msg_s_and_its_files_were_deleted
+import net.blockhost.trestle.resources.msg_s_content_updates_are_available
+import net.blockhost.trestle.resources.msg_s_could_not_be_read
+import net.blockhost.trestle.resources.msg_s_does_not_provide_s
+import net.blockhost.trestle.resources.msg_s_is_empty
+import net.blockhost.trestle.resources.msg_s_is_larger_than_the_mib_import
+import net.blockhost.trestle.resources.msg_s_is_not_available_for_third_party
+import net.blockhost.trestle.resources.msg_s_is_now_your_active_skin
+import net.blockhost.trestle.resources.msg_s_is_still_running_close_it_before
+import net.blockhost.trestle.resources.msg_s_updates_found_s_items_could_not
+import net.blockhost.trestle.resources.msg_s_was_added_to_s
+import net.blockhost.trestle.resources.msg_s_was_added_to_the_library
+import net.blockhost.trestle.resources.msg_s_was_created
+import net.blockhost.trestle.resources.msg_s_was_disabled
+import net.blockhost.trestle.resources.msg_s_was_enabled
+import net.blockhost.trestle.resources.msg_s_was_imported
+import net.blockhost.trestle.resources.msg_s_was_installed
+import net.blockhost.trestle.resources.msg_s_was_installed_with_dependencies
+import net.blockhost.trestle.resources.msg_s_was_moved_to_trash
+import net.blockhost.trestle.resources.msg_s_was_pinned_to_the_top
+import net.blockhost.trestle.resources.msg_s_was_removed
+import net.blockhost.trestle.resources.msg_s_was_restored_to_the_library
+import net.blockhost.trestle.resources.msg_s_was_unpinned
+import net.blockhost.trestle.resources.msg_s_was_updated_to_s
+import net.blockhost.trestle.resources.msg_saved_notes_for_s
+import net.blockhost.trestle.resources.msg_saved_s_to_the_minecraft_server_list
+import net.blockhost.trestle.resources.msg_saving_and_applying_skin
+import net.blockhost.trestle.resources.msg_saving_skin
+import net.blockhost.trestle.resources.msg_select_a_java_account
+import net.blockhost.trestle.resources.msg_sign_in_failed_try_again
+import net.blockhost.trestle.resources.msg_skin_could_not_be_saved
+import net.blockhost.trestle.resources.msg_skin_removed_from_the_local_library
+import net.blockhost.trestle.resources.msg_skin_saved
+import net.blockhost.trestle.resources.msg_still_finishing_last_change
+import net.blockhost.trestle.resources.msg_stop_minecraft_before_moving_this_instance_to
+import net.blockhost.trestle.resources.msg_stop_minecraft_before_preparing_a_pack_update
+import net.blockhost.trestle.resources.msg_stop_minecraft_before_removing_this_instance
+import net.blockhost.trestle.resources.msg_stop_minecraft_before_rolling_back_the_pack
+import net.blockhost.trestle.resources.msg_stop_minecraft_before_updating_this_pack
+import net.blockhost.trestle.resources.msg_that_file_is_not_one_the_pack
+import net.blockhost.trestle.resources.msg_that_instance_is_no_longer_in_the
+import net.blockhost.trestle.resources.msg_the_active_skin_was_reset
+import net.blockhost.trestle.resources.msg_the_curseforge_file_blocks_third_party_downloads
+import net.blockhost.trestle.resources.msg_the_curseforge_link_has_no_file_id
+import net.blockhost.trestle.resources.msg_the_curseforge_link_has_no_project_id
+import net.blockhost.trestle.resources.msg_the_instance_changed_after_the_preview_prepare
+import net.blockhost.trestle.resources.msg_the_instance_could_not_be_moved_to
+import net.blockhost.trestle.resources.msg_the_launch_check_failed
+import net.blockhost.trestle.resources.msg_the_operation_failed
+import net.blockhost.trestle.resources.msg_the_previous_pack_version_was_restored
+import net.blockhost.trestle.resources.msg_the_resource_could_not_be_installed
+import net.blockhost.trestle.resources.msg_the_selected_account_is_not_available
+import net.blockhost.trestle.resources.msg_the_selected_account_needs_to_sign_in
+import net.blockhost.trestle.resources.msg_the_selected_skin_file_could_not_be
+import net.blockhost.trestle.resources.msg_trestle_s_is_available
+import net.blockhost.trestle.resources.msg_updated_the_server_order
+import net.blockhost.trestle.resources.msg_updating_s
+import net.blockhost.trestle.resources.msg_vanilla_cannot_load_mods
+import net.blockhost.trestle.resources.msg_versions_could_not_be_loaded
+import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_pause
+import net.blockhost.trestle.resources.ui_sign_in_required
+import net.blockhost.trestle.resources.ui_trestle_could_not_read_that_image
 import net.blockhost.trestle.runtime.JvmArgumentPolicy
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchOptions
+import net.blockhost.trestle.runtime.LaunchRequirement
 import net.blockhost.trestle.runtime.LaunchTuningAdvisor
 import net.blockhost.trestle.runtime.PreparedLaunch
 import net.blockhost.trestle.runtime.RuntimePreparationProgress
+import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.checkUser
+import net.blockhost.trestle.text.pluralText
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
+import net.blockhost.trestle.text.userText
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
@@ -86,18 +253,18 @@ data class LaunchPlanSummary(
     val classpathEntries: Int,
     val nativeLibraries: Int,
     val workingDirectory: String,
-    val authentication: String,
+    val authentication: UserText,
 )
 
 sealed interface LaunchStatus {
     data object NotChecked : LaunchStatus
     data object Checking : LaunchStatus
     data object Ready : LaunchStatus
-    data class Blocked(val missingRequirements: List<String>) : LaunchStatus
-    data class Unavailable(val reason: String) : LaunchStatus
+    data class Blocked(val missingRequirements: List<LaunchRequirement>) : LaunchStatus
+    data class Unavailable(val reason: UserText) : LaunchStatus
     data object Starting : LaunchStatus
     data class Running(val processId: Long?) : LaunchStatus
-    data class Failed(val message: String) : LaunchStatus
+    data class Failed(val message: UserText) : LaunchStatus
 }
 
 data class InstanceLaunchState(val instanceId: InstanceId? = null, val status: LaunchStatus = LaunchStatus.NotChecked)
@@ -132,7 +299,7 @@ data class ResourceBrowserState(
     val isSearching: Boolean = false,
     val isLoadingVersions: Boolean = false,
     val isInstalling: Boolean = false,
-    val error: String? = null,
+    val error: UserText? = null,
     val curseForgeAvailable: Boolean = false,
 ) {
     val selectedProject: ResourceProject?
@@ -143,14 +310,14 @@ data class ResourceBrowserState(
 }
 
 data class OperationStatus(
-    val title: String,
-    val detail: String? = null,
+    val title: UserText,
+    val detail: UserText? = null,
     val completed: Long? = null,
     val total: Long? = null,
     val completedItems: Int? = null,
     val totalItems: Int? = null,
     val cancellable: Boolean = false,
-    val cancelLabel: String = "Pause",
+    val cancelLabel: UserText = text(Res.string.ui_pause),
     val instanceId: InstanceId? = null,
 )
 
@@ -176,12 +343,12 @@ private fun ResourceBrowserState.startingSearch(append: Boolean): ResourceBrowse
 /** Content types that need a mod loader; Vanilla instances cannot load them. */
 internal val loaderOnlyTypes = setOf(ResourceType.MOD, ResourceType.SHADER_PACK)
 
-internal const val VANILLA_CONTENT_MESSAGE = "Vanilla can't load mods or shaders. Create a Fabric or NeoForge instance for them."
+internal val VANILLA_CONTENT_MESSAGE: UserText = text(Res.string.msg_vanilla_cannot_load_mods)
 
-internal const val BUSY_NOTICE = "Trestle is still finishing the last change. Try again in a moment."
+internal val BUSY_NOTICE: UserText = text(Res.string.msg_still_finishing_last_change)
 
 /** The notice shown after an instance leaves the library; its snackbar is the only one that offers Undo. */
-internal const val INSTANCE_REMOVED_NOTICE = "Instance removed from the library. Its game directory was kept."
+internal val INSTANCE_REMOVED_NOTICE: UserText = text(Res.string.msg_instance_removed_files_kept)
 
 data class LocalFileImportState(
     val visible: Boolean = false,
@@ -251,9 +418,9 @@ data class InstanceSettingsState(
     val accountProfileId: String? = null,
     val clientSettings: MinecraftClientSettings? = null,
     val isLoadingClientSettings: Boolean = false,
-    val clientSettingsError: String? = null,
-    val recommendation: String? = null,
-    val warnings: List<String> = emptyList(),
+    val clientSettingsError: UserText? = null,
+    val recommendation: UserText? = null,
+    val warnings: List<UserText> = emptyList(),
     val isSaving: Boolean = false,
     /** True when the form is shown inside the instance page instead of as a dialog. */
     val inline: Boolean = false,
@@ -305,7 +472,7 @@ data class AccountLoginState(
     val authorization: DeviceAuthorization? = null,
     val isWaiting: Boolean = false,
     /** Why the last attempt failed, shown inside the dialog where the player is looking. */
-    val error: String? = null,
+    val error: UserText? = null,
 ) {
     val edition: MinecraftEdition get() = method.edition
 }
@@ -317,7 +484,7 @@ data class SkinEditorState(
     val variant: SkinVariant = SkinVariant.CLASSIC,
     val texture: ByteArray? = null,
     val sourceFileName: String? = null,
-    val error: String? = null,
+    val error: UserText? = null,
     val isSaving: Boolean = false,
 )
 
@@ -342,9 +509,9 @@ data class LauncherUiState(
     val selectedId: InstanceId? = null,
     val isInitializing: Boolean = true,
     val isLoadingVersions: Boolean = false,
-    val error: String? = null,
+    val error: UserText? = null,
     val errorRecovery: ErrorRecoveryAction? = null,
-    val notice: String? = null,
+    val notice: UserText? = null,
     val create: CreateInstanceState = CreateInstanceState(),
     val launchPlan: LaunchPlanSummary? = null,
     val resourceBrowser: ResourceBrowserState = ResourceBrowserState(),
@@ -492,7 +659,7 @@ class LauncherViewModel(
                 it.copy(
                     isInitializing = true,
                     error = null,
-                    operation = OperationStatus("Loading launcher data"),
+                    operation = OperationStatus(text(Res.string.msg_loading_launcher_data)),
                 )
             }
             val initialized = runCatching {
@@ -530,7 +697,7 @@ class LauncherViewModel(
                 it.copy(
                     isLoadingVersions = true,
                     error = null,
-                    operation = OperationStatus("Refreshing Minecraft versions"),
+                    operation = OperationStatus(text(Res.string.msg_refreshing_minecraft_versions)),
                 )
             }
             try {
@@ -594,9 +761,9 @@ class LauncherViewModel(
                         it.copy(
                             selectedId = updated.id,
                             notice = if (updated.pinned) {
-                                "${updated.displayName} was pinned to the top."
+                                text(Res.string.msg_s_was_pinned_to_the_top, updated.displayName)
                             } else {
-                                "${updated.displayName} was unpinned."
+                                text(Res.string.msg_s_was_unpinned, updated.displayName)
                             },
                         )
                     }
@@ -609,7 +776,7 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
             mutableState.update {
-                it.copy(operation = OperationStatus("Cloning instance", instance.displayName))
+                it.copy(operation = OperationStatus(text(Res.string.msg_cloning_instance), instance.displayName.asUserText()))
             }
             runCatching {
                 services.repository.clone(instance.id, "${instance.displayName} Copy")
@@ -618,7 +785,7 @@ class LauncherViewModel(
                     it.copy(
                         selectedId = clone.id,
                         operation = null,
-                        notice = "${clone.displayName} was created.",
+                        notice = text(Res.string.msg_s_was_created, clone.displayName),
                     )
                 }
                 checkLaunchReadiness(clone)
@@ -634,7 +801,7 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
             mutableState.update {
-                it.copy(operation = OperationStatus("Exporting instance", instance.displayName))
+                it.copy(operation = OperationStatus(text(Res.string.msg_exporting_instance), instance.displayName.asUserText()))
             }
             val fileName = instance.displayName.lowercase()
                 .replace(Regex("[^a-z0-9._-]+"), "-")
@@ -649,7 +816,7 @@ class LauncherViewModel(
                 mutableState.update {
                     it.copy(
                         operation = null,
-                        notice = "Exported ${instance.displayName} to $path.",
+                        notice = text(Res.string.msg_exported_s_to_s, instance.displayName, path),
                     )
                 }
             }.onFailure { error ->
@@ -759,7 +926,7 @@ class LauncherViewModel(
                     it.copy(
                         selectedId = configured.id,
                         create = CreateInstanceState(),
-                        notice = "Instance created. Install its game files when you are ready.",
+                        notice = text(Res.string.msg_instance_created_install_its_game_files_when),
                     )
                 }
             } catch (error: CancellationException) {
@@ -779,7 +946,12 @@ class LauncherViewModel(
         mutableState.update {
             it.copy(
                 create = CreateInstanceState(),
-                operation = OperationStatus("Importing modpack", source, cancellable = true, cancelLabel = "Cancel"),
+                operation = OperationStatus(
+                    text(Res.string.msg_importing_modpack),
+                    source.asUserText(),
+                    cancellable = true,
+                    cancelLabel = text(Res.string.ui_cancel),
+                ),
                 error = null,
             )
         }
@@ -799,11 +971,11 @@ class LauncherViewModel(
                     it.copy(
                         selectedId = configured.id,
                         operation = null,
-                        notice = "${configured.displayName} was imported.",
+                        notice = text(Res.string.msg_s_was_imported, configured.displayName),
                     )
                 }
             } catch (_: CancellationException) {
-                mutableState.update { it.copy(operation = null, notice = "Modpack import cancelled.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_modpack_import_cancelled)) }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error, resume = { importRemoteModpack(source, requestedIdentity) })
@@ -820,14 +992,17 @@ class LauncherViewModel(
             val value = part.substringAfter('=', "")
             if (key.isBlank() || value.isBlank()) null else key to value
         }.toMap()
-        val projectId = requireNotNull(parameters["addonid"] ?: parameters["projectid"]) { "The CurseForge link has no project ID." }
-        val fileId = requireNotNull(parameters["fileid"]) { "The CurseForge link has no file ID." }
-        requireNotNull(
+        val projectId =
+            requireUserNotNull(parameters["addonid"] ?: parameters["projectid"]) {
+                text(Res.string.msg_the_curseforge_link_has_no_project_id)
+            }
+        val fileId = requireUserNotNull(parameters["fileid"]) { text(Res.string.msg_the_curseforge_link_has_no_file_id) }
+        requireUserNotNull(
             services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).version(projectId, fileId).primaryFile?.url,
-        ) { "The CurseForge file blocks third-party downloads." }
+        ) { text(Res.string.msg_the_curseforge_file_blocks_third_party_downloads) }
     } else {
-        require(source.startsWith("https://") || source.startsWith("http://")) {
-            "Enter an HTTP, HTTPS, or curseforge:// URL."
+        requireUser(source.startsWith("https://") || source.startsWith("http://")) {
+            text(Res.string.msg_enter_an_http_https_or_curseforge_url)
         }
         source
     }
@@ -844,7 +1019,12 @@ class LauncherViewModel(
         mutableState.update {
             it.copy(
                 create = CreateInstanceState(),
-                operation = OperationStatus("Importing FTB App instances", path, cancellable = true, cancelLabel = "Cancel"),
+                operation = OperationStatus(
+                    text(Res.string.msg_importing_ftb_app_instances),
+                    path.asUserText(),
+                    cancellable = true,
+                    cancelLabel = text(Res.string.ui_cancel),
+                ),
                 error = null,
             )
         }
@@ -862,11 +1042,11 @@ class LauncherViewModel(
                     it.copy(
                         selectedId = configured.lastOrNull()?.id ?: it.selectedId,
                         operation = null,
-                        notice = "Imported ${configured.size} FTB App ${if (configured.size == 1) "instance" else "instances"}.",
+                        notice = pluralText(Res.plurals.msg_imported_ftb_app_instances, configured.size, configured.size),
                     )
                 }
             } catch (_: CancellationException) {
-                mutableState.update { it.copy(operation = null, notice = "FTB App import cancelled.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_ftb_app_import_cancelled)) }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error, resume = { importFtbAppInstances(requestedGroup) })
@@ -887,8 +1067,8 @@ class LauncherViewModel(
                     notice = null,
                     launchPlan = null,
                     operation = OperationStatus(
-                        if (resuming) "Preparing installation resume" else "Preparing installation",
-                        instance.displayName,
+                        if (resuming) text(Res.string.msg_preparing_installation_resume) else text(Res.string.msg_preparing_installation),
+                        instance.displayName.asUserText(),
                         cancellable = true,
                         instanceId = instance.id,
                     ),
@@ -900,11 +1080,11 @@ class LauncherViewModel(
                         it.copy(
                             operation = OperationStatus(
                                 title = if (progress.isFinalizing) {
-                                    "Finalizing ${instance.displayName}"
+                                    text(Res.string.msg_finalizing_s, instance.displayName)
                                 } else if (resuming) {
-                                    "Resuming ${instance.displayName}"
+                                    text(Res.string.msg_resuming_s, instance.displayName)
                                 } else {
-                                    "Installing ${instance.displayName}"
+                                    text(Res.string.msg_installing_s, instance.displayName)
                                 },
                                 detail = progress.activeLabel,
                                 completed = progress.completedBytes,
@@ -917,12 +1097,12 @@ class LauncherViewModel(
                         )
                     }
                 }
-                mutableState.update { it.copy(notice = "Installation is complete.", operation = null) }
+                mutableState.update { it.copy(notice = text(Res.string.msg_installation_is_complete), operation = null) }
                 checkLaunchReadiness(installed)
             } catch (_: CancellationException) {
                 mutableState.update {
                     it.copy(
-                        notice = "Installation paused. Resume it when you are ready.",
+                        notice = text(Res.string.msg_installation_paused_resume_it_when_you_are),
                         operation = null,
                     )
                 }
@@ -956,7 +1136,7 @@ class LauncherViewModel(
             )
             mutableState.update {
                 it.copy(
-                    notice = "Installation paused. Resume it when you are ready.",
+                    notice = text(Res.string.msg_installation_paused_resume_it_when_you_are),
                     operation = null,
                 )
             }
@@ -988,18 +1168,18 @@ class LauncherViewModel(
                         nativeLibraries = installed.libraries.count { it.native },
                         workingDirectory = "${instance.instanceDirectory}/game",
                         authentication = when {
-                            activeAccount == null -> "Sign-in required"
+                            activeAccount == null -> text(Res.string.ui_sign_in_required)
 
                             activeAccount.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
-                                "${activeAccount.profile.playerName} · Offline"
+                                text(Res.string.msg_player_offline, activeAccount.profile.playerName)
 
                             activeAccount.isAuthenticated && activeAccount.profile.edition == MinecraftEdition.JAVA ->
-                                activeAccount.profile.playerName
+                                activeAccount.profile.playerName.asUserText()
 
                             activeAccount.profile.edition == MinecraftEdition.BEDROCK ->
-                                "Select a Java account"
+                                text(Res.string.msg_select_a_java_account)
 
-                            else -> "${activeAccount.profile.playerName} · Sign-in expired"
+                            else -> text(Res.string.msg_player_sign_in_expired, activeAccount.profile.playerName)
                         },
                     ),
                     notice = null,
@@ -1018,7 +1198,7 @@ class LauncherViewModel(
             val running = mutableState.value.activeInstance
             if (running != null && running.id != mutableState.value.selectedInstance?.id) {
                 mutableState.update {
-                    it.copy(notice = "${running.displayName} is still running. Close it before you play another instance.")
+                    it.copy(notice = text(Res.string.msg_s_is_still_running_close_it_before, running.displayName))
                 }
             }
             return
@@ -1089,7 +1269,7 @@ class LauncherViewModel(
                                 updateLaunch(
                                     instance.id,
                                     LaunchStatus.Ready,
-                                    "Minecraft closed.",
+                                    text(Res.string.msg_minecraft_closed),
                                     activeEvent = true,
                                 )
                             } else {
@@ -1098,7 +1278,7 @@ class LauncherViewModel(
                                 }
                                 updateLaunch(
                                     instance.id,
-                                    LaunchStatus.Failed("Minecraft exited with code ${event.exitCode}."),
+                                    LaunchStatus.Failed(text(Res.string.msg_minecraft_exited_with_code_s, event.exitCode)),
                                     activeEvent = true,
                                 )
                             }
@@ -1120,7 +1300,7 @@ class LauncherViewModel(
                             updateLaunch(
                                 instance.id,
                                 LaunchStatus.Ready,
-                                "Minecraft stopped.",
+                                text(Res.string.msg_minecraft_stopped),
                                 activeEvent = true,
                             )
                         }
@@ -1128,12 +1308,12 @@ class LauncherViewModel(
                 }
             } catch (_: CancellationException) {
                 startedAtEpochMillis?.let { recordPlayTime(instance.id, it) }
-                updateLaunch(instance.id, LaunchStatus.Ready, "Minecraft stopped.", activeEvent = true)
+                updateLaunch(instance.id, LaunchStatus.Ready, text(Res.string.msg_minecraft_stopped), activeEvent = true)
             } catch (error: Exception) {
                 startedAtEpochMillis?.let { recordPlayTime(instance.id, it) }
                 updateLaunch(
                     instance.id,
-                    LaunchStatus.Failed(error.message ?: "Minecraft could not start."),
+                    LaunchStatus.Failed(error.userText(text(Res.string.msg_minecraft_could_not_start))),
                     activeEvent = true,
                 )
             } finally {
@@ -1149,7 +1329,7 @@ class LauncherViewModel(
             initialInitialization.await()
             val instance = mutableState.value.instances.firstOrNull { it.id == id }
             if (instance == null) {
-                mutableState.update { it.copy(error = "That instance is no longer in the library.") }
+                mutableState.update { it.copy(error = text(Res.string.msg_that_instance_is_no_longer_in_the)) }
                 return@launch
             }
             selectInstance(id)
@@ -1222,8 +1402,12 @@ class LauncherViewModel(
                 isSearching = false,
                 isLoadingVersions = false,
                 error = when {
-                    !platform.isAvailable -> "${provider.label} is not available for third-party launcher access."
-                    !platform.supports(current.type) -> "${provider.label} does not provide ${current.type.label.lowercase()}."
+                    !platform.isAvailable -> text(Res.string.msg_s_is_not_available_for_third_party, provider.label)
+
+                    !platform.supports(
+                        current.type,
+                    ) -> text(Res.string.msg_s_does_not_provide_s, provider.label, current.type.label.lowercase())
+
                     else -> null
                 },
             ),
@@ -1350,7 +1534,7 @@ class LauncherViewModel(
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
                         isLoadingVersions = false,
-                        error = error.message ?: "Versions could not be loaded.",
+                        error = error.userText(text(Res.string.msg_versions_could_not_be_loaded)),
                     ),
                 )
             }
@@ -1417,8 +1601,13 @@ class LauncherViewModel(
         }
         val blocked = when {
             project.type == ResourceType.MODPACK -> null
-            instance?.installationState !is InstallationState.Installed -> "Install the selected instance before adding resources."
+
+            instance?.installationState !is InstallationState.Installed -> text(
+                Res.string.msg_install_the_selected_instance_before_adding_resources,
+            )
+
             instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE
+
             else -> null
         }
         if (blocked != null) {
@@ -1432,13 +1621,13 @@ class LauncherViewModel(
                     title = if (project.type ==
                         ResourceType.MODPACK
                     ) {
-                        "Installing modpack"
+                        text(Res.string.msg_installing_modpack)
                     } else {
-                        "Installing ${project.type.label.lowercase()}"
+                        text(Res.string.msg_installing_s, project.type.label.lowercase())
                     },
-                    detail = project.name,
+                    detail = project.name.asUserText(),
                     cancellable = true,
-                    cancelLabel = "Cancel",
+                    cancelLabel = text(Res.string.ui_cancel),
                     instanceId = instance?.id,
                 ),
             )
@@ -1446,7 +1635,7 @@ class LauncherViewModel(
                 val notice = if (project.type == ResourceType.MODPACK) {
                     val created = services.modpackInstaller.install(project, version, ::updateResourceProgress)
                     mutableState.value = mutableState.value.copy(selectedId = created.id)
-                    "${created.displayName} was added to the library."
+                    text(Res.string.msg_s_was_added_to_the_library, created.displayName)
                 } else {
                     val selectedInstance = requireNotNull(instance)
                     val summary = services.resourceInstaller.install(
@@ -1456,12 +1645,16 @@ class LauncherViewModel(
                         browser.selectedOptionalDependencies,
                         ::updateResourceProgress,
                     )
-                    val dependencyText = if (summary.dependencyCount == 0) {
-                        ""
+                    if (summary.dependencyCount == 0) {
+                        text(Res.string.msg_s_was_installed, project.name)
                     } else {
-                        " with ${summary.dependencyCount} ${if (summary.dependencyCount == 1) "dependency" else "dependencies"}"
+                        pluralText(
+                            Res.plurals.msg_s_was_installed_with_dependencies,
+                            summary.dependencyCount,
+                            project.name,
+                            summary.dependencyCount,
+                        )
                     }
-                    "${project.name} was installed$dependencyText."
                 }
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = if (browser.presentation == ResourceBrowserPresentation.PAGE) {
@@ -1478,9 +1671,9 @@ class LauncherViewModel(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(isInstalling = false),
                     operation = null,
                     notice = if (project.type == ResourceType.MODPACK) {
-                        "Modpack installation cancelled. No instance was added."
+                        text(Res.string.msg_modpack_installation_cancelled_no_instance_was_added)
                     } else {
-                        "Resource installation cancelled."
+                        text(Res.string.msg_resource_installation_cancelled)
                     },
                 )
             } catch (error: Exception) {
@@ -1493,7 +1686,7 @@ class LauncherViewModel(
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
                         isInstalling = false,
-                        error = error.message ?: "The resource could not be installed.",
+                        error = error.userText(text(Res.string.msg_the_resource_could_not_be_installed)),
                     ),
                     operation = null,
                 )
@@ -1514,7 +1707,7 @@ class LauncherViewModel(
         scope.launch {
             val download = services.restrictedDownloads.match(pending, bytes)
             if (download == null) {
-                mutableState.update { it.copy(error = "That file is not one the pack needs. Check the file name and version.") }
+                mutableState.update { it.copy(error = text(Res.string.msg_that_file_is_not_one_the_pack)) }
                 return@launch
             }
             runCatching { services.restrictedDownloads.accept(download, bytes) }
@@ -1536,9 +1729,9 @@ class LauncherViewModel(
                 notice = if (retry ==
                     null
                 ) {
-                    "All files verified. Retry the installation to continue."
+                    text(Res.string.msg_all_files_verified_retry_the_installation_to)
                 } else {
-                    "All files verified. Continuing the installation."
+                    text(Res.string.msg_all_files_verified_continuing_the_installation)
                 },
             )
         }
@@ -1559,7 +1752,9 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         val origin = instance.modpackOrigin ?: return
         resourceJob = scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus("Checking modpack updates", instanceId = instance.id)) }
+            mutableState.update {
+                it.copy(operation = OperationStatus(text(Res.string.msg_checking_modpack_updates), instanceId = instance.id))
+            }
             try {
                 val provider = ResourceProvider.valueOf(origin.provider)
                 val platform = services.resourcePlatforms.platform(provider)
@@ -1576,7 +1771,7 @@ class LauncherViewModel(
                 }
                     .maxByOrNull { it.publishedAt }
                 if (latest == null) {
-                    mutableState.update { it.copy(notice = "No newer stable version of this pack is available.") }
+                    mutableState.update { it.copy(notice = text(Res.string.msg_no_newer_stable_version_of_this_pack)) }
                 } else {
                     preparePackUpdateNow(instance, project, latest)
                 }
@@ -1606,10 +1801,21 @@ class LauncherViewModel(
     }
 
     private suspend fun preparePackUpdateNow(instance: GameInstance, project: ResourceProject, version: ResourceVersion) {
-        require(mutableState.value.activeLaunch?.instanceId != instance.id) { "Stop Minecraft before preparing a pack update." }
-        require(instance.installationState is InstallationState.Installed) { "Finish installing this instance first." }
+        requireUser(mutableState.value.activeLaunch?.instanceId != instance.id) {
+            text(Res.string.msg_stop_minecraft_before_preparing_a_pack_update)
+        }
+        requireUser(instance.installationState is InstallationState.Installed) {
+            text(Res.string.msg_finish_installing_this_instance_first)
+        }
         mutableState.update {
-            it.copy(operation = OperationStatus("Preparing modpack update", project.name, cancellable = true, instanceId = instance.id))
+            it.copy(
+                operation = OperationStatus(
+                    text(Res.string.msg_preparing_modpack_update),
+                    project.name.asUserText(),
+                    cancellable = true,
+                    instanceId = instance.id,
+                ),
+            )
         }
         val preview = services.modpackInstaller.prepareUpdate(instance, project, version, ::updateResourceProgress)
         mutableState.update { it.copy(modpackUpdatePreview = preview) }
@@ -1619,11 +1825,15 @@ class LauncherViewModel(
         if (resourceJob?.isActive == true) return
         val preview = mutableState.value.modpackUpdatePreview ?: return
         resourceJob = scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus("Applying pack update", instanceId = preview.original.id)) }
+            mutableState.update {
+                it.copy(operation = OperationStatus(text(Res.string.msg_applying_pack_update), instanceId = preview.original.id))
+            }
             try {
-                require(mutableState.value.activeLaunch?.instanceId != preview.original.id) { "Stop Minecraft before updating this pack." }
+                requireUser(mutableState.value.activeLaunch?.instanceId != preview.original.id) {
+                    text(Res.string.msg_stop_minecraft_before_updating_this_pack)
+                }
                 val current = services.repository.get(preview.original.id)
-                require(current == preview.original) { "The instance changed after the preview. Prepare the update again." }
+                requireUser(current == preview.original) { text(Res.string.msg_the_instance_changed_after_the_preview_prepare) }
                 withContext(NonCancellable) {
                     val updated = services.modpackUpdates.apply(preview, replaceConflicts)
                     services.repository.update(updated)
@@ -1634,7 +1844,7 @@ class LauncherViewModel(
                             modpackUpdatePreview = null,
                             selectedId = updated.id,
                             canRollbackModpack = true,
-                            notice = "Pack updated. The previous files are backed up for rollback.",
+                            notice = text(Res.string.msg_pack_updated_the_previous_files_are_backed),
                         )
                     }
                 }
@@ -1662,12 +1872,18 @@ class LauncherViewModel(
         val instance = mutableState.value.selectedInstance ?: return
         resourceJob = scope.launch {
             try {
-                mutableState.update { it.copy(operation = OperationStatus("Restoring pack backup", instanceId = instance.id)) }
-                require(mutableState.value.activeLaunch?.instanceId != instance.id) { "Stop Minecraft before rolling back the pack." }
+                mutableState.update {
+                    it.copy(operation = OperationStatus(text(Res.string.msg_restoring_pack_backup), instanceId = instance.id))
+                }
+                requireUser(mutableState.value.activeLaunch?.instanceId != instance.id) {
+                    text(Res.string.msg_stop_minecraft_before_rolling_back_the_pack)
+                }
                 withContext(NonCancellable) {
                     services.repository.update(services.modpackUpdates.rollback(instance))
                     cachedLaunch = null
-                    mutableState.update { it.copy(canRollbackModpack = false, notice = "The previous pack version was restored.") }
+                    mutableState.update {
+                        it.copy(canRollbackModpack = false, notice = text(Res.string.msg_the_previous_pack_version_was_restored))
+                    }
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
@@ -1761,10 +1977,10 @@ class LauncherViewModel(
                             installedContentUpdates = updates,
                             isCheckingInstalledContentUpdates = false,
                             notice = when {
-                                failed > 0 -> "${updates.size} updates found; $failed items could not be checked. Try again later."
-                                updates.isEmpty() -> "Installed content is up to date."
-                                updates.size == 1 -> "One content update is available."
-                                else -> "${updates.size} content updates are available."
+                                failed > 0 -> text(Res.string.msg_s_updates_found_s_items_could_not, updates.size, failed)
+                                updates.isEmpty() -> text(Res.string.msg_installed_content_is_up_to_date)
+                                updates.size == 1 -> text(Res.string.msg_one_content_update_is_available)
+                                else -> text(Res.string.msg_s_content_updates_are_available, updates.size)
                             },
                         )
                     }
@@ -1787,7 +2003,7 @@ class LauncherViewModel(
                 val enabled = !content.enabled
                 if (services.resourceInstaller.setEnabled(instance, content, enabled)) {
                     mutableState.update {
-                        it.copy(notice = "${content.name} was ${if (enabled) "enabled" else "disabled"}.")
+                        it.copy(notice = text(if (enabled) Res.string.msg_s_was_enabled else Res.string.msg_s_was_disabled, content.name))
                     }
                     val refreshed = services.resourceInstaller.installedContent(instance)
                     mutableState.update { it.copy(installedContent = refreshed, isLoadingInstalledContent = false) }
@@ -1809,10 +2025,10 @@ class LauncherViewModel(
             mutableState.update {
                 it.copy(
                     operation = OperationStatus(
-                        title = "Updating ${content.name}",
-                        detail = version.versionNumber,
+                        title = text(Res.string.msg_updating_s, content.name),
+                        detail = version.versionNumber.asUserText(),
                         cancellable = true,
-                        cancelLabel = "Cancel",
+                        cancelLabel = text(Res.string.ui_cancel),
                         instanceId = instance.id,
                     ),
                 )
@@ -1825,11 +2041,11 @@ class LauncherViewModel(
                         installedContent = refreshed,
                         installedContentUpdates = it.installedContentUpdates - key,
                         operation = null,
-                        notice = "${content.name} was updated to ${version.versionNumber}.",
+                        notice = text(Res.string.msg_s_was_updated_to_s, content.name, version.versionNumber),
                     )
                 }
             } catch (_: CancellationException) {
-                mutableState.update { it.copy(operation = null, notice = "Content update cancelled.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_content_update_cancelled)) }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -1852,7 +2068,7 @@ class LauncherViewModel(
                             installedContent = refreshed,
                             installedContentUpdates = it.installedContentUpdates - key,
                             isLoadingInstalledContent = false,
-                            notice = "${content.name} was removed.",
+                            notice = text(Res.string.msg_s_was_removed, content.name),
                         )
                     }
                 }
@@ -1904,37 +2120,37 @@ class LauncherViewModel(
         }
     }
 
-    override fun backupWorld(worldKey: String) = runGameDataOperation("Backing up world") { instance ->
+    override fun backupWorld(worldKey: String) = runGameDataOperation(text(Res.string.msg_backing_up_world)) { instance ->
         val backup = services.gameDataManager.backupWorld(instance, worldKey)
-        "Created ${backup.fileName}."
+        text(Res.string.msg_created_s, backup.fileName)
     }
 
-    override fun restoreWorldBackup(backupKey: String) = runGameDataOperation("Restoring world") { instance ->
+    override fun restoreWorldBackup(backupKey: String) = runGameDataOperation(text(Res.string.msg_restoring_world)) { instance ->
         val world = services.gameDataManager.restoreWorldBackup(instance, backupKey)
-        "Restored ${world.name}."
+        text(Res.string.msg_restored_s, world.name)
     }
 
-    override fun importWorld(fileName: String, bytes: ByteArray) = runGameDataOperation("Importing world") { instance ->
+    override fun importWorld(fileName: String, bytes: ByteArray) = runGameDataOperation(text(Res.string.msg_importing_world)) { instance ->
         val world = services.gameDataManager.importWorld(instance, fileName, bytes)
-        "Imported ${world.name}."
+        text(Res.string.msg_imported_s, world.name)
     }
 
-    override fun copyWorld(worldKey: String) = runGameDataOperation("Copying world") { instance ->
+    override fun copyWorld(worldKey: String) = runGameDataOperation(text(Res.string.msg_copying_world)) { instance ->
         val world = services.gameDataManager.copyWorld(instance, worldKey)
-        "Created ${world.name}."
+        text(Res.string.msg_created_s, world.name)
     }
 
     override fun renameWorld(worldKey: String, newName: String) {
         if (newName.isBlank()) return
-        runGameDataOperation("Renaming world") { instance ->
+        runGameDataOperation(text(Res.string.msg_renaming_world)) { instance ->
             val world = services.gameDataManager.renameWorld(instance, worldKey, newName)
-            "Renamed world to ${world.name}."
+            text(Res.string.msg_renamed_world_to_s, world.name)
         }
     }
 
-    override fun resetWorldIcon(worldKey: String) = runGameDataOperation("Resetting world icon") { instance ->
+    override fun resetWorldIcon(worldKey: String) = runGameDataOperation(text(Res.string.msg_resetting_world_icon)) { instance ->
         services.gameDataManager.resetWorldIcon(instance, worldKey)
-        "Reset the world icon."
+        text(Res.string.msg_reset_the_world_icon)
     }
 
     override fun launchWorld(worldKey: String) {
@@ -1954,31 +2170,33 @@ class LauncherViewModel(
     override fun confirmWorldDeletion() {
         val worldKey = mutableState.value.pendingWorldDeletionKey ?: return
         mutableState.update { it.copy(pendingWorldDeletionKey = null) }
-        runGameDataOperation("Deleting world") { instance ->
+        runGameDataOperation(text(Res.string.msg_deleting_world)) { instance ->
             services.gameDataManager.deleteWorld(instance, worldKey)
-            "Deleted $worldKey. Existing backups were kept."
+            text(Res.string.msg_deleted_s_existing_backups_were_kept, worldKey)
         }
     }
 
-    override fun deleteScreenshot(screenshotKey: String) = runGameDataOperation("Deleting screenshot") { instance ->
+    override fun deleteScreenshot(screenshotKey: String) = runGameDataOperation(text(Res.string.msg_deleting_screenshot)) { instance ->
         services.gameDataManager.deleteScreenshot(instance, screenshotKey)
-        "Deleted $screenshotKey."
+        text(Res.string.msg_deleted_s, screenshotKey)
     }
 
     override fun renameScreenshot(screenshotKey: String, newName: String) {
         if (newName.isBlank()) return
-        runGameDataOperation("Renaming screenshot") { instance ->
+        runGameDataOperation(text(Res.string.msg_renaming_screenshot)) { instance ->
             val screenshot = services.gameDataManager.renameScreenshot(instance, screenshotKey, newName.trim())
-            "Renamed screenshot to ${screenshot.fileName}."
+            text(Res.string.msg_renamed_screenshot_to_s, screenshot.fileName)
         }
     }
 
     override fun toggleDataPack(worldKey: String, dataPackKey: String) {
         val pack = mutableState.value.gameData.worlds.firstOrNull { it.key == worldKey }
             ?.dataPacks?.firstOrNull { it.key == dataPackKey } ?: return
-        runGameDataOperation(if (pack.enabled) "Disabling data pack" else "Enabling data pack") { instance ->
+        runGameDataOperation(
+            if (pack.enabled) text(Res.string.msg_disabling_data_pack) else text(Res.string.msg_enabling_data_pack),
+        ) { instance ->
             services.gameDataManager.setDataPackEnabled(instance, worldKey, dataPackKey, !pack.enabled)
-            "${pack.fileName} was ${if (pack.enabled) "disabled" else "enabled"}."
+            text(if (pack.enabled) Res.string.msg_s_was_disabled else Res.string.msg_s_was_enabled, pack.fileName)
         }
     }
 
@@ -2042,7 +2260,7 @@ class LauncherViewModel(
                         gameData = inventory,
                         isLoadingGameData = false,
                         serverEditor = ServerEditorState(),
-                        notice = "Saved ${editor.name.trim()} to the Minecraft server list.",
+                        notice = text(Res.string.msg_saved_s_to_the_minecraft_server_list, editor.name.trim()),
                     )
                 }
             } catch (error: CancellationException) {
@@ -2054,15 +2272,15 @@ class LauncherViewModel(
         }
     }
 
-    override fun removeServer(serverKey: String) = runGameDataOperation("Removing server") { instance ->
+    override fun removeServer(serverKey: String) = runGameDataOperation(text(Res.string.msg_removing_server)) { instance ->
         val server = mutableState.value.gameData.servers.firstOrNull { it.key == serverKey }
         services.gameDataManager.removeServer(instance, serverKey)
-        "Removed ${server?.name ?: "server"}."
+        server?.name?.let { text(Res.string.msg_removed_s, it) } ?: text(Res.string.msg_removed_server)
     }
 
-    override fun moveServer(serverKey: String, offset: Int) = runGameDataOperation("Reordering servers") { instance ->
+    override fun moveServer(serverKey: String, offset: Int) = runGameDataOperation(text(Res.string.msg_reordering_servers)) { instance ->
         services.gameDataManager.moveServer(instance, serverKey, offset)
-        "Updated the server order."
+        text(Res.string.msg_updated_the_server_order)
     }
 
     override fun joinServer(serverKey: String) {
@@ -2099,7 +2317,7 @@ class LauncherViewModel(
         }
     }
 
-    override fun deleteInstanceLog(logKey: String) = runGameDataOperation("Deleting log") { instance ->
+    override fun deleteInstanceLog(logKey: String) = runGameDataOperation(text(Res.string.msg_deleting_log)) { instance ->
         services.gameDataManager.deleteLog(instance, logKey)
         mutableState.update { state ->
             if (state.selectedInstanceLogKey == logKey) {
@@ -2108,19 +2326,19 @@ class LauncherViewModel(
                 state
             }
         }
-        "Deleted ${logKey.substringAfterLast('/')}"
+        text(Res.string.msg_deleted_s_2, logKey.substringAfterLast('/'))
     }
 
     override fun saveInstanceNotes(value: String) {
         val instance = mutableState.value.selectedInstance ?: return
         scope.launch {
             runCatching { services.repository.update(instance.copy(notes = value.trimEnd())) }
-                .onSuccess { mutableState.update { it.copy(notice = "Saved notes for ${instance.displayName}.") } }
+                .onSuccess { mutableState.update { it.copy(notice = text(Res.string.msg_saved_notes_for_s, instance.displayName)) } }
                 .onFailure(::showError)
         }
     }
 
-    private fun runGameDataOperation(title: String, operation: suspend (GameInstance) -> String) {
+    private fun runGameDataOperation(title: UserText, operation: suspend (GameInstance) -> UserText) {
         val instance = mutableState.value.selectedInstance ?: return
         if (gameDataWriteJob?.isActive == true) {
             mutableState.update { it.copy(notice = BUSY_NOTICE) }
@@ -2129,7 +2347,7 @@ class LauncherViewModel(
         // A refresh only reads, so it is safe to stop; this operation reloads the inventory itself.
         gameDataJob?.cancel()
         gameDataWriteJob = scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus(title, instance.displayName)) }
+            mutableState.update { it.copy(operation = OperationStatus(title, instance.displayName.asUserText())) }
             try {
                 val notice = operation(instance)
                 val inventory = services.gameDataManager.inventory(instance)
@@ -2151,7 +2369,7 @@ class LauncherViewModel(
     override fun deleteSelected() {
         val id = mutableState.value.selectedInstance?.id ?: return
         if (mutableState.value.activeLaunch?.instanceId == id) {
-            mutableState.update { it.copy(error = "Stop Minecraft before removing this instance.") }
+            mutableState.update { it.copy(error = text(Res.string.msg_stop_minecraft_before_removing_this_instance)) }
             return
         }
         mutableState.update {
@@ -2166,7 +2384,7 @@ class LauncherViewModel(
         if (!supportsPathTrash) return
         val id = mutableState.value.selectedInstance?.id ?: return
         if (mutableState.value.activeLaunch?.instanceId == id) {
-            mutableState.update { it.copy(error = "Stop Minecraft before moving this instance to Trash.") }
+            mutableState.update { it.copy(error = text(Res.string.msg_stop_minecraft_before_moving_this_instance_to)) }
             return
         }
         mutableState.update {
@@ -2188,9 +2406,7 @@ class LauncherViewModel(
         scope.launch {
             try {
                 if (removalMode == InstanceRemovalMode.MOVE_TO_TRASH) {
-                    check(movePathToTrash(removed.instanceDirectory)) {
-                        "The instance could not be moved to Trash. Its files were not changed."
-                    }
+                    checkUser(movePathToTrash(removed.instanceDirectory)) { text(Res.string.msg_the_instance_could_not_be_moved_to) }
                 }
                 services.repository.delete(id)
                 mutableState.update {
@@ -2198,7 +2414,7 @@ class LauncherViewModel(
                         selectedId = null,
                         pendingInstanceRemovalId = null,
                         notice = if (removalMode == InstanceRemovalMode.MOVE_TO_TRASH) {
-                            "${removed.displayName} was moved to Trash."
+                            text(Res.string.msg_s_was_moved_to_trash, removed.displayName)
                         } else {
                             INSTANCE_REMOVED_NOTICE
                         },
@@ -2223,7 +2439,7 @@ class LauncherViewModel(
         val removed = mutableState.value.instances.firstOrNull { it.id == id } ?: return
         scope.launch {
             mutableState.update {
-                it.copy(operation = OperationStatus("Deleting instance", removed.displayName))
+                it.copy(operation = OperationStatus(text(Res.string.msg_deleting_instance), removed.displayName.asUserText()))
             }
             try {
                 services.repository.deleteWithFiles(id)
@@ -2232,7 +2448,7 @@ class LauncherViewModel(
                         selectedId = null,
                         pendingInstanceRemovalId = null,
                         operation = null,
-                        notice = "${removed.displayName} and its files were deleted.",
+                        notice = text(Res.string.msg_s_and_its_files_were_deleted, removed.displayName),
                         launchPlan = null,
                         removedInstanceUndo = null,
                         installedContent = emptyList(),
@@ -2258,7 +2474,7 @@ class LauncherViewModel(
                         state.copy(
                             selectedId = instance.id,
                             removedInstanceUndo = null,
-                            notice = "${instance.displayName} was restored to the library.",
+                            notice = text(Res.string.msg_s_was_restored_to_the_library, instance.displayName),
                         )
                     }
                 }
@@ -2286,11 +2502,11 @@ class LauncherViewModel(
             else -> emptyList()
         }
         if (allowedTypes.isEmpty()) {
-            mutableState.update { it.copy(error = "Choose a .jar, .zip, or .mrpack file.") }
+            mutableState.update { it.copy(error = text(Res.string.msg_choose_a_jar_zip_or_mrpack_file)) }
             return
         }
         if (bytes.isEmpty()) {
-            mutableState.update { it.copy(error = "$fileName is empty.") }
+            mutableState.update { it.copy(error = text(Res.string.msg_s_is_empty, fileName)) }
             return
         }
         val selectedType = type?.takeIf { it in allowedTypes }
@@ -2311,11 +2527,11 @@ class LauncherViewModel(
     }
 
     override fun reportLocalFileReadFailure(fileName: String) {
-        mutableState.update { it.copy(error = "$fileName could not be read.") }
+        mutableState.update { it.copy(error = text(Res.string.msg_s_could_not_be_read, fileName)) }
     }
 
     override fun reportLocalFileTooLarge(fileName: String) {
-        mutableState.update { it.copy(error = "$fileName is larger than the 512 MiB import limit.") }
+        mutableState.update { it.copy(error = text(Res.string.msg_s_is_larger_than_the_mib_import, fileName)) }
     }
 
     override fun setLocalFileImportType(type: ResourceType) {
@@ -2347,7 +2563,7 @@ class LauncherViewModel(
         val target = pending.targetInstanceId?.let { id -> mutableState.value.instances.firstOrNull { it.id == id } }
         if (type != ResourceType.MODPACK && target?.installationState !is InstallationState.Installed) {
             mutableState.update {
-                it.copy(error = "Install the target instance before adding local content.")
+                it.copy(error = text(Res.string.msg_install_the_target_instance_before_adding_local))
             }
             return
         }
@@ -2356,10 +2572,16 @@ class LauncherViewModel(
                 it.copy(
                     localFileImport = LocalFileImportState(),
                     operation = OperationStatus(
-                        title = if (type == ResourceType.MODPACK) "Importing modpack" else "Adding local ${type.label.lowercase()}",
-                        detail = pending.fileName,
+                        title = if (type ==
+                            ResourceType.MODPACK
+                        ) {
+                            text(Res.string.msg_importing_modpack)
+                        } else {
+                            text(Res.string.msg_adding_local_s, type.label.lowercase())
+                        },
+                        detail = pending.fileName.asUserText(),
                         cancellable = true,
-                        cancelLabel = "Cancel",
+                        cancelLabel = text(Res.string.ui_cancel),
                         instanceId = target?.id,
                     ),
                 )
@@ -2372,16 +2594,16 @@ class LauncherViewModel(
                         ::updateResourceProgress,
                     )
                     mutableState.update { it.copy(selectedId = created.id) }
-                    "${created.displayName} was imported."
+                    text(Res.string.msg_s_was_imported, created.displayName)
                 } else {
                     val instance = requireNotNull(target)
                     services.resourceInstaller.installLocal(instance, pending.fileName, pending.bytes, type)
-                    "${pending.fileName} was added to ${instance.displayName}."
+                    text(Res.string.msg_s_was_added_to_s, pending.fileName, instance.displayName)
                 }
                 mutableState.update { it.copy(operation = null, notice = notice) }
                 refreshInstalledContent()
             } catch (_: CancellationException) {
-                mutableState.update { it.copy(operation = null, notice = "Local file import cancelled.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_local_file_import_cancelled)) }
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error, resume = { runLocalFileImport(pending) })
@@ -2438,7 +2660,7 @@ class LauncherViewModel(
                         mutableState.value.accounts.any { it.profile.profileId == profileId }
                     },
                     isLoadingClientSettings = true,
-                    recommendation = "Recommended maximum: ${recommendation.memory.maximumMiB} MiB",
+                    recommendation = text(Res.string.msg_recommended_maximum_s_mib, recommendation.memory.maximumMiB),
                     warnings = recommendation.warnings,
                 ).let { form -> form.copy(initial = form) },
             )
@@ -2457,7 +2679,7 @@ class LauncherViewModel(
                                 initial = form.initial?.copy(clientSettings = clientSettings),
                                 isLoadingClientSettings = false,
                                 clientSettingsError = if (clientSettings == null) {
-                                    "Client settings are unavailable for Minecraft ${instance.minecraftVersionId}."
+                                    text(Res.string.msg_client_settings_are_unavailable_for_minecraft_s, instance.minecraftVersionId)
                                 } else {
                                     null
                                 },
@@ -2476,7 +2698,7 @@ class LauncherViewModel(
                         state.copy(
                             instanceSettings = form.copy(
                                 isLoadingClientSettings = false,
-                                clientSettingsError = error.message ?: "Client settings could not be loaded.",
+                                clientSettingsError = error.userText(text(Res.string.msg_client_settings_could_not_be_loaded)),
                             ),
                         )
                     }
@@ -2672,11 +2894,11 @@ class LauncherViewModel(
                     it.copy(
                         instanceSettings = InstanceSettingsState(),
                         notice = if (componentsChanged) {
-                            "Instance settings saved. Install the new game components before launching."
+                            text(Res.string.msg_instance_settings_saved_install_the_new_game)
                         } else if (review.ignored.isNotEmpty()) {
-                            "Instance settings saved. Trestle ignored managed JVM options: ${review.ignored.joinToString(" ")}"
+                            text(Res.string.msg_instance_settings_saved_ignored_jvm_options, review.ignored.joinToString(" "))
                         } else {
-                            "Instance settings saved."
+                            text(Res.string.msg_instance_settings_saved)
                         },
                     )
                 }
@@ -2757,9 +2979,9 @@ class LauncherViewModel(
                     accountLogin = form.copy(isWaiting = true, error = null),
                     operation = OperationStatus(
                         if (form.method == AccountAuthenticationMethod.OFFLINE) {
-                            "Adding offline account"
+                            text(Res.string.msg_adding_offline_account)
                         } else {
-                            "Authenticating account"
+                            text(Res.string.msg_authenticating_account)
                         },
                     ),
                     error = null,
@@ -2794,11 +3016,11 @@ class LauncherViewModel(
                         operation = null,
                         notice = when {
                             form.method == AccountAuthenticationMethod.OFFLINE ->
-                                "Offline account added and set as active. It can only join servers that allow offline identities."
+                                text(Res.string.msg_offline_account_added_and_set_as_active)
 
-                            form.edition == MinecraftEdition.BEDROCK -> "Bedrock account added. It can't launch Java instances."
+                            form.edition == MinecraftEdition.BEDROCK -> text(Res.string.msg_bedrock_account_added_it_can_t_launch)
 
-                            else -> "Account added and set as active."
+                            else -> text(Res.string.msg_account_added_and_set_as_active)
                         },
                     )
                 }
@@ -2813,7 +3035,7 @@ class LauncherViewModel(
                         accountLogin = it.accountLogin.copy(
                             isWaiting = false,
                             authorization = null,
-                            error = error.message ?: "Sign-in failed. Try again.",
+                            error = error.userText(text(Res.string.msg_sign_in_failed_try_again)),
                         ),
                         operation = null,
                     )
@@ -2846,10 +3068,10 @@ class LauncherViewModel(
 
     override fun refreshActiveAccount() {
         scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus("Refreshing account profile")) }
+            mutableState.update { it.copy(operation = OperationStatus(text(Res.string.msg_refreshing_account_profile))) }
             try {
                 val session = services.accounts.currentSession()
-                    ?: error("The selected account needs to sign in again.")
+                    ?: userError(text(Res.string.msg_the_selected_account_needs_to_sign_in))
                 val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
                 val profile = services.profileClient.fetchProfile(session).copy(
                     authenticationMethod = existing?.authenticationMethod
@@ -2857,7 +3079,7 @@ class LauncherViewModel(
                     lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
                 )
                 services.accounts.updateProfile(profile)
-                mutableState.update { it.copy(operation = null, notice = "Account profile refreshed.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_account_profile_refreshed)) }
                 cachedLaunch = null
                 checkLaunchReadiness(mutableState.value.selectedInstance)
             } catch (error: CancellationException) {
@@ -2871,10 +3093,10 @@ class LauncherViewModel(
 
     override fun resetActiveSkin() {
         scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus("Resetting active skin")) }
+            mutableState.update { it.copy(operation = OperationStatus(text(Res.string.msg_resetting_active_skin))) }
             try {
                 val session = services.accounts.currentSession()
-                    ?: error("The selected account needs to sign in again.")
+                    ?: userError(text(Res.string.msg_the_selected_account_needs_to_sign_in))
                 val profile = services.profileClient.resetActiveSkin(session)
                 val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
                 services.accounts.updateProfile(
@@ -2884,7 +3106,7 @@ class LauncherViewModel(
                         lastAuthenticatedAtEpochMillis = existing?.lastAuthenticatedAtEpochMillis,
                     ),
                 )
-                mutableState.update { it.copy(operation = null, notice = "The active skin was reset.") }
+                mutableState.update { it.copy(operation = null, notice = text(Res.string.msg_the_active_skin_was_reset)) }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -2990,7 +3212,7 @@ class LauncherViewModel(
                         },
                         texture = bytes.copyOf().takeIf { error == null } ?: editor.texture,
                         sourceFileName = fileName.takeIf { error == null } ?: editor.sourceFileName,
-                        error = error?.message,
+                        error = error?.userText(text(Res.string.ui_trestle_could_not_read_that_image)),
                     ),
                 ),
             )
@@ -3001,7 +3223,7 @@ class LauncherViewModel(
         mutableState.update {
             it.copy(
                 skinStudio = it.skinStudio.copy(
-                    editor = it.skinStudio.editor.copy(error = "The selected skin file could not be read."),
+                    editor = it.skinStudio.editor.copy(error = text(Res.string.msg_the_selected_skin_file_could_not_be)),
                 ),
             )
         }
@@ -3015,7 +3237,9 @@ class LauncherViewModel(
             mutableState.update {
                 it.copy(
                     skinStudio = it.skinStudio.copy(editor = editor.copy(isSaving = true, error = null)),
-                    operation = OperationStatus(if (useAfterSave) "Saving and applying skin" else "Saving skin"),
+                    operation = OperationStatus(
+                        if (useAfterSave) text(Res.string.msg_saving_and_applying_skin) else text(Res.string.msg_saving_skin),
+                    ),
                 )
             }
             try {
@@ -3028,7 +3252,14 @@ class LauncherViewModel(
                             editor = SkinEditorState(),
                         ),
                         operation = null,
-                        notice = if (useAfterSave) "${saved.profile.name} is now your active skin." else "Skin saved.",
+                        notice = if (useAfterSave) {
+                            text(
+                                Res.string.msg_s_is_now_your_active_skin,
+                                saved.profile.name,
+                            )
+                        } else {
+                            text(Res.string.msg_skin_saved)
+                        },
                     )
                 }
             } catch (error: CancellationException) {
@@ -3037,7 +3268,10 @@ class LauncherViewModel(
                 mutableState.update {
                     it.copy(
                         skinStudio = it.skinStudio.copy(
-                            editor = it.skinStudio.editor.copy(isSaving = false, error = error.message),
+                            editor = it.skinStudio.editor.copy(
+                                isSaving = false,
+                                error = error.userText(text(Res.string.msg_skin_could_not_be_saved)),
+                            ),
                         ),
                         operation = null,
                     )
@@ -3051,10 +3285,12 @@ class LauncherViewModel(
             it.profile.id == mutableState.value.skinStudio.selectedProfileId
         } ?: return
         scope.launch {
-            mutableState.update { it.copy(operation = OperationStatus("Applying ${saved.profile.name}"), error = null) }
+            mutableState.update { it.copy(operation = OperationStatus(text(Res.string.msg_applying_s, saved.profile.name)), error = null) }
             try {
                 applySkin(saved)
-                mutableState.update { it.copy(operation = null, notice = "${saved.profile.name} is now your active skin.") }
+                mutableState.update {
+                    it.copy(operation = null, notice = text(Res.string.msg_s_is_now_your_active_skin, saved.profile.name))
+                }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -3068,7 +3304,7 @@ class LauncherViewModel(
         val profileId = mutableState.value.skinStudio.selectedProfileId ?: return
         scope.launch {
             runCatching { services.skinLibrary.delete(profileId) }
-                .onSuccess { mutableState.update { it.copy(notice = "Skin removed from the local library.") } }
+                .onSuccess { mutableState.update { it.copy(notice = text(Res.string.msg_skin_removed_from_the_local_library)) } }
                 .onFailure(::showError)
         }
     }
@@ -3134,9 +3370,9 @@ class LauncherViewModel(
                         } else if (update ==
                             null
                         ) {
-                            "No newer Trestle release is available."
+                            text(Res.string.msg_no_newer_trestle_release_is_available)
                         } else {
-                            "Trestle ${update.version} is available."
+                            text(Res.string.msg_trestle_s_is_available, update.version)
                         },
                     )
                 }
@@ -3161,9 +3397,9 @@ class LauncherViewModel(
 
     private suspend fun applySkin(saved: SavedSkin) {
         val session = services.accounts.currentSession()
-            ?: error("The selected account needs to sign in again.")
+            ?: userError(text(Res.string.msg_the_selected_account_needs_to_sign_in))
         val existing = mutableState.value.accounts.firstOrNull { it.profile.profileId == session.profileId }?.profile
-            ?: error("The selected account is not available.")
+            ?: userError(text(Res.string.msg_the_selected_account_is_not_available))
         val profile = services.profileClient.uploadSkin(session, saved.texture, saved.profile.variant).copy(
             authenticationMethod = existing.authenticationMethod,
             lastAuthenticatedAtEpochMillis = existing.lastAuthenticatedAtEpochMillis,
@@ -3261,7 +3497,7 @@ class LauncherViewModel(
                 mutableState.value = mutableState.value.copy(
                     resourceBrowser = mutableState.value.resourceBrowser.copy(
                         isSearching = false,
-                        error = error.message ?: "Resources could not be loaded.",
+                        error = error.userText(text(Res.string.msg_resources_could_not_be_loaded)),
                     ),
                 )
             }
@@ -3390,7 +3626,7 @@ class LauncherViewModel(
                 cachedLaunch = null
                 updateLaunch(
                     instance.id,
-                    LaunchStatus.Failed(error.message ?: "The launch check failed."),
+                    LaunchStatus.Failed(error.userText(text(Res.string.msg_the_launch_check_failed))),
                 )
             } finally {
                 mutableState.update { it.copy(operation = null) }
@@ -3415,7 +3651,7 @@ class LauncherViewModel(
         mutableState.update {
             it.copy(
                 operation = OperationStatus(
-                    title = "Preparing Android runtime",
+                    title = text(Res.string.msg_preparing_android_runtime),
                     detail = progress.stage,
                     completed = progress.completedBytes,
                     total = progress.totalBytes,
@@ -3426,7 +3662,7 @@ class LauncherViewModel(
         }
     }
 
-    private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: String? = null, activeEvent: Boolean = false) {
+    private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: UserText? = null, activeEvent: Boolean = false) {
         mutableState.update { state ->
             val activeLaunch = if (activeEvent) {
                 when (status) {
@@ -3463,7 +3699,7 @@ class LauncherViewModel(
         }
         mutableState.update {
             it.copy(
-                error = error.message ?: "The operation failed.",
+                error = error.userText(text(Res.string.msg_the_operation_failed)),
                 errorRecovery = recovery,
                 notice = null,
             )
@@ -3482,11 +3718,9 @@ private fun parseEnvironmentVariables(value: String): Map<String, String> = buil
         val line = rawLine.trim()
         if (line.isBlank() || line.startsWith('#')) return@forEachIndexed
         val separator = line.indexOf('=')
-        require(separator > 0) { "Environment variable line ${index + 1} must use NAME=value." }
+        requireUser(separator > 0) { text(Res.string.msg_environment_variable_line_s_must_use_name, index + 1) }
         val name = line.substring(0, separator).trim()
-        require(name.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) {
-            "Environment variable name $name is invalid."
-        }
+        requireUser(name.matches(Regex("[A-Za-z_][A-Za-z0-9_]*"))) { text(Res.string.msg_environment_variable_name_s_is_invalid, name) }
         put(name, line.substring(separator + 1))
     }
 }
@@ -3526,7 +3760,7 @@ private fun parseCommandLine(value: String): List<String> {
             }
         }
     }
-    require(quote == null) { "Launch arguments contain an unmatched quote." }
+    requireUser(quote == null) { text(Res.string.msg_launch_arguments_contain_an_unmatched_quote) }
     if (escaping) current.append('\\')
     if (started || current.isNotEmpty()) arguments += current.toString()
     return arguments

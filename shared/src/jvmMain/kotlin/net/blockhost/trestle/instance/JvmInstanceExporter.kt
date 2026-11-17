@@ -8,6 +8,13 @@ import kotlinx.serialization.json.put
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_the_instance_could_not_be_exported
+import net.blockhost.trestle.resources.msg_the_instance_directory_does_not_exist
+import net.blockhost.trestle.resources.msg_vanilla_does_not_have_a_loader_component
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userError
 import okio.Path
 import java.nio.file.Files
 import java.nio.file.Paths
@@ -21,7 +28,7 @@ class JvmInstanceExporter : InstanceExporter {
         val target = Paths.get(destination.toString()).toAbsolutePath().normalize()
         val temporary = target.resolveSibling(".${target.fileName}.tmp")
         try {
-            require(Files.isDirectory(source)) { "The instance directory does not exist." }
+            requireUser(Files.isDirectory(source)) { text(Res.string.msg_the_instance_directory_does_not_exist) }
             Files.createDirectories(requireNotNull(target.parent))
             ZipOutputStream(Files.newOutputStream(temporary)).use { zip ->
                 zip.writeTextEntry("mmc-pack.json", prismManifest(instance))
@@ -49,7 +56,7 @@ class JvmInstanceExporter : InstanceExporter {
             return destination
         } catch (error: Exception) {
             runCatching { Files.deleteIfExists(temporary) }
-            throw LauncherException.FileSystem("The instance could not be exported.", error)
+            throw LauncherException.FileSystem(text(Res.string.msg_the_instance_could_not_be_exported), error)
         }
     }
 
@@ -87,7 +94,7 @@ class JvmInstanceExporter : InstanceExporter {
         ModLoader.NEOFORGE -> "net.neoforged"
         ModLoader.FORGE -> "net.minecraftforge"
         ModLoader.QUILT -> "org.quiltmc.quilt-loader"
-        ModLoader.VANILLA -> error("Vanilla does not have a loader component.")
+        ModLoader.VANILLA -> userError(text(Res.string.msg_vanilla_does_not_have_a_loader_component))
     }
 
     private companion object {

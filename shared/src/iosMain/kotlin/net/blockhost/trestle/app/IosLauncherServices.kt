@@ -19,9 +19,13 @@ import net.blockhost.trestle.metadata.Architecture
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.resources.IosArchiveExtractor
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_ios_did_not_provide_an_application_support
 import net.blockhost.trestle.runtime.IosMinecraftRuntime
 import net.blockhost.trestle.runtime.IosRuntimeBridge
 import net.blockhost.trestle.runtime.SystemProfile
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path.Companion.toPath
 import platform.Foundation.NSApplicationSupportDirectory
@@ -36,7 +40,7 @@ import platform.UIKit.UIDevice
 @OptIn(ExperimentalForeignApi::class)
 fun createIosLauncherServices(runtimeBridge: IosRuntimeBridge): LauncherServices {
     val nowMillis = { (NSDate().timeIntervalSince1970 * 1_000.0).toLong() }
-    val root = requireNotNull(
+    val root = requireUserNotNull(
         NSFileManager.defaultManager.URLForDirectory(
             directory = NSApplicationSupportDirectory,
             inDomain = NSUserDomainMask,
@@ -44,7 +48,7 @@ fun createIosLauncherServices(runtimeBridge: IosRuntimeBridge): LauncherServices
             create = true,
             error = null,
         )?.path,
-    ) { "iOS did not provide an Application Support directory." }.toPath() / "Trestle"
+    ) { text(Res.string.msg_ios_did_not_provide_an_application_support) }.toPath() / "Trestle"
     FileSystem.SYSTEM.createDirectories(root)
     val httpClient = HttpClient(Darwin) {
         install(HttpTimeout) {

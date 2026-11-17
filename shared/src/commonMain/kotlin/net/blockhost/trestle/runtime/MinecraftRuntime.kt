@@ -4,6 +4,12 @@ import kotlinx.coroutines.flow.Flow
 import net.blockhost.trestle.auth.SecretValue
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.text.UserText
+
+/** Something the player must provide before a game can launch. */
+enum class LaunchRequirement {
+    JAVA_ACCOUNT,
+}
 
 data class RuntimeCapabilities(
     val canPrepareLaunch: Boolean,
@@ -12,13 +18,13 @@ data class RuntimeCapabilities(
     val supportsNativeExtraction: Boolean,
     val supportsCustomJava: Boolean = false,
     val supportsLaunchCommands: Boolean = false,
-    val unavailableReason: String? = null,
+    val unavailableReason: UserText? = null,
     val supportedMinecraftVersions: Set<String>? = null,
     val supportedModLoaders: Set<ModLoader>? = null,
 )
 
 data class RuntimePreparationProgress(
-    val stage: String,
+    val stage: UserText,
     val completedBytes: Long? = null,
     val totalBytes: Long? = null,
     val completedItems: Int? = null,
@@ -46,7 +52,7 @@ data class PreparedLaunch(
     val mainClass: String,
     val classpathEntries: List<String>,
     val nativeDirectory: String,
-    val missingRequirements: List<String> = emptyList(),
+    val missingRequirements: List<LaunchRequirement> = emptyList(),
     val jvmArguments: List<CommandArgument> = emptyList(),
     val gameArguments: List<CommandArgument> = emptyList(),
     val preLaunchCommand: List<String> = emptyList(),
@@ -74,7 +80,7 @@ sealed interface LaunchEvent {
     data class Started(val processId: Long?) : LaunchEvent
     data class Log(val line: String) : LaunchEvent
     data class Exited(val exitCode: Int) : LaunchEvent
-    data class Failed(val message: String) : LaunchEvent
+    data class Failed(val message: UserText) : LaunchEvent
     data object Cancelled : LaunchEvent
 }
 

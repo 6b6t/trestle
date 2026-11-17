@@ -101,6 +101,7 @@ import net.blockhost.trestle.resources.ui_save_changes
 import net.blockhost.trestle.resources.ui_use_active_account
 import net.blockhost.trestle.resources.ui_use_recommended
 import net.blockhost.trestle.resources.ui_wrapper_command
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -309,10 +310,14 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 }
             }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(form.recommendation.orEmpty(), color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                Text(
+                    form.recommendation?.resolve().orEmpty(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
                 TextButton(onClick = actions::applyRecommendedMemory) { Text(stringResource(Res.string.ui_use_recommended)) }
             }
-            form.warnings.forEach { warning -> Text(warning, color = MaterialTheme.colorScheme.error) }
+            form.warnings.forEach { warning -> Text(warning.resolve(), color = MaterialTheme.colorScheme.error) }
             OutlinedTextField(
                 value = form.jvmArguments,
                 onValueChange = actions::setJvmArguments,
@@ -410,7 +415,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                     Text(stringResource(Res.string.ui_loading_client_settings), color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
 
-                form.clientSettingsError != null -> Text(form.clientSettingsError, color = MaterialTheme.colorScheme.error)
+                form.clientSettingsError != null -> Text(form.clientSettingsError.resolve(), color = MaterialTheme.colorScheme.error)
 
                 form.clientSettings != null -> ClientSettingsFields(
                     form.clientSettings,

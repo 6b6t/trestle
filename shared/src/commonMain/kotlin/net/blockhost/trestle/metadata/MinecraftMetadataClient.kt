@@ -13,6 +13,20 @@ import kotlinx.serialization.json.Json
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_fabric_metadata_request_failed
+import net.blockhost.trestle.resources.msg_fabric_metadata_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_metadata_request_failed_for_s
+import net.blockhost.trestle.resources.msg_metadata_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_minecraft_version_s_is_not_in_the
+import net.blockhost.trestle.resources.msg_quilt_metadata_request_failed
+import net.blockhost.trestle.resources.msg_quilt_metadata_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_s_metadata_request_failed
+import net.blockhost.trestle.resources.msg_s_metadata_request_failed_with_http_s
+import net.blockhost.trestle.resources.msg_s_returned_invalid_component_metadata
+import net.blockhost.trestle.resources.msg_s_s_does_not_support_minecraft_s
+import net.blockhost.trestle.resources.msg_s_s_metadata_does_not_target_minecraft
+import net.blockhost.trestle.text.text
 import okio.ByteString.Companion.encodeUtf8
 
 private val metadataJson = Json {
@@ -32,7 +46,7 @@ class MinecraftMetadataClient(
 
     suspend fun resolveVersion(versionId: String): VersionMetadata {
         val reference = fetchVersionManifest().versions.firstOrNull { it.id == versionId }
-            ?: throw LauncherException.InvalidMetadata("Minecraft version $versionId is not in the official manifest.")
+            ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_minecraft_version_s_is_not_in_the, versionId))
         return fetchVersion(reference)
     }
 
@@ -42,7 +56,7 @@ class MinecraftMetadataClient(
         try {
             val response = httpClient.get(url)
             if (!response.status.isSuccess()) {
-                throw LauncherException.Network("Metadata request failed with HTTP ${response.status.value}.")
+                throw LauncherException.Network(text(Res.string.msg_metadata_request_failed_with_http_s, response.status.value))
             }
             val body = response.bodyAsText()
             if (expectedSha1 != null) {
@@ -60,7 +74,7 @@ class MinecraftMetadataClient(
             throw error
         } catch (error: Exception) {
             logger.warn("metadata", "Minecraft metadata request failed", error, mapOf("host" to safeHost(url)))
-            throw LauncherException.Network("Metadata request failed for ${safeHost(url)}.", error)
+            throw LauncherException.Network(text(Res.string.msg_metadata_request_failed_for_s, safeHost(url)), error)
         }
     }
 
@@ -93,7 +107,7 @@ class FabricMetadataClient(private val httpClient: HttpClient, private val baseU
         try {
             val response = httpClient.get(url)
             if (!response.status.isSuccess()) {
-                throw LauncherException.Network("Fabric metadata request failed with HTTP ${response.status.value}.")
+                throw LauncherException.Network(text(Res.string.msg_fabric_metadata_request_failed_with_http_s, response.status.value))
             }
             return metadataJson.decodeFromString(response.bodyAsText())
         } catch (error: CancellationException) {
@@ -101,7 +115,7 @@ class FabricMetadataClient(private val httpClient: HttpClient, private val baseU
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.Network("Fabric metadata request failed.", error)
+            throw LauncherException.Network(text(Res.string.msg_fabric_metadata_request_failed), error)
         }
     }
 }
@@ -125,7 +139,7 @@ class QuiltMetadataClient(private val httpClient: HttpClient, private val baseUr
         try {
             val response = httpClient.get(url)
             if (!response.status.isSuccess()) {
-                throw LauncherException.Network("Quilt metadata request failed with HTTP ${response.status.value}.")
+                throw LauncherException.Network(text(Res.string.msg_quilt_metadata_request_failed_with_http_s, response.status.value))
             }
             return metadataJson.decodeFromString(response.bodyAsText())
         } catch (error: CancellationException) {
@@ -133,7 +147,7 @@ class QuiltMetadataClient(private val httpClient: HttpClient, private val baseUr
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.Network("Quilt metadata request failed.", error)
+            throw LauncherException.Network(text(Res.string.msg_quilt_metadata_request_failed), error)
         }
     }
 }
@@ -235,7 +249,7 @@ private class PrismComponentMetadataClient(
     suspend fun profile(gameVersion: String, loaderVersion: String): PrismInstallProfile {
         val reference = versionReferences(gameVersion).firstOrNull { it.version == loaderVersion }
             ?: throw LauncherException.InvalidMetadata(
-                "$loaderName $loaderVersion does not support Minecraft $gameVersion.",
+                text(Res.string.msg_s_s_does_not_support_minecraft_s, loaderName, loaderVersion, gameVersion),
             )
         val body = get("$baseUrl/$loaderVersion.json")
         val actualSha256 = body.encodeUtf8().sha256().hex()
@@ -252,7 +266,7 @@ private class PrismComponentMetadataClient(
             ?.exactVersion
         if (profile.version != loaderVersion || declaredGameVersion != gameVersion) {
             throw LauncherException.InvalidMetadata(
-                "$loaderName $loaderVersion metadata does not target Minecraft $gameVersion.",
+                text(Res.string.msg_s_s_metadata_does_not_target_minecraft, loaderName, loaderVersion, gameVersion),
             )
         }
         return PrismInstallProfile(
@@ -272,7 +286,7 @@ private class PrismComponentMetadataClient(
             val response = httpClient.get(url) { header(HttpHeaders.UserAgent, userAgent) }
             if (!response.status.isSuccess()) {
                 throw LauncherException.Network(
-                    "$loaderName metadata request failed with HTTP ${response.status.value}.",
+                    text(Res.string.msg_s_metadata_request_failed_with_http_s, loaderName, response.status.value),
                 )
             }
             return response.bodyAsText()
@@ -281,14 +295,14 @@ private class PrismComponentMetadataClient(
         } catch (error: LauncherException) {
             throw error
         } catch (error: Exception) {
-            throw LauncherException.Network("$loaderName metadata request failed.", error)
+            throw LauncherException.Network(text(Res.string.msg_s_metadata_request_failed, loaderName), error)
         }
     }
 
     private inline fun <reified T> decode(body: String): T = try {
         metadataJson.decodeFromString(body)
     } catch (error: Exception) {
-        throw LauncherException.InvalidMetadata("$loaderName returned invalid component metadata.", error)
+        throw LauncherException.InvalidMetadata(text(Res.string.msg_s_returned_invalid_component_metadata, loaderName), error)
     }
 }
 

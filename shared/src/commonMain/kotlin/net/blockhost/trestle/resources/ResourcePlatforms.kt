@@ -20,6 +20,10 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
+import net.blockhost.trestle.text.requireUser
+import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.text
+import net.blockhost.trestle.text.userText
 
 enum class ResourceProvider(val label: String) {
     MODRINTH("Modrinth"),
@@ -200,7 +204,7 @@ class ResourcePlatformRegistry(platforms: List<ResourcePlatform>) {
     fun find(provider: ResourceProvider): ResourcePlatform? = byProvider[provider]
 
     fun platform(provider: ResourceProvider): ResourcePlatform =
-        requireNotNull(byProvider[provider]) { "${provider.label} is not registered." }
+        requireUserNotNull(byProvider[provider]) { text(Res.string.msg_s_is_not_registered, provider.label) }
 }
 
 @Serializable
@@ -400,13 +404,17 @@ class ModrinthResourcePlatform(
         if (!response.status.isSuccess()) {
             val detail = resourceJson.decodeErrorDescription(body)
             throw LauncherException.Network(
-                "Modrinth request failed with HTTP ${response.status.value}${detail?.let { ": $it" }.orEmpty()}",
+                if (detail == null) {
+                    text(Res.string.msg_modrinth_request_failed_with_http, response.status.value)
+                } else {
+                    text(Res.string.msg_modrinth_request_failed_with_http_detail, response.status.value, detail)
+                },
             )
         }
         return try {
             resourceJson.decodeFromString<ModrinthVersion>(body).toResourceVersion()
         } catch (error: Exception) {
-            throw LauncherException.Network("Modrinth returned invalid version metadata.", error)
+            throw LauncherException.Network(text(Res.string.msg_modrinth_returned_invalid_version_metadata), error)
         }
     }
 
@@ -615,7 +623,7 @@ class CurseForgeResourcePlatform(
         }.associateBy { it.id.toString() }
         return references.map { (_, fileId) ->
             filesById[fileId]?.toResourceVersion()
-                ?: throw LauncherException.InvalidMetadata("CurseForge did not return file $fileId.")
+                ?: throw LauncherException.InvalidMetadata(text(Res.string.msg_curseforge_did_not_return_file_s, fileId))
         }
     }
 
@@ -651,7 +659,7 @@ class CurseForgeResourcePlatform(
     private fun ensureAvailable() {
         if (!isAvailable) {
             throw LauncherException.InvalidMetadata(
-                "CurseForge is not configured for this build. Set TRESTLE_CURSEFORGE_API_KEY to a key issued for Trestle.",
+                text(Res.string.msg_curseforge_is_not_configured_for_this_build),
             )
         }
     }
@@ -752,7 +760,7 @@ private suspend inline fun <reified T> resourceApiRequest(provider: ResourceProv
             val detail = resourceJson.decodeErrorDescription(body)
             val suffix = detail?.let { ": $it" }.orEmpty()
             throw LauncherException.Network(
-                "${provider.label} request failed with HTTP ${response.status.value}$suffix",
+                text(Res.string.msg_s_request_failed_with_http_s_s, provider.label, response.status.value, suffix),
             )
         }
         return resourceJson.decodeFromString(body)
@@ -761,7 +769,10 @@ private suspend inline fun <reified T> resourceApiRequest(provider: ResourceProv
     } catch (error: LauncherException) {
         throw error
     } catch (error: Exception) {
-        throw LauncherException.Network("${provider.label} request failed: ${error.message ?: "unknown error"}", error)
+        throw LauncherException.Network(
+            text(Res.string.msg_provider_request_failed, provider.label, error.userText(text(Res.string.msg_unknown_error))),
+            error,
+        )
     }
 }
 
@@ -798,7 +809,7 @@ internal fun ModLoader.curseForgeType(): Int? = when (this) {
 
 internal fun safeFileName(value: String): String {
     val name = value.substringAfterLast('/').substringAfterLast('\\')
-    require(name.isNotBlank() && name !in setOf(".", "..")) { "Resource file name is unsafe." }
+    requireUser(name.isNotBlank() && name !in setOf(".", "..")) { text(Res.string.msg_resource_file_name_is_unsafe) }
     return name
 }
 
