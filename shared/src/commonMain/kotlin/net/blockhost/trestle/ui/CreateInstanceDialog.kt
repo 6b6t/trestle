@@ -129,6 +129,7 @@ import net.blockhost.trestle.resources.ui_video
 import net.blockhost.trestle.resources.ui_view_bobbing
 import net.blockhost.trestle.resources.ui_vsync
 import net.blockhost.trestle.resources.ui_write_these_settings_before_the_first_launch
+import net.blockhost.trestle.text.labelResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
 
@@ -520,13 +521,14 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
             range = 5..32,
             onValueChange = { onSettingsChange(settings.copy(simulationDistanceChunks = it)) },
         )
+        val particleLabels = MinecraftParticleSetting.entries.associateWith { stringResource(it.labelResource) }
         Selector(
             label = stringResource(Res.string.ui_particles),
-            value = settings.particles.label,
-            values = MinecraftParticleSetting.entries.map { it.label },
+            value = particleLabels.getValue(settings.particles),
+            values = particleLabels.values.toList(),
             onSelect = { label ->
                 onSettingsChange(
-                    settings.copy(particles = MinecraftParticleSetting.entries.first { it.label == label }),
+                    settings.copy(particles = particleLabels.entries.first { it.value == label }.key),
                 )
             },
         )
@@ -558,13 +560,14 @@ internal fun ClientSettingsFields(settings: MinecraftClientSettings, onSettingsC
             value = settings.mouseSensitivityPercent,
             onValueChange = { onSettingsChange(settings.copy(mouseSensitivityPercent = it)) },
         )
+        val narratorLabels = MinecraftNarratorMode.entries.associateWith { stringResource(it.labelResource) }
         Selector(
             label = stringResource(Res.string.ui_narrator),
-            value = settings.narratorMode.label,
-            values = MinecraftNarratorMode.entries.map { it.label },
+            value = narratorLabels.getValue(settings.narratorMode),
+            values = narratorLabels.values.toList(),
             onSelect = { label ->
                 onSettingsChange(
-                    settings.copy(narratorMode = MinecraftNarratorMode.entries.first { it.label == label }),
+                    settings.copy(narratorMode = narratorLabels.entries.first { it.value == label }.key),
                 )
             },
         )

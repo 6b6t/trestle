@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.launch
 import net.blockhost.trestle.app.InstanceSortMode
+import net.blockhost.trestle.app.LauncherLanguage
 import net.blockhost.trestle.app.LauncherProxyType
 import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.domain.GameInstance
@@ -90,7 +91,6 @@ import net.blockhost.trestle.resources.ui_desktop_launch_preparation_downloads_a
 import net.blockhost.trestle.resources.ui_desktop_system_accent_colors_remain_available_in
 import net.blockhost.trestle.resources.ui_detect_incompatible_content
 import net.blockhost.trestle.resources.ui_downloads_and_exports
-import net.blockhost.trestle.resources.ui_english
 import net.blockhost.trestle.resources.ui_enter_a_full_folder_path_or_leave
 import net.blockhost.trestle.resources.ui_folder_changes_apply_after_trestle_restarts
 import net.blockhost.trestle.resources.ui_folders
@@ -108,6 +108,7 @@ import net.blockhost.trestle.resources.ui_interface_language
 import net.blockhost.trestle.resources.ui_java_runtimes
 import net.blockhost.trestle.resources.ui_keep_track_of_content_metadata
 import net.blockhost.trestle.resources.ui_language
+import net.blockhost.trestle.resources.ui_language_explanation
 import net.blockhost.trestle.resources.ui_log_history_limit
 import net.blockhost.trestle.resources.ui_modrinth
 import net.blockhost.trestle.resources.ui_mods_and_modpacks
@@ -138,12 +139,14 @@ import net.blockhost.trestle.resources.ui_the_public_catalog_is_available_withou
 import net.blockhost.trestle.resources.ui_tools
 import net.blockhost.trestle.resources.ui_total_launches
 import net.blockhost.trestle.resources.ui_total_play_time
-import net.blockhost.trestle.resources.ui_trestle_currently_ships_english_text_the_saved
 import net.blockhost.trestle.resources.ui_trestle_resolves_the_platform_runtime_and_compatible
 import net.blockhost.trestle.resources.ui_type
 import net.blockhost.trestle.resources.ui_unavailable
 import net.blockhost.trestle.resources.ui_used_when_importing_existing_ftb_app_instances
 import net.blockhost.trestle.resources.ui_username
+import net.blockhost.trestle.text.labelResource
+import net.blockhost.trestle.text.labelText
+import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -182,7 +185,7 @@ internal fun GeneralSettings(state: LauncherUiState, actions: LauncherUiActions,
                     selected = preferences.instanceSort == mode,
                     onClick = { actions.setLauncherPreferences(preferences.copy(instanceSort = mode)) },
                     shape = SegmentedButtonDefaults.itemShape(index, InstanceSortMode.entries.size),
-                ) { Text(mode.label) }
+                ) { Text(stringResource(mode.labelResource)) }
             }
         }
         Text(
@@ -195,15 +198,19 @@ internal fun GeneralSettings(state: LauncherUiState, actions: LauncherUiActions,
 internal fun LanguageSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) =
     SettingsColumn(Res.string.ui_language, scrollState, modifier) {
         val preferences = state.launcherPreferences
+        val labels = LauncherLanguage.entries.associateWith { it.label() }
         Selector(
             label = stringResource(Res.string.ui_interface_language),
-            value = preferences.language,
-            values = listOf(stringResource(Res.string.ui_system_default), stringResource(Res.string.ui_english)),
+            value = labels.getValue(preferences.launcherLanguage),
+            values = labels.values.toList(),
             modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
-            onSelect = { actions.setLauncherPreferences(preferences.copy(language = it)) },
+            onSelect = { label ->
+                val language = labels.entries.first { it.value == label }.key
+                actions.setLauncherPreferences(preferences.copy(language = language.name))
+            },
         )
         Text(
-            stringResource(Res.string.ui_trestle_currently_ships_english_text_the_saved),
+            stringResource(Res.string.ui_language_explanation),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
@@ -410,13 +417,14 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
             stringResource(Res.string.ui_proxy_settings_apply_to_trestle_minecraft_does_not_use_them),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        val proxyLabels = LauncherProxyType.entries.associateWith { it.labelText.resolve() }
         Selector(
             label = stringResource(Res.string.ui_type),
-            value = proxy.type.label,
-            values = LauncherProxyType.entries.map { it.label },
+            value = proxyLabels.getValue(proxy.type),
+            values = proxyLabels.values.toList(),
             modifier = Modifier.widthIn(max = 460.dp).fillMaxWidth(),
             onSelect = { label ->
-                LauncherProxyType.entries.firstOrNull { it.label == label }?.let {
+                proxyLabels.entries.firstOrNull { it.value == label }?.key?.let {
                     actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(type = it)))
                 }
             },
@@ -576,7 +584,7 @@ private fun ThemeOption(preference: ThemePreference, selected: Boolean, onClick:
             }
             schemes.forEach { scheme -> ThemeSwatch(scheme, Modifier.weight(1f).fillMaxHeight()) }
         }
-        Text(preference.label, style = MaterialTheme.typography.titleSmall)
+        Text(stringResource(preference.labelResource), style = MaterialTheme.typography.titleSmall)
     }
 }
 
@@ -660,4 +668,11 @@ internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions,
             }
         }
     }
+}
+
+@Composable
+private fun LauncherLanguage.label(): String = when (this) {
+    LauncherLanguage.SYSTEM -> stringResource(Res.string.ui_system_default)
+    LauncherLanguage.ENGLISH -> "English"
+    LauncherLanguage.GERMAN -> "Deutsch"
 }

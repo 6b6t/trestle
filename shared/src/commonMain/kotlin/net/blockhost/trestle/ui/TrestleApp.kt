@@ -228,204 +228,206 @@ fun TrestleApp(
         onExternalCommandHandled(request.sequence)
     }
 
-    TrestleTheme(
-        accentColor = accentColor,
-        colorSchemeOverride = colorScheme,
-        preference = state.themePreference,
-        systemDarkTheme = darkTheme,
-        highContrast = highContrast,
-        reducedMotion = reducedMotion,
-        windowAdaptiveInfo = windowAdaptiveInfo,
-    ) {
-        val modalVisible = state.create.visible ||
-            (state.instanceSettings.visible && !state.instanceSettings.inline) ||
-            state.accountLogin.visible ||
-            state.skinStudio.editor.visible ||
-            state.localFileImport.visible ||
-            state.serverEditor.visible ||
-            state.pendingInstanceRemovalId != null ||
-            state.pendingWorldDeletionKey != null ||
-            showShortcuts || state.restrictedDownloads.isNotEmpty() || state.modpackUpdatePreview != null ||
-            state.suggestedPackInstances.isNotEmpty() ||
-            (
-                state.resourceBrowser.visible &&
+    LauncherLanguageEnvironment(state.launcherPreferences.launcherLanguage) {
+        TrestleTheme(
+            accentColor = accentColor,
+            colorSchemeOverride = colorScheme,
+            preference = state.themePreference,
+            systemDarkTheme = darkTheme,
+            highContrast = highContrast,
+            reducedMotion = reducedMotion,
+            windowAdaptiveInfo = windowAdaptiveInfo,
+        ) {
+            val modalVisible = state.create.visible ||
+                (state.instanceSettings.visible && !state.instanceSettings.inline) ||
+                state.accountLogin.visible ||
+                state.skinStudio.editor.visible ||
+                state.localFileImport.visible ||
+                state.serverEditor.visible ||
+                state.pendingInstanceRemovalId != null ||
+                state.pendingWorldDeletionKey != null ||
+                showShortcuts || state.restrictedDownloads.isNotEmpty() || state.modpackUpdatePreview != null ||
+                state.suggestedPackInstances.isNotEmpty() ||
+                (
+                    state.resourceBrowser.visible &&
+                        state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
+                    )
+            val retryActionLabel = stringResource(Res.string.ui_retry)
+            val undoActionLabel = stringResource(Res.string.ui_undo)
+            // Messages are resolved here, in composition, so the snackbar shows them in the interface language.
+            val errorText = state.error?.resolve()
+            val noticeText = state.notice?.resolve()
+            LaunchedEffect(errorText, noticeText, retryActionLabel, undoActionLabel) {
+                val message = errorText ?: noticeText ?: return@LaunchedEffect
+                val action = when {
+                    state.error != null && state.errorRecovery != null -> LauncherSnackbarAction.RETRY
+                    state.removedInstanceUndo != null && state.notice == INSTANCE_REMOVED_NOTICE -> LauncherSnackbarAction.UNDO
+                    else -> null
+                }
+                val actionLabel = when (action) {
+                    LauncherSnackbarAction.RETRY -> retryActionLabel
+                    LauncherSnackbarAction.UNDO -> undoActionLabel
+                    null -> null
+                }
+                val result = snackbarHostState.showSnackbar(
+                    message = message,
+                    actionLabel = actionLabel,
+                    withDismissAction = state.error != null,
+                    duration = when {
+                        state.error != null -> SnackbarDuration.Indefinite
+                        action == LauncherSnackbarAction.UNDO -> SnackbarDuration.Long
+                        else -> SnackbarDuration.Short
+                    },
+                )
+                if (result == SnackbarResult.ActionPerformed) {
+                    when (action) {
+                        LauncherSnackbarAction.RETRY -> actions.retryError()
+                        LauncherSnackbarAction.UNDO -> actions.undoInstanceRemoval()
+                        null -> Unit
+                    }
+                } else {
+                    actions.clearMessage()
+                }
+            }
+            Scaffold(
+                modifier = Modifier
+                    .onPreviewKeyEvent { event ->
+                        if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                        if (modalVisible) return@onPreviewKeyEvent false
+                        val primary = event.isCtrlPressed || event.isMetaPressed
+                        val command = when {
+                            primary && event.key == Key.N -> LauncherCommand.NEW_INSTANCE
+                            primary && event.key == Key.O -> LauncherCommand.IMPORT_LOCAL_FILE
+                            primary && event.key == Key.F -> LauncherCommand.FOCUS_SEARCH
+                            primary && event.key == Key.Comma -> LauncherCommand.SHOW_SETTINGS
+                            primary && event.key == Key.One -> LauncherCommand.SHOW_LIBRARY
+                            primary && event.key == Key.Two -> LauncherCommand.SHOW_DISCOVER
+                            primary && event.key == Key.Three -> LauncherCommand.SHOW_ACCOUNTS
+                            primary && event.key == Key.Four -> LauncherCommand.SHOW_SETTINGS
+                            event.key == Key.F1 -> LauncherCommand.SHOW_SHORTCUTS
+                            else -> null
+                        }
+                        command?.let(handleCommand) ?: false
+                    }
+                    // Escape is handled after focused children, so a text field or pane can use it first.
+                    .onKeyEvent { event ->
+                        val escape = event.type == KeyEventType.KeyDown && event.key == Key.Escape && !modalVisible
+                        when {
+                            !escape -> false
+                            EscapeBackRegistry.handle() -> true
+                            destination == LauncherDestination.INSTANCE -> handleCommand(LauncherCommand.SHOW_LIBRARY)
+                            else -> false
+                        }
+                    }
+                    .testTag(LauncherTestTags.ROOT),
+                containerColor = MaterialTheme.colorScheme.background,
+                topBar = {
+                    Column(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
+                        topBar()
+                        state.availableUpdate?.let { LauncherUpdateBanner(it, actions) }
+                    }
+                },
+            ) { contentPadding ->
+                val destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit = { modifier, layoutMode ->
+                    destinationStateHolder.SaveableStateProvider(destination.name) {
+                        when (destination) {
+                            LauncherDestination.LIBRARY -> LibraryPage(
+                                state,
+                                modifier,
+                                actions,
+                                compact = layoutMode != TrestleLayoutMode.EXPANDED,
+                                onManage = { changeDestination(LauncherDestination.INSTANCE) },
+                                onDiscover = { type ->
+                                    actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
+                                    changeDestination(LauncherDestination.DISCOVER)
+                                },
+                                onOpenAccounts = { changeDestination(LauncherDestination.ACCOUNTS) },
+                                searchFocusRequest = librarySearchFocusRequest,
+                                importRequest = libraryImportRequest,
+                            )
+
+                            LauncherDestination.INSTANCE -> InstanceWorkspace(
+                                state,
+                                modifier,
+                                actions,
+                                onBack = { changeDestination(LauncherDestination.LIBRARY) },
+                                onDiscover = { type ->
+                                    actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
+                                    changeDestination(LauncherDestination.DISCOVER)
+                                },
+                                layoutMode = layoutMode,
+                            )
+
+                            LauncherDestination.DISCOVER -> ResourceCatalogPage(
+                                state,
+                                modifier,
+                                actions,
+                                searchFocusRequest = resourceSearchFocusRequest,
+                            )
+
+                            LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions, layoutMode)
+
+                            LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
+                        }
+                    }
+                }
+                LauncherNavigationLayout(
+                    destination = destination,
+                    onDestinationChange = changeDestination,
+                    adaptiveInfo = windowAdaptiveInfo,
+                    modifier = Modifier.fillMaxSize().padding(contentPadding),
+                    operation = state.operation,
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    onCancelOperation = actions::cancelActiveOperation,
+                    onOpenOperation = { instanceId ->
+                        actions.selectInstance(instanceId)
+                        changeDestination(LauncherDestination.INSTANCE)
+                    },
+                    destinationContent = destinationContent,
+                )
+                if (state.create.visible) CreateInstanceDialog(state, actions)
+                if (
+                    state.resourceBrowser.visible &&
                     state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
-                )
-        val retryActionLabel = stringResource(Res.string.ui_retry)
-        val undoActionLabel = stringResource(Res.string.ui_undo)
-        // Messages are resolved here, in composition, so the snackbar shows them in the interface language.
-        val errorText = state.error?.resolve()
-        val noticeText = state.notice?.resolve()
-        LaunchedEffect(errorText, noticeText, retryActionLabel, undoActionLabel) {
-            val message = errorText ?: noticeText ?: return@LaunchedEffect
-            val action = when {
-                state.error != null && state.errorRecovery != null -> LauncherSnackbarAction.RETRY
-                state.removedInstanceUndo != null && state.notice == INSTANCE_REMOVED_NOTICE -> LauncherSnackbarAction.UNDO
-                else -> null
-            }
-            val actionLabel = when (action) {
-                LauncherSnackbarAction.RETRY -> retryActionLabel
-                LauncherSnackbarAction.UNDO -> undoActionLabel
-                null -> null
-            }
-            val result = snackbarHostState.showSnackbar(
-                message = message,
-                actionLabel = actionLabel,
-                withDismissAction = state.error != null,
-                duration = when {
-                    state.error != null -> SnackbarDuration.Indefinite
-                    action == LauncherSnackbarAction.UNDO -> SnackbarDuration.Long
-                    else -> SnackbarDuration.Short
-                },
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                when (action) {
-                    LauncherSnackbarAction.RETRY -> actions.retryError()
-                    LauncherSnackbarAction.UNDO -> actions.undoInstanceRemoval()
-                    null -> Unit
+                ) {
+                    ResourceBrowserDialog(state, actions)
                 }
-            } else {
-                actions.clearMessage()
-            }
-        }
-        Scaffold(
-            modifier = Modifier
-                .onPreviewKeyEvent { event ->
-                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                    if (modalVisible) return@onPreviewKeyEvent false
-                    val primary = event.isCtrlPressed || event.isMetaPressed
-                    val command = when {
-                        primary && event.key == Key.N -> LauncherCommand.NEW_INSTANCE
-                        primary && event.key == Key.O -> LauncherCommand.IMPORT_LOCAL_FILE
-                        primary && event.key == Key.F -> LauncherCommand.FOCUS_SEARCH
-                        primary && event.key == Key.Comma -> LauncherCommand.SHOW_SETTINGS
-                        primary && event.key == Key.One -> LauncherCommand.SHOW_LIBRARY
-                        primary && event.key == Key.Two -> LauncherCommand.SHOW_DISCOVER
-                        primary && event.key == Key.Three -> LauncherCommand.SHOW_ACCOUNTS
-                        primary && event.key == Key.Four -> LauncherCommand.SHOW_SETTINGS
-                        event.key == Key.F1 -> LauncherCommand.SHOW_SHORTCUTS
-                        else -> null
-                    }
-                    command?.let(handleCommand) ?: false
+                if (state.instanceSettings.visible && !state.instanceSettings.inline) {
+                    InstanceSettingsDialog(state, actions)
                 }
-                // Escape is handled after focused children, so a text field or pane can use it first.
-                .onKeyEvent { event ->
-                    val escape = event.type == KeyEventType.KeyDown && event.key == Key.Escape && !modalVisible
-                    when {
-                        !escape -> false
-                        EscapeBackRegistry.handle() -> true
-                        destination == LauncherDestination.INSTANCE -> handleCommand(LauncherCommand.SHOW_LIBRARY)
-                        else -> false
-                    }
+                if (state.accountLogin.visible) AccountLoginDialog(state, actions)
+                if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
+                if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
+                if (state.serverEditor.visible) ServerEditorDialog(state, actions)
+                if (showShortcuts) ShortcutsDialog { showShortcuts = false }
+                state.pendingInstanceRemovalId?.let { pendingId ->
+                    val instance = state.instances.firstOrNull { it.id == pendingId }
+                    InstanceRemovalDialog(
+                        instanceName = instance?.displayName ?: stringResource(Res.string.ui_instance),
+                        moveToTrash = state.instanceRemovalMode == InstanceRemovalMode.MOVE_TO_TRASH,
+                        actions = actions,
+                    )
                 }
-                .testTag(LauncherTestTags.ROOT),
-            containerColor = MaterialTheme.colorScheme.background,
-            topBar = {
-                Column(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
-                    topBar()
-                    state.availableUpdate?.let { LauncherUpdateBanner(it, actions) }
+                RestrictedDownloadDialog(state, actions)
+                ModpackUpdateDialogs(state, actions)
+                state.pendingWorldDeletionKey?.let { worldKey ->
+                    AlertDialog(
+                        onDismissRequest = actions::cancelWorldDeletion,
+                        title = { Text(stringResource(Res.string.ui_delete_named_world, worldKey)) },
+                        text = {
+                            Text(stringResource(Res.string.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain))
+                        },
+                        dismissButton = {
+                            TextButton(onClick = actions::cancelWorldDeletion) { Text(stringResource(Res.string.ui_cancel)) }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = actions::confirmWorldDeletion,
+                                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                            ) { Text(stringResource(Res.string.ui_delete_world)) }
+                        },
+                    )
                 }
-            },
-        ) { contentPadding ->
-            val destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit = { modifier, layoutMode ->
-                destinationStateHolder.SaveableStateProvider(destination.name) {
-                    when (destination) {
-                        LauncherDestination.LIBRARY -> LibraryPage(
-                            state,
-                            modifier,
-                            actions,
-                            compact = layoutMode != TrestleLayoutMode.EXPANDED,
-                            onManage = { changeDestination(LauncherDestination.INSTANCE) },
-                            onDiscover = { type ->
-                                actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
-                                changeDestination(LauncherDestination.DISCOVER)
-                            },
-                            onOpenAccounts = { changeDestination(LauncherDestination.ACCOUNTS) },
-                            searchFocusRequest = librarySearchFocusRequest,
-                            importRequest = libraryImportRequest,
-                        )
-
-                        LauncherDestination.INSTANCE -> InstanceWorkspace(
-                            state,
-                            modifier,
-                            actions,
-                            onBack = { changeDestination(LauncherDestination.LIBRARY) },
-                            onDiscover = { type ->
-                                actions.openResourceBrowser(type, ResourceBrowserPresentation.PAGE)
-                                changeDestination(LauncherDestination.DISCOVER)
-                            },
-                            layoutMode = layoutMode,
-                        )
-
-                        LauncherDestination.DISCOVER -> ResourceCatalogPage(
-                            state,
-                            modifier,
-                            actions,
-                            searchFocusRequest = resourceSearchFocusRequest,
-                        )
-
-                        LauncherDestination.ACCOUNTS -> AccountsPage(state, modifier, actions, layoutMode)
-
-                        LauncherDestination.SETTINGS -> SettingsPage(state, modifier, actions)
-                    }
-                }
-            }
-            LauncherNavigationLayout(
-                destination = destination,
-                onDestinationChange = changeDestination,
-                adaptiveInfo = windowAdaptiveInfo,
-                modifier = Modifier.fillMaxSize().padding(contentPadding),
-                operation = state.operation,
-                snackbarHost = { SnackbarHost(snackbarHostState) },
-                onCancelOperation = actions::cancelActiveOperation,
-                onOpenOperation = { instanceId ->
-                    actions.selectInstance(instanceId)
-                    changeDestination(LauncherDestination.INSTANCE)
-                },
-                destinationContent = destinationContent,
-            )
-            if (state.create.visible) CreateInstanceDialog(state, actions)
-            if (
-                state.resourceBrowser.visible &&
-                state.resourceBrowser.presentation == ResourceBrowserPresentation.DIALOG
-            ) {
-                ResourceBrowserDialog(state, actions)
-            }
-            if (state.instanceSettings.visible && !state.instanceSettings.inline) {
-                InstanceSettingsDialog(state, actions)
-            }
-            if (state.accountLogin.visible) AccountLoginDialog(state, actions)
-            if (state.skinStudio.editor.visible) SkinEditorDialog(state, actions)
-            if (state.localFileImport.visible) LocalFileImportDialog(state, actions)
-            if (state.serverEditor.visible) ServerEditorDialog(state, actions)
-            if (showShortcuts) ShortcutsDialog { showShortcuts = false }
-            state.pendingInstanceRemovalId?.let { pendingId ->
-                val instance = state.instances.firstOrNull { it.id == pendingId }
-                InstanceRemovalDialog(
-                    instanceName = instance?.displayName ?: stringResource(Res.string.ui_instance),
-                    moveToTrash = state.instanceRemovalMode == InstanceRemovalMode.MOVE_TO_TRASH,
-                    actions = actions,
-                )
-            }
-            RestrictedDownloadDialog(state, actions)
-            ModpackUpdateDialogs(state, actions)
-            state.pendingWorldDeletionKey?.let { worldKey ->
-                AlertDialog(
-                    onDismissRequest = actions::cancelWorldDeletion,
-                    title = { Text(stringResource(Res.string.ui_delete_named_world, worldKey)) },
-                    text = {
-                        Text(stringResource(Res.string.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain))
-                    },
-                    dismissButton = {
-                        TextButton(onClick = actions::cancelWorldDeletion) { Text(stringResource(Res.string.ui_cancel)) }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = actions::confirmWorldDeletion,
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                        ) { Text(stringResource(Res.string.ui_delete_world)) }
-                    },
-                )
             }
         }
     }

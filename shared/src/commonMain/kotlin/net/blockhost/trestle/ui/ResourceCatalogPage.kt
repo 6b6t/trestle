@@ -48,6 +48,7 @@ import net.blockhost.trestle.resources.ui_discover
 import net.blockhost.trestle.resources.ui_extend_an_installed_game_with_compatible_client
 import net.blockhost.trestle.resources.ui_mods_modpacks_resource_packs_and_shaders_from
 import net.blockhost.trestle.resources.ui_select_and_install_an_instance_first
+import net.blockhost.trestle.text.labelResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -90,7 +91,7 @@ internal fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () ->
         ResourceType.SHADER_PACK -> stringResource(Res.string.ui_add_compatible_lighting_and_rendering_effects_to)
     }
     ListItem(
-        headlineContent = { Text(type.label) },
+        headlineContent = { Text(stringResource(type.labelResource)) },
         supportingContent = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(description)
@@ -111,7 +112,7 @@ internal fun ContentTypeRow(type: ResourceType, enabled: Boolean, onClick: () ->
                 modifier = Modifier.size(56.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    Text(type.label.take(1), style = MaterialTheme.typography.headlineMedium)
+                    Text(stringResource(type.labelResource).take(1), style = MaterialTheme.typography.headlineMedium)
                 }
             }
         },

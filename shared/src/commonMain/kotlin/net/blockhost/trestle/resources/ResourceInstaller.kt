@@ -8,9 +8,11 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.download.DownloadPipeline
 import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
+import net.blockhost.trestle.resources.msg_s_files_must_use_s
 import net.blockhost.trestle.text.asUserText
 import net.blockhost.trestle.text.requireUser
 import net.blockhost.trestle.text.requireUserNotNull
+import net.blockhost.trestle.text.singularResource
 import net.blockhost.trestle.text.text
 import okio.FileSystem
 import okio.Path
@@ -191,8 +193,8 @@ class ResourceInstaller(
         requireUser(bytes.size <= MAX_LOCAL_RESOURCE_BYTES) { text(Res.string.msg_local_content_files_must_be_smaller_than) }
         val safeName = safeFileName(fileName)
         val extension = safeName.substringAfterLast('.', "").lowercase()
-        require(extension in type.localExtensions()) {
-            "${type.label} files must use ${type.localExtensions().joinToString { ".$it" }}."
+        requireUser(extension in type.localExtensions()) {
+            text(Res.string.msg_s_files_must_use_s, text(type.singularResource), type.localExtensions().joinToString { ".$it" })
         }
         val folder = type.installFolder()
         val destination = instance.instanceDirectory.toPath() / "game" / folder / safeName

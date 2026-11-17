@@ -184,6 +184,7 @@ import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_view_on_provider
 import net.blockhost.trestle.resources.ui_wiki
 import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.text.text
 import org.jetbrains.compose.resources.painterResource
@@ -496,13 +497,14 @@ private fun ResourceFilterFields(
         )
     }
     val sortField: @Composable (Modifier) -> Unit = { fieldModifier ->
+        val sortLabels = ResourceSearchSort.entries.associateWith { stringResource(it.labelResource) }
         Selector(
             label = stringResource(Res.string.ui_sort_by),
-            value = browser.sort.label,
-            values = ResourceSearchSort.entries.map { it.label },
+            value = sortLabels.getValue(browser.sort),
+            values = sortLabels.values.toList(),
             modifier = fieldModifier,
             onSelect = { label ->
-                ResourceSearchSort.entries.firstOrNull { it.label == label }?.let(actions::setResourceSort)
+                sortLabels.entries.firstOrNull { it.value == label }?.key?.let(actions::setResourceSort)
             },
         )
     }
@@ -553,7 +555,7 @@ private fun ResourceTypeChips(browser: ResourceBrowserState, actions: LauncherUi
             FilterChip(
                 selected = selected,
                 onClick = { if (!selected) actions.setResourceType(type) },
-                label = { Text(type.label, style = MaterialTheme.typography.labelLarge) },
+                label = { Text(stringResource(type.labelResource), style = MaterialTheme.typography.labelLarge) },
                 colors = FilterChipDefaults.filterChipColors(
                     selectedContainerColor = MaterialTheme.colorScheme.primary,
                     selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
@@ -1033,11 +1035,14 @@ private fun ResourceProjectDetails(project: ResourceProject) {
 private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: LauncherUiActions) {
     val selected = browser.selectedVersion
     val versions = browser.versions.filter { it.channel in browser.releaseChannels }
-    val labels = versions.map { "${it.versionNumber} · ${it.channel.label}" }
+    val channelLabels = ReleaseChannel.entries.associateWith { stringResource(it.labelResource) }
+    val labels = versions.map { "${it.versionNumber} · ${channelLabels.getValue(it.channel)}" }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Selector(
             label = stringResource(Res.string.ui_version),
-            value = selected?.let { "${it.versionNumber} · ${it.channel.label}" } ?: stringResource(Res.string.ui_select_version),
+            value =
+            selected?.let { "${it.versionNumber} · ${channelLabels.getValue(it.channel)}" }
+                ?: stringResource(Res.string.ui_select_version),
             values = labels,
             modifier = Modifier.fillMaxWidth(),
             onSelect = { label ->
@@ -1049,7 +1054,7 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: Launch
                 FilterChip(
                     selected = channel in browser.releaseChannels,
                     onClick = { actions.toggleResourceReleaseChannel(channel) },
-                    label = { Text(channel.label) },
+                    label = { Text(stringResource(channel.labelResource)) },
                 )
             }
         }
@@ -1059,7 +1064,7 @@ private fun ResourceVersionPicker(browser: ResourceBrowserState, actions: Launch
 @Composable
 private fun ResourceVersionDetails(version: ResourceVersion) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PropertyRow(stringResource(Res.string.ui_channel), version.channel.label)
+        PropertyRow(stringResource(Res.string.ui_channel), stringResource(version.channel.labelResource))
         PropertyRow(
             stringResource(Res.string.ui_minecraft),
             version.gameVersions.take(4).joinToString().ifBlank {

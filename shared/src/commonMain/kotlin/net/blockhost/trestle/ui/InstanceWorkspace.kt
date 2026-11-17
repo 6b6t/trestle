@@ -313,7 +313,9 @@ import net.blockhost.trestle.resources.ui_worlds_summary
 import net.blockhost.trestle.resources.ui_wrap_lines
 import net.blockhost.trestle.resources.ui_wrapper
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
+import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
+import net.blockhost.trestle.text.singularResource
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.pluralStringResource
@@ -1657,7 +1659,11 @@ private fun OverviewContentSummary(
             listOf(ResourceType.MOD, ResourceType.RESOURCE_PACK, ResourceType.SHADER_PACK).forEach { type ->
                 Column(Modifier.weight(1f)) {
                     Text(direct.count { it.type == type }.toString(), style = MaterialTheme.typography.headlineMedium)
-                    Text(type.label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        stringResource(type.labelResource),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
                 }
             }
         }
@@ -1948,7 +1954,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
                     if (contentForType.isNotEmpty()) {
                         Column {
                             Text(
-                                "${type.label} (${contentForType.size})",
+                                "${stringResource(type.labelResource)} (${contentForType.size})",
                                 style = MaterialTheme.typography.titleMedium,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.dp),
                             )
@@ -2000,7 +2006,7 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
                         if (content.iconUrl != null) {
                             AsyncImage(model = content.iconUrl, contentDescription = null, modifier = Modifier.fillMaxSize())
                         } else {
-                            Text(content.type.label.take(1), style = MaterialTheme.typography.titleMedium)
+                            Text(stringResource(content.type.labelResource).take(1), style = MaterialTheme.typography.titleMedium)
                         }
                     }
                 }
@@ -2044,7 +2050,7 @@ private fun installedContentDetails(content: InstalledContent): String {
         pluralStringResource(Res.plurals.ui_required_by_items, content.requiredByCount, content.requiredByCount)
     }
     return buildList {
-        add(content.type.label.removeSuffix("s"))
+        add(stringResource(content.type.singularResource))
         content.versionNumber?.let(::add)
         if (content.authors.isNotEmpty()) add(content.authors.joinToString())
         if (content.dependencies.isNotEmpty()) add(stringResource(Res.string.ui_requires_s, content.dependencies.joinToString()))

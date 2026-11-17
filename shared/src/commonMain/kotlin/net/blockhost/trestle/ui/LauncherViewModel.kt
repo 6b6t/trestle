@@ -59,7 +59,7 @@ import net.blockhost.trestle.resources.RestrictedDownload
 import net.blockhost.trestle.resources.RestrictedDownloadRequired
 import net.blockhost.trestle.resources.msg_account_added_and_set_as_active
 import net.blockhost.trestle.resources.msg_account_profile_refreshed
-import net.blockhost.trestle.resources.msg_adding_local_s
+import net.blockhost.trestle.resources.msg_adding_local_file
 import net.blockhost.trestle.resources.msg_adding_offline_account
 import net.blockhost.trestle.resources.msg_all_files_verified_continuing_the_installation
 import net.blockhost.trestle.resources.msg_all_files_verified_retry_the_installation_to
@@ -223,6 +223,7 @@ import net.blockhost.trestle.runtime.RuntimePreparationProgress
 import net.blockhost.trestle.text.UserText
 import net.blockhost.trestle.text.asUserText
 import net.blockhost.trestle.text.checkUser
+import net.blockhost.trestle.text.phraseResource
 import net.blockhost.trestle.text.pluralText
 import net.blockhost.trestle.text.requireUser
 import net.blockhost.trestle.text.requireUserNotNull
@@ -1406,7 +1407,7 @@ class LauncherViewModel(
 
                     !platform.supports(
                         current.type,
-                    ) -> text(Res.string.msg_s_does_not_provide_s, provider.label, current.type.label.lowercase())
+                    ) -> text(Res.string.msg_s_does_not_provide_s, provider.label, text(current.type.phraseResource))
 
                     else -> null
                 },
@@ -2577,7 +2578,7 @@ class LauncherViewModel(
                         ) {
                             text(Res.string.msg_importing_modpack)
                         } else {
-                            text(Res.string.msg_adding_local_s, type.label.lowercase())
+                            text(Res.string.msg_adding_local_file)
                         },
                         detail = pending.fileName.asUserText(),
                         cancellable = true,

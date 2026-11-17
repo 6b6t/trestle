@@ -77,6 +77,20 @@ data class ConsolePreferences(val historyLimit: Int = 100_000, val stopLoggingOn
     }
 }
 
+/** The interface language. [tag] is the BCP 47 tag, or null to follow the system. */
+enum class LauncherLanguage(val tag: String?) {
+    SYSTEM(null),
+    ENGLISH("en"),
+    GERMAN("de"),
+    ;
+
+    companion object {
+        /** Reads a saved preference. Older versions saved the English label instead of the name. */
+        fun fromPreference(value: String): LauncherLanguage =
+            entries.firstOrNull { it.name == value } ?: if (value == "English") ENGLISH else SYSTEM
+    }
+}
+
 @Serializable
 data class UpdatePreferences(
     val automaticChecks: Boolean = true,
@@ -88,7 +102,7 @@ data class UpdatePreferences(
 @Serializable
 data class LauncherPreferences(
     val theme: ThemePreference = ThemePreference.SYSTEM,
-    val language: String = "System default",
+    val language: String = LauncherLanguage.SYSTEM.name,
     val instanceSort: InstanceSortMode = InstanceSortMode.NAME,
     val folders: FolderPreferences = FolderPreferences(),
     val content: ContentPreferences = ContentPreferences(),
@@ -98,7 +112,9 @@ data class LauncherPreferences(
     val proxy: ProxyPreferences = ProxyPreferences(),
     val technicClientId: String = "",
     val ftbAppInstancesPath: String = "",
-)
+) {
+    val launcherLanguage: LauncherLanguage get() = LauncherLanguage.fromPreference(language)
+}
 
 class LauncherPreferencesStore(private val fileSystem: FileSystem, private val path: Path) {
     fun read(): LauncherPreferences {

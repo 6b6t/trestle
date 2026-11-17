@@ -43,6 +43,7 @@ import net.blockhost.trestle.resources.ui_import_modpack
 import net.blockhost.trestle.resources.ui_select_an_instance_before_adding_this_file
 import net.blockhost.trestle.resources.ui_target_s
 import net.blockhost.trestle.resources.ui_the_modpack_creates_a_new_instance
+import net.blockhost.trestle.text.labelResource
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -104,7 +105,7 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 RadioButton(selected = selectedType == type, onClick = null)
-                                Text(type.label)
+                                Text(stringResource(type.labelResource))
                             }
                         }
                     }

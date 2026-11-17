@@ -177,6 +177,7 @@ import net.blockhost.trestle.resources.ui_use_a_refresh_token_issued_for_the
 import net.blockhost.trestle.resources.ui_use_account
 import net.blockhost.trestle.resources.ui_use_to_letters_numbers_or_underscores
 import net.blockhost.trestle.resources.ui_waiting
+import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -449,7 +450,11 @@ private fun AccountRow(
         ListItem(
             headlineContent = { Text(account.profile.playerName, style = MaterialTheme.typography.titleMedium) },
             supportingContent = {
-                Text("$statusText · ${account.profile.authenticationMethod.label}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "$statusText · ${stringResource(account.profile.authenticationMethod.labelResource)}",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             },
             leadingContent = { AccountMark(account, texture, compact = true) },
             trailingContent = {
@@ -546,7 +551,7 @@ private fun AccountDetail(
                     ),
                 )
                 Text(
-                    "$statusText · ${account.profile.authenticationMethod.label}",
+                    "$statusText · ${stringResource(account.profile.authenticationMethod.labelResource)}",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -1018,7 +1023,7 @@ private fun AccountMethodPicker(selected: AccountAuthenticationMethod, enabled: 
                 RadioButton(selected = isSelected, onClick = null, enabled = enabled)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(method.label, style = MaterialTheme.typography.titleSmall)
+                        Text(stringResource(method.labelResource), style = MaterialTheme.typography.titleSmall)
                         if (method == AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE) {
                             StatusBadge(stringResource(Res.string.ui_recommended), MaterialTheme.colorScheme.tertiary)
                         }
