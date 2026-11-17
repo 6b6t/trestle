@@ -308,4 +308,19 @@
     <string name="ui_waiting_for_file">Waiting for the downloaded file</string>
     <string name="ui_open_download">Open download</string>
     <string name="ui_select_downloaded_file">Select downloaded file</string>
+    <string name="ui_use_account">Use account</string>
+    <string name="ui_sign_in_again">Sign in again</string>
+    <string name="ui_sign_out_question">Sign out?</string>
+    <string name="ui_sign_out_explanation">Trestle deletes the saved sign-in for this account. Imported tokens and cookies cannot be restored, so you will need to sign in again.</string>
+    <string name="ui_reset_skin_question">Reset your skin?</string>
+    <string name="ui_reset_skin_explanation">This replaces your Minecraft skin with the default one. Save your current skin to the library first if you want to keep it.</string>
+    <string name="ui_reset_skin">Reset skin</string>
+    <string name="ui_code_expires_at">The code expires at %1$s.</string>
+    <string name="ui_copy_code">Copy code</string>
+    <string name="ui_no_account">No account</string>
+    <string name="ui_no_custom_skin">No custom skin. Minecraft shows the default skin.</string>
+    <string name="ui_skin_could_not_load">Couldn\'t load the skin.</string>
+    <string name="ui_loading_skin_preview">Loading skin preview…</string>
+    <string name="ui_proxy_changes_apply_after_restart">Proxy changes apply to new connections after Trestle restarts.</string>
+    <string name="ui_showing_latest_log_entries">Showing the latest %1$d of %2$d entries.</string>
 </resources>

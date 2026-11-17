@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ColorScheme
@@ -35,19 +36,28 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.adaptive.ExperimentalMaterial3AdaptiveApi
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.size
 import kotlinx.coroutines.launch
@@ -79,6 +89,7 @@ import net.blockhost.trestle.resources.ui_optional_some_private_or_rate_limited_
 import net.blockhost.trestle.resources.ui_password
 import net.blockhost.trestle.resources.ui_port
 import net.blockhost.trestle.resources.ui_proxy
+import net.blockhost.trestle.resources.ui_proxy_changes_apply_after_restart
 import net.blockhost.trestle.resources.ui_proxy_credentials_are_stored_in_the_launcher_preferences_file
 import net.blockhost.trestle.resources.ui_proxy_settings_apply_to_trestle_minecraft_does_not_use_them
 import net.blockhost.trestle.resources.ui_runtime
@@ -90,6 +101,7 @@ import net.blockhost.trestle.resources.ui_used_when_importing_existing_ftb_app_i
 import net.blockhost.trestle.resources.ui_username
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
+import kotlin.math.roundToInt
 
 @Composable
 private fun SettingsColumn(
@@ -168,20 +180,103 @@ internal fun FolderSettings(state: LauncherUiState, actions: LauncherUiActions, 
         FolderPreferenceField("Downloads and exports", folders.downloads, state.defaultFolders.downloads) {
             actions.setLauncherPreferences(preferences.copy(folders = folders.copy(downloads = it)))
         }
+        CommittedTextField(
+            value = preferences.ftbAppInstancesPath,
+            onCommit = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
+            label = stringResource(Res.string.ui_ftb_app_instances_folder),
+            supportingText = stringResource(Res.string.ui_used_when_importing_existing_ftb_app_instances),
+            validate = ::folderPathError,
+        )
         Text(stringResource(Res.string.ui_folder_changes_apply_after_trestle_restarts), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
 @Composable
 private fun FolderPreferenceField(label: String, value: String, defaultValue: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
+    CommittedTextField(
         value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(defaultValue) },
-        supportingText = { Text(if (value.isBlank()) "Default: $defaultValue" else "Custom location") },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+        onCommit = onValueChange,
+        label = label,
+        placeholder = defaultValue,
+        supportingText = if (value.isBlank()) "Default: $defaultValue" else "Custom location",
+        validate = ::folderPathError,
     )
+}
+
+/** Folder fields accept a blank value (the default) or a full path, never a half-typed relative one. */
+private fun folderPathError(value: String): String? {
+    val trimmed = value.trim()
+    val absolute = trimmed.startsWith("/") || Regex("^[A-Za-z]:[\\\\/]").containsMatchIn(trimmed) ||
+        trimmed.startsWith("\\\\")
+    return if (trimmed.isEmpty() || absolute) null else "Enter a full folder path, or leave it blank for the default."
+}
+
+/**
+ * A text field that keeps its own draft and saves only when the player presses Enter or leaves the field,
+ * and only when [validate] accepts the value. Saving on every keystroke would store half-typed values.
+ */
+@Composable
+private fun CommittedTextField(
+    value: String,
+    onCommit: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+    placeholder: String? = null,
+    supportingText: String? = null,
+    enabled: Boolean = true,
+    password: Boolean = false,
+    keyboardType: KeyboardType = KeyboardType.Text,
+    validate: (String) -> String? = { null },
+) {
+    var draft by remember(value) { mutableStateOf(value) }
+    val error = validate(draft)
+    val commit = {
+        if (error == null && draft != value) onCommit(draft.trim())
+    }
+    OutlinedTextField(
+        value = draft,
+        onValueChange = { draft = it },
+        label = { Text(label) },
+        placeholder = placeholder?.let { { Text(it) } },
+        supportingText = (error ?: supportingText)?.let { { Text(it) } },
+        isError = error != null,
+        enabled = enabled,
+        singleLine = true,
+        visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboardType, imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { commit() }),
+        modifier = modifier.onFocusChanged { focus -> if (!focus.isFocused) commit() },
+    )
+}
+
+/** A slider that saves once the player releases it, instead of on every frame of the drag. */
+@Composable
+private fun PreferenceSlider(
+    label: String,
+    valueLabel: (Int) -> String,
+    value: Int,
+    range: IntRange,
+    steps: Int = range.last - range.first - 1,
+    onCommit: (Int) -> Unit,
+) {
+    var draft by remember(value) { mutableIntStateOf(value) }
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp), modifier = Modifier.widthIn(max = 760.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(valueLabel(draft), style = MaterialTheme.typography.labelLarge)
+        }
+        Slider(
+            value = draft.toFloat(),
+            onValueChange = { draft = it.roundToInt() },
+            onValueChangeFinished = { if (draft != value) onCommit(draft) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            steps = steps,
+        )
+    }
 }
 
 @Composable
@@ -221,23 +316,23 @@ internal fun NetworkSettings(state: LauncherUiState, actions: LauncherUiActions,
     SettingsColumn(Res.string.ui_tasks_and_downloads, scrollState, modifier) {
         val preferences = state.launcherPreferences
         val network = preferences.network
-        IntegerSlider("Concurrent task limit", network.concurrentTasks.toString(), network.concurrentTasks, 1..64) {
+        PreferenceSlider("Concurrent task limit", { it.toString() }, network.concurrentTasks, 1..64) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentTasks = it)))
         }
-        IntegerSlider("Concurrent download limit", network.concurrentDownloads.toString(), network.concurrentDownloads, 1..32) {
+        PreferenceSlider("Concurrent download limit", { it.toString() }, network.concurrentDownloads, 1..32) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(concurrentDownloads = it)))
         }
-        IntegerSlider("Retry limit", network.retryLimit.toString(), network.retryLimit, 1..10) {
+        PreferenceSlider("Retry limit", { it.toString() }, network.retryLimit, 1..10) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(retryLimit = it)))
         }
-        IntegerSlider("HTTP timeout", "${network.httpTimeoutSeconds}s", network.httpTimeoutSeconds, 5..300, steps = 58) {
+        PreferenceSlider("HTTP timeout", { "${it}s" }, network.httpTimeoutSeconds, 5..300, steps = 58) {
             actions.setLauncherPreferences(preferences.copy(network = network.copy(httpTimeoutSeconds = it)))
         }
         HorizontalDivider()
         Text(stringResource(Res.string.ui_console), style = MaterialTheme.typography.titleMedium)
-        IntegerSlider(
+        PreferenceSlider(
             "Log history limit",
-            "${preferences.console.historyLimit} lines",
+            { "$it lines" },
             preferences.console.historyLimit,
             1_000..100_000,
             steps = 98,
@@ -275,49 +370,43 @@ internal fun ProxySettings(state: LauncherUiState, actions: LauncherUiActions, s
         )
         val editable = proxy.type == LauncherProxyType.HTTP || proxy.type == LauncherProxyType.SOCKS5
         Row(Modifier.fillMaxWidth().widthIn(max = 760.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
+            CommittedTextField(
                 value = proxy.host,
-                onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(host = it))) },
-                label = { Text(stringResource(Res.string.ui_address)) },
+                onCommit = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(host = it))) },
+                label = stringResource(Res.string.ui_address),
                 enabled = editable,
-                singleLine = true,
                 modifier = Modifier.weight(1f),
             )
-            OutlinedTextField(
+            CommittedTextField(
                 value = proxy.port.toString(),
-                onValueChange = { value ->
-                    value.toIntOrNull()?.takeIf { it in 1..65535 }?.let {
-                        actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(port = it)))
-                    }
+                onCommit = { value ->
+                    value.toIntOrNull()?.let { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(port = it))) }
                 },
-                label = { Text(stringResource(Res.string.ui_port)) },
+                label = stringResource(Res.string.ui_port),
                 enabled = editable,
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                keyboardType = KeyboardType.Number,
+                validate = { value -> if (value.toIntOrNull() in 1..65535) null else "1–65535" },
                 modifier = Modifier.width(140.dp),
             )
         }
-        OutlinedTextField(
+        CommittedTextField(
             value = proxy.username,
-            onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(username = it))) },
-            label = { Text(stringResource(Res.string.ui_username)) },
+            onCommit = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(username = it))) },
+            label = stringResource(Res.string.ui_username),
             enabled = editable,
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
         )
-        OutlinedTextField(
+        CommittedTextField(
             value = proxy.password,
-            onValueChange = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(password = it))) },
-            label = { Text(stringResource(Res.string.ui_password)) },
+            onCommit = { actions.setLauncherPreferences(preferences.copy(proxy = proxy.copy(password = it))) },
+            label = stringResource(Res.string.ui_password),
             enabled = editable,
-            singleLine = true,
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+            password = true,
         )
         Text(
             stringResource(Res.string.ui_proxy_credentials_are_stored_in_the_launcher_preferences_file),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Text(stringResource(Res.string.ui_proxy_changes_apply_after_restart), color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 
 @Composable
@@ -340,30 +429,18 @@ internal fun ServiceSettings(state: LauncherUiState, actions: LauncherUiActions,
         )
         HorizontalDivider()
         Text(stringResource(Res.string.ui_technic), style = MaterialTheme.typography.titleMedium)
-        OutlinedTextField(
+        CommittedTextField(
             value = preferences.technicClientId,
-            onValueChange = { actions.setLauncherPreferences(preferences.copy(technicClientId = it)) },
-            label = { Text(stringResource(Res.string.ui_client_id)) },
-            supportingText = {
-                Text(stringResource(Res.string.ui_optional_some_private_or_rate_limited_technic_packs_require_it_applies_a))
-            },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
-        )
-        OutlinedTextField(
-            value = preferences.ftbAppInstancesPath,
-            onValueChange = { actions.setLauncherPreferences(preferences.copy(ftbAppInstancesPath = it)) },
-            label = { Text(stringResource(Res.string.ui_ftb_app_instances_folder)) },
-            supportingText = { Text(stringResource(Res.string.ui_used_when_importing_existing_ftb_app_instances)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth().widthIn(max = 760.dp),
+            onCommit = { actions.setLauncherPreferences(preferences.copy(technicClientId = it)) },
+            label = stringResource(Res.string.ui_client_id),
+            supportingText = stringResource(Res.string.ui_optional_some_private_or_rate_limited_technic_packs_require_it_applies_a),
         )
     }
 
 @Composable
 internal fun ToolSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) =
     SettingsColumn(Res.string.ui_tools, scrollState, modifier) {
-        OutlinedButton(onClick = actions::refreshVersions) {
+        OutlinedButton(onClick = actions::refreshVersions, enabled = !state.isLoadingVersions) {
             Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh Minecraft metadata")
         }
         val preferences = state.launcherPreferences
@@ -446,11 +523,7 @@ private fun ThemeSwatch(scheme: ColorScheme, modifier: Modifier) {
 @Composable
 internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions, scrollState: ScrollState, modifier: Modifier) {
     val uriHandler = LocalUriHandler.current
-    Column(
-        modifier.verticalScroll(scrollState).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(stringResource(Res.string.ui_runtime), style = MaterialTheme.typography.titleLarge)
+    SettingsColumn(Res.string.ui_runtime, scrollState, modifier) {
         Text(
             "Trestle resolves the platform runtime and compatible Minecraft metadata automatically.",
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -478,6 +551,7 @@ internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions,
         )
         OutlinedButton(
             onClick = actions::refreshVersions,
+            enabled = !state.isLoadingVersions,
             modifier = Modifier.padding(top = 8.dp),
         ) { Text(if (state.isLoadingVersions) "Refreshing versions…" else "Refresh versions") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

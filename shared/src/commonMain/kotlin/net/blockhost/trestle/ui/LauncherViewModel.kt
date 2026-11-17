@@ -304,6 +304,8 @@ data class AccountLoginState(
     val offlineUsername: String = "",
     val authorization: DeviceAuthorization? = null,
     val isWaiting: Boolean = false,
+    /** Why the last attempt failed, shown inside the dialog where the player is looking. */
+    val error: String? = null,
 ) {
     val edition: MinecraftEdition get() = method.edition
 }
@@ -354,6 +356,8 @@ data class LauncherUiState(
     val accountLogin: AccountLoginState = AccountLoginState(),
     val savedSkins: List<SavedSkin> = emptyList(),
     val accountSkinTextures: Map<String, ByteArray> = emptyMap(),
+    /** Accounts whose skin texture could not be downloaded, so previews can say so instead of loading forever. */
+    val failedSkinTextures: Set<String> = emptySet(),
     val skinStudio: SkinStudioState = SkinStudioState(),
     val logs: List<LogEntry> = emptyList(),
     val credentialProtection: CredentialProtection? = null,
@@ -2746,7 +2750,7 @@ class LauncherViewModel(
         accountLoginJob = scope.launch {
             mutableState.update {
                 it.copy(
-                    accountLogin = form.copy(isWaiting = true),
+                    accountLogin = form.copy(isWaiting = true, error = null),
                     operation = OperationStatus(
                         if (form.method == AccountAuthenticationMethod.OFFLINE) {
                             "Adding offline account"
@@ -2784,10 +2788,13 @@ class LauncherViewModel(
                     it.copy(
                         accountLogin = AccountLoginState(),
                         operation = null,
-                        notice = if (form.method == AccountAuthenticationMethod.OFFLINE) {
-                            "Offline account added. It can only join servers that allow offline identities."
-                        } else {
-                            "Account added."
+                        notice = when {
+                            form.method == AccountAuthenticationMethod.OFFLINE ->
+                                "Offline account added and set as active. It can only join servers that allow offline identities."
+
+                            form.edition == MinecraftEdition.BEDROCK -> "Bedrock account added. It can't launch Java instances."
+
+                            else -> "Account added and set as active."
                         },
                     )
                 }
@@ -2796,13 +2803,17 @@ class LauncherViewModel(
             } catch (_: CancellationException) {
                 mutableState.update { it.copy(operation = null) }
             } catch (error: Exception) {
+                // Keep the failure in the dialog and drop the stale code, so the player can try again.
                 mutableState.update {
                     it.copy(
-                        accountLogin = it.accountLogin.copy(isWaiting = false),
+                        accountLogin = it.accountLogin.copy(
+                            isWaiting = false,
+                            authorization = null,
+                            error = error.message ?: "Sign-in failed. Try again.",
+                        ),
                         operation = null,
                     )
                 }
-                showError(error)
             } finally {
                 accountLoginJob = null
             }
@@ -3068,11 +3079,8 @@ class LauncherViewModel(
         runCatching { services.preferences.write(value) }
             .onSuccess {
                 mutableState.update { state ->
-                    state.copy(
-                        themePreference = value.theme,
-                        launcherPreferences = value,
-                        notice = "Launcher settings saved.",
-                    )
+                    // Settings take effect where the player is looking, so a confirmation snackbar would only add noise.
+                    state.copy(themePreference = value.theme, launcherPreferences = value)
                 }
                 services.configurePreferences(value)
             }
@@ -3163,6 +3171,11 @@ class LauncherViewModel(
         }
     }
 
+    override fun reloadAccountSkins() {
+        mutableState.update { it.copy(failedSkinTextures = emptySet()) }
+        loadAccountSkinTextures(mutableState.value.accounts)
+    }
+
     private fun loadAccountSkinTextures(accounts: List<ManagedAccount>) {
         val profileIds = accounts.mapTo(mutableSetOf()) { it.profile.profileId }
         loadedSkinUrls.keys.retainAll(profileIds)
@@ -3189,12 +3202,16 @@ class LauncherViewModel(
                             ?.profile?.skin?.url
                         if (currentUrl == skin.url) {
                             mutableState.update { state ->
-                                state.copy(accountSkinTextures = state.accountSkinTextures + (profileId to texture))
+                                state.copy(
+                                    accountSkinTextures = state.accountSkinTextures + (profileId to texture),
+                                    failedSkinTextures = state.failedSkinTextures - profileId,
+                                )
                             }
                         }
                     }
                     .onFailure {
                         if (loadedSkinUrls[profileId] == skin.url) loadedSkinUrls.remove(profileId)
+                        mutableState.update { state -> state.copy(failedSkinTextures = state.failedSkinTextures + profileId) }
                     }
             }
         }

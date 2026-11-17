@@ -127,6 +127,7 @@ internal object LauncherTestTags {
     const val INSTANCE_ICON_UPLOAD = "instance-icon-upload"
     const val RESOURCE_BROWSER_DIALOG = "resource-browser-dialog"
     const val ACCOUNT_LOGIN_DIALOG = "account-login-dialog"
+    const val ACCOUNT_LOGIN_ERROR = "account-login-error"
     const val SKIN_STUDIO = "skin-studio"
     const val SKIN_EDITOR_DIALOG = "skin-editor-dialog"
 

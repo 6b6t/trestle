@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -46,6 +47,7 @@ import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_events_from_this_session_right_click_an_entry_to_copy_diagnostics
 import net.blockhost.trestle.resources.ui_launcher_log
 import net.blockhost.trestle.resources.ui_no_launcher_events_in_this_session
+import net.blockhost.trestle.resources.ui_showing_latest_log_entries
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -74,7 +76,17 @@ internal fun LauncherLog(state: LauncherUiState, actions: LauncherUiActions, lis
                 Text(stringResource(Res.string.ui_no_launcher_events_in_this_session), color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         } else {
-            items(state.logs.takeLast(80).asReversed(), key = { it.id }) { entry ->
+            if (state.logs.size > LOG_ROWS_SHOWN) {
+                item("logs-count") {
+                    Text(
+                        stringResource(Res.string.ui_showing_latest_log_entries, LOG_ROWS_SHOWN, state.logs.size),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+            }
+            items(state.logs.takeLast(LOG_ROWS_SHOWN).asReversed(), key = { it.id }) { entry ->
                 LogRow(entry, onOpen = { selectedEntryId = entry.id })
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
@@ -160,3 +172,5 @@ private fun LogDetailsDialog(entry: LogEntry, onDismiss: () -> Unit) {
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.ui_close)) } },
     )
 }
+
+private const val LOG_ROWS_SHOWN = 80

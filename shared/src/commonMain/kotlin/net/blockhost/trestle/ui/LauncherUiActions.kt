@@ -144,6 +144,7 @@ interface LauncherUiActions {
     fun signOutAccount(profileId: String) {}
     fun removeAccount(profileId: String) {}
     fun refreshActiveAccount() {}
+    fun reloadAccountSkins() {}
     fun resetActiveSkin() {}
     fun openSkinStudio() {}
     fun closeSkinStudio() {}

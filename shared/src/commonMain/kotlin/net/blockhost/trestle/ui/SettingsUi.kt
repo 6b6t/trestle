@@ -71,7 +71,8 @@ import org.jetbrains.compose.resources.stringResource
 internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: LauncherUiActions) {
     var sectionName by rememberSaveable { mutableStateOf<String?>(null) }
     val section = SettingsSection.entries.firstOrNull { it.name == sectionName }
-    val runtimeScrollState = rememberScrollState()
+    // Each section keeps its own scroll position, so a newly opened section starts at the top.
+    val runtimeScrollState = rememberSaveable(section?.name, saver = ScrollState.Saver) { ScrollState(0) }
     val logListState = rememberLazyListState()
     val adaptiveInfo = LocalTrestleWindowAdaptiveInfo.current ?: currentWindowAdaptiveInfoV2()
     val navigator = rememberListDetailPaneScaffoldNavigator<String?>(
@@ -210,15 +211,15 @@ private enum class SettingsGroup(val label: String) {
 private enum class SettingsSection(val label: StringResource, val group: SettingsGroup, val summary: String) {
     GENERAL(Res.string.ui_general, SettingsGroup.APP, "Library sorting"),
     APPEARANCE(Res.string.ui_appearance, SettingsGroup.APP, "Light, dark, or system theme"),
-    LANGUAGE(Res.string.ui_language, SettingsGroup.APP, "Launcher and game language"),
+    LANGUAGE(Res.string.ui_language, SettingsGroup.APP, "Launcher language"),
     FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE, "Where instances and files live"),
-    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, "Downloads and installs"),
-    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, "Connections and timeouts"),
-    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, "Route traffic through a proxy"),
-    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, "Content and account services"),
-    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, "Java and system details"),
+    CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, "Dependencies, metadata, and modpacks"),
+    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, "Downloads, timeouts, and log history"),
+    PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, "Route launcher traffic through a proxy"),
+    SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, "Modrinth, CurseForge, and other catalogs"),
+    RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, "Platform, usage, and credential storage"),
     LOGS(Res.string.ui_launcher_log, SettingsGroup.DIAGNOSTICS, "What the launcher did"),
-    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS, "Maintenance and repair"),
+    TOOLS(Res.string.ui_tools, SettingsGroup.DIAGNOSTICS, "Metadata refresh and update checks"),
 }
 
 @Composable

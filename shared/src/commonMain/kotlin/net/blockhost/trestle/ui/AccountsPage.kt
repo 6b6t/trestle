@@ -103,6 +103,8 @@ import net.blockhost.trestle.resources.ui_active
 import net.blockhost.trestle.resources.ui_add_account
 import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_code_expires_at
+import net.blockhost.trestle.resources.ui_copy_code
 import net.blockhost.trestle.resources.ui_enter_this_code
 import net.blockhost.trestle.resources.ui_for_example_1_21_100
 import net.blockhost.trestle.resources.ui_forget
@@ -117,9 +119,17 @@ import net.blockhost.trestle.resources.ui_no_accounts
 import net.blockhost.trestle.resources.ui_offline_username
 import net.blockhost.trestle.resources.ui_open_microsoft_sign_in
 import net.blockhost.trestle.resources.ui_refresh
+import net.blockhost.trestle.resources.ui_reset_skin
+import net.blockhost.trestle.resources.ui_reset_skin_explanation
+import net.blockhost.trestle.resources.ui_reset_skin_question
+import net.blockhost.trestle.resources.ui_retry
+import net.blockhost.trestle.resources.ui_sign_in_again
 import net.blockhost.trestle.resources.ui_sign_out
+import net.blockhost.trestle.resources.ui_sign_out_explanation
+import net.blockhost.trestle.resources.ui_sign_out_question
 import net.blockhost.trestle.resources.ui_this_removes_the_local_profile_and_saved_credentials_it_does_not_change_
 import net.blockhost.trestle.resources.ui_use
+import net.blockhost.trestle.resources.ui_use_account
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -130,6 +140,19 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
         return
     }
     var pendingRemoval by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSignOut by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingSkinReset by rememberSaveable { mutableStateOf(false) }
+    val accountCallbacks: (ManagedAccount) -> AccountCallbacks = { account ->
+        AccountCallbacks(
+            onForget = { pendingRemoval = account.profile.profileId },
+            onSignOut = { pendingSignOut = account.profile.profileId },
+            onResetSkin = { pendingSkinReset = true },
+            onSignInAgain = {
+                actions.openAccountLogin()
+                actions.setAccountLoginMethod(account.profile.authenticationMethod)
+            },
+        )
+    }
     var selectedProfileId by rememberSaveable {
         mutableStateOf(state.accounts.firstOrNull { it.isActive }?.profile?.profileId)
     }
@@ -257,7 +280,7 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                                         selected = account.profile.profileId == selectedProfileId,
                                         actions = actions,
                                         onOpen = { openAccount(account) },
-                                        onForget = { pendingRemoval = account.profile.profileId },
+                                        callbacks = accountCallbacks(account),
                                     )
                                 }
                             }
@@ -283,7 +306,9 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                                 account = selectedAccount,
                                 texture = state.accountSkinTextures[selectedAccount.profile.profileId],
                                 actions = actions,
-                                onForget = { pendingRemoval = selectedAccount.profile.profileId },
+                                callbacks = accountCallbacks(selectedAccount),
+                                skinLabel = skinPreviewLabel(state, selectedAccount),
+                                skinFailed = selectedAccount.profile.profileId in state.failedSkinTextures,
                                 modifier = Modifier.fillMaxSize(),
                             )
                         }
@@ -291,6 +316,24 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                 },
             )
         }
+    }
+    pendingSignOut?.let { profileId ->
+        ConfirmationDialog(
+            ConfirmationRequest(
+                title = stringResource(Res.string.ui_sign_out_question),
+                text = stringResource(Res.string.ui_sign_out_explanation),
+                confirmLabel = stringResource(Res.string.ui_sign_out),
+            ) { actions.signOutAccount(profileId) },
+        ) { pendingSignOut = null }
+    }
+    if (pendingSkinReset) {
+        ConfirmationDialog(
+            ConfirmationRequest(
+                title = stringResource(Res.string.ui_reset_skin_question),
+                text = stringResource(Res.string.ui_reset_skin_explanation),
+                confirmLabel = stringResource(Res.string.ui_reset_skin),
+            ) { actions.resetActiveSkin() },
+        ) { pendingSkinReset = false }
     }
     pendingRemoval?.let { profileId ->
         AlertDialog(
@@ -307,6 +350,7 @@ internal fun AccountsPage(state: LauncherUiState, modifier: Modifier, actions: L
                     onClick = {
                         actions.removeAccount(profileId)
                         pendingRemoval = null
+                        if (listPaneHidden) showAccounts()
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
                 ) { Text(stringResource(Res.string.ui_forget_account_2)) }
@@ -322,17 +366,12 @@ private fun AccountRow(
     selected: Boolean,
     actions: LauncherUiActions,
     onOpen: () -> Unit,
-    onForget: () -> Unit,
+    callbacks: AccountCallbacks,
 ) {
     val copyText = rememberCopyText()
     val profileId = account.profile.profileId
     var menuExpanded by rememberSaveable(profileId) { mutableStateOf(false) }
-    val statusText = when {
-        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
-        !account.isAuthenticated -> "Sign-in required"
-        account.profile.edition == MinecraftEdition.JAVA -> "Ready to launch"
-        else -> "Bedrock saved"
-    }
+    val statusText = accountStatusText(account)
     val contextActions = buildList {
         if (!account.isActive) {
             add(ContextAction("Use account") { actions.selectAccount(profileId) })
@@ -340,10 +379,13 @@ private fun AccountRow(
         if (account.canManageOfficialProfile) {
             add(ContextAction("Manage skins") { actions.openSkinStudio() })
             add(ContextAction("Refresh profile") { actions.refreshActiveAccount() })
-            add(ContextAction("Reset skin") { actions.resetActiveSkin() })
+            add(ContextAction("Reset skin", onClick = callbacks.onResetSkin))
+        }
+        if (account.canSignInAgain) {
+            add(ContextAction("Sign in again", onClick = callbacks.onSignInAgain))
         }
         if (account.isAuthenticated) {
-            add(ContextAction("Sign out", separatorBefore = isNotEmpty()) { actions.signOutAccount(profileId) })
+            add(ContextAction("Sign out", separatorBefore = isNotEmpty(), onClick = callbacks.onSignOut))
         }
         add(
             ContextAction(
@@ -352,7 +394,7 @@ private fun AccountRow(
             ) { copyText(account.profile.playerName) },
         )
         add(ContextAction("Copy profile ID") { copyText(profileId) })
-        add(ContextAction("Forget account", separatorBefore = true, onClick = onForget))
+        add(ContextAction("Forget account", separatorBefore = true, onClick = callbacks.onForget))
     }
 
     ContextActionArea(contextActions) {
@@ -376,7 +418,7 @@ private fun AccountRow(
                         expanded = menuExpanded,
                         onExpandedChange = { menuExpanded = it },
                         actions = actions,
-                        onForget = onForget,
+                        callbacks = callbacks,
                     )
                 }
             },
@@ -405,17 +447,14 @@ private fun AccountDetail(
     account: ManagedAccount,
     texture: ByteArray?,
     actions: LauncherUiActions,
-    onForget: () -> Unit,
+    callbacks: AccountCallbacks,
+    skinLabel: String,
+    skinFailed: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val profileId = account.profile.profileId
-    val ready = account.isReady
-    val statusText = when {
-        account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
-        !account.isAuthenticated -> "Sign-in required"
-        account.profile.edition == MinecraftEdition.JAVA -> "Ready to play"
-        else -> "Bedrock saved"
-    }
+    val ready = account.isReady && account.profile.edition == MinecraftEdition.JAVA
+    val statusText = accountStatusText(account)
     BoxWithConstraints(modifier) {
         val sideBySide = maxWidth >= 640.dp
         val preview: @Composable (Modifier) -> Unit = { previewModifier ->
@@ -433,9 +472,14 @@ private fun AccountDetail(
                         variant = account.profile.skin?.variant ?: SkinVariant.CLASSIC,
                         modifier = Modifier.fillMaxSize().padding(16.dp),
                         interactive = texture != null,
-                        emptyLabel = "Loading skin preview…",
+                        emptyLabel = skinLabel,
                         background = Color.Transparent,
                     )
+                    if (skinFailed) {
+                        TextButton(onClick = actions::reloadAccountSkins, modifier = Modifier.align(Alignment.BottomCenter)) {
+                            Text(stringResource(Res.string.ui_retry))
+                        }
+                    }
                 } else {
                     AccountMark(account, texture)
                 }
@@ -460,6 +504,9 @@ private fun AccountDetail(
                 )
             }
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (account.canSignInAgain) {
+                    Button(onClick = callbacks.onSignInAgain) { Text(stringResource(Res.string.ui_sign_in_again)) }
+                }
                 if (!account.isActive) {
                     Button(onClick = { actions.selectAccount(profileId) }) { Text(stringResource(Res.string.ui_use)) }
                 }
@@ -468,7 +515,7 @@ private fun AccountDetail(
                     FilledTonalButton(onClick = actions::refreshActiveAccount) { Text(stringResource(Res.string.ui_refresh)) }
                 }
                 if (account.isAuthenticated) {
-                    FilledTonalButton(onClick = { actions.signOutAccount(profileId) }) {
+                    FilledTonalButton(onClick = callbacks.onSignOut) {
                         Text(stringResource(Res.string.ui_sign_out))
                     }
                 }
@@ -478,7 +525,7 @@ private fun AccountDetail(
                 PropertyRow("Profile ID", profileId)
                 account.profile.skin?.let { skin -> PropertyRow("Player model", skin.variant.label, divider = false) }
             }
-            TextButton(onClick = onForget) {
+            TextButton(onClick = callbacks.onForget) {
                 Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error)
             }
         }
@@ -518,9 +565,12 @@ private fun AccountOverflowMenu(
     expanded: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     actions: LauncherUiActions,
-    onForget: () -> Unit,
+    callbacks: AccountCallbacks,
 ) {
-    val profileId = account.profile.profileId
+    val menuAction: (() -> Unit) -> Unit = { action ->
+        onExpandedChange(false)
+        action()
+    }
     Box {
         TrestleTooltipIconButton(
             label = stringResource(Res.string.ui_more),
@@ -535,38 +585,28 @@ private fun AccountOverflowMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
         ) {
+            if (!account.isActive) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(Res.string.ui_use_account)) },
+                    onClick = { menuAction { actions.selectAccount(account.profile.profileId) } },
+                )
+            }
+            if (account.canSignInAgain) {
+                DropdownMenuItem(text = {
+                    Text(stringResource(Res.string.ui_sign_in_again))
+                }, onClick = { menuAction(callbacks.onSignInAgain) })
+            }
             if (account.canManageOfficialProfile) {
-                DropdownMenuItem(
-                    text = { Text("Refresh profile") },
-                    onClick = {
-                        onExpandedChange(false)
-                        actions.refreshActiveAccount()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Reset skin") },
-                    onClick = {
-                        onExpandedChange(false)
-                        actions.resetActiveSkin()
-                    },
-                )
+                DropdownMenuItem(text = { Text("Refresh profile") }, onClick = { menuAction(actions::refreshActiveAccount) })
+                DropdownMenuItem(text = { Text("Reset skin") }, onClick = { menuAction(callbacks.onResetSkin) })
                 HorizontalDivider()
             }
             if (account.isAuthenticated) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(Res.string.ui_sign_out)) },
-                    onClick = {
-                        onExpandedChange(false)
-                        actions.signOutAccount(profileId)
-                    },
-                )
+                DropdownMenuItem(text = { Text(stringResource(Res.string.ui_sign_out)) }, onClick = { menuAction(callbacks.onSignOut) })
             }
             DropdownMenuItem(
                 text = { Text(stringResource(Res.string.ui_forget), color = MaterialTheme.colorScheme.error) },
-                onClick = {
-                    onExpandedChange(false)
-                    onForget()
-                },
+                onClick = { menuAction(callbacks.onForget) },
             )
         }
     }
@@ -577,6 +617,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
     val form = state.accountLogin
     val focusManager = LocalFocusManager.current
     val uriHandler = LocalUriHandler.current
+    val copyText = rememberCopyText()
     var passwordVisible by remember(form.method) { mutableStateOf(false) }
     var importedSecretVisible by remember(form.method) { mutableStateOf(false) }
     TrestleDialog(
@@ -757,12 +798,28 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                                 color = MaterialTheme.colorScheme.primary,
                             )
                             Text(authorization.verificationUri, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            Button(
-                                onClick = { uriHandler.openUri(authorization.directVerificationUri) },
-                            ) { Text(stringResource(Res.string.ui_open_microsoft_sign_in)) }
+                            Text(
+                                stringResource(Res.string.ui_code_expires_at, formatLocalDateTime(authorization.expiresAtEpochMillis)),
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { uriHandler.openUri(authorization.directVerificationUri) },
+                                ) { Text(stringResource(Res.string.ui_open_microsoft_sign_in)) }
+                                TextButton(onClick = { copyText(authorization.userCode) }) { Text(stringResource(Res.string.ui_copy_code)) }
+                            }
                         }
                     }
                 }
+            }
+            form.error?.let { error ->
+                Text(
+                    error,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp)
+                        .testTag(LauncherTestTags.ACCOUNT_LOGIN_ERROR),
+                )
             }
             TrestleDialogActions {
                 TextButton(onClick = actions::closeAccountLogin) { Text(stringResource(Res.string.ui_cancel)) }
@@ -895,4 +952,23 @@ private fun AccountMethodPicker(selected: AccountAuthenticationMethod, enabled: 
             TextButton(onClick = { showAll = true }, enabled = enabled) { Text("More sign-in options") }
         }
     }
+}
+
+/** Account actions that need the page's confirmation dialogs or navigation. */
+private class AccountCallbacks(
+    val onForget: () -> Unit,
+    val onSignOut: () -> Unit,
+    val onResetSkin: () -> Unit,
+    val onSignInAgain: () -> Unit,
+)
+
+/** Signed-out online accounts can sign in again with the method they were added with. */
+private val ManagedAccount.canSignInAgain: Boolean
+    get() = !isAuthenticated && profile.authenticationMethod != AccountAuthenticationMethod.OFFLINE
+
+private fun accountStatusText(account: ManagedAccount): String = when {
+    account.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE -> "Offline profile"
+    !account.isAuthenticated -> "Sign-in required"
+    account.profile.edition == MinecraftEdition.JAVA -> "Ready to play"
+    else -> "Bedrock · can't launch Java"
 }

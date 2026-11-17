@@ -103,6 +103,22 @@ class AccountAuthenticationTest {
         assertTrue(store.states.isEmpty())
         assertNull(manager.currentSession()?.accessToken)
     }
+
+    @Test
+    fun addingBedrockAccountKeepsTheActiveJavaAccount() = runTest {
+        val manager = FileAccountManager(
+            FakeFileSystem(),
+            "/data/accounts.json".toPath(),
+            credentialStore = FakeCredentialStore(),
+            authenticator = FakeAuthenticator(),
+        )
+        manager.initialize()
+        manager.addAccount(AccountLoginRequest.Offline("Alex_Offline")) {}
+
+        manager.addAccount(AccountLoginRequest.DeviceCode(AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE, "1.21.100")) {}
+
+        assertEquals("offline-profile", manager.accounts.value.single { it.isActive }.profile.profileId)
+    }
 }
 
 private class FakeCredentialStore : AccountCredentialStore {

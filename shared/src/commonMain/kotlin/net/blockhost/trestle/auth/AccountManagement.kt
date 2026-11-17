@@ -124,7 +124,12 @@ class FileAccountManager(
 
     override suspend fun addAccount(request: AccountLoginRequest, onDeviceAuthorization: (DeviceAuthorization) -> Unit) {
         val availableAuthenticator = checkNotNull(authenticator) { "Account authentication is not available." }
-        register(availableAuthenticator.authenticate(request, onDeviceAuthorization), select = true)
+        // A new Java sign-in becomes the active account. A Bedrock account cannot launch Java, so it
+        // only becomes active when there is no active account yet.
+        register(
+            availableAuthenticator.authenticate(request, onDeviceAuthorization),
+            select = request.edition == MinecraftEdition.JAVA,
+        )
     }
 
     override suspend fun select(profileId: String) = mutex.withLock {

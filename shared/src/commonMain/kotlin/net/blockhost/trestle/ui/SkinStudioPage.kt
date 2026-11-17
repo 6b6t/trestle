@@ -87,15 +87,22 @@ import net.blockhost.trestle.resources.ui_drag_to_rotate
 import net.blockhost.trestle.resources.ui_edit
 import net.blockhost.trestle.resources.ui_import_a_64x64_or_legacy_64x32_png_to_start_your_local_library
 import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_loading_skin_preview
 import net.blockhost.trestle.resources.ui_name
 import net.blockhost.trestle.resources.ui_new_skin
+import net.blockhost.trestle.resources.ui_no_account
+import net.blockhost.trestle.resources.ui_no_custom_skin
 import net.blockhost.trestle.resources.ui_no_saved_skins
 import net.blockhost.trestle.resources.ui_player_model
 import net.blockhost.trestle.resources.ui_remove_named_skin
 import net.blockhost.trestle.resources.ui_remove_skin
+import net.blockhost.trestle.resources.ui_reset_skin
+import net.blockhost.trestle.resources.ui_reset_skin_explanation
+import net.blockhost.trestle.resources.ui_reset_skin_question
 import net.blockhost.trestle.resources.ui_reset_to_default
 import net.blockhost.trestle.resources.ui_save
 import net.blockhost.trestle.resources.ui_save_to_library
+import net.blockhost.trestle.resources.ui_skin_could_not_load
 import net.blockhost.trestle.resources.ui_skin_file
 import net.blockhost.trestle.resources.ui_skins
 import net.blockhost.trestle.resources.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk
@@ -110,6 +117,16 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
     val account = state.accounts.firstOrNull { it.isActive }
     val selected = state.savedSkins.firstOrNull { it.profile.id == state.skinStudio.selectedProfileId }
     var confirmDelete by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
+    if (confirmReset) {
+        ConfirmationDialog(
+            ConfirmationRequest(
+                title = stringResource(Res.string.ui_reset_skin_question),
+                text = stringResource(Res.string.ui_reset_skin_explanation),
+                confirmLabel = stringResource(Res.string.ui_reset_skin),
+            ) { actions.resetActiveSkin() },
+        ) { confirmReset = false }
+    }
     Column(
         modifier
             .fillMaxSize()
@@ -140,7 +157,8 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
                         texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
                         variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
                         onSave = actions::saveCurrentSkinToLibrary,
-                        onReset = actions::resetActiveSkin,
+                        onReset = { confirmReset = true },
+                        emptyLabel = skinPreviewLabel(state, account),
                         modifier = Modifier.width(320.dp).fillMaxHeight(),
                     )
                     SkinLibraryPanel(
@@ -161,7 +179,8 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
                         texture = account?.let { state.accountSkinTextures[it.profile.profileId] },
                         variant = account?.profile?.skin?.variant ?: SkinVariant.CLASSIC,
                         onSave = actions::saveCurrentSkinToLibrary,
-                        onReset = actions::resetActiveSkin,
+                        onReset = { confirmReset = true },
+                        emptyLabel = skinPreviewLabel(state, account),
                         modifier = Modifier.fillMaxWidth().height(300.dp),
                     )
                     SkinLibraryPanel(
@@ -210,6 +229,7 @@ private fun CurrentSkinPanel(
     variant: SkinVariant,
     onSave: () -> Unit,
     onReset: () -> Unit,
+    emptyLabel: String,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -232,7 +252,7 @@ private fun CurrentSkinPanel(
             texture = texture,
             variant = variant,
             modifier = Modifier.fillMaxWidth().weight(1f).padding(vertical = 12.dp),
-            emptyLabel = "Loading skin preview…",
+            emptyLabel = emptyLabel,
             background = Color.Transparent,
         )
         Text(playerName, style = MaterialTheme.typography.titleMedium)
@@ -557,3 +577,12 @@ internal val SkinVariant.label: String
 
 private val SkinEditorState.canSave: Boolean
     get() = name.isNotBlank() && texture != null && !isSaving
+
+/** What a skin preview says while it has no texture: loading, no custom skin, or a failed download. */
+@Composable
+internal fun skinPreviewLabel(state: LauncherUiState, account: ManagedAccount?): String = when {
+    account == null -> stringResource(Res.string.ui_no_account)
+    account.profile.skin == null -> stringResource(Res.string.ui_no_custom_skin)
+    account.profile.profileId in state.failedSkinTextures -> stringResource(Res.string.ui_skin_could_not_load)
+    else -> stringResource(Res.string.ui_loading_skin_preview)
+}
