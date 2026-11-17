@@ -154,6 +154,11 @@ data class OperationStatus(
     val instanceId: InstanceId? = null,
 )
 
+private class QueuedLocalFile(val fileName: String, val bytes: ByteArray, val type: ResourceType?, val sourceOrigin: String?)
+
+/** The notice shown after an instance leaves the library; its snackbar is the only one that offers Undo. */
+internal const val INSTANCE_REMOVED_NOTICE = "Instance removed from the library. Its game directory was kept."
+
 data class LocalFileImportState(
     val visible: Boolean = false,
     val fileName: String = "",
@@ -342,7 +347,8 @@ data class LauncherUiState(
     val pendingWorldDeletionKey: String? = null,
 ) {
     val selectedInstance: GameInstance?
-        get() = instances.firstOrNull { it.id == selectedId } ?: instances.firstOrNull()
+        get() = instances.firstOrNull { it.id == selectedId }
+            ?: instances.maxByOrNull { it.lastLaunchAtEpochMillis ?: Long.MIN_VALUE }
 
     val activeInstance: GameInstance?
         get() = activeLaunch?.instanceId?.let { id -> instances.firstOrNull { it.id == id } }
@@ -381,6 +387,7 @@ class LauncherViewModel(
     private var launchJob: Job? = null
     private val initialInitialization = CompletableDeferred<Unit>()
     private var cachedLaunch: Pair<GameInstance, PreparedLaunch>? = null
+    private val queuedLocalFiles = ArrayDeque<QueuedLocalFile>()
     private val loadedSkinUrls = mutableMapOf<String, String>()
     val state: StateFlow<LauncherUiState> = mutableState.asStateFlow()
 
@@ -509,8 +516,9 @@ class LauncherViewModel(
             it.copy(
                 selectedId = id,
                 notice = null,
+                removedInstanceUndo = null,
                 launchPlan = null,
-                launch = InstanceLaunchState(id),
+                launch = it.activeLaunch?.takeIf { active -> active.instanceId == id } ?: InstanceLaunchState(id),
                 installedContent = emptyList(),
                 installedContentUpdates = emptyMap(),
                 gameData = GameDataInventory(),
@@ -949,7 +957,16 @@ class LauncherViewModel(
     override fun launchSelected() = launchSelected(LaunchOptions())
 
     private fun launchSelected(options: LaunchOptions) {
-        if (launchJob?.isActive == true || resourceJob?.isActive == true || mutableState.value.modpackUpdatePreview != null) return
+        if (launchJob?.isActive == true) {
+            val running = mutableState.value.activeInstance
+            if (running != null && running.id != mutableState.value.selectedInstance?.id) {
+                mutableState.update {
+                    it.copy(notice = "${running.displayName} is still running. Close it before you play another instance.")
+                }
+            }
+            return
+        }
+        if (resourceJob?.isActive == true || mutableState.value.modpackUpdatePreview != null) return
         if (!services.runtime.capabilities.canLaunch) return
         val instance = mutableState.value.selectedInstance ?: return
         if (instance.installationState !is InstallationState.Installed) return
@@ -2056,7 +2073,7 @@ class LauncherViewModel(
                         notice = if (removalMode == InstanceRemovalMode.MOVE_TO_TRASH) {
                             "${removed.displayName} was moved to Trash."
                         } else {
-                            "Instance removed from the library. Its game directory was kept."
+                            INSTANCE_REMOVED_NOTICE
                         },
                         launchPlan = null,
                         removedInstanceUndo = removed.takeIf {
@@ -2064,6 +2081,7 @@ class LauncherViewModel(
                         },
                     )
                 }
+                checkLaunchReadiness(mutableState.value.selectedInstance)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -2094,6 +2112,7 @@ class LauncherViewModel(
                         installedContentUpdates = emptyMap(),
                     )
                 }
+                checkLaunchReadiness(mutableState.value.selectedInstance)
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
@@ -2124,6 +2143,14 @@ class LauncherViewModel(
     }
 
     override fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType?, sourceOrigin: String?) {
+        if (mutableState.value.localFileImport.visible || resourceJob?.isActive == true) {
+            queuedLocalFiles.addLast(QueuedLocalFile(fileName, bytes, type, sourceOrigin))
+        } else {
+            openLocalFileImport(fileName, bytes, type, sourceOrigin)
+        }
+    }
+
+    private fun openLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType?, sourceOrigin: String?) {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         val allowedTypes = when (extension) {
             "jar" -> listOf(ResourceType.MOD)
@@ -2177,6 +2204,12 @@ class LauncherViewModel(
 
     override fun cancelLocalFileImport() {
         mutableState.update { it.copy(localFileImport = LocalFileImportState()) }
+        showNextQueuedLocalFile()
+    }
+
+    private fun showNextQueuedLocalFile() {
+        val next = queuedLocalFiles.removeFirstOrNull() ?: return
+        queueLocalFileImport(next.fileName, next.bytes, next.type, next.sourceOrigin)
     }
 
     override fun confirmLocalFileImport() {
@@ -2226,6 +2259,7 @@ class LauncherViewModel(
                 showError(error)
             } finally {
                 resourceJob = null
+                showNextQueuedLocalFile()
             }
         }
     }

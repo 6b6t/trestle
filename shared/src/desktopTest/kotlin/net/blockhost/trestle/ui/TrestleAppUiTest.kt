@@ -4,6 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.adaptive.Posture
 import androidx.compose.material3.adaptive.WindowAdaptiveInfo
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
@@ -11,11 +14,13 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -381,75 +386,7 @@ class TrestleAppUiTest {
         }
 
         onNodeWithText("Keyboard shortcuts").assertIsDisplayed()
-        onNodeWithText("Launch focused instance").assertIsDisplayed()
-    }
-
-    @Test
-    fun doubleClickingInstanceSelectsItBeforeLaunching() = runComposeUiTest {
-        val events = mutableListOf<String>()
-        val instanceId = InstanceId("vanilla")
-        val actions = object : LauncherUiActions {
-            override fun selectInstance(id: InstanceId) {
-                events += "select:${id.value}"
-            }
-
-            override fun launchSelected() {
-                events += "launch"
-            }
-        }
-        setContent {
-            Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(LauncherPreviewFixtures.loaded, actions)
-            }
-        }
-
-        onNodeWithTag(LauncherTestTags.instance(instanceId)).performMouseInput { doubleClick() }
-
-        assertEquals(listOf("select:vanilla", "launch"), events)
-    }
-
-    @Test
-    fun instanceTilePlayButtonLaunchesThatInstance() = runComposeUiTest {
-        val events = mutableListOf<String>()
-        val actions = object : LauncherUiActions {
-            override fun selectInstance(id: InstanceId) {
-                events += "select:${id.value}"
-            }
-
-            override fun launchSelected() {
-                events += "launch"
-            }
-        }
-        setContent {
-            Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(
-                    LauncherPreviewFixtures.loaded,
-                    actions,
-                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
-                )
-            }
-        }
-
-        onNodeWithTag(LauncherTestTags.LIBRARY)
-            .performScrollToNode(hasTestTag(LauncherTestTags.instancePlay(InstanceId("vanilla"))))
-        onNodeWithTag(LauncherTestTags.instancePlay(InstanceId("vanilla"))).performClick()
-
-        assertEquals(listOf("select:vanilla", "launch"), events)
-    }
-
-    @Test
-    fun libraryShowsWhichAccountWillPlay() = runComposeUiTest {
-        setContent {
-            Box(Modifier.size(1000.dp, 720.dp)) {
-                TrestleApp(
-                    LauncherPreviewFixtures.loaded,
-                    NoopLauncherUiActions,
-                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
-                )
-            }
-        }
-
-        onNodeWithText("Playing as Pistonmaster").assertIsDisplayed().assertHasClickAction()
+        onNodeWithText("Open focused instance").assertIsDisplayed()
     }
 
     @Test
@@ -771,7 +708,7 @@ class TrestleAppUiTest {
     }
 }
 
-private fun testWindowAdaptiveInfo(widthDp: Int, heightDp: Int): WindowAdaptiveInfo {
+internal fun testWindowAdaptiveInfo(widthDp: Int, heightDp: Int): WindowAdaptiveInfo {
     val minimumWidth = when {
         widthDp >= WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND ->
             WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND

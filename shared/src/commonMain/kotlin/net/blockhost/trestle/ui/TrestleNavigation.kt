@@ -2,6 +2,7 @@
 
 package net.blockhost.trestle.ui
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import net.blockhost.trestle.domain.InstanceId
@@ -41,6 +43,7 @@ internal fun LauncherNavigationLayout(
     adaptiveInfo: WindowAdaptiveInfo,
     modifier: Modifier,
     operation: OperationStatus?,
+    snackbarHost: @Composable () -> Unit,
     onCancelOperation: () -> Unit,
     onOpenOperation: (InstanceId) -> Unit,
     destinationContent: @Composable (Modifier, TrestleLayoutMode) -> Unit,
@@ -77,7 +80,10 @@ internal fun LauncherNavigationLayout(
         containerColor = MaterialTheme.colorScheme.background,
     ) {
         Column(Modifier.fillMaxSize()) {
-            destinationContent(Modifier.weight(1f).fillMaxWidth(), layoutMode)
+            Box(Modifier.weight(1f).fillMaxWidth()) {
+                destinationContent(Modifier.fillMaxSize(), layoutMode)
+                Box(Modifier.align(Alignment.BottomCenter)) { snackbarHost() }
+            }
             operation?.let { status ->
                 OperationBar(
                     status = status,

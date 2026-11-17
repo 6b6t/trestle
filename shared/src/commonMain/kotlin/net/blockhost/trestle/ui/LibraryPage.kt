@@ -66,6 +66,7 @@ import androidx.compose.material3.adaptive.navigation.rememberSupportingPaneScaf
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -116,8 +117,10 @@ import net.blockhost.trestle.resources.ui_all_instances
 import net.blockhost.trestle.resources.ui_choose_one_from_the_library
 import net.blockhost.trestle.resources.ui_create_an_isolated_minecraft_instance
 import net.blockhost.trestle.resources.ui_create_instance
+import net.blockhost.trestle.resources.ui_drop_to_import
 import net.blockhost.trestle.resources.ui_import
 import net.blockhost.trestle.resources.ui_import_hint
+import net.blockhost.trestle.resources.ui_import_hint_touch
 import net.blockhost.trestle.resources.ui_install
 import net.blockhost.trestle.resources.ui_instance_settings
 import net.blockhost.trestle.resources.ui_last_played_on
@@ -125,11 +128,13 @@ import net.blockhost.trestle.resources.ui_launch
 import net.blockhost.trestle.resources.ui_library
 import net.blockhost.trestle.resources.ui_manage
 import net.blockhost.trestle.resources.ui_manage_content
+import net.blockhost.trestle.resources.ui_named_is_still_running
 import net.blockhost.trestle.resources.ui_never_played
 import net.blockhost.trestle.resources.ui_new_instance
 import net.blockhost.trestle.resources.ui_no_account_to_play
 import net.blockhost.trestle.resources.ui_no_instances_yet
 import net.blockhost.trestle.resources.ui_no_matching_instances
+import net.blockhost.trestle.resources.ui_open_named
 import net.blockhost.trestle.resources.ui_open_operation_details
 import net.blockhost.trestle.resources.ui_pause
 import net.blockhost.trestle.resources.ui_play
@@ -185,11 +190,21 @@ internal fun LibraryPage(
         query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
             it.minecraftVersionId.contains(query, ignoreCase = true) || it.modLoader.label.contains(query, ignoreCase = true)
     }
+    // Requests are counters owned by the app shell. Remember which ones this page handled,
+    // so returning to the library does not reopen the picker or steal focus again.
+    var handledSearchFocusRequest by rememberSaveable { mutableIntStateOf(0) }
+    var handledImportRequest by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(searchFocusRequest) {
-        if (searchFocusRequest > 0) searchFocusRequester.requestFocus()
+        if (searchFocusRequest > handledSearchFocusRequest) {
+            handledSearchFocusRequest = searchFocusRequest
+            searchFocusRequester.requestFocus()
+        }
     }
     LaunchedEffect(importRequest) {
-        if (importRequest > 0) importPicker.launch()
+        if (importRequest > handledImportRequest) {
+            handledImportRequest = importRequest
+            importPicker.launch()
+        }
     }
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -225,9 +240,7 @@ internal fun LibraryPage(
                     enabled = currentPlatform == "Desktop",
                     extensions = setOf("jar", "zip", "mrpack"),
                     onActiveChange = { dropActive = it },
-                    onFiles = { files ->
-                        files.firstOrNull()?.let { actions.queueLocalFileImport(it.name, it.bytes) }
-                    },
+                    onFiles = { files -> files.forEach { actions.queueLocalFileImport(it.name, it.bytes) } },
                     onFailure = actions::reportLocalFileReadFailure,
                 ),
         ) {
@@ -248,13 +261,13 @@ internal fun LibraryPage(
                     compact = compact,
                     gridState = gridState,
                     onOpenInstance = onManage,
-                    onAddMods = { onDiscover(ResourceType.MOD) },
+                    onDiscover = onDiscover,
                     onOpenAccounts = onOpenAccounts,
                     modifier = Modifier.fillMaxSize().testTag(LauncherTestTags.LIBRARY),
                 )
             }
             if (dropActive) {
-                DropOverlay("Drop to import local content")
+                DropOverlay(stringResource(Res.string.ui_drop_to_import))
             }
         }
     }
@@ -314,14 +327,14 @@ private fun InstanceCollection(
     compact: Boolean,
     gridState: LazyGridState,
     onOpenInstance: () -> Unit,
-    onAddMods: () -> Unit,
+    onDiscover: (ResourceType) -> Unit,
     onOpenAccounts: () -> Unit,
     modifier: Modifier,
 ) {
     val featured = state.selectedInstance?.takeIf { showFeatured }
     LazyVerticalGrid(
         state = gridState,
-        columns = if (compact) GridCells.Fixed(1) else GridCells.Adaptive(280.dp),
+        columns = GridCells.Adaptive(280.dp),
         modifier = modifier,
         contentPadding = PaddingValues(start = 24.dp, top = 4.dp, end = 24.dp, bottom = if (compact) 96.dp else 32.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -335,7 +348,7 @@ private fun InstanceCollection(
                     actions = actions,
                     compact = compact,
                     onManage = onOpenInstance,
-                    onAddMods = onAddMods,
+                    onAddMods = { onDiscover(ResourceType.MOD) },
                     onOpenAccounts = onOpenAccounts,
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
@@ -355,42 +368,48 @@ private fun InstanceCollection(
                 }
             }
         }
-        instanceSections(instances, state).forEach { (section, sectionInstances) ->
-            item(key = "section-$section", span = { GridItemSpan(maxLineSpan) }) {
+        instanceSections(instances, state).forEach { section ->
+            item(key = section.key, span = { GridItemSpan(maxLineSpan) }) {
                 Text(
-                    section ?: stringResource(Res.string.ui_all_instances),
+                    section.title ?: stringResource(Res.string.ui_all_instances),
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 2.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
-            gridItems(sectionInstances, key = { it.id.value }) { instance ->
+            gridItems(section.instances, key = { it.id.value }) { instance ->
                 InstanceTile(
                     instance = instance,
                     selected = instance.id == state.selectedInstance?.id,
                     launcherState = state,
                     actions = actions,
                     onOpen = onOpenInstance,
+                    onDiscover = onDiscover,
                 )
             }
         }
     }
 }
 
+private class LibrarySection(val key: String, val title: String?, val instances: List<GameInstance>)
+
 /**
  * Splits instances into the sections shown in the library.
- * Only pinned instances and groups the player named get their own section; a null key is the remaining instances.
+ * Only pinned instances and groups the player named get their own section; a null title is the remaining instances.
+ * Keys carry the section kind, so a group named "Pinned" cannot collide with the pinned section.
  */
-private fun instanceSections(instances: List<GameInstance>, state: LauncherUiState): List<Pair<String?, List<GameInstance>>> {
+private fun instanceSections(instances: List<GameInstance>, state: LauncherUiState): List<LibrarySection> {
     val sorted = sortInstances(instances, state)
     val pinned = sorted.filter { it.pinned }
     val rest = sorted.filterNot { it.pinned }
-    val named = rest.filter { !it.group.isNullOrBlank() }.groupBy { it.group.orEmpty() }
+    val named = rest.filter { !it.group.isNullOrBlank() }.groupBy { it.group.orEmpty().trim() }
     val ungrouped = rest.filter { it.group.isNullOrBlank() }
     return buildList {
-        if (pinned.isNotEmpty()) add("Pinned" to pinned)
-        named.entries.sortedBy { it.key.lowercase() }.forEach { (group, members) -> add(group to members) }
-        if (ungrouped.isNotEmpty()) add(null to ungrouped)
+        if (pinned.isNotEmpty()) add(LibrarySection("pinned", "Pinned", pinned))
+        named.entries.sortedBy { it.key.lowercase() }.forEach { (group, members) ->
+            add(LibrarySection("group:$group", group, members))
+        }
+        if (ungrouped.isNotEmpty()) add(LibrarySection("rest", null, ungrouped))
     }
 }
 
@@ -485,6 +504,7 @@ private fun FeaturedInstanceControls(
             actions,
             Modifier.fillMaxWidth(),
             buttonModifier = Modifier.heightIn(min = 52.dp),
+            showAccountRequirement = false,
         )
         LaunchAccount(state, instance, onOpenAccounts)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -572,6 +592,7 @@ private fun InstanceTile(
     launcherState: LauncherUiState,
     actions: LauncherUiActions,
     onOpen: () -> Unit,
+    onDiscover: (ResourceType) -> Unit,
 ) {
     val focusManager = LocalFocusManager.current
     val installationState = instance.installationState
@@ -579,16 +600,12 @@ private fun InstanceTile(
     val interactionModifier = Modifier
         .fillMaxWidth()
         .clip(MaterialTheme.shapes.medium)
-        .trestleSelectable(
-            selected = selected,
-            onClickLabel = "Open instance",
+        .clickable(
+            onClickLabel = stringResource(Res.string.ui_open_named, instance.displayName),
+            role = Role.Button,
             onClick = {
                 actions.selectInstance(instance.id)
                 onOpen()
-            },
-            onDoubleClick = {
-                actions.selectInstance(instance.id)
-                actions.launchSelected()
             },
         )
         .onPreviewKeyEvent { event ->
@@ -618,14 +635,14 @@ private fun InstanceTile(
             }
         }
         .testTag(LauncherTestTags.instance(instance.id))
-    ContextActionArea(instanceContextActions(instance, actions)) {
+    ContextActionArea(instanceContextActions(instance, actions, onDiscover)) {
         Surface(
             color = if (selected) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface,
             shape = MaterialTheme.shapes.medium,
             border = BorderStroke(
-                1.dp,
-                if (selected) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant,
+                if (selected) 2.dp else 1.dp,
+                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
             ),
             modifier = interactionModifier,
         ) {
@@ -657,10 +674,8 @@ private fun InstanceTile(
 
 @Composable
 private fun TileQuickAction(instance: GameInstance, state: LauncherUiState, actions: LauncherUiActions) {
+    if (!showsTileQuickAction(instance, state)) return
     val installationState = instance.installationState
-    if (installationState is InstallationState.Installing) return
-    val status = state.launch.takeIf { it.instanceId == instance.id }?.status
-    if (status is LaunchStatus.Running || status == LaunchStatus.Starting || status == LaunchStatus.Checking) return
     val installed = installationState is InstallationState.Installed
     val label = when (installationState) {
         is InstallationState.Installed -> stringResource(Res.string.ui_play_named, instance.displayName)
@@ -723,7 +738,7 @@ private fun EmptyLibrary(onNew: () -> Unit, onImport: () -> Unit, modifier: Modi
         }
         Spacer(Modifier.height(12.dp))
         Text(
-            stringResource(Res.string.ui_import_hint),
+            stringResource(if (currentPlatform == "Desktop") Res.string.ui_import_hint else Res.string.ui_import_hint_touch),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.bodySmall,
         )
@@ -834,31 +849,47 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
 
 @Composable
 private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
+    val running = otherRunningInstance(state, instance)
+    if (running != null) {
+        Text(
+            stringResource(Res.string.ui_named_is_still_running, running.displayName),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
+        )
+    } else {
+        LaunchStatusMessage(state, instance)
+    }
+}
+
+@Composable
+private fun LaunchStatusMessage(state: LauncherUiState, instance: GameInstance) {
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: return
-    val message = when (status) {
-        is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
-            null
-        } else {
-            "Required before launch: ${status.missingRequirements.joinToString()}"
-        }
-
-        is LaunchStatus.Failed -> status.message
-
-        is LaunchStatus.Unavailable -> status.reason
-
-        LaunchStatus.Checking -> "Checking launch requirements"
-
-        LaunchStatus.Starting -> "Starting Minecraft…"
-
-        is LaunchStatus.Running -> status.processId?.let { "Minecraft is running · Process $it" } ?: "Minecraft is running"
-
-        else -> null
-    } ?: return
+    val message = launchStatusMessage(state, instance, status) ?: return
     val color = when (status) {
         is LaunchStatus.Blocked, is LaunchStatus.Failed -> MaterialTheme.colorScheme.error
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(message, color = color, style = MaterialTheme.typography.labelMedium)
+}
+
+private fun launchStatusMessage(state: LauncherUiState, instance: GameInstance, status: LaunchStatus): String? = when (status) {
+    is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
+        null
+    } else {
+        "Required before launch: ${status.missingRequirements.joinToString()}"
+    }
+
+    is LaunchStatus.Failed -> status.message
+
+    is LaunchStatus.Unavailable -> status.reason
+
+    LaunchStatus.Checking -> "Checking launch requirements"
+
+    LaunchStatus.Starting -> "Starting Minecraft…"
+
+    is LaunchStatus.Running -> status.processId?.let { "Minecraft is running · Process $it" } ?: "Minecraft is running"
+
+    else -> null
 }
 
 @Composable
@@ -868,10 +899,11 @@ internal fun PrimaryInstanceAction(
     actions: LauncherUiActions,
     modifier: Modifier,
     buttonModifier: Modifier = Modifier,
+    showAccountRequirement: Boolean = true,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         PrimaryInstanceButton(instance, state, actions, buttonModifier.fillMaxWidth())
-        if (requiresImportedAccount(state, instance)) {
+        if (showAccountRequirement && requiresImportedAccount(state, instance)) {
             Text(
                 stringResource(Res.string.ui_add_an_account_to_launch),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -883,6 +915,21 @@ internal fun PrimaryInstanceAction(
         }
     }
 }
+
+/** Tiles hide their quick action while the instance installs, launches, or while any game is running. */
+private fun showsTileQuickAction(instance: GameInstance, state: LauncherUiState): Boolean {
+    val status = state.launch.takeIf { it.instanceId == instance.id }?.status
+    val launching = status is LaunchStatus.Running || status == LaunchStatus.Starting || status == LaunchStatus.Checking
+    val installed = instance.installationState is InstallationState.Installed
+    val gameRunning = state.activeLaunch?.instanceId == instance.id || otherRunningInstance(state, instance) != null
+    return instance.installationState !is InstallationState.Installing && !launching && !(installed && gameRunning)
+}
+
+/** Returns the instance that is already running when it is not [instance]; only one game runs at a time. */
+internal fun otherRunningInstance(state: LauncherUiState, instance: GameInstance): GameInstance? = state.activeLaunch
+    ?.takeIf { it.instanceId != instance.id }
+    ?.takeIf { it.status is LaunchStatus.Running || it.status == LaunchStatus.Starting }
+    ?.let { state.activeInstance }
 
 private fun requiresImportedAccount(state: LauncherUiState, instance: GameInstance): Boolean {
     if (state.accounts.isNotEmpty()) return false
@@ -984,7 +1031,11 @@ internal fun InstanceArtwork(instance: GameInstance, size: androidx.compose.ui.u
 }
 
 @Composable
-private fun instanceContextActions(instance: GameInstance, actions: LauncherUiActions): List<ContextAction> {
+private fun instanceContextActions(
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    onDiscover: (ResourceType) -> Unit,
+): List<ContextAction> {
     val copyText = rememberCopyText()
     val openPath = rememberOpenPath()
     val state = instance.installationState
@@ -1001,7 +1052,7 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
             selectedAction(actions::installSelected)
         }
 
-        is InstallationState.Installed -> ContextAction("Launch") {
+        is InstallationState.Installed -> ContextAction("Play") {
             selectedAction(actions::launchSelected)
         }
 
@@ -1019,7 +1070,7 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
             add(ContextAction("Inspect launch plan") { selectedAction(actions::inspectLaunchPlan) })
         }
         if (state is InstallationState.Installed) {
-            add(ContextAction("Add content") { selectedAction { actions.openResourceBrowser() } })
+            add(ContextAction("Add content") { selectedAction { onDiscover(ResourceType.MOD) } })
         }
         add(ContextAction("Instance settings", separatorBefore = true) { selectedAction(actions::openInstanceSettings) })
         add(ContextAction("Duplicate instance") { selectedAction(actions::cloneSelectedInstance) })
@@ -1051,6 +1102,10 @@ private fun instanceContextActions(instance: GameInstance, actions: LauncherUiAc
 @Composable
 private fun LaunchButton(state: LauncherUiState, instance: GameInstance, actions: LauncherUiActions, modifier: Modifier = Modifier) {
     val status = state.launch.takeIf { it.instanceId == instance.id }?.status ?: LaunchStatus.NotChecked
+    if (otherRunningInstance(state, instance) != null) {
+        Button(onClick = {}, enabled = false, modifier = modifier) { Text(stringResource(Res.string.ui_play)) }
+        return
+    }
     when (status) {
         is LaunchStatus.Running -> OutlinedButton(
             onClick = actions::stopLaunch,

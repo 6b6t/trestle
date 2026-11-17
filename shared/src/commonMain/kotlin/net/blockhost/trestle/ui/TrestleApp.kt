@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -55,12 +56,18 @@ import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ui_accounts
 import net.blockhost.trestle.resources.ui_cancel
+import net.blockhost.trestle.resources.ui_delete_files
 import net.blockhost.trestle.resources.ui_delete_named_world
 import net.blockhost.trestle.resources.ui_delete_world
 import net.blockhost.trestle.resources.ui_discover
 import net.blockhost.trestle.resources.ui_instance
-import net.blockhost.trestle.resources.ui_keep_files
 import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_move_instance_to_trash_explanation
+import net.blockhost.trestle.resources.ui_move_named_to_trash
+import net.blockhost.trestle.resources.ui_move_to_trash
+import net.blockhost.trestle.resources.ui_remove
+import net.blockhost.trestle.resources.ui_remove_instance_explanation
+import net.blockhost.trestle.resources.ui_remove_named_instance
 import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain
@@ -244,7 +251,7 @@ fun TrestleApp(
             val message = state.error ?: state.notice ?: return@LaunchedEffect
             val action = when {
                 state.error != null && state.errorRecovery != null -> LauncherSnackbarAction.RETRY
-                state.removedInstanceUndo != null -> LauncherSnackbarAction.UNDO
+                state.removedInstanceUndo != null && state.notice == INSTANCE_REMOVED_NOTICE -> LauncherSnackbarAction.UNDO
                 else -> null
             }
             val actionLabel = when (action) {
@@ -258,7 +265,7 @@ fun TrestleApp(
                 withDismissAction = state.error != null,
                 duration = when {
                     state.error != null -> SnackbarDuration.Indefinite
-                    state.removedInstanceUndo != null -> SnackbarDuration.Long
+                    action == LauncherSnackbarAction.UNDO -> SnackbarDuration.Long
                     else -> SnackbarDuration.Short
                 },
             )
@@ -306,7 +313,6 @@ fun TrestleApp(
                 }
                 .testTag(LauncherTestTags.ROOT),
             containerColor = MaterialTheme.colorScheme.background,
-            snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
                 Column(Modifier.windowInsetsPadding(WindowInsets.statusBars)) {
                     topBar()
@@ -363,6 +369,7 @@ fun TrestleApp(
                 adaptiveInfo = windowAdaptiveInfo,
                 modifier = Modifier.fillMaxSize().padding(contentPadding),
                 operation = state.operation,
+                snackbarHost = { SnackbarHost(snackbarHostState) },
                 onCancelOperation = actions::cancelActiveOperation,
                 onOpenOperation = { instanceId ->
                     actions.selectInstance(instanceId)
@@ -387,53 +394,10 @@ fun TrestleApp(
             if (showShortcuts) ShortcutsDialog { showShortcuts = false }
             state.pendingInstanceRemovalId?.let { pendingId ->
                 val instance = state.instances.firstOrNull { it.id == pendingId }
-                val moveToTrash = state.instanceRemovalMode == InstanceRemovalMode.MOVE_TO_TRASH
-                AlertDialog(
-                    onDismissRequest = actions::cancelInstanceRemoval,
-                    title = {
-                        Text(
-                            if (moveToTrash) {
-                                "Move ${instance?.displayName ?: "instance"} to Trash?"
-                            } else {
-                                "Remove ${instance?.displayName ?: "instance"}?"
-                            },
-                        )
-                    },
-                    text = {
-                        Text(
-                            if (moveToTrash) {
-                                "This removes the instance from Trestle and moves its complete directory to the system Trash."
-                            } else {
-                                "Remove it from the library and keep its files, or permanently delete the complete instance directory."
-                            },
-                        )
-                    },
-                    dismissButton = {
-                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick = actions::cancelInstanceRemoval) { Text(stringResource(Res.string.ui_cancel)) }
-                            if (!moveToTrash) {
-                                TextButton(onClick = actions::confirmInstanceRemoval) { Text(stringResource(Res.string.ui_keep_files)) }
-                            }
-                        }
-                    },
-                    confirmButton = {
-                        TextButton(
-                            onClick = if (moveToTrash) {
-                                actions::confirmInstanceRemoval
-                            } else {
-                                actions::confirmInstanceDeletion
-                            },
-                            colors = ButtonDefaults.textButtonColors(
-                                contentColor = if (moveToTrash) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                },
-                            ),
-                        ) {
-                            Text(if (moveToTrash) "Move to Trash" else "Delete files")
-                        }
-                    },
+                InstanceRemovalDialog(
+                    instanceName = instance?.displayName ?: stringResource(Res.string.ui_instance),
+                    moveToTrash = state.instanceRemovalMode == InstanceRemovalMode.MOVE_TO_TRASH,
+                    actions = actions,
                 )
             }
             RestrictedDownloadDialog(state, actions)
@@ -463,4 +427,55 @@ fun TrestleApp(
 private enum class LauncherSnackbarAction {
     RETRY,
     UNDO,
+}
+
+/**
+ * Confirms removing an instance. Removing keeps the files and is the main action;
+ * deleting the files is a separate, clearly destructive choice.
+ */
+@Composable
+private fun InstanceRemovalDialog(instanceName: String, moveToTrash: Boolean, actions: LauncherUiActions) {
+    AlertDialog(
+        onDismissRequest = actions::cancelInstanceRemoval,
+        title = {
+            Text(
+                if (moveToTrash) {
+                    stringResource(Res.string.ui_move_named_to_trash, instanceName)
+                } else {
+                    stringResource(Res.string.ui_remove_named_instance, instanceName)
+                },
+            )
+        },
+        text = {
+            Text(
+                if (moveToTrash) {
+                    stringResource(Res.string.ui_move_instance_to_trash_explanation)
+                } else {
+                    stringResource(Res.string.ui_remove_instance_explanation)
+                },
+            )
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (!moveToTrash) {
+                    TextButton(
+                        onClick = actions::confirmInstanceDeletion,
+                        colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    ) { Text(stringResource(Res.string.ui_delete_files)) }
+                }
+                TextButton(onClick = actions::cancelInstanceRemoval) { Text(stringResource(Res.string.ui_cancel)) }
+            }
+        },
+        confirmButton = {
+            Button(onClick = actions::confirmInstanceRemoval) {
+                Text(
+                    if (moveToTrash) {
+                        stringResource(Res.string.ui_move_to_trash)
+                    } else {
+                        stringResource(Res.string.ui_remove)
+                    },
+                )
+            }
+        },
+    )
 }

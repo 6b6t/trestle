@@ -52,9 +52,10 @@ internal fun ShortcutsDialog(onDismiss: () -> Unit) {
             Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 ShortcutRow("Ctrl/Cmd + N", "New instance")
                 ShortcutRow("Ctrl/Cmd + F", "Search")
+                ShortcutRow("Ctrl/Cmd + O", "Import a file")
                 ShortcutRow("Ctrl/Cmd + 1–4", "Switch section")
                 ShortcutRow("Ctrl/Cmd + ,", "Settings")
-                ShortcutRow("Enter", "Launch focused instance")
+                ShortcutRow("Enter", "Open focused instance")
                 ShortcutRow("Arrow keys", "Move instance focus")
                 ShortcutRow("Delete", "Remove focused instance")
                 ShortcutRow("Escape", "Close or go back")

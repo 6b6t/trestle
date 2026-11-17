@@ -109,7 +109,6 @@
     <string name="ui_instance_sorting">Instance sorting</string>
     <string name="ui_instances">Instances</string>
     <string name="ui_join">Join</string>
-    <string name="ui_keep_files">Keep files</string>
     <string name="ui_keyboard_shortcuts">Keyboard shortcuts</string>
     <string name="ui_launch">Launch</string>
     <string name="ui_launch_plan">Launch plan</string>
@@ -272,4 +271,14 @@
     <string name="ui_never_played">Not played yet</string>
     <string name="ui_play_named">Play %1$s</string>
     <string name="ui_import_hint">Import a Modrinth, CurseForge, Prism, or MultiMC pack, or drop a file here.</string>
+    <string name="ui_move_named_to_trash">Move %1$s to Trash?</string>
+    <string name="ui_remove_named_instance">Remove %1$s?</string>
+    <string name="ui_move_instance_to_trash_explanation">This removes the instance from Trestle and moves its complete folder to the system Trash.</string>
+    <string name="ui_remove_instance_explanation">Remove keeps the instance folder on disk, and you can undo it. Delete files permanently deletes the folder, including worlds.</string>
+    <string name="ui_delete_files">Delete files</string>
+    <string name="ui_move_to_trash">Move to Trash</string>
+    <string name="ui_drop_to_import">Drop files to import them</string>
+    <string name="ui_open_named">Open %1$s</string>
+    <string name="ui_named_is_still_running">%1$s is still running. Close it to play another instance.</string>
+    <string name="ui_import_hint_touch">Import a Modrinth, CurseForge, Prism, or MultiMC pack.</string>
 </resources>
