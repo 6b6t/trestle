@@ -4,6 +4,26 @@
 
 Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin and Compose Multiplatform.
 
+## Take a look
+
+Play from the library, then open an instance to jump into a world, join a server, or manage content.
+
+![The Trestle library with a Play button, then an instance overview with worlds, servers, and installed content](docs/assets/showcase-library.gif)
+
+Find mods and shaders for the instance you choose, create new instances, and sign in with the method that suits you.
+
+![Discover with an install target menu, the new instance dialog with loader choices, and the add account dialog](docs/assets/showcase-discover.gif)
+
+Use the dark or light theme, or follow your system.
+
+![Theme previews in Settings, followed by the library and an instance in the dark and light themes](docs/assets/showcase-themes.gif)
+
+The same layout adapts to phones.
+
+<img src="docs/assets/showcase-phone.gif" width="330" alt="Trestle on a phone: the library, an instance overview, Discover, and Settings">
+
+## Features
+
 Trestle provides:
 
 - Isolated, persisted Minecraft instances with atomic registry writes.
