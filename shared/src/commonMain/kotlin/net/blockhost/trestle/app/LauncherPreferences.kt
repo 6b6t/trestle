@@ -83,6 +83,13 @@ enum class LauncherLanguage(val tag: String?) {
     ENGLISH("en"),
     GERMAN("de"),
     SPANISH("es"),
+    FRENCH("fr"),
+    PORTUGUESE_BRAZIL("pt-BR"),
+    RUSSIAN("ru"),
+    POLISH("pl"),
+    TURKISH("tr"),
+    JAPANESE("ja"),
+    CHINESE_SIMPLIFIED("zh-CN"),
     ;
 
     companion object {

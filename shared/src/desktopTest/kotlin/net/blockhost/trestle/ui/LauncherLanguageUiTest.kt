@@ -2,6 +2,9 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -65,6 +68,26 @@ class LauncherLanguageUiTest {
         onNodeWithText("Idioma").performClick()
         onNodeWithText("Idioma de la interfaz").assertIsDisplayed()
         onNodeWithText("Español").assertIsDisplayed()
+    }
+
+    @Test
+    fun regionSpecificLanguagesLoadTheirTranslation() = runComposeUiTest {
+        var language by mutableStateOf(LauncherLanguage.CHINESE_SIMPLIFIED)
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded.copy(launcherPreferences = LauncherPreferences(language = language.name)),
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+        onAllNodesWithText("设置").assertCountEquals(2)
+
+        language = LauncherLanguage.PORTUGUESE_BRAZIL
+        waitForIdle()
+        onAllNodesWithText("Configurações").assertCountEquals(2)
     }
 
     @Test

@@ -676,4 +676,11 @@ private fun LauncherLanguage.label(): String = when (this) {
     LauncherLanguage.ENGLISH -> "English"
     LauncherLanguage.GERMAN -> "Deutsch"
     LauncherLanguage.SPANISH -> "Español"
+    LauncherLanguage.FRENCH -> "Français"
+    LauncherLanguage.PORTUGUESE_BRAZIL -> "Português (Brasil)"
+    LauncherLanguage.RUSSIAN -> "Русский"
+    LauncherLanguage.POLISH -> "Polski"
+    LauncherLanguage.TURKISH -> "Türkçe"
+    LauncherLanguage.JAPANESE -> "日本語"
+    LauncherLanguage.CHINESE_SIMPLIFIED -> "简体中文"
 }
