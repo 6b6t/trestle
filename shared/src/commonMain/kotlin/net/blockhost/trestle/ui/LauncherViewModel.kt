@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.app.FolderPreferences
@@ -440,7 +441,12 @@ class LauncherViewModel(
                 services.accounts.initialize()
                 services.skinLibrary.initialize()
             }
-                .onFailure { showError(it, ErrorRecoveryAction.INITIALIZE) }
+                .onFailure { failure ->
+                    // Hide only cancellation of this job. An interrupted worker can also throw CancellationException.
+                    if (failure !is CancellationException || isActive) {
+                        showError(failure, ErrorRecoveryAction.INITIALIZE)
+                    }
+                }
             val instances = services.repository.instances.value
             mutableState.update { state ->
                 val selected = state.selectedId?.takeIf { id -> instances.any { it.id == id } }
@@ -1512,6 +1518,8 @@ class LauncherViewModel(
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 showError(error)
             } finally {
@@ -1541,6 +1549,8 @@ class LauncherViewModel(
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 showError(error)
             } finally {
@@ -2053,6 +2063,8 @@ class LauncherViewModel(
                         },
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(pendingInstanceRemovalId = null) }
                 showError(error)
@@ -2081,6 +2093,8 @@ class LauncherViewModel(
                         installedContentUpdates = emptyMap(),
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(pendingInstanceRemovalId = null, operation = null) }
                 showError(error)
@@ -2503,6 +2517,8 @@ class LauncherViewModel(
                 }
                 checkLaunchReadiness(updated)
                 refreshInstalledContent()
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(instanceSettings = form.copy(isSaving = false)) }
                 showError(error)
@@ -2672,6 +2688,8 @@ class LauncherViewModel(
                 mutableState.update { it.copy(operation = null, notice = "Account profile refreshed.") }
                 cachedLaunch = null
                 checkLaunchReadiness(mutableState.value.selectedInstance)
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -2695,6 +2713,8 @@ class LauncherViewModel(
                     ),
                 )
                 mutableState.update { it.copy(operation = null, notice = "The active skin was reset.") }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
@@ -2839,6 +2859,8 @@ class LauncherViewModel(
                         notice = if (useAfterSave) "${saved.profile.name} is now your active skin." else "Skin saved.",
                     )
                 }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update {
                     it.copy(
@@ -2861,6 +2883,8 @@ class LauncherViewModel(
             try {
                 applySkin(saved)
                 mutableState.update { it.copy(operation = null, notice = "${saved.profile.name} is now your active skin.") }
+            } catch (error: CancellationException) {
+                throw error
             } catch (error: Exception) {
                 mutableState.update { it.copy(operation = null) }
                 showError(error)
