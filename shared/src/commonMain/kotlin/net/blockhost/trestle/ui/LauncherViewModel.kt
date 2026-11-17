@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import net.blockhost.trestle.app.FolderPreferences
@@ -441,7 +442,8 @@ class LauncherViewModel(
                 services.skinLibrary.initialize()
             }
                 .onFailure { failure ->
-                    if (failure !is CancellationException) {
+                    // Hide only cancellation of this job. An interrupted worker can also throw CancellationException.
+                    if (failure !is CancellationException || isActive) {
                         showError(failure, ErrorRecoveryAction.INITIALIZE)
                     }
                 }
