@@ -59,14 +59,16 @@ class MojangJavaResolverTest {
               }
             }
         """.trimIndent()
-        val client = HttpClient(MockEngine { request ->
-            when (request.url.encodedPath) {
-                "/index" -> respond(index)
-                "/manifest" -> respond(manifest)
-                "/java" -> respond(executable)
-                else -> error("Unexpected request: ${request.url}")
-            }
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/index" -> respond(index)
+                    "/manifest" -> respond(manifest)
+                    "/java" -> respond(executable)
+                    else -> error("Unexpected request: ${request.url}")
+                }
+            },
+        )
         val environment = PlatformEnvironment(OperatingSystem.LINUX, Architecture.X86_64)
         val resolver = MojangJavaResolver(
             environment = environment,

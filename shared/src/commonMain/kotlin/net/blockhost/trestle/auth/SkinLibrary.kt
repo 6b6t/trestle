@@ -21,32 +21,18 @@ data class SkinProfile(
     val updatedAtEpochMillis: Long = createdAtEpochMillis,
 )
 
-data class SavedSkin(
-    val profile: SkinProfile,
-    val texture: ByteArray,
-) {
-    override fun equals(other: Any?): Boolean =
-        other is SavedSkin && profile == other.profile && texture.contentEquals(other.texture)
+data class SavedSkin(val profile: SkinProfile, val texture: ByteArray) {
+    override fun equals(other: Any?): Boolean = other is SavedSkin && profile == other.profile && texture.contentEquals(other.texture)
 
     override fun hashCode(): Int = 31 * profile.hashCode() + texture.contentHashCode()
 }
 
-data class MinecraftSkinImage(
-    val width: Int,
-    val height: Int,
-)
+data class MinecraftSkinImage(val width: Int, val height: Int)
 
 @Serializable
-private data class SkinLibraryRegistry(
-    val schemaVersion: Int = 1,
-    val profiles: List<SkinProfile> = emptyList(),
-)
+private data class SkinLibraryRegistry(val schemaVersion: Int = 1, val profiles: List<SkinProfile> = emptyList())
 
-class SkinLibrary(
-    private val fileSystem: FileSystem,
-    private val directory: Path,
-    private val nowMillis: () -> Long,
-) {
+class SkinLibrary(private val fileSystem: FileSystem, private val directory: Path, private val nowMillis: () -> Long) {
     private val mutex = Mutex()
     private val registryPath = directory / "library.json"
     private var savedSkins = emptyList<SavedSkin>()
@@ -83,12 +69,7 @@ class SkinLibrary(
         }
     }
 
-    suspend fun save(
-        name: String,
-        variant: SkinVariant,
-        texture: ByteArray,
-        profileId: String? = null,
-    ): SavedSkin = mutex.withLock {
+    suspend fun save(name: String, variant: SkinVariant, texture: ByteArray, profileId: String? = null): SavedSkin = mutex.withLock {
         inspectMinecraftSkin(texture)
         val trimmedName = name.trim()
         require(trimmedName.isNotEmpty()) { "Give this skin a name before saving it." }
@@ -185,11 +166,10 @@ fun inspectMinecraftSkin(bytes: ByteArray): MinecraftSkinImage {
     return MinecraftSkinImage(width, height)
 }
 
-private fun ByteArray.readBigEndianInt(offset: Int): Int =
-    ((this[offset].toInt() and 0xff) shl 24) or
-        ((this[offset + 1].toInt() and 0xff) shl 16) or
-        ((this[offset + 2].toInt() and 0xff) shl 8) or
-        (this[offset + 3].toInt() and 0xff)
+private fun ByteArray.readBigEndianInt(offset: Int): Int = ((this[offset].toInt() and 0xff) shl 24) or
+    ((this[offset + 1].toInt() and 0xff) shl 16) or
+    ((this[offset + 2].toInt() and 0xff) shl 8) or
+    (this[offset + 3].toInt() and 0xff)
 
 private const val MAX_SKIN_BYTES = 2 * 1024 * 1024
 private val PNG_SIGNATURE = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a)

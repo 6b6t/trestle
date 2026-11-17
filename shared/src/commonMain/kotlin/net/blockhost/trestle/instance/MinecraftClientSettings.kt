@@ -2,20 +2,14 @@ package net.blockhost.trestle.instance
 
 import kotlin.math.roundToInt
 
-enum class MinecraftNarratorMode(
-    val optionValue: Int,
-    val label: String,
-) {
+enum class MinecraftNarratorMode(val optionValue: Int, val label: String) {
     OFF(0, "Off"),
     ALL(1, "Narrate all"),
     CHAT(2, "Narrate chat"),
     SYSTEM(3, "Narrate system"),
 }
 
-enum class MinecraftParticleSetting(
-    val optionValue: Int,
-    val label: String,
-) {
+enum class MinecraftParticleSetting(val optionValue: Int, val label: String) {
     ALL(0, "All"),
     DECREASED(1, "Decreased"),
     MINIMAL(2, "Minimal"),
@@ -55,8 +49,8 @@ data class MinecraftClientSettings(
 
     internal fun toOptionsText(minecraftVersionId: String): String {
         val entries = toOptionEntries(minecraftVersionId)
-        return entries.entries.joinToString(separator = "\n", postfix = if (entries.isEmpty()) "" else "\n") {
-            (key, value) -> "$key:$value"
+        return entries.entries.joinToString(separator = "\n", postfix = if (entries.isEmpty()) "" else "\n") { (key, value) ->
+            "$key:$value"
         }
     }
 
@@ -170,21 +164,13 @@ private data class MinecraftClientOptionsSupport(
     }
 }
 
-private data class ReleaseVersion(
-    val major: Int,
-    val minor: Int,
-    val patch: Int = 0,
-) : Comparable<ReleaseVersion> {
+private data class ReleaseVersion(val major: Int, val minor: Int, val patch: Int = 0) : Comparable<ReleaseVersion> {
     override fun compareTo(other: ReleaseVersion): Int =
         compareValuesBy(this, other, ReleaseVersion::major, ReleaseVersion::minor, ReleaseVersion::patch)
 }
 
-private data class SnapshotVersion(
-    val year: Int,
-    val week: Int,
-) : Comparable<SnapshotVersion> {
-    override fun compareTo(other: SnapshotVersion): Int =
-        compareValuesBy(this, other, SnapshotVersion::year, SnapshotVersion::week)
+private data class SnapshotVersion(val year: Int, val week: Int) : Comparable<SnapshotVersion> {
+    override fun compareTo(other: SnapshotVersion): Int = compareValuesBy(this, other, SnapshotVersion::year, SnapshotVersion::week)
 }
 
 private fun String.isAtLeast(release: ReleaseVersion, snapshot: SnapshotVersion): Boolean {
@@ -214,14 +200,11 @@ private fun Int.toOptionFraction(): String = when (this) {
 
 private fun Int.toFovOption(): String = ((this - 70) / 40.0).toString()
 
-private fun String?.toIntInRangeOrNull(range: IntRange): Int? =
-    this?.toIntOrNull()?.takeIf { it in range }
+private fun String?.toIntInRangeOrNull(range: IntRange): Int? = this?.toIntOrNull()?.takeIf { it in range }
 
-private fun String?.toPercentOrNull(): Int? =
-    this?.toDoubleOrNull()?.takeIf { it in 0.0..1.0 }?.times(100)?.roundToInt()
+private fun String?.toPercentOrNull(): Int? = this?.toDoubleOrNull()?.takeIf { it in 0.0..1.0 }?.times(100)?.roundToInt()
 
-private fun String?.toFovDegreesOrNull(): Int? =
-    this?.toDoubleOrNull()?.times(40)?.plus(70)?.roundToInt()?.takeIf { it in 30..110 }
+private fun String?.toFovDegreesOrNull(): Int? = this?.toDoubleOrNull()?.times(40)?.plus(70)?.roundToInt()?.takeIf { it in 30..110 }
 
 private fun String.optionKey(): String = substringBefore(':', missingDelimiterValue = "")
 

@@ -5,16 +5,10 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 @Serializable
-data class VersionManifest(
-    val latest: LatestVersions,
-    val versions: List<VersionReference>,
-)
+data class VersionManifest(val latest: LatestVersions, val versions: List<VersionReference>)
 
 @Serializable
-data class LatestVersions(
-    val release: String,
-    val snapshot: String,
-)
+data class LatestVersions(val release: String, val snapshot: String)
 
 @Serializable
 data class VersionReference(
@@ -43,16 +37,10 @@ data class VersionMetadata(
 )
 
 @Serializable
-data class JavaVersionRequirement(
-    val component: String? = null,
-    val majorVersion: Int = 8,
-)
+data class JavaVersionRequirement(val component: String? = null, val majorVersion: Int = 8)
 
 @Serializable
-data class ModernArguments(
-    val game: List<JsonElement> = emptyList(),
-    val jvm: List<JsonElement> = emptyList(),
-)
+data class ModernArguments(val game: List<JsonElement> = emptyList(), val jvm: List<JsonElement> = emptyList())
 
 @Serializable
 data class VersionDownloads(
@@ -63,12 +51,7 @@ data class VersionDownloads(
 )
 
 @Serializable
-data class DownloadReference(
-    val sha1: String? = null,
-    val size: Long? = null,
-    val url: String,
-    val path: String? = null,
-)
+data class DownloadReference(val sha1: String? = null, val size: Long? = null, val url: String, val path: String? = null)
 
 @Serializable
 data class AssetIndexReference(
@@ -87,10 +70,7 @@ data class AssetIndex(
 )
 
 @Serializable
-data class AssetObject(
-    val hash: String,
-    val size: Long,
-)
+data class AssetObject(val hash: String, val size: Long)
 
 @Serializable
 data class MojangLibrary(
@@ -103,40 +83,28 @@ data class MojangLibrary(
 )
 
 @Serializable
-data class LibraryDownloads(
-    val artifact: DownloadReference? = null,
-    val classifiers: Map<String, DownloadReference> = emptyMap(),
-)
+data class LibraryDownloads(val artifact: DownloadReference? = null, val classifiers: Map<String, DownloadReference> = emptyMap())
 
 @Serializable
 data class ExtractionRules(val exclude: List<String> = emptyList())
 
 @Serializable
-data class LoggingConfiguration(
-    val argument: String,
-    val file: DownloadReference,
-    val type: String,
-)
+data class LoggingConfiguration(val argument: String, val file: DownloadReference, val type: String)
 
 @Serializable
-data class MojangRule(
-    val action: RuleAction,
-    val os: RuleOs? = null,
-    val features: Map<String, Boolean> = emptyMap(),
-)
+data class MojangRule(val action: RuleAction, val os: RuleOs? = null, val features: Map<String, Boolean> = emptyMap())
 
 @Serializable
 enum class RuleAction {
-    @SerialName("allow") ALLOW,
-    @SerialName("disallow") DISALLOW,
+    @SerialName("allow")
+    ALLOW,
+
+    @SerialName("disallow")
+    DISALLOW,
 }
 
 @Serializable
-data class RuleOs(
-    val name: String? = null,
-    val arch: String? = null,
-    val version: String? = null,
-)
+data class RuleOs(val name: String? = null, val arch: String? = null, val version: String? = null)
 
 enum class OperatingSystem(val ruleName: String) {
     WINDOWS("windows"),

@@ -1,5 +1,6 @@
 package net.blockhost.trestle.game
 
+import android.annotation.SuppressLint
 import android.content.BroadcastReceiver
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -7,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.SurfaceTexture
-import android.annotation.SuppressLint
 import android.os.Bundle
 import android.os.Process
 import android.os.ResultReceiver
@@ -36,7 +36,9 @@ import java.io.PrintWriter
 import java.io.StringWriter
 import java.util.concurrent.atomic.AtomicBoolean
 
-class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
+class MinecraftGameActivity :
+    ComponentActivity(),
+    CallbackBridge.Listener {
     private lateinit var controls: MinecraftControlOverlayView
     private lateinit var textInput: MinecraftTextInputView
     private lateinit var textureView: TextureView
@@ -94,8 +96,11 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
                         surface?.release()
                         surface = gameSurface
                     }
-                    if (launchStarted.compareAndSet(false, true)) startGame(width, height)
-                    else if (nativeBridgeReady.get()) reattachSurface(gameSurface, width, height)
+                    if (launchStarted.compareAndSet(false, true)) {
+                        startGame(width, height)
+                    } else if (nativeBridgeReady.get()) {
+                        reattachSurface(gameSurface, width, height)
+                    }
                 }
 
                 override fun onSurfaceTextureSizeChanged(texture: SurfaceTexture, width: Int, height: Int) {
@@ -120,8 +125,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
         )
         setContentView(
             object : FrameLayout(this) {
-                override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-                    handleGameKeyEvent(event) || super.dispatchKeyEvent(event)
+                override fun dispatchKeyEvent(event: KeyEvent): Boolean = handleGameKeyEvent(event) || super.dispatchKeyEvent(event)
 
                 override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean =
                     handleGameMotionEvent(event) || super.dispatchGenericMotionEvent(event)
@@ -178,17 +182,21 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
                 clipboard.setPrimaryClip(ClipData.newPlainText("Minecraft", value.orEmpty()))
                 ""
             }
-            CallbackBridge.CLIPBOARD_PASTE -> clipboard.primaryClip
-                ?.getItemAt(0)
-                ?.coerceToText(this)
-                ?.toString()
-                .orEmpty()
+
+            CallbackBridge.CLIPBOARD_PASTE ->
+                clipboard.primaryClip
+                    ?.getItemAt(0)
+                    ?.coerceToText(this)
+                    ?.toString()
+                    .orEmpty()
+
             CallbackBridge.CLIPBOARD_OPEN -> {
                 value?.takeIf(String::isNotBlank)?.let { link ->
                     runCatching { startActivity(Intent(Intent.ACTION_VIEW, link.toUri())) }
                 }
                 ""
             }
+
             else -> ""
         }
     }
@@ -248,10 +256,12 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
             val modifiers = AndroidGlfwInput.modifiers(event.metaState)
             when (event.actionMasked) {
                 MotionEvent.ACTION_HOVER_MOVE, MotionEvent.ACTION_MOVE -> CallbackBridge.setCursor(event.x, event.y)
+
                 MotionEvent.ACTION_SCROLL -> CallbackBridge.sendScroll(
                     event.getAxisValue(MotionEvent.AXIS_HSCROLL).toDouble(),
                     event.getAxisValue(MotionEvent.AXIS_VSCROLL).toDouble(),
                 )
+
                 MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE -> {
                     val button = when (event.actionButton) {
                         MotionEvent.BUTTON_PRIMARY -> 0
@@ -494,7 +504,7 @@ class MinecraftGameActivity : ComponentActivity(), CallbackBridge.Listener {
                 "libopenal.so",
                 "libspirv-cross-c-shared.so",
             ) + graphicsLibraries
-        ).forEach { name ->
+            ).forEach { name ->
             File(nativeRoot, name).takeIf(File::isFile)?.let { library -> JREUtils.dlopen(library.absolutePath) }
         }
 

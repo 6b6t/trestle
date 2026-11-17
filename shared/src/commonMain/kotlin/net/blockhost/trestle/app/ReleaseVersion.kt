@@ -23,13 +23,21 @@ internal data class ReleaseVersion(val core: List<ULong>, val prerelease: List<S
     }
 
     companion object {
-        private val pattern = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$")
+        private val pattern =
+            Regex(
+                "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*))?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$",
+            )
 
         fun parse(value: String): ReleaseVersion? {
             val match = pattern.matchEntire(value.removePrefix("v")) ?: return null
             val core = (1..3).map { match.groupValues[it].toULongOrNull() ?: return null }
             val pre = match.groupValues[4].takeIf(String::isNotEmpty)?.split('.') ?: emptyList()
-            if (pre.any { part -> part.all(Char::isDigit) && (part.length > 1 && part.startsWith('0') || part.toULongOrNull() == null) }) return null
+            if (pre.any { part ->
+                    part.all(Char::isDigit) && (part.length > 1 && part.startsWith('0') || part.toULongOrNull() == null)
+                }
+            ) {
+                return null
+            }
             return ReleaseVersion(core, pre)
         }
     }

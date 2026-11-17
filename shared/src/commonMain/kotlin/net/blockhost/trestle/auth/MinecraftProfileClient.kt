@@ -8,8 +8,8 @@ import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
-import io.ktor.client.statement.bodyAsText
 import io.ktor.client.statement.bodyAsBytes
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.isSuccess
@@ -21,19 +21,10 @@ import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
 
 @Serializable
-private data class ProfileSkinResponse(
-    val id: String,
-    val state: String = "ACTIVE",
-    val url: String,
-    val variant: String = "CLASSIC",
-)
+private data class ProfileSkinResponse(val id: String, val state: String = "ACTIVE", val url: String, val variant: String = "CLASSIC")
 
 @Serializable
-private data class MinecraftProfileResponse(
-    val id: String,
-    val name: String,
-    val skins: List<ProfileSkinResponse> = emptyList(),
-)
+private data class MinecraftProfileResponse(val id: String, val name: String, val skins: List<ProfileSkinResponse> = emptyList())
 
 class MinecraftProfileClient(
     private val httpClient: HttpClient,

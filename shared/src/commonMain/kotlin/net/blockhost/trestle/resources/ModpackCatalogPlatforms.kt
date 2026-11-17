@@ -43,6 +43,7 @@ class AtLauncherResourcePlatform(
                     ResourceSearchSort.UPDATED,
                     ResourceSearchSort.NEWEST,
                     -> values.sortedByDescending(AtLauncherPack::latestPublished)
+
                     ResourceSearchSort.RELEVANCE,
                     ResourceSearchSort.FEATURED,
                     ResourceSearchSort.DOWNLOADS,
@@ -59,14 +60,11 @@ class AtLauncherResourcePlatform(
     override suspend fun details(project: ResourceProject): ResourceProject =
         catalog().firstOrNull { it.safeName == project.id }?.toProject() ?: project
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> = pack(project.id).versions
-        .filter { gameVersion == null || it.minecraft == gameVersion }
-        .sortedByDescending(AtLauncherVersion::published)
-        .map { it.toSummaryVersion(project.id) }
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> =
+        pack(project.id).versions
+            .filter { gameVersion == null || it.minecraft == gameVersion }
+            .sortedByDescending(AtLauncherVersion::published)
+            .map { it.toSummaryVersion(project.id) }
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion {
         val manifestUrl = packVersionUrl(projectId, versionId, "Configs.json")
@@ -168,9 +166,8 @@ class AtLauncherResourcePlatform(
             .also { cachedCatalog = it }
     }
 
-    private suspend fun pack(id: String): AtLauncherPack =
-        cachedCatalog?.firstOrNull { it.safeName == id }
-            ?: getApi("$apiBaseUrl/pack/$id")
+    private suspend fun pack(id: String): AtLauncherPack = cachedCatalog?.firstOrNull { it.safeName == id }
+        ?: getApi("$apiBaseUrl/pack/$id")
 
     private suspend inline fun <reified T> getApi(url: String): T {
         val response = httpClient.get(url) { header(HttpHeaders.UserAgent, userAgent) }
@@ -332,8 +329,15 @@ class FtbResourcePlatform(
             .let { values ->
                 when (request.sort) {
                     ResourceSearchSort.DOWNLOADS -> values.sortedByDescending(FtbPack::installs)
+
                     ResourceSearchSort.UPDATED, ResourceSearchSort.NEWEST -> values.sortedByDescending(FtbPack::updated)
-                    ResourceSearchSort.FEATURED -> values.sortedWith(compareByDescending<FtbPack> { it.featured }.thenByDescending { it.installs })
+
+                    ResourceSearchSort.FEATURED -> values.sortedWith(
+                        compareByDescending<FtbPack> {
+                            it.featured
+                        }.thenByDescending { it.installs },
+                    )
+
                     ResourceSearchSort.RELEVANCE -> values
                 }
             }
@@ -346,15 +350,12 @@ class FtbResourcePlatform(
 
     override suspend fun details(project: ResourceProject): ResourceProject = pack(project.id).toProject()
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> = pack(project.id).versions
-        .filter { version -> gameVersion == null || version.minecraftVersion() == gameVersion }
-        .filter { version -> loader == null || version.loader() == loader }
-        .sortedByDescending(FtbVersion::released)
-        .map { it.toResourceVersion(project.id) }
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> =
+        pack(project.id).versions
+            .filter { version -> gameVersion == null || version.minecraftVersion() == gameVersion }
+            .filter { version -> loader == null || version.loader() == loader }
+            .sortedByDescending(FtbVersion::released)
+            .map { it.toResourceVersion(project.id) }
 
     override suspend fun version(projectId: String, versionId: String): ResourceVersion {
         val version = get<FtbVersion>("$baseUrl/modpack/$projectId/$versionId")
@@ -369,8 +370,7 @@ class FtbResourcePlatform(
         }.filterNotNull().also { cachedCatalog = it }
     }
 
-    private suspend fun pack(id: String): FtbPack =
-        cachedCatalog?.firstOrNull { it.id.toString() == id } ?: get("$baseUrl/modpack/$id")
+    private suspend fun pack(id: String): FtbPack = cachedCatalog?.firstOrNull { it.id.toString() == id } ?: get("$baseUrl/modpack/$id")
 
     private suspend inline fun <reified T> get(url: String): T {
         val response = httpClient.get(url)
@@ -413,11 +413,7 @@ class TechnicResourcePlatform(
 
     override suspend fun details(project: ResourceProject): ResourceProject = pack(project.slug).toProject()
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> {
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> {
         val pack = pack(project.slug)
         val versions = pack.solder?.let { solderVersions(pack, it) }
             ?: listOf(pack.toVersion())
@@ -479,10 +475,8 @@ class TechnicResourcePlatform(
     }
 }
 
-class LegacyFtbResourcePlatform(
-    private val httpClient: HttpClient,
-    private val baseUrl: String = "https://dist.creeper.host/FTB2",
-) : ResourcePlatform {
+class LegacyFtbResourcePlatform(private val httpClient: HttpClient, private val baseUrl: String = "https://dist.creeper.host/FTB2") :
+    ResourcePlatform {
     override val provider = ResourceProvider.FTB_LEGACY
     override val isAvailable = true
     private var cachedCatalog: List<LegacyFtbPack>? = null
@@ -492,7 +486,10 @@ class LegacyFtbResourcePlatform(
     override suspend fun search(request: ResourceSearchRequest): ResourceSearchResult {
         require(supports(request.type)) { "FTB Legacy only provides modpacks." }
         val values = catalog()
-            .filter { request.query.isBlank() || listOf(it.name, it.description, it.author).any { value -> value.contains(request.query, true) } }
+            .filter {
+                request.query.isBlank() ||
+                    listOf(it.name, it.description, it.author).any { value -> value.contains(request.query, true) }
+            }
             .filter { request.gameVersion == null || it.minecraftVersion == request.gameVersion }
             .let { packs ->
                 when (request.sort) {
@@ -500,6 +497,7 @@ class LegacyFtbResourcePlatform(
                     ResourceSearchSort.FEATURED,
                     ResourceSearchSort.RELEVANCE,
                     -> packs
+
                     ResourceSearchSort.UPDATED,
                     ResourceSearchSort.NEWEST,
                     -> packs.sortedByDescending(LegacyFtbPack::version)
@@ -515,11 +513,7 @@ class LegacyFtbResourcePlatform(
     override suspend fun details(project: ResourceProject): ResourceProject =
         catalog().firstOrNull { it.directory == project.id }?.toProject() ?: project
 
-    override suspend fun versions(
-        project: ResourceProject,
-        gameVersion: String?,
-        loader: ModLoader?,
-    ): List<ResourceVersion> {
+    override suspend fun versions(project: ResourceProject, gameVersion: String?, loader: ModLoader?): List<ResourceVersion> {
         val pack = catalog().firstOrNull { it.directory == project.id }
             ?: throw LauncherException.InvalidMetadata("The FTB Legacy pack no longer exists.")
         if (gameVersion != null && pack.minecraftVersion != gameVersion) return emptyList()
@@ -605,11 +599,7 @@ class LegacyFtbResourcePlatform(
 }
 
 @Serializable
-private data class AtLauncherResponse<T>(
-    val error: Boolean = false,
-    val message: String? = null,
-    val data: T? = null,
-)
+private data class AtLauncherResponse<T>(val error: Boolean = false, val message: String? = null, val data: T? = null)
 
 @Serializable
 private data class AtLauncherPack(
@@ -624,11 +614,7 @@ private data class AtLauncherPack(
 }
 
 @Serializable
-private data class AtLauncherVersion(
-    val version: String,
-    val minecraft: String = "",
-    val published: Long = 0,
-)
+private data class AtLauncherVersion(val version: String, val minecraft: String = "", val published: Long = 0)
 
 @Serializable
 private data class AtLauncherManifest(
@@ -642,10 +628,7 @@ private data class AtLauncherManifest(
 )
 
 @Serializable
-private data class AtLauncherLoader(
-    val type: String = "",
-    val metadata: AtLauncherLoaderMetadata = AtLauncherLoaderMetadata(),
-) {
+private data class AtLauncherLoader(val type: String = "", val metadata: AtLauncherLoaderMetadata = AtLauncherLoaderMetadata()) {
     fun resolvedVersion(): String? = when (type.lowercase()) {
         "fabric", "quilt" -> metadata.loader.ifBlank { metadata.version }.ifBlank { null }
         "forge", "neoforge" -> metadata.version.ifBlank { null }
@@ -654,19 +637,13 @@ private data class AtLauncherLoader(
 }
 
 @Serializable
-private data class AtLauncherLoaderMetadata(
-    val version: String = "",
-    val loader: String = "",
-)
+private data class AtLauncherLoaderMetadata(val version: String = "", val loader: String = "")
 
 @Serializable
 private data class AtLauncherLibrary(val file: String = "")
 
 @Serializable
-private data class AtLauncherConfigs(
-    val filesize: Long? = null,
-    val sha1: String? = null,
-)
+private data class AtLauncherConfigs(val filesize: Long? = null, val sha1: String? = null)
 
 @Serializable
 private data class AtLauncherMod(
@@ -759,17 +736,21 @@ private data class FtbVersion(
         val minecraft = minecraftVersion()
             ?: throw LauncherException.InvalidMetadata("FTB version $name does not declare Minecraft.")
         val loaderTarget = loaderTarget()
-        val planFiles = if (includeFiles) files
-            .filterNot { it.serveronly || it.optional }
-            .map { file ->
-                ExternalPackFile(
-                    path = listOf(file.path.removePrefix("./"), file.name).filter(String::isNotBlank).joinToString("/"),
-                    url = file.url,
-                    sha1 = file.hashes["sha1"] ?: file.sha1,
-                    sha512 = file.hashes["sha512"],
-                    size = file.size,
-                )
-            } else emptyList()
+        val planFiles = if (includeFiles) {
+            files
+                .filterNot { it.serveronly || it.optional }
+                .map { file ->
+                    ExternalPackFile(
+                        path = listOf(file.path.removePrefix("./"), file.name).filter(String::isNotBlank).joinToString("/"),
+                        url = file.url,
+                        sha1 = file.hashes["sha1"] ?: file.sha1,
+                        sha512 = file.hashes["sha512"],
+                        size = file.size,
+                    )
+                }
+        } else {
+            emptyList()
+        }
         return ResourceVersion(
             provider = ResourceProvider.FTB,
             id = id.toString(),
@@ -894,18 +875,10 @@ private data class TechnicPack(
 private data class TechnicImage(val url: String)
 
 @Serializable
-private data class TechnicSolderPack(
-    val recommended: String,
-    val latest: String,
-    val builds: List<String> = emptyList(),
-)
+private data class TechnicSolderPack(val recommended: String, val latest: String, val builds: List<String> = emptyList())
 
 @Serializable
-private data class TechnicSolderBuild(
-    val minecraft: String,
-    val forge: String? = null,
-    val mods: List<TechnicSolderMod> = emptyList(),
-) {
+private data class TechnicSolderBuild(val minecraft: String, val forge: String? = null, val mods: List<TechnicSolderMod> = emptyList()) {
     fun toVersion(pack: TechnicPack, version: String): ResourceVersion {
         val loader = if (forge.isNullOrBlank()) pack.tags.toLoader() else ModLoader.FORGE
         return ResourceVersion(
@@ -931,12 +904,7 @@ private data class TechnicSolderBuild(
 }
 
 @Serializable
-private data class TechnicSolderMod(
-    val name: String,
-    val version: String = "",
-    val url: String,
-    val filesize: Long? = null,
-)
+private data class TechnicSolderMod(val name: String, val version: String = "", val url: String, val filesize: Long? = null)
 
 private data class LegacyFtbPack(
     val name: String,

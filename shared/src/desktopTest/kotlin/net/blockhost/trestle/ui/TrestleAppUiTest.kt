@@ -25,13 +25,13 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
-import kotlin.test.Test
-import kotlin.test.assertEquals
 import net.blockhost.trestle.auth.SavedSkin
 import net.blockhost.trestle.auth.SkinProfile
 import net.blockhost.trestle.auth.SkinVariant
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModLoader
+import kotlin.test.Test
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class TrestleAppUiTest {
@@ -543,8 +543,8 @@ class TrestleAppUiTest {
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
         listOf("overview", "content", "worlds", "servers", "screenshots", "notes", "logs", "settings")
             .forEach { section ->
-            onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
-        }
+                onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
+            }
     }
 
     @Test
@@ -565,8 +565,8 @@ class TrestleAppUiTest {
 
         listOf("overview", "content", "worlds", "servers", "screenshots", "notes", "logs", "settings")
             .forEach { section ->
-            onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
-        }
+                onNodeWithTag(LauncherTestTags.instanceSection(section)).assertIsDisplayed().assertHasClickAction()
+            }
     }
 
     @Test
@@ -671,17 +671,23 @@ private fun testWindowAdaptiveInfo(widthDp: Int, heightDp: Int): WindowAdaptiveI
     val minimumWidth = when {
         widthDp >= WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND ->
             WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND
+
         widthDp >= WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND -> WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND
+
         widthDp >= WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND ->
             WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND
+
         widthDp >= WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND -> WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND
+
         else -> 0
     }
     val minimumHeight = when {
         heightDp >= WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND ->
             WindowSizeClass.HEIGHT_DP_EXPANDED_LOWER_BOUND
+
         heightDp >= WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND ->
             WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND
+
         else -> 0
     }
     return WindowAdaptiveInfo(WindowSizeClass(minimumWidth, minimumHeight), Posture())

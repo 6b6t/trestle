@@ -4,21 +4,14 @@ import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.MemorySettings
 import net.blockhost.trestle.domain.ModLoader
 
-data class SystemProfile(
-    val totalMemoryMiB: Int,
-    val availableProcessors: Int,
-    val isMobile: Boolean,
-) {
+data class SystemProfile(val totalMemoryMiB: Int, val availableProcessors: Int, val isMobile: Boolean) {
     init {
         require(totalMemoryMiB > 0)
         require(availableProcessors > 0)
     }
 }
 
-data class LaunchRecommendation(
-    val memory: MemorySettings,
-    val warnings: List<String>,
-)
+data class LaunchRecommendation(val memory: MemorySettings, val warnings: List<String>)
 
 object LaunchTuningAdvisor {
     fun recommend(instance: GameInstance, system: SystemProfile): LaunchRecommendation {
@@ -59,10 +52,7 @@ object LaunchTuningAdvisor {
     }
 }
 
-data class JvmArgumentReview(
-    val accepted: List<String>,
-    val ignored: List<String>,
-)
+data class JvmArgumentReview(val accepted: List<String>, val ignored: List<String>)
 
 object JvmArgumentPolicy {
     fun review(arguments: List<String>): JvmArgumentReview {

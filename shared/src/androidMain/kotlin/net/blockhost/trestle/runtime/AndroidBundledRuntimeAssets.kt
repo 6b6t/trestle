@@ -13,10 +13,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
 
-internal class AndroidBundledRuntimeAssets(
-    private val assets: AssetManager,
-    private val fileSystem: FileSystem,
-) {
+internal class AndroidBundledRuntimeAssets(private val assets: AssetManager, private val fileSystem: FileSystem) {
     private val manifest by lazy {
         val content = assets.open(MANIFEST_PATH).bufferedReader().use { it.readText() }
         JSON.decodeFromString<RuntimeAssetManifest>(content).also {
@@ -26,55 +23,48 @@ internal class AndroidBundledRuntimeAssets(
         }
     }
 
-    suspend fun install(
-        platform: String,
-        kind: String,
-        destination: Path,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-    ) = withContext(Dispatchers.IO) {
-        val selected = manifest.files.filter { it.platform in setOf(COMMON_PLATFORM, platform) && it.kind == kind }
-        if (selected.isEmpty()) {
-            throw LauncherException.RuntimeUnavailable("The app does not include $kind runtime assets for Android $platform.")
+    suspend fun install(platform: String, kind: String, destination: Path, onProgress: suspend (DownloadProgress) -> Unit = {}) =
+        withContext(Dispatchers.IO) {
+            val selected = manifest.files.filter { it.platform in setOf(COMMON_PLATFORM, platform) && it.kind == kind }
+            if (selected.isEmpty()) {
+                throw LauncherException.RuntimeUnavailable("The app does not include $kind runtime assets for Android $platform.")
+            }
+            fileSystem.createDirectories(destination)
+            val totalBytes = selected.sumOf(RuntimeAssetFile::size)
+            var completedBytes = 0L
+            selected.forEachIndexed { index, asset ->
+                val target = destination / asset.path.substringAfterLast('/')
+                copyVerified(asset, target)
+                completedBytes += asset.size
+                onProgress(
+                    DownloadProgress(
+                        completedBytes = completedBytes,
+                        totalBytes = totalBytes,
+                        completedFiles = index + 1,
+                        totalFiles = selected.size,
+                        activeLabel = "Installing bundled Android runtime: ${target.name}",
+                    ),
+                )
+            }
         }
-        fileSystem.createDirectories(destination)
-        val totalBytes = selected.sumOf(RuntimeAssetFile::size)
-        var completedBytes = 0L
-        selected.forEachIndexed { index, asset ->
-            val target = destination / asset.path.substringAfterLast('/')
-            copyVerified(asset, target)
-            completedBytes += asset.size
+
+    suspend fun copyRuntime(platform: String, destination: Path, onProgress: suspend (DownloadProgress) -> Unit = {}) =
+        withContext(Dispatchers.IO) {
+            val asset = manifest.files.singleOrNull { it.platform == platform && it.kind == RUNTIME_KIND }
+                ?: throw LauncherException.RuntimeUnavailable(
+                    "The app does not include a Java runtime for Android $platform.",
+                )
+            copyVerified(asset, destination)
             onProgress(
                 DownloadProgress(
-                    completedBytes = completedBytes,
-                    totalBytes = totalBytes,
-                    completedFiles = index + 1,
-                    totalFiles = selected.size,
-                    activeLabel = "Installing bundled Android runtime: ${target.name}",
+                    completedBytes = asset.size,
+                    totalBytes = asset.size,
+                    completedFiles = 1,
+                    totalFiles = 1,
+                    activeLabel = "Installing bundled Java runtime",
                 ),
             )
         }
-    }
-
-    suspend fun copyRuntime(
-        platform: String,
-        destination: Path,
-        onProgress: suspend (DownloadProgress) -> Unit = {},
-    ) = withContext(Dispatchers.IO) {
-        val asset = manifest.files.singleOrNull { it.platform == platform && it.kind == RUNTIME_KIND }
-            ?: throw LauncherException.RuntimeUnavailable(
-                "The app does not include a Java runtime for Android $platform.",
-            )
-        copyVerified(asset, destination)
-        onProgress(
-            DownloadProgress(
-                completedBytes = asset.size,
-                totalBytes = asset.size,
-                completedFiles = 1,
-                totalFiles = 1,
-                activeLabel = "Installing bundled Java runtime",
-            ),
-        )
-    }
 
     private fun copyVerified(asset: RuntimeAssetFile, destination: Path) {
         val target = File(destination.toString())
@@ -143,17 +133,7 @@ internal class AndroidBundledRuntimeAssets(
 }
 
 @Serializable
-private data class RuntimeAssetManifest(
-    val format: Int,
-    val amethystRevision: String,
-    val files: List<RuntimeAssetFile>,
-)
+private data class RuntimeAssetManifest(val format: Int, val amethystRevision: String, val files: List<RuntimeAssetFile>)
 
 @Serializable
-private data class RuntimeAssetFile(
-    val path: String,
-    val platform: String,
-    val kind: String,
-    val size: Long,
-    val sha256: String,
-)
+private data class RuntimeAssetFile(val path: String, val platform: String, val kind: String, val size: Long, val sha256: String)

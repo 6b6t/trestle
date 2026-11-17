@@ -7,13 +7,13 @@ import com.sun.jna.ptr.DoubleByReference
 import com.sun.jna.ptr.IntByReference
 import com.sun.jna.win32.StdCallLibrary
 import com.sun.jna.win32.W32APIOptions
-import kotlin.math.roundToInt
 import org.freedesktop.dbus.annotations.DBusInterfaceName
 import org.freedesktop.dbus.connections.impl.DBusConnection
 import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.interfaces.DBusInterface
 import org.freedesktop.dbus.messages.DBusSignal
 import org.freedesktop.dbus.types.Variant
+import kotlin.math.roundToInt
 
 /*
  * The Windows and macOS readers are adapted from PlatformTools.
@@ -141,12 +141,8 @@ private class LinuxSystemAccentSource : SystemAccentSource {
 }
 
 @DBusInterfaceName("org.freedesktop.portal.Settings")
-internal class SettingChanged(
-    path: String,
-    val namespace: String,
-    val key: String,
-    val value: Variant<*>,
-) : DBusSignal(path, namespace, key, value)
+internal class SettingChanged(path: String, val namespace: String, val key: String, val value: Variant<*>) :
+    DBusSignal(path, namespace, key, value)
 
 internal fun colorFromComponents(red: Double, green: Double, blue: Double): Int? {
     if (!red.isColorComponent() || !green.isColorComponent() || !blue.isColorComponent()) return null

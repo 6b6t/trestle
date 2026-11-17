@@ -5,9 +5,10 @@ import okio.FileSystem
 import okio.Path
 
 data class RestrictedDownload(val fileName: String, val sha1: String, val websiteUrl: String)
-class RestrictedDownloadRequired(val download: RestrictedDownload) : Exception(
-    "${download.fileName} requires a download from its publisher. Select the downloaded file to continue.",
-)
+class RestrictedDownloadRequired(val download: RestrictedDownload) :
+    Exception(
+        "${download.fileName} requires a download from its publisher. Select the downloaded file to continue.",
+    )
 
 /** Only exact publisher-provided SHA-1 matches may substitute for a restricted download. */
 class RestrictedDownloads(private val fileSystem: FileSystem, private val directory: Path) {

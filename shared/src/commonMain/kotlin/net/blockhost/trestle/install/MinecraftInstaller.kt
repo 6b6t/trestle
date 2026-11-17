@@ -1,7 +1,5 @@
 package net.blockhost.trestle.install
 
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -15,6 +13,8 @@ import net.blockhost.trestle.download.DownloadProgress
 import net.blockhost.trestle.download.DownloadRequest
 import net.blockhost.trestle.download.ProgressUpdateThrottle
 import net.blockhost.trestle.instance.InstanceRepository
+import net.blockhost.trestle.logging.LauncherLogger
+import net.blockhost.trestle.logging.NoopLauncherLogger
 import net.blockhost.trestle.metadata.FabricMetadataClient
 import net.blockhost.trestle.metadata.ForgeMetadataClient
 import net.blockhost.trestle.metadata.InstalledVersion
@@ -25,11 +25,11 @@ import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.QuiltMetadataClient
 import net.blockhost.trestle.metadata.downloads
-import net.blockhost.trestle.logging.LauncherLogger
-import net.blockhost.trestle.logging.NoopLauncherLogger
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 fun interface EpochClock {
     fun nowMillis(): Long
@@ -91,6 +91,7 @@ class MinecraftInstaller(
             var auxiliaryLibraries = emptyList<MojangLibrary>()
             val effective = when (instance.modLoader) {
                 ModLoader.VANILLA -> vanilla
+
                 ModLoader.FABRIC -> {
                     val loaderVersion = instance.loaderVersion
                         ?: fabricMetadataClient.loaderVersions(instance.minecraftVersionId)
@@ -104,6 +105,7 @@ class MinecraftInstaller(
                         fabricMetadataClient.profile(instance.minecraftVersionId, loaderVersion),
                     )
                 }
+
                 ModLoader.NEOFORGE -> {
                     val loaderVersion = instance.loaderVersion
                         ?: neoForgeMetadataClient.loaderVersions(instance.minecraftVersionId)
@@ -119,6 +121,7 @@ class MinecraftInstaller(
                     auxiliaryLibraries = profile.mavenFiles
                     MinecraftMetadataResolver.merge(vanilla, profile.metadata)
                 }
+
                 ModLoader.FORGE -> {
                     val loaderVersion = instance.loaderVersion
                         ?: forgeMetadataClient.loaderVersions(instance.minecraftVersionId)
@@ -136,6 +139,7 @@ class MinecraftInstaller(
                     auxiliaryLibraries = profile.mavenFiles
                     MinecraftMetadataResolver.merge(vanilla, profile.metadata)
                 }
+
                 ModLoader.QUILT -> {
                     val loaderVersion = instance.loaderVersion
                         ?: quiltMetadataClient.loaderVersions(instance.minecraftVersionId)
@@ -242,8 +246,8 @@ class MinecraftInstaller(
                 val downloadComplete = progress.completedFiles == progress.totalFiles
                 val persistenceThresholdReached =
                     lastPersistedFiles < 0 ||
-                    progress.completedFiles - lastPersistedFiles >= PROGRESS_PERSIST_INTERVAL_FILES ||
-                    progress.completedBytes - lastPersistedBytes >= PROGRESS_PERSIST_INTERVAL_BYTES
+                        progress.completedFiles - lastPersistedFiles >= PROGRESS_PERSIST_INTERVAL_FILES ||
+                        progress.completedBytes - lastPersistedBytes >= PROGRESS_PERSIST_INTERVAL_BYTES
                 if (
                     downloadComplete ||
                     (persistenceThresholdReached && persistenceThrottle.shouldUpdate())

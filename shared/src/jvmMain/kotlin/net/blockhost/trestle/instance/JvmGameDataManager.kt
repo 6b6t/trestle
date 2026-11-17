@@ -12,13 +12,13 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.nio.file.Files
-import java.nio.file.Path
-import java.nio.file.StandardCopyOption
-import java.nio.file.StandardOpenOption
-import java.nio.file.Paths
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.nio.file.Files
+import java.nio.file.Path
+import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
+import java.nio.file.StandardOpenOption
 import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 import java.util.zip.ZipEntry
@@ -94,159 +94,155 @@ class JvmGameDataManager(
         )
     }
 
-    override suspend fun backupWorld(instance: GameInstance, worldKey: String): WorldBackup =
-        withContext(Dispatchers.IO) {
-            val game = gameDirectory(instance)
-            val world = safeChild(game.resolve("saves"), worldKey)
-            if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
-            val backups = game.resolve("backups")
-            Files.createDirectories(backups)
-            val destination = backups.resolve("${safeFileName(worldKey)}-${nowMillis()}.zip")
-            val temporary = destination.resolveSibling(".${destination.fileName}.tmp")
-            ZipOutputStream(Files.newOutputStream(temporary)).use { zip ->
-                Files.walk(world).use { paths ->
-                    paths.filter(Files::isRegularFile).forEach { file ->
-                        val relative = world.relativize(file).toString().replace('\\', '/')
-                        zip.putNextEntry(ZipEntry("$worldKey/$relative"))
-                        Files.copy(file, zip)
-                        zip.closeEntry()
-                    }
-                }
-            }
-            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
-            WorldBackup(
-                key = destination.fileName.toString(),
-                fileName = destination.fileName.toString(),
-                path = destination.toString(),
-                sizeBytes = Files.size(destination),
-                createdAtEpochMillis = modifiedAt(destination),
-            )
-        }
-
-    override suspend fun restoreWorldBackup(instance: GameInstance, backupKey: String): ManagedWorld =
-        withContext(Dispatchers.IO) {
-            val game = gameDirectory(instance)
-            val archive = safeChild(game.resolve("backups"), backupKey)
-            if (!Files.isRegularFile(archive)) throw LauncherException.FileSystem("The selected backup does not exist.")
-            val saves = game.resolve("saves")
-            Files.createDirectories(saves)
-            var restoredKey: String? = null
-            ZipInputStream(Files.newInputStream(archive)).use { zip ->
-                while (true) {
-                    val entry = zip.nextEntry ?: break
-                    val entryPath = Paths.get(entry.name).normalize()
-                    if (entryPath.isAbsolute || entryPath.startsWith("..") || entryPath.nameCount < 2) {
-                        throw LauncherException.InvalidMetadata("The world backup contains an unsafe path.")
-                    }
-                    val worldKey = entryPath.getName(0).toString()
-                    restoredKey = restoredKey ?: availableWorldKey(saves, worldKey)
-                    val relative = entryPath.subpath(1, entryPath.nameCount)
-                    val target = saves.resolve(requireNotNull(restoredKey)).resolve(relative).normalize()
-                    if (!target.startsWith(saves)) throw LauncherException.InvalidMetadata("The backup escapes the saves directory.")
-                    if (entry.isDirectory) Files.createDirectories(target)
-                    else {
-                        Files.createDirectories(target.parent)
-                        Files.copy(zip, target, StandardCopyOption.REPLACE_EXISTING)
-                    }
+    override suspend fun backupWorld(instance: GameInstance, worldKey: String): WorldBackup = withContext(Dispatchers.IO) {
+        val game = gameDirectory(instance)
+        val world = safeChild(game.resolve("saves"), worldKey)
+        if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
+        val backups = game.resolve("backups")
+        Files.createDirectories(backups)
+        val destination = backups.resolve("${safeFileName(worldKey)}-${nowMillis()}.zip")
+        val temporary = destination.resolveSibling(".${destination.fileName}.tmp")
+        ZipOutputStream(Files.newOutputStream(temporary)).use { zip ->
+            Files.walk(world).use { paths ->
+                paths.filter(Files::isRegularFile).forEach { file ->
+                    val relative = world.relativize(file).toString().replace('\\', '/')
+                    zip.putNextEntry(ZipEntry("$worldKey/$relative"))
+                    Files.copy(file, zip)
                     zip.closeEntry()
                 }
             }
-            val key = restoredKey ?: throw LauncherException.InvalidMetadata("The selected backup is empty.")
-            val restored = saves.resolve(key)
-            ManagedWorld(key, key, treeSize(restored), modifiedAt(restored.resolve("level.dat")), emptyList())
         }
-
-    override suspend fun importWorld(
-        instance: GameInstance,
-        fileName: String,
-        bytes: ByteArray,
-    ): ManagedWorld = withContext(Dispatchers.IO) {
-        require(bytes.isNotEmpty() && bytes.size <= MAX_WORLD_ARCHIVE_BYTES) {
-            "World archives must be between 1 byte and 512 MiB."
-        }
-        val saves = gameDirectory(instance).resolve("saves")
-        Files.createDirectories(saves)
-        val preferred = safeFileName(fileName.substringBeforeLast('.'))
-        val worldKey = availableWorldKey(saves, preferred)
-        val temporary = safeChild(saves, ".${worldKey}-${nowMillis()}.import")
-        val destination = safeChild(saves, worldKey)
-        try {
-            val entryNames = ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-                buildList {
-                    while (true) {
-                        val entry = zip.nextEntry ?: break
-                        if (!entry.isDirectory) add(entry.name.replace('\\', '/'))
-                        zip.closeEntry()
-                    }
-                }
-            }
-            val rootPrefix = entryNames.mapNotNull { it.substringBefore('/', "").takeIf(String::isNotEmpty) }
-                .distinct()
-                .singleOrNull()
-                ?.takeIf { prefix -> entryNames.any { it == "$prefix/level.dat" } }
-            var extractedBytes = 0L
-            var extractedFiles = 0
-            ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
-                while (true) {
-                    val entry = zip.nextEntry ?: break
-                    val rawName = entry.name.replace('\\', '/')
-                    val relativeName = rootPrefix?.let { rawName.removePrefix("$it/") } ?: rawName
-                    if (relativeName.isBlank()) {
-                        zip.closeEntry()
-                        continue
-                    }
-                    val relative = Paths.get(relativeName).normalize()
-                    if (relative.isAbsolute || relative.startsWith("..")) {
-                        throw LauncherException.InvalidMetadata("The world archive contains an unsafe path.")
-                    }
-                    val target = temporary.resolve(relative).normalize()
-                    if (!target.startsWith(temporary)) {
-                        throw LauncherException.InvalidMetadata("The world archive escapes its destination.")
-                    }
-                    if (entry.isDirectory) {
-                        Files.createDirectories(target)
-                    } else {
-                        extractedFiles += 1
-                        if (extractedFiles > MAX_WORLD_ARCHIVE_FILES) {
-                            throw LauncherException.InvalidMetadata("The world archive contains too many files.")
-                        }
-                        Files.createDirectories(target.parent)
-                        Files.newOutputStream(target).use { output ->
-                            val buffer = ByteArray(8_192)
-                            while (true) {
-                                val read = zip.read(buffer)
-                                if (read < 0) break
-                                extractedBytes += read
-                                if (extractedBytes > MAX_EXTRACTED_WORLD_BYTES) {
-                                    throw LauncherException.InvalidMetadata("The extracted world is larger than 2 GiB.")
-                                }
-                                output.write(buffer, 0, read)
-                            }
-                        }
-                    }
-                    zip.closeEntry()
-                }
-            }
-            if (!Files.isRegularFile(temporary.resolve("level.dat"))) {
-                throw LauncherException.InvalidMetadata("The archive does not contain a Minecraft level.dat file.")
-            }
-            Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE)
-        } catch (error: Exception) {
-            runCatching { deleteTree(temporary) }
-            throw if (error is LauncherException) error else LauncherException.FileSystem("The world could not be imported.", error)
-        }
-        val metadata = readWorldMetadata(destination.resolve("level.dat"))
-        ManagedWorld(
-            key = worldKey,
-            name = metadata.name ?: worldKey,
-            sizeBytes = treeSize(destination),
-            lastModifiedEpochMillis = metadata.lastPlayedEpochMillis ?: modifiedAt(destination.resolve("level.dat")),
-            dataPacks = emptyList(),
-            gameMode = metadata.gameMode,
-            seed = metadata.seed,
-            iconPath = destination.resolve("icon.png").takeIf(Files::isRegularFile)?.toString(),
+        Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING)
+        WorldBackup(
+            key = destination.fileName.toString(),
+            fileName = destination.fileName.toString(),
+            path = destination.toString(),
+            sizeBytes = Files.size(destination),
+            createdAtEpochMillis = modifiedAt(destination),
         )
     }
+
+    override suspend fun restoreWorldBackup(instance: GameInstance, backupKey: String): ManagedWorld = withContext(Dispatchers.IO) {
+        val game = gameDirectory(instance)
+        val archive = safeChild(game.resolve("backups"), backupKey)
+        if (!Files.isRegularFile(archive)) throw LauncherException.FileSystem("The selected backup does not exist.")
+        val saves = game.resolve("saves")
+        Files.createDirectories(saves)
+        var restoredKey: String? = null
+        ZipInputStream(Files.newInputStream(archive)).use { zip ->
+            while (true) {
+                val entry = zip.nextEntry ?: break
+                val entryPath = Paths.get(entry.name).normalize()
+                if (entryPath.isAbsolute || entryPath.startsWith("..") || entryPath.nameCount < 2) {
+                    throw LauncherException.InvalidMetadata("The world backup contains an unsafe path.")
+                }
+                val worldKey = entryPath.getName(0).toString()
+                restoredKey = restoredKey ?: availableWorldKey(saves, worldKey)
+                val relative = entryPath.subpath(1, entryPath.nameCount)
+                val target = saves.resolve(requireNotNull(restoredKey)).resolve(relative).normalize()
+                if (!target.startsWith(saves)) throw LauncherException.InvalidMetadata("The backup escapes the saves directory.")
+                if (entry.isDirectory) {
+                    Files.createDirectories(target)
+                } else {
+                    Files.createDirectories(target.parent)
+                    Files.copy(zip, target, StandardCopyOption.REPLACE_EXISTING)
+                }
+                zip.closeEntry()
+            }
+        }
+        val key = restoredKey ?: throw LauncherException.InvalidMetadata("The selected backup is empty.")
+        val restored = saves.resolve(key)
+        ManagedWorld(key, key, treeSize(restored), modifiedAt(restored.resolve("level.dat")), emptyList())
+    }
+
+    override suspend fun importWorld(instance: GameInstance, fileName: String, bytes: ByteArray): ManagedWorld =
+        withContext(Dispatchers.IO) {
+            require(bytes.isNotEmpty() && bytes.size <= MAX_WORLD_ARCHIVE_BYTES) {
+                "World archives must be between 1 byte and 512 MiB."
+            }
+            val saves = gameDirectory(instance).resolve("saves")
+            Files.createDirectories(saves)
+            val preferred = safeFileName(fileName.substringBeforeLast('.'))
+            val worldKey = availableWorldKey(saves, preferred)
+            val temporary = safeChild(saves, ".$worldKey-${nowMillis()}.import")
+            val destination = safeChild(saves, worldKey)
+            try {
+                val entryNames = ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                    buildList {
+                        while (true) {
+                            val entry = zip.nextEntry ?: break
+                            if (!entry.isDirectory) add(entry.name.replace('\\', '/'))
+                            zip.closeEntry()
+                        }
+                    }
+                }
+                val rootPrefix = entryNames.mapNotNull { it.substringBefore('/', "").takeIf(String::isNotEmpty) }
+                    .distinct()
+                    .singleOrNull()
+                    ?.takeIf { prefix -> entryNames.any { it == "$prefix/level.dat" } }
+                var extractedBytes = 0L
+                var extractedFiles = 0
+                ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
+                    while (true) {
+                        val entry = zip.nextEntry ?: break
+                        val rawName = entry.name.replace('\\', '/')
+                        val relativeName = rootPrefix?.let { rawName.removePrefix("$it/") } ?: rawName
+                        if (relativeName.isBlank()) {
+                            zip.closeEntry()
+                            continue
+                        }
+                        val relative = Paths.get(relativeName).normalize()
+                        if (relative.isAbsolute || relative.startsWith("..")) {
+                            throw LauncherException.InvalidMetadata("The world archive contains an unsafe path.")
+                        }
+                        val target = temporary.resolve(relative).normalize()
+                        if (!target.startsWith(temporary)) {
+                            throw LauncherException.InvalidMetadata("The world archive escapes its destination.")
+                        }
+                        if (entry.isDirectory) {
+                            Files.createDirectories(target)
+                        } else {
+                            extractedFiles += 1
+                            if (extractedFiles > MAX_WORLD_ARCHIVE_FILES) {
+                                throw LauncherException.InvalidMetadata("The world archive contains too many files.")
+                            }
+                            Files.createDirectories(target.parent)
+                            Files.newOutputStream(target).use { output ->
+                                val buffer = ByteArray(8_192)
+                                while (true) {
+                                    val read = zip.read(buffer)
+                                    if (read < 0) break
+                                    extractedBytes += read
+                                    if (extractedBytes > MAX_EXTRACTED_WORLD_BYTES) {
+                                        throw LauncherException.InvalidMetadata("The extracted world is larger than 2 GiB.")
+                                    }
+                                    output.write(buffer, 0, read)
+                                }
+                            }
+                        }
+                        zip.closeEntry()
+                    }
+                }
+                if (!Files.isRegularFile(temporary.resolve("level.dat"))) {
+                    throw LauncherException.InvalidMetadata("The archive does not contain a Minecraft level.dat file.")
+                }
+                Files.move(temporary, destination, StandardCopyOption.ATOMIC_MOVE)
+            } catch (error: Exception) {
+                runCatching { deleteTree(temporary) }
+                throw if (error is LauncherException) error else LauncherException.FileSystem("The world could not be imported.", error)
+            }
+            val metadata = readWorldMetadata(destination.resolve("level.dat"))
+            ManagedWorld(
+                key = worldKey,
+                name = metadata.name ?: worldKey,
+                sizeBytes = treeSize(destination),
+                lastModifiedEpochMillis = metadata.lastPlayedEpochMillis ?: modifiedAt(destination.resolve("level.dat")),
+                dataPacks = emptyList(),
+                gameMode = metadata.gameMode,
+                seed = metadata.seed,
+                iconPath = destination.resolve("icon.png").takeIf(Files::isRegularFile)?.toString(),
+            )
+        }
 
     override suspend fun deleteWorld(instance: GameInstance, worldKey: String) = withContext(Dispatchers.IO) {
         deleteTree(safeChild(gameDirectory(instance).resolve("saves"), worldKey))
@@ -279,27 +275,24 @@ class JvmGameDataManager(
         )
     }
 
-    override suspend fun renameWorld(
-        instance: GameInstance,
-        worldKey: String,
-        newName: String,
-    ): ManagedWorld = withContext(Dispatchers.IO) {
-        require(newName.isNotBlank()) { "The world name must not be blank." }
-        val world = safeChild(gameDirectory(instance).resolve("saves"), worldKey)
-        if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
-        rewriteWorldName(world.resolve("level.dat"), newName.trim())
-        val metadata = readWorldMetadata(world.resolve("level.dat"))
-        ManagedWorld(
-            key = worldKey,
-            name = metadata.name ?: worldKey,
-            sizeBytes = treeSize(world),
-            lastModifiedEpochMillis = metadata.lastPlayedEpochMillis ?: modifiedAt(world.resolve("level.dat")),
-            dataPacks = emptyList(),
-            gameMode = metadata.gameMode,
-            seed = metadata.seed,
-            iconPath = world.resolve("icon.png").takeIf(Files::isRegularFile)?.toString(),
-        )
-    }
+    override suspend fun renameWorld(instance: GameInstance, worldKey: String, newName: String): ManagedWorld =
+        withContext(Dispatchers.IO) {
+            require(newName.isNotBlank()) { "The world name must not be blank." }
+            val world = safeChild(gameDirectory(instance).resolve("saves"), worldKey)
+            if (!Files.isDirectory(world)) throw LauncherException.FileSystem("The selected world does not exist.")
+            rewriteWorldName(world.resolve("level.dat"), newName.trim())
+            val metadata = readWorldMetadata(world.resolve("level.dat"))
+            ManagedWorld(
+                key = worldKey,
+                name = metadata.name ?: worldKey,
+                sizeBytes = treeSize(world),
+                lastModifiedEpochMillis = metadata.lastPlayedEpochMillis ?: modifiedAt(world.resolve("level.dat")),
+                dataPacks = emptyList(),
+                gameMode = metadata.gameMode,
+                seed = metadata.seed,
+                iconPath = world.resolve("icon.png").takeIf(Files::isRegularFile)?.toString(),
+            )
+        }
 
     override suspend fun resetWorldIcon(instance: GameInstance, worldKey: String) = withContext(Dispatchers.IO) {
         val world = safeChild(gameDirectory(instance).resolve("saves"), worldKey)
@@ -312,49 +305,42 @@ class JvmGameDataManager(
         Unit
     }
 
-    override suspend fun renameScreenshot(
-        instance: GameInstance,
-        screenshotKey: String,
-        newName: String,
-    ): ManagedScreenshot = withContext(Dispatchers.IO) {
-        val screenshots = gameDirectory(instance).resolve("screenshots")
-        val source = safeChild(screenshots, screenshotKey)
-        if (!Files.isRegularFile(source)) throw LauncherException.FileSystem("The selected screenshot does not exist.")
-        val sourceExtension = source.fileName.toString().substringAfterLast('.', "")
-        val requested = safeFileName(newName)
-        val destinationName = if (requested.substringAfterLast('.', "").equals(sourceExtension, ignoreCase = true)) {
-            requested
-        } else {
-            "${requested.substringBeforeLast('.', requested)}.$sourceExtension"
-        }
-        val destination = safeChild(screenshots, destinationName)
-        if (Files.exists(destination)) throw LauncherException.FileSystem("A screenshot named $destinationName already exists.")
-        Files.move(source, destination)
-        ManagedScreenshot(
-            key = destinationName,
-            fileName = destinationName,
-            path = destination.toString(),
-            sizeBytes = Files.size(destination),
-            createdAtEpochMillis = modifiedAt(destination),
-        )
-    }
-
-    override suspend fun setDataPackEnabled(
-        instance: GameInstance,
-        worldKey: String,
-        dataPackKey: String,
-        enabled: Boolean,
-    ) = withContext(Dispatchers.IO) {
-        val packs = safeChild(gameDirectory(instance).resolve("saves"), worldKey).resolve("datapacks")
-        val source = safeChild(packs, dataPackKey)
-        val sourceName = source.fileName.toString()
-        val destinationName = if (enabled) sourceName.removeSuffix(DISABLED_SUFFIX) else "$sourceName$DISABLED_SUFFIX"
-        if (sourceName != destinationName) {
-            val destination = safeChild(packs, destinationName)
-            if (Files.exists(destination)) throw LauncherException.FileSystem("A data pack with that name already exists.")
+    override suspend fun renameScreenshot(instance: GameInstance, screenshotKey: String, newName: String): ManagedScreenshot =
+        withContext(Dispatchers.IO) {
+            val screenshots = gameDirectory(instance).resolve("screenshots")
+            val source = safeChild(screenshots, screenshotKey)
+            if (!Files.isRegularFile(source)) throw LauncherException.FileSystem("The selected screenshot does not exist.")
+            val sourceExtension = source.fileName.toString().substringAfterLast('.', "")
+            val requested = safeFileName(newName)
+            val destinationName = if (requested.substringAfterLast('.', "").equals(sourceExtension, ignoreCase = true)) {
+                requested
+            } else {
+                "${requested.substringBeforeLast('.', requested)}.$sourceExtension"
+            }
+            val destination = safeChild(screenshots, destinationName)
+            if (Files.exists(destination)) throw LauncherException.FileSystem("A screenshot named $destinationName already exists.")
             Files.move(source, destination)
+            ManagedScreenshot(
+                key = destinationName,
+                fileName = destinationName,
+                path = destination.toString(),
+                sizeBytes = Files.size(destination),
+                createdAtEpochMillis = modifiedAt(destination),
+            )
         }
-    }
+
+    override suspend fun setDataPackEnabled(instance: GameInstance, worldKey: String, dataPackKey: String, enabled: Boolean) =
+        withContext(Dispatchers.IO) {
+            val packs = safeChild(gameDirectory(instance).resolve("saves"), worldKey).resolve("datapacks")
+            val source = safeChild(packs, dataPackKey)
+            val sourceName = source.fileName.toString()
+            val destinationName = if (enabled) sourceName.removeSuffix(DISABLED_SUFFIX) else "$sourceName$DISABLED_SUFFIX"
+            if (sourceName != destinationName) {
+                val destination = safeChild(packs, destinationName)
+                if (Files.exists(destination)) throw LauncherException.FileSystem("A data pack with that name already exists.")
+                Files.move(source, destination)
+            }
+        }
 
     override suspend fun upsertServer(instance: GameInstance, server: SavedServer) = withContext(Dispatchers.IO) {
         require(server.name.isNotBlank()) { "Server name must not be blank." }
@@ -493,25 +479,37 @@ class JvmGameDataManager(
     private fun skipPayload(input: DataInputStream, type: Int) {
         when (type) {
             TAG_BYTE -> input.readByte()
+
             TAG_SHORT -> input.readShort()
+
             TAG_INT -> input.readInt()
+
             TAG_LONG -> input.readLong()
+
             TAG_FLOAT -> input.readFloat()
+
             TAG_DOUBLE -> input.readDouble()
+
             TAG_BYTE_ARRAY -> skipBytes(input, input.readInt().coerceAtLeast(0).toLong())
+
             TAG_STRING -> input.readUTF()
+
             TAG_LIST -> {
                 val itemType = input.readUnsignedByte()
                 repeat(input.readInt().coerceAtLeast(0)) { skipPayload(input, itemType) }
             }
+
             TAG_COMPOUND -> while (true) {
                 val itemType = input.readUnsignedByte()
                 if (itemType == TAG_END) break
                 input.readUTF()
                 skipPayload(input, itemType)
             }
+
             TAG_INT_ARRAY -> skipBytes(input, input.readInt().coerceAtLeast(0) * 4L)
+
             TAG_LONG_ARRAY -> skipBytes(input, input.readInt().coerceAtLeast(0) * 8L)
+
             else -> throw LauncherException.InvalidMetadata("servers.dat contains an unknown NBT tag.")
         }
     }
@@ -520,9 +518,13 @@ class JvmGameDataManager(
         var remaining = count
         while (remaining > 0) {
             val skipped = input.skip(remaining)
-            if (skipped > 0) remaining -= skipped
-            else if (input.read() >= 0) remaining--
-            else throw LauncherException.InvalidMetadata("servers.dat ended unexpectedly.")
+            if (skipped > 0) {
+                remaining -= skipped
+            } else if (input.read() >= 0) {
+                remaining--
+            } else {
+                throw LauncherException.InvalidMetadata("servers.dat ended unexpectedly.")
+            }
         }
     }
 
@@ -568,29 +570,31 @@ class JvmGameDataManager(
         }
     }
 
-    private fun copyNbtPayload(
-        input: DataInputStream,
-        output: DataOutputStream,
-        type: Int,
-        path: List<String>,
-        worldName: String,
-    ) {
+    private fun copyNbtPayload(input: DataInputStream, output: DataOutputStream, type: Int, path: List<String>, worldName: String) {
         when (type) {
             TAG_BYTE -> output.writeByte(input.readByte().toInt())
+
             TAG_SHORT -> output.writeShort(input.readShort().toInt())
+
             TAG_INT -> output.writeInt(input.readInt())
+
             TAG_LONG -> output.writeLong(input.readLong())
+
             TAG_FLOAT -> output.writeFloat(input.readFloat())
+
             TAG_DOUBLE -> output.writeDouble(input.readDouble())
+
             TAG_BYTE_ARRAY -> {
                 val count = input.readInt().coerceAtLeast(0)
                 output.writeInt(count)
                 copyBytes(input, output, count.toLong())
             }
+
             TAG_STRING -> {
                 val value = input.readUTF()
                 output.writeUTF(if (path == WORLD_NAME_PATH) worldName else value)
             }
+
             TAG_LIST -> {
                 val itemType = input.readUnsignedByte()
                 val count = input.readInt().coerceAtLeast(0)
@@ -598,6 +602,7 @@ class JvmGameDataManager(
                 output.writeInt(count)
                 repeat(count) { copyNbtPayload(input, output, itemType, path, worldName) }
             }
+
             TAG_COMPOUND -> while (true) {
                 val itemType = input.readUnsignedByte()
                 output.writeByte(itemType)
@@ -606,16 +611,19 @@ class JvmGameDataManager(
                 output.writeUTF(name)
                 copyNbtPayload(input, output, itemType, path + name, worldName)
             }
+
             TAG_INT_ARRAY -> {
                 val count = input.readInt().coerceAtLeast(0)
                 output.writeInt(count)
                 repeat(count) { output.writeInt(input.readInt()) }
             }
+
             TAG_LONG_ARRAY -> {
                 val count = input.readInt().coerceAtLeast(0)
                 output.writeInt(count)
                 repeat(count) { output.writeLong(input.readLong()) }
             }
+
             else -> throw LauncherException.InvalidMetadata("level.dat contains an unknown NBT tag.")
         }
     }
@@ -652,15 +660,21 @@ class JvmGameDataManager(
             if (type == TAG_END) break
             when (val key = input.readUTF()) {
                 "LevelName" -> if (type == TAG_STRING) name = input.readUTF() else skipPayload(input, type)
+
                 "GameType" -> if (type == TAG_INT) gameType = input.readInt() else skipPayload(input, type)
+
                 "hardcore" -> if (type == TAG_BYTE) hardcore = input.readByte().toInt() != 0 else skipPayload(input, type)
+
                 "LastPlayed" -> if (type == TAG_LONG) lastPlayed = input.readLong() else skipPayload(input, type)
+
                 "RandomSeed" -> if (type == TAG_LONG) seed = input.readLong() else skipPayload(input, type)
+
                 "WorldGenSettings" -> if (type == TAG_COMPOUND) {
                     seed = readWorldGenSettingsSeed(input) ?: seed
                 } else {
                     skipPayload(input, type)
                 }
+
                 else -> skipPayload(input, type)
             }
         }
@@ -687,15 +701,27 @@ class JvmGameDataManager(
             if (type == TAG_LONG && name == "seed") seed = input.readLong() else skipPayload(input, type)
         }
     }
-    private fun directories(path: Path): List<Path> = if (Files.isDirectory(path)) Files.newDirectoryStream(path).use { stream ->
-        stream.filter(Files::isDirectory)
-    } else emptyList()
-    private fun files(path: Path): List<Path> = if (Files.isDirectory(path)) Files.newDirectoryStream(path).use { stream ->
-        stream.filter { !Files.isDirectory(it) }
-    } else emptyList()
+    private fun directories(path: Path): List<Path> = if (Files.isDirectory(path)) {
+        Files.newDirectoryStream(path).use { stream ->
+            stream.filter(Files::isDirectory)
+        }
+    } else {
+        emptyList()
+    }
+    private fun files(path: Path): List<Path> = if (Files.isDirectory(path)) {
+        Files.newDirectoryStream(path).use { stream ->
+            stream.filter { !Files.isDirectory(it) }
+        }
+    } else {
+        emptyList()
+    }
     private fun modifiedAt(path: Path): Long? = runCatching { Files.getLastModifiedTime(path).toMillis() }.getOrNull()
-    private fun treeSize(path: Path): Long = if (!Files.exists(path)) 0 else Files.walk(path).use { stream ->
-        stream.filter(Files::isRegularFile).mapToLong { runCatching { Files.size(it) }.getOrDefault(0) }.sum()
+    private fun treeSize(path: Path): Long = if (!Files.exists(path)) {
+        0
+    } else {
+        Files.walk(path).use { stream ->
+            stream.filter(Files::isRegularFile).mapToLong { runCatching { Files.size(it) }.getOrDefault(0) }.sum()
+        }
     }
     private fun safeChild(parent: Path, child: String): Path {
         require(child.isNotBlank() && '/' !in child && '\\' !in child && child !in setOf(".", "..")) {
@@ -711,8 +737,9 @@ class JvmGameDataManager(
         Files.walk(source).use { paths ->
             paths.forEach { path ->
                 val target = destination.resolve(source.relativize(path).toString())
-                if (Files.isDirectory(path)) Files.createDirectories(target)
-                else {
+                if (Files.isDirectory(path)) {
+                    Files.createDirectories(target)
+                } else {
                     Files.createDirectories(target.parent)
                     Files.copy(path, target, StandardCopyOption.COPY_ATTRIBUTES)
                 }

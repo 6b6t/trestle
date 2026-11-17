@@ -1,17 +1,17 @@
 package net.blockhost.trestle.runtime
 
-import android.content.Context
-import android.content.Intent
 import android.app.ActivityManager
 import android.app.ApplicationExitInfo
+import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.ResultReceiver
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.isActive
@@ -95,126 +95,125 @@ class AndroidMinecraftRuntime internal constructor(
         instance: GameInstance,
         options: LaunchOptions,
         onProgress: suspend (RuntimePreparationProgress) -> Unit,
-    ): PreparedLaunch =
-        withContext(Dispatchers.IO) {
-            requireSupportedInstance(instance)
-            val installed = installedVersionReader(instance)
-            if (installed.requiredJavaMajor != REQUIRED_JAVA_MAJOR) {
-                throw LauncherException.RuntimeUnavailable(
-                    "Minecraft $MVP_VERSION requires Java $REQUIRED_JAVA_MAJOR, but the installed manifest requests " +
-                        "Java ${installed.requiredJavaMajor}.",
-                )
-            }
-            val session = sessionProvider.currentSession(instance.accountProfileId)
-                ?: return@withContext PreparedLaunch(
-                    instanceId = instance.id.value,
-                    executable = "",
-                    arguments = emptyList(),
-                    workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
-                    mainClass = installed.metadata.mainClass,
-                    classpathEntries = emptyList(),
-                    nativeDirectory = "",
-                    missingRequirements = listOf("Java account"),
-                )
-            val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
-                onProgress(progress.toRuntimeProgress("Installing Java 25 runtime"))
-            }
-            val components = componentManager.resolve(AndroidRuntimeAbi.forArchitecture(architecture)) { progress ->
-                onProgress(progress.toRuntimeProgress("Installing Android game components"))
-            }
-            val gameDirectory = instance.instanceDirectory.toPath() / "game"
-            FileSystem.SYSTEM.createDirectories(gameDirectory)
-
-            val clientJar = directories.versions / instance.minecraftVersionId /
-                "${instance.minecraftVersionId}.jar"
-            val gameLibraries = installed.libraries
-                .filter { it.classpath && !it.native && !it.name.startsWith("org.lwjgl:") }
-                .map { directories.libraries / it.path }
-            val classpathEntries = (components.classpath + gameLibraries + clientJar)
-                .distinct()
-                .map(Any::toString)
-            val classpath = classpathEntries.joinToString(ANDROID_CLASSPATH_SEPARATOR)
-            val values = launchValues(
-                instance,
-                installed,
-                session,
-                components.nativeDirectory.toString(),
-                classpath,
+    ): PreparedLaunch = withContext(Dispatchers.IO) {
+        requireSupportedInstance(instance)
+        val installed = installedVersionReader(instance)
+        if (installed.requiredJavaMajor != REQUIRED_JAVA_MAJOR) {
+            throw LauncherException.RuntimeUnavailable(
+                "Minecraft $MVP_VERSION requires Java $REQUIRED_JAVA_MAJOR, but the installed manifest requests " +
+                    "Java ${installed.requiredJavaMajor}.",
             )
-            val jvmArguments = buildList {
-                add(CommandArgument.Public("-Xms${instance.memory.minimumMiB}M"))
-                add(CommandArgument.Public("-Xmx${instance.memory.maximumMiB}M"))
-                installed.jvmArguments
-                    .filterNot(::isDesktopOnlyJvmArgument)
-                    .mapTo(this) { CommandArgument.Public(substitutePublic(it, values)) }
-                add(CommandArgument.Public("-Djava.class.path=$classpath"))
-                add(CommandArgument.Public("-Djava.library.path=${components.nativeDirectory}"))
-                add(CommandArgument.Public("-Djava.home=${java.home}"))
-                add(CommandArgument.Public("-Djava.io.tmpdir=${applicationContext.cacheDir.absolutePath}"))
-                add(CommandArgument.Public("-Duser.home=$gameDirectory"))
-                add(CommandArgument.Public("-Duser.language=${Locale.getDefault().language}"))
-                add(CommandArgument.Public("-Duser.timezone=${TimeZone.getDefault().id}"))
-                add(CommandArgument.Public("-Dos.name=Linux"))
-                add(CommandArgument.Public("-Dos.version=Android-${android.os.Build.VERSION.RELEASE}"))
-                add(CommandArgument.Public("-Djna.boot.library.path=${components.nativeDirectory}"))
-                add(CommandArgument.Public("-Doshi.os.linux.allowudev=false"))
-                add(CommandArgument.Public("-Dorg.lwjgl.vulkan.libname=libvulkan.so"))
-                add(CommandArgument.Public("-Dorg.lwjgl.opengl.libname=libglxshim.so"))
-                add(CommandArgument.Public("-Dorg.lwjgl.freetype.libname=${components.nativeDirectory}/libfreetype.so"))
-                add(CommandArgument.Public("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared"))
-                add(CommandArgument.Public("-Dorg.lwjgl.system.allocator=system"))
-                add(CommandArgument.Public("-Dorg.lwjgl.util.NoHashChecks=true"))
-                add(CommandArgument.Public("-Dglfwstub.initEgl=false"))
-                add(CommandArgument.Public("-Djdk.lang.Process.launchMechanism=FORK"))
-                add(CommandArgument.Public("-XX:ActiveProcessorCount=${Runtime.getRuntime().availableProcessors()}"))
-                addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted.map(CommandArgument::Public))
-                addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted.map(CommandArgument::Public))
-                installed.loggingPath?.let { loggingPath ->
-                    installed.metadata.logging["client"]?.let { configuration ->
-                        add(
-                            CommandArgument.Public(
-                                configuration.argument.replace(
-                                    "\${path}",
-                                    (directories.logging / loggingPath).toString(),
-                                ),
+        }
+        val session = sessionProvider.currentSession(instance.accountProfileId)
+            ?: return@withContext PreparedLaunch(
+                instanceId = instance.id.value,
+                executable = "",
+                arguments = emptyList(),
+                workingDirectory = (instance.instanceDirectory.toPath() / "game").toString(),
+                mainClass = installed.metadata.mainClass,
+                classpathEntries = emptyList(),
+                nativeDirectory = "",
+                missingRequirements = listOf("Java account"),
+            )
+        val java = javaRuntimeManager.resolve(installed.requiredJavaMajor, architecture) { progress ->
+            onProgress(progress.toRuntimeProgress("Installing Java 25 runtime"))
+        }
+        val components = componentManager.resolve(AndroidRuntimeAbi.forArchitecture(architecture)) { progress ->
+            onProgress(progress.toRuntimeProgress("Installing Android game components"))
+        }
+        val gameDirectory = instance.instanceDirectory.toPath() / "game"
+        FileSystem.SYSTEM.createDirectories(gameDirectory)
+
+        val clientJar = directories.versions / instance.minecraftVersionId /
+            "${instance.minecraftVersionId}.jar"
+        val gameLibraries = installed.libraries
+            .filter { it.classpath && !it.native && !it.name.startsWith("org.lwjgl:") }
+            .map { directories.libraries / it.path }
+        val classpathEntries = (components.classpath + gameLibraries + clientJar)
+            .distinct()
+            .map(Any::toString)
+        val classpath = classpathEntries.joinToString(ANDROID_CLASSPATH_SEPARATOR)
+        val values = launchValues(
+            instance,
+            installed,
+            session,
+            components.nativeDirectory.toString(),
+            classpath,
+        )
+        val jvmArguments = buildList {
+            add(CommandArgument.Public("-Xms${instance.memory.minimumMiB}M"))
+            add(CommandArgument.Public("-Xmx${instance.memory.maximumMiB}M"))
+            installed.jvmArguments
+                .filterNot(::isDesktopOnlyJvmArgument)
+                .mapTo(this) { CommandArgument.Public(substitutePublic(it, values)) }
+            add(CommandArgument.Public("-Djava.class.path=$classpath"))
+            add(CommandArgument.Public("-Djava.library.path=${components.nativeDirectory}"))
+            add(CommandArgument.Public("-Djava.home=${java.home}"))
+            add(CommandArgument.Public("-Djava.io.tmpdir=${applicationContext.cacheDir.absolutePath}"))
+            add(CommandArgument.Public("-Duser.home=$gameDirectory"))
+            add(CommandArgument.Public("-Duser.language=${Locale.getDefault().language}"))
+            add(CommandArgument.Public("-Duser.timezone=${TimeZone.getDefault().id}"))
+            add(CommandArgument.Public("-Dos.name=Linux"))
+            add(CommandArgument.Public("-Dos.version=Android-${android.os.Build.VERSION.RELEASE}"))
+            add(CommandArgument.Public("-Djna.boot.library.path=${components.nativeDirectory}"))
+            add(CommandArgument.Public("-Doshi.os.linux.allowudev=false"))
+            add(CommandArgument.Public("-Dorg.lwjgl.vulkan.libname=libvulkan.so"))
+            add(CommandArgument.Public("-Dorg.lwjgl.opengl.libname=libglxshim.so"))
+            add(CommandArgument.Public("-Dorg.lwjgl.freetype.libname=${components.nativeDirectory}/libfreetype.so"))
+            add(CommandArgument.Public("-Dorg.lwjgl.spvc.libname=spirv-cross-c-shared"))
+            add(CommandArgument.Public("-Dorg.lwjgl.system.allocator=system"))
+            add(CommandArgument.Public("-Dorg.lwjgl.util.NoHashChecks=true"))
+            add(CommandArgument.Public("-Dglfwstub.initEgl=false"))
+            add(CommandArgument.Public("-Djdk.lang.Process.launchMechanism=FORK"))
+            add(CommandArgument.Public("-XX:ActiveProcessorCount=${Runtime.getRuntime().availableProcessors()}"))
+            addAll(JvmArgumentPolicy.review(instance.jvmArguments).accepted.map(CommandArgument::Public))
+            addAll(JvmArgumentPolicy.review(options.additionalJvmArguments).accepted.map(CommandArgument::Public))
+            installed.loggingPath?.let { loggingPath ->
+                installed.metadata.logging["client"]?.let { configuration ->
+                    add(
+                        CommandArgument.Public(
+                            configuration.argument.replace(
+                                "\${path}",
+                                (directories.logging / loggingPath).toString(),
                             ),
-                        )
-                    }
+                        ),
+                    )
                 }
             }
-            val gameArguments = buildList {
-                (installed.gameArguments + instance.gameArguments + options.additionalGameArguments)
-                    .mapTo(this) { substituteArgument(it, values, session) }
-                if (options.demo) add(CommandArgument.Public("--demo"))
-            }
-            val allArguments = jvmArguments + CommandArgument.Public(installed.metadata.mainClass) + gameArguments
-
-            PreparedLaunch(
-                instanceId = instance.id.value,
-                executable = java.home.toString(),
-                arguments = allArguments,
-                workingDirectory = gameDirectory.toString(),
-                environment = androidEnvironment(java.home.toString(), components.nativeDirectory.toString()) +
-                    instance.environmentVariables,
-                mainClass = installed.metadata.mainClass,
-                classpathEntries = classpathEntries,
-                nativeDirectory = components.nativeDirectory.toString(),
-                missingRequirements = emptyList(),
-                jvmArguments = jvmArguments,
-                gameArguments = gameArguments,
-            ).also { prepared ->
-                logger.info(
-                    "runtime",
-                    "Prepared Android Minecraft launch",
-                    mapOf(
-                        "instanceId" to instance.id.value,
-                        "version" to instance.minecraftVersionId,
-                        "classpathEntries" to prepared.classpathEntries.size,
-                        "authenticated" to true,
-                    ),
-                )
-            }
         }
+        val gameArguments = buildList {
+            (installed.gameArguments + instance.gameArguments + options.additionalGameArguments)
+                .mapTo(this) { substituteArgument(it, values, session) }
+            if (options.demo) add(CommandArgument.Public("--demo"))
+        }
+        val allArguments = jvmArguments + CommandArgument.Public(installed.metadata.mainClass) + gameArguments
+
+        PreparedLaunch(
+            instanceId = instance.id.value,
+            executable = java.home.toString(),
+            arguments = allArguments,
+            workingDirectory = gameDirectory.toString(),
+            environment = androidEnvironment(java.home.toString(), components.nativeDirectory.toString()) +
+                instance.environmentVariables,
+            mainClass = installed.metadata.mainClass,
+            classpathEntries = classpathEntries,
+            nativeDirectory = components.nativeDirectory.toString(),
+            missingRequirements = emptyList(),
+            jvmArguments = jvmArguments,
+            gameArguments = gameArguments,
+        ).also { prepared ->
+            logger.info(
+                "runtime",
+                "Prepared Android Minecraft launch",
+                mapOf(
+                    "instanceId" to instance.id.value,
+                    "version" to instance.minecraftVersionId,
+                    "classpathEntries" to prepared.classpathEntries.size,
+                    "authenticated" to true,
+                ),
+            )
+        }
+    }
 
     override fun launch(preparedLaunch: PreparedLaunch): Flow<LaunchEvent> = callbackFlow {
         if (preparedLaunch.missingRequirements.isNotEmpty()) {
@@ -310,12 +309,14 @@ class AndroidMinecraftRuntime internal constructor(
                         trySend(LaunchEvent.Started(processId))
                         processId?.let(::monitorProcess)
                     }
+
                     AndroidGameLaunchProtocol.RESULT_PROCESS_CREATED -> {
                         resultData
                             ?.takeIf { it.containsKey(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID) }
                             ?.getLong(AndroidGameLaunchProtocol.EXTRA_PROCESS_ID)
                             ?.let(::monitorProcess)
                     }
+
                     AndroidGameLaunchProtocol.RESULT_EXITED -> {
                         if (!terminalReceived.compareAndSet(false, true)) return
                         runCatching { streamAvailableOutput(includePartialLine = true) }
@@ -323,6 +324,7 @@ class AndroidMinecraftRuntime internal constructor(
                         trySend(LaunchEvent.Exited(exitCode))
                         close()
                     }
+
                     AndroidGameLaunchProtocol.RESULT_FAILED -> {
                         if (!terminalReceived.compareAndSet(false, true)) return
                         runCatching { streamAvailableOutput(includePartialLine = true) }
@@ -393,15 +395,14 @@ class AndroidMinecraftRuntime internal constructor(
         }
     }
 
-    private fun net.blockhost.trestle.download.DownloadProgress.toRuntimeProgress(
-        stage: String,
-    ): RuntimePreparationProgress = RuntimePreparationProgress(
-        stage = activeLabel ?: stage,
-        completedBytes = completedBytes,
-        totalBytes = totalBytes,
-        completedItems = completedFiles,
-        totalItems = totalFiles,
-    )
+    private fun net.blockhost.trestle.download.DownloadProgress.toRuntimeProgress(stage: String): RuntimePreparationProgress =
+        RuntimePreparationProgress(
+            stage = activeLabel ?: stage,
+            completedBytes = completedBytes,
+            totalBytes = totalBytes,
+            completedItems = completedFiles,
+            totalItems = totalFiles,
+        )
 
     private suspend fun unexpectedProcessDeath(
         preparedLaunch: PreparedLaunch,
@@ -478,11 +479,7 @@ class AndroidMinecraftRuntime internal constructor(
         }.getOrNull()
     }
 
-    private fun persistSystemExit(
-        gameDirectory: File,
-        launchId: String,
-        systemExit: ApplicationExitInfo,
-    ): File? = runCatching {
+    private fun persistSystemExit(gameDirectory: File, launchId: String, systemExit: ApplicationExitInfo): File? = runCatching {
         val directory = File(gameDirectory, ".trestle/crashes/$launchId").apply { mkdirs() }
         val traceFile = runCatching {
             systemExit.traceInputStream?.use { input ->
@@ -604,28 +601,22 @@ class AndroidMinecraftRuntime internal constructor(
         }
     }
 
-    private fun prepareMobileGluesSettings(): File =
-        applicationContext.filesDir.resolve("trestle/mobileglues").apply {
-            mkdirs()
-            resolve("config.json").takeUnless(File::exists)?.writeText(Json.encodeToString(MOBILE_GLUES_DEFAULTS))
-        }
+    private fun prepareMobileGluesSettings(): File = applicationContext.filesDir.resolve("trestle/mobileglues").apply {
+        mkdirs()
+        resolve("config.json").takeUnless(File::exists)?.writeText(Json.encodeToString(MOBILE_GLUES_DEFAULTS))
+    }
 
-    private fun isDesktopOnlyJvmArgument(argument: String): Boolean =
-        argument == "-cp" ||
-            argument == "-classpath" ||
-            argument.contains("\${classpath}") ||
-            argument.startsWith("-Djava.library.path=") ||
-            argument.startsWith("-Dos.name=") ||
-            argument.startsWith("-Dos.version=")
+    private fun isDesktopOnlyJvmArgument(argument: String): Boolean = argument == "-cp" ||
+        argument == "-classpath" ||
+        argument.contains("\${classpath}") ||
+        argument.startsWith("-Djava.library.path=") ||
+        argument.startsWith("-Dos.name=") ||
+        argument.startsWith("-Dos.version=")
 
     private fun substitutePublic(argument: String, values: Map<String, String>): String =
         PLACEHOLDER.replace(argument) { match -> values[match.groupValues[1]] ?: match.value }
 
-    private fun substituteArgument(
-        argument: String,
-        values: Map<String, String>,
-        session: AuthSession?,
-    ): CommandArgument {
+    private fun substituteArgument(argument: String, values: Map<String, String>, session: AuthSession?): CommandArgument {
         if (session == null && AUTH_PLACEHOLDERS.any(argument::contains)) {
             return CommandArgument.RequiredCredential("Java account")
         }

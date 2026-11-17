@@ -99,11 +99,7 @@ class MojangJavaResolver(
         throw LauncherException.RuntimeUnavailable("The managed Java $requiredMajor runtime is incomplete.")
     }
 
-    private suspend fun provision(
-        runtimeRoot: Path,
-        manifestSha1: String,
-        manifest: JavaRuntimeManifest,
-    ) {
+    private suspend fun provision(runtimeRoot: Path, manifestSha1: String, manifest: JavaRuntimeManifest) {
         Files.createDirectories(runtimeRoot)
         manifest.files.forEach { (name, entry) ->
             if (entry.type == JavaRuntimeFileType.DIRECTORY) {
@@ -210,10 +206,15 @@ class MojangJavaResolver(
 
     private fun defaultComponent(requiredMajor: Int): String = when (requiredMajor) {
         8 -> "jre-legacy"
+
         16 -> "java-runtime-alpha"
+
         17 -> "java-runtime-gamma"
+
         21 -> "java-runtime-delta"
+
         25 -> "java-runtime-epsilon"
+
         else -> throw LauncherException.RuntimeUnavailable(
             "Minecraft metadata does not name a Mojang runtime for Java $requiredMajor.",
         )
@@ -252,29 +253,32 @@ internal fun mojangRuntimePlatform(environment: PlatformEnvironment): String = w
         Architecture.X86 -> "linux-i386"
         else -> unsupportedPlatform("Linux", environment.architecture)
     }
+
     OperatingSystem.MACOS -> when (environment.architecture) {
         Architecture.ARM64 -> "mac-os-arm64"
         Architecture.X86_64 -> "mac-os"
         else -> unsupportedPlatform("macOS", environment.architecture)
     }
+
     OperatingSystem.IOS -> throw LauncherException.RuntimeUnavailable(
         "iOS runtimes are provided by the iOS application host.",
     )
+
     OperatingSystem.WINDOWS -> when (environment.architecture) {
         Architecture.ARM64 -> "windows-arm64"
         Architecture.X86_64 -> "windows-x64"
         Architecture.X86 -> "windows-x86"
         else -> unsupportedPlatform("Windows", environment.architecture)
     }
+
     OperatingSystem.UNKNOWN -> throw LauncherException.RuntimeUnavailable(
         "Mojang does not provide a Java runtime for this operating system.",
     )
 }
 
-private fun unsupportedPlatform(os: String, architecture: Architecture): Nothing =
-    throw LauncherException.RuntimeUnavailable(
-        "Mojang does not provide a desktop Java runtime for $os ${architecture.name.lowercase()}.",
-    )
+private fun unsupportedPlatform(os: String, architecture: Architecture): Nothing = throw LauncherException.RuntimeUnavailable(
+    "Mojang does not provide a desktop Java runtime for $os ${architecture.name.lowercase()}.",
+)
 
 private typealias JavaRuntimeIndex = Map<String, Map<String, List<JavaRuntimeRelease>>>
 
@@ -286,20 +290,13 @@ private data class JavaRuntimeRelease(
 )
 
 @Serializable
-private data class JavaRuntimeManifestReference(
-    val sha1: String,
-    val size: Long? = null,
-    val url: String,
-)
+private data class JavaRuntimeManifestReference(val sha1: String, val size: Long? = null, val url: String)
 
 @Serializable
 private data class JavaRuntimeAvailability(val progress: Int = 0)
 
 @Serializable
-private data class JavaRuntimeVersion(
-    val name: String,
-    val released: String = "",
-)
+private data class JavaRuntimeVersion(val name: String, val released: String = "")
 
 @Serializable
 private data class JavaRuntimeManifest(val files: Map<String, JavaRuntimeFile>)
@@ -317,7 +314,12 @@ private data class JavaRuntimeDownloads(val raw: DownloadReference? = null)
 
 @Serializable
 private enum class JavaRuntimeFileType {
-    @SerialName("directory") DIRECTORY,
-    @SerialName("file") FILE,
-    @SerialName("link") LINK,
+    @SerialName("directory")
+    DIRECTORY,
+
+    @SerialName("file")
+    FILE,
+
+    @SerialName("link")
+    LINK,
 }

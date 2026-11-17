@@ -5,8 +5,8 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.test.runTest
 import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
 import net.blockhost.trestle.download.DownloadPipeline
@@ -15,8 +15,8 @@ import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class ResourceInstallerTest {
@@ -246,10 +246,17 @@ class ResourceInstallerTest {
         val source = root / "game/mods/renamed.jar.disabled"
         fs.write(source) { writeByte(1) }
         val replacement = version("project", "new", "new.jar", "https://example.test/new.jar")
-        val installer = ResourceInstaller(ResourcePlatformRegistry(listOf(FakeResourcePlatform(ResourceProvider.MODRINTH, replacement))),
-            DownloadPipeline(HttpClient(MockEngine { respond(byteArrayOf(2)) }), fs), fs)
-        val content = installer.installedContent(instance(root)).single().copy(provider = ResourceProvider.MODRINTH,
-            projectId = "project", versionId = "old", contentSha1 = fs.sha1(source))
+        val installer = ResourceInstaller(
+            ResourcePlatformRegistry(listOf(FakeResourcePlatform(ResourceProvider.MODRINTH, replacement))),
+            DownloadPipeline(HttpClient(MockEngine { respond(byteArrayOf(2)) }), fs),
+            fs,
+        )
+        val content = installer.installedContent(instance(root)).single().copy(
+            provider = ResourceProvider.MODRINTH,
+            projectId = "project",
+            versionId = "old",
+            contentSha1 = fs.sha1(source),
+        )
         installer.update(instance(root), content, replacement)
         assertFalse(fs.exists(source))
         assertFalse(fs.exists(root / "game/mods/new.jar"))

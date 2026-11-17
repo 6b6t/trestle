@@ -3,20 +3,20 @@ package net.blockhost.trestle.auth
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
+import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.logging.LauncherLogger
 import net.blockhost.trestle.logging.NoopLauncherLogger
-import net.blockhost.trestle.app.BuildInfo
 import net.raphimc.minecraftauth.MinecraftAuth
 import net.raphimc.minecraftauth.bedrock.BedrockAuthManager
 import net.raphimc.minecraftauth.java.JavaAuthManager
+import net.raphimc.minecraftauth.java.model.MinecraftToken
+import net.raphimc.minecraftauth.java.request.MinecraftProfileRequest
 import net.raphimc.minecraftauth.msa.model.MsaApplicationConfig
 import net.raphimc.minecraftauth.msa.model.MsaCredentials
 import net.raphimc.minecraftauth.msa.model.MsaDeviceCode
 import net.raphimc.minecraftauth.msa.service.impl.CredentialsMsaAuthService
 import net.raphimc.minecraftauth.msa.service.impl.DeviceCodeMsaAuthService
 import net.raphimc.minecraftauth.msa.service.util.ParamMsaAuthServiceSupplier
-import net.raphimc.minecraftauth.java.model.MinecraftToken
-import net.raphimc.minecraftauth.java.request.MinecraftProfileRequest
 import net.raphimc.minecraftauth.util.jwt.Jwt
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -42,6 +42,7 @@ class JvmMinecraftAuthenticator(
                         .deviceType(OfficialMinecraftApplications.java.deviceType)
                         .login(deviceCodeService(), deviceCodeConsumer(onDeviceAuthorization)),
                 )
+
                 MinecraftEdition.BEDROCK -> bedrockResult(
                     AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
                     BedrockAuthManager.create(httpClient, requireBedrockVersion(request.bedrockGameVersion))
@@ -50,6 +51,7 @@ class JvmMinecraftAuthenticator(
                         .login(deviceCodeService(), deviceCodeConsumer(onDeviceAuthorization)),
                 )
             }
+
             is AccountLoginRequest.Credentials -> when (request.edition) {
                 MinecraftEdition.JAVA -> javaResult(
                     AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
@@ -58,6 +60,7 @@ class JvmMinecraftAuthenticator(
                         .deviceType(OfficialMinecraftApplications.java.deviceType)
                         .login(credentialsService(), MsaCredentials(request.email.trim(), request.password.reveal())),
                 )
+
                 MinecraftEdition.BEDROCK -> bedrockResult(
                     AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
                     BedrockAuthManager.create(httpClient, requireBedrockVersion(request.bedrockGameVersion))
@@ -66,6 +69,7 @@ class JvmMinecraftAuthenticator(
                         .login(credentialsService(), MsaCredentials(request.email.trim(), request.password.reveal())),
                 )
             }
+
             is AccountLoginRequest.SecretImport -> when (request.method) {
                 AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN -> javaResult(
                     request.method,
@@ -74,6 +78,7 @@ class JvmMinecraftAuthenticator(
                         .deviceType(OfficialMinecraftApplications.java.deviceType)
                         .login(request.secret.reveal()),
                 )
+
                 AccountAuthenticationMethod.MICROSOFT_COOKIES -> javaResult(
                     request.method,
                     JavaAuthManager.create(httpClient)
@@ -81,40 +86,39 @@ class JvmMinecraftAuthenticator(
                         .deviceType(OfficialMinecraftApplications.java.deviceType)
                         .login(cookieService(), request.secret.reveal()),
                 )
+
                 AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> accessTokenResult(request.secret)
+
                 else -> error("${request.method.label} is not a secret-import method.")
             }
+
             is AccountLoginRequest.Offline -> offlineResult(request.username)
         }
     }
 
-    override suspend fun restore(
-        profile: LauncherAccount,
-        serializedState: SecretValue,
-    ): AuthenticatedMinecraftAccount = execute("restore", profile.edition) {
-        when (profile.authenticationMethod) {
-            AccountAuthenticationMethod.OFFLINE -> return@execute offlineResult(profile.playerName)
-            AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> return@execute accessTokenResult(serializedState)
-            else -> Unit
-        }
-        val json = com.google.gson.JsonParser.parseString(serializedState.reveal()).asJsonObject
-        when (profile.edition) {
-            MinecraftEdition.JAVA -> javaResult(profile.authenticationMethod, JavaAuthManager.fromJson(httpClient, json))
-            MinecraftEdition.BEDROCK -> bedrockResult(
-                profile.authenticationMethod,
-                BedrockAuthManager.fromJson(
-                    httpClient,
-                    requireBedrockVersion(profile.bedrockGameVersion),
-                    json,
-                ),
-            )
-        }
-    }
+    override suspend fun restore(profile: LauncherAccount, serializedState: SecretValue): AuthenticatedMinecraftAccount =
+        execute("restore", profile.edition) {
+            when (profile.authenticationMethod) {
+                AccountAuthenticationMethod.OFFLINE -> return@execute offlineResult(profile.playerName)
+                AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN -> return@execute accessTokenResult(serializedState)
+                else -> Unit
+            }
+            val json = com.google.gson.JsonParser.parseString(serializedState.reveal()).asJsonObject
+            when (profile.edition) {
+                MinecraftEdition.JAVA -> javaResult(profile.authenticationMethod, JavaAuthManager.fromJson(httpClient, json))
 
-    private fun javaResult(
-        method: AccountAuthenticationMethod,
-        manager: JavaAuthManager,
-    ): AuthenticatedMinecraftAccount {
+                MinecraftEdition.BEDROCK -> bedrockResult(
+                    profile.authenticationMethod,
+                    BedrockAuthManager.fromJson(
+                        httpClient,
+                        requireBedrockVersion(profile.bedrockGameVersion),
+                        json,
+                    ),
+                )
+            }
+        }
+
+    private fun javaResult(method: AccountAuthenticationMethod, manager: JavaAuthManager): AuthenticatedMinecraftAccount {
         val minecraftToken = manager.minecraftToken.upToDate
         val minecraftProfile = manager.minecraftProfile.upToDate
         val xboxProfile = manager.xboxUserProfile.upToDate
@@ -139,10 +143,7 @@ class JvmMinecraftAuthenticator(
         )
     }
 
-    private fun bedrockResult(
-        method: AccountAuthenticationMethod,
-        manager: BedrockAuthManager,
-    ): AuthenticatedMinecraftAccount {
+    private fun bedrockResult(method: AccountAuthenticationMethod, manager: BedrockAuthManager): AuthenticatedMinecraftAccount {
         manager.bedrockXstsToken.upToDate
         val xboxProfile = manager.xboxUserProfile.upToDate
         return AuthenticatedMinecraftAccount(
@@ -210,20 +211,17 @@ class JvmMinecraftAuthenticator(
         )
     }
 
-    private fun deviceCodeService() =
-        ParamMsaAuthServiceSupplier<Consumer<MsaDeviceCode>> { client, configuration, callback ->
-            DeviceCodeMsaAuthService(client, configuration, callback)
-        }
+    private fun deviceCodeService() = ParamMsaAuthServiceSupplier<Consumer<MsaDeviceCode>> { client, configuration, callback ->
+        DeviceCodeMsaAuthService(client, configuration, callback)
+    }
 
-    private fun credentialsService() =
-        ParamMsaAuthServiceSupplier<MsaCredentials> { client, configuration, credentials ->
-            CredentialsMsaAuthService(client, configuration, credentials)
-        }
+    private fun credentialsService() = ParamMsaAuthServiceSupplier<MsaCredentials> { client, configuration, credentials ->
+        CredentialsMsaAuthService(client, configuration, credentials)
+    }
 
-    private fun cookieService() =
-        ParamMsaAuthServiceSupplier<String> { client, configuration, cookies ->
-            CookieImportMsaAuthService(client, configuration, cookies)
-        }
+    private fun cookieService() = ParamMsaAuthServiceSupplier<String> { client, configuration, cookies ->
+        CookieImportMsaAuthService(client, configuration, cookies)
+    }
 
     private fun deviceCodeConsumer(callback: (DeviceAuthorization) -> Unit) = Consumer<MsaDeviceCode> { code ->
         callback(
@@ -236,41 +234,39 @@ class JvmMinecraftAuthenticator(
         )
     }
 
-    private suspend fun <T> execute(operation: String, edition: MinecraftEdition, block: () -> T): T =
-        runInterruptible(Dispatchers.IO) {
-            try {
-                block().also {
-                    logger.info(
-                        "accounts",
-                        "Minecraft authentication completed",
-                        mapOf("operation" to operation, "edition" to edition.name),
-                    )
-                }
-            } catch (error: CancellationException) {
-                throw error
-            } catch (error: InterruptedException) {
-                Thread.currentThread().interrupt()
-                throw CancellationException("Minecraft authentication was cancelled.").also { it.initCause(error) }
-            } catch (error: Exception) {
-                logger.error(
+    private suspend fun <T> execute(operation: String, edition: MinecraftEdition, block: () -> T): T = runInterruptible(Dispatchers.IO) {
+        try {
+            block().also {
+                logger.info(
                     "accounts",
-                    "Minecraft authentication failed",
-                    error,
+                    "Minecraft authentication completed",
                     mapOf("operation" to operation, "edition" to edition.name),
                 )
-                throw IllegalStateException(
-                    "Account authentication failed. Check the selected method and account details, then try again.",
-                    error,
-                )
             }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: InterruptedException) {
+            Thread.currentThread().interrupt()
+            throw CancellationException("Minecraft authentication was cancelled.").also { it.initCause(error) }
+        } catch (error: Exception) {
+            logger.error(
+                "accounts",
+                "Minecraft authentication failed",
+                error,
+                mapOf("operation" to operation, "edition" to edition.name),
+            )
+            throw IllegalStateException(
+                "Account authentication failed. Check the selected method and account details, then try again.",
+                error,
+            )
         }
+    }
 
     private fun MinecraftApplicationConfiguration.toMsaConfiguration() = MsaApplicationConfig(clientId, scope)
 
-    private fun requireBedrockVersion(version: String?): String =
-        requireNotNull(version?.trim()?.takeIf(String::isNotBlank)) {
-            "A Bedrock game version is required for Bedrock authentication."
-        }
+    private fun requireBedrockVersion(version: String?): String = requireNotNull(version?.trim()?.takeIf(String::isNotBlank)) {
+        "A Bedrock game version is required for Bedrock authentication."
+    }
 
     private companion object {
         val OFFLINE_USERNAME = Regex("^[A-Za-z0-9_]{1,16}$")

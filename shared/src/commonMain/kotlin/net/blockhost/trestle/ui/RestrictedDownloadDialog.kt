@@ -21,12 +21,14 @@ internal fun RestrictedDownloadDialog(state: LauncherUiState, actions: LauncherU
     val uri = LocalUriHandler.current
     val scope = rememberCoroutineScope()
     val picker = rememberFilePickerLauncher(type = FileKitType.File()) { file ->
-        if (file != null) scope.launch {
-            runCatching {
-                require(file.size() in 1..512L * 1024 * 1024) { "File too large" }
-                file.readBytes()
-            }.onSuccess(actions::acceptRestrictedDownload)
-                .onFailure { actions.reportLocalFileReadFailure(download.fileName) }
+        if (file != null) {
+            scope.launch {
+                runCatching {
+                    require(file.size() in 1..512L * 1024 * 1024) { "File too large" }
+                    file.readBytes()
+                }.onSuccess(actions::acceptRestrictedDownload)
+                    .onFailure { actions.reportLocalFileReadFailure(download.fileName) }
+            }
         }
     }
     AlertDialog(
@@ -34,7 +36,9 @@ internal fun RestrictedDownloadDialog(state: LauncherUiState, actions: LauncherU
         title = { Text("Download from the publisher") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("The publisher requires a manual download of ${download.fileName}. Download this exact version, then select the file. Trestle verifies its checksum and keeps a copy for installation.")
+                Text(
+                    "The publisher requires a manual download of ${download.fileName}. Download this exact version, then select the file. Trestle verifies its checksum and keeps a copy for installation.",
+                )
                 TextButton(onClick = { uri.openUri(download.websiteUrl) }) { Text("Open publisher download") }
             }
         },

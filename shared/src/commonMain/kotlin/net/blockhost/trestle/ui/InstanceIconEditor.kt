@@ -84,11 +84,7 @@ import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 
-internal data class BuiltInInstanceIcon(
-    val id: String,
-    val label: String,
-    val resource: DrawableResource,
-) {
+internal data class BuiltInInstanceIcon(val id: String, val label: String, val resource: DrawableResource) {
     val reference: String = "$BUILT_IN_INSTANCE_ICON_PREFIX$id"
 }
 
@@ -133,19 +129,23 @@ internal fun InstanceIconArtwork(
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
+
             builtInIcon != null -> Image(
                 painter = painterResource(builtInIcon.resource),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
+
             reference?.startsWith(BUILT_IN_INSTANCE_ICON_PREFIX) == true -> InstanceIconFallback(instance, size)
+
             !reference.isNullOrBlank() -> AsyncImage(
                 model = resolveInstanceIconModel(instance, reference),
                 contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
             )
+
             else -> InstanceIconFallback(instance, size)
         }
     }
@@ -161,11 +161,7 @@ private fun InstanceIconFallback(instance: GameInstance, size: Dp) {
 }
 
 @Composable
-internal fun InstanceIconSetting(
-    instance: GameInstance,
-    form: InstanceSettingsState,
-    onEdit: () -> Unit,
-) {
+internal fun InstanceIconSetting(instance: GameInstance, form: InstanceSettingsState, onEdit: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -348,13 +344,7 @@ internal fun InstanceIconEditorDialog(
 }
 
 @Composable
-private fun InstanceIconChoice(
-    label: String,
-    selected: Boolean,
-    testTag: String,
-    onClick: () -> Unit,
-    artwork: @Composable () -> Unit,
-) {
+private fun InstanceIconChoice(label: String, selected: Boolean, testTag: String, onClick: () -> Unit, artwork: @Composable () -> Unit) {
     Surface(
         color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.small,

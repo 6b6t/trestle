@@ -57,14 +57,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowScope
-import java.awt.MouseInfo
-import java.awt.Point
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherUiState
 import org.jetbrains.compose.resources.painterResource
+import java.awt.MouseInfo
+import java.awt.Point
 
 private enum class TitleBarMenu(val label: String) {
     FILE("File"),
@@ -162,17 +162,20 @@ internal fun DesktopTitleBarContent(
                                 onQuit = onQuit,
                                 onDismiss = { expandedMenu = null },
                             )
+
                             TitleBarMenu.VIEW -> ViewMenu(
                                 isMac = isMac,
                                 onCommand = onCommand,
                                 onDismiss = { expandedMenu = null },
                             )
+
                             TitleBarMenu.INSTANCE -> InstanceMenu(
                                 state = state,
                                 onCommand = onCommand,
                                 onStopInstance = onStopInstance,
                                 onDismiss = { expandedMenu = null },
                             )
+
                             TitleBarMenu.HELP -> HelpMenu(
                                 onCommand = onCommand,
                                 onDismiss = { expandedMenu = null },
@@ -245,12 +248,7 @@ private fun TitleBarMenuButton(
 }
 
 @Composable
-private fun FileMenu(
-    isMac: Boolean,
-    onCommand: (LauncherCommand) -> Unit,
-    onQuit: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun FileMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onQuit: () -> Unit, onDismiss: () -> Unit) {
     MenuAction("New instance", primaryShortcut(isMac, "N")) {
         onDismiss()
         onCommand(LauncherCommand.NEW_INSTANCE)
@@ -267,11 +265,7 @@ private fun FileMenu(
 }
 
 @Composable
-private fun ViewMenu(
-    isMac: Boolean,
-    onCommand: (LauncherCommand) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun ViewMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onDismiss: () -> Unit) {
     MenuAction("Library", primaryShortcut(isMac, "1")) {
         onDismiss()
         onCommand(LauncherCommand.SHOW_LIBRARY)
@@ -291,12 +285,7 @@ private fun ViewMenu(
 }
 
 @Composable
-private fun InstanceMenu(
-    state: LauncherUiState,
-    onCommand: (LauncherCommand) -> Unit,
-    onStopInstance: () -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun InstanceMenu(state: LauncherUiState, onCommand: (LauncherCommand) -> Unit, onStopInstance: () -> Unit, onDismiss: () -> Unit) {
     MenuAction(
         label = "Launch selected",
         enabled = state.selectedInstance?.installationState is InstallationState.Installed &&
@@ -326,10 +315,7 @@ private fun InstanceMenu(
 }
 
 @Composable
-private fun HelpMenu(
-    onCommand: (LauncherCommand) -> Unit,
-    onDismiss: () -> Unit,
-) {
+private fun HelpMenu(onCommand: (LauncherCommand) -> Unit, onDismiss: () -> Unit) {
     MenuAction("Keyboard shortcuts", "F1") {
         onDismiss()
         onCommand(LauncherCommand.SHOW_SHORTCUTS)
@@ -337,12 +323,7 @@ private fun HelpMenu(
 }
 
 @Composable
-private fun MenuAction(
-    label: String,
-    shortcut: String? = null,
-    enabled: Boolean = true,
-    onClick: () -> Unit,
-) {
+private fun MenuAction(label: String, shortcut: String? = null, enabled: Boolean = true, onClick: () -> Unit) {
     DropdownMenuItem(
         text = { Text(label, style = MaterialTheme.typography.bodyMedium) },
         onClick = onClick,
@@ -421,12 +402,14 @@ private fun WindowControlIcon(control: WindowControl, color: Color) {
                 strokeWidth = stroke,
                 cap = StrokeCap.Square,
             )
+
             WindowControl.MAXIMIZE -> drawRect(
                 color = color,
                 topLeft = Offset(2.5.dp.toPx(), 2.5.dp.toPx()),
                 size = Size(9.dp.toPx(), 9.dp.toPx()),
                 style = Stroke(stroke),
             )
+
             WindowControl.RESTORE -> {
                 drawRect(
                     color = color,
@@ -441,6 +424,7 @@ private fun WindowControlIcon(control: WindowControl, color: Color) {
                     style = Stroke(stroke),
                 )
             }
+
             WindowControl.CLOSE -> {
                 drawLine(
                     color = color,
@@ -461,39 +445,37 @@ private fun WindowControlIcon(control: WindowControl, color: Color) {
     }
 }
 
-private fun Modifier.titleBarDoubleClick(onDoubleClick: () -> Unit): Modifier =
-    pointerInput(onDoubleClick) {
-        var previousTapTime: Long? = null
-        var previousTapPosition: Point? = null
+private fun Modifier.titleBarDoubleClick(onDoubleClick: () -> Unit): Modifier = pointerInput(onDoubleClick) {
+    var previousTapTime: Long? = null
+    var previousTapPosition: Point? = null
 
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
-            val downPosition = currentPointerPosition()
-            val interval = previousTapTime?.let { down.uptimeMillis - it }
-            val isSecondTap = interval != null &&
-                interval in viewConfiguration.doubleTapMinTimeMillis..viewConfiguration.doubleTapTimeoutMillis &&
-                previousTapPosition.isNear(downPosition, viewConfiguration.touchSlop)
-            val up = waitForUpOrCancellation(PointerEventPass.Final)
-            val upPosition = currentPointerPosition()
-            val stayedWithinTapSlop = downPosition.isNear(upPosition, viewConfiguration.touchSlop)
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Final)
+        val downPosition = currentPointerPosition()
+        val interval = previousTapTime?.let { down.uptimeMillis - it }
+        val isSecondTap = interval != null &&
+            interval in viewConfiguration.doubleTapMinTimeMillis..viewConfiguration.doubleTapTimeoutMillis &&
+            previousTapPosition.isNear(downPosition, viewConfiguration.touchSlop)
+        val up = waitForUpOrCancellation(PointerEventPass.Final)
+        val upPosition = currentPointerPosition()
+        val stayedWithinTapSlop = downPosition.isNear(upPosition, viewConfiguration.touchSlop)
 
-            if (up != null && isSecondTap && stayedWithinTapSlop) {
-                previousTapTime = null
-                previousTapPosition = null
-                onDoubleClick()
-            } else if (up != null && stayedWithinTapSlop) {
-                previousTapTime = up.uptimeMillis
-                previousTapPosition = upPosition
-            } else {
-                previousTapTime = null
-                previousTapPosition = null
-            }
+        if (up != null && isSecondTap && stayedWithinTapSlop) {
+            previousTapTime = null
+            previousTapPosition = null
+            onDoubleClick()
+        } else if (up != null && stayedWithinTapSlop) {
+            previousTapTime = up.uptimeMillis
+            previousTapPosition = upPosition
+        } else {
+            previousTapTime = null
+            previousTapPosition = null
         }
     }
+}
 
 private fun currentPointerPosition(): Point? = MouseInfo.getPointerInfo()?.location
 
-private fun Point?.isNear(other: Point?, distance: Float): Boolean =
-    this != null && other != null && this.distance(other) <= distance
+private fun Point?.isNear(other: Point?, distance: Float): Boolean = this != null && other != null && this.distance(other) <= distance
 
 private fun primaryShortcut(isMac: Boolean, key: String): String = if (isMac) "⌘$key" else "Ctrl+$key"

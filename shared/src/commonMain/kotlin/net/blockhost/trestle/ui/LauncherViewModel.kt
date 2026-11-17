@@ -99,10 +99,7 @@ sealed interface LaunchStatus {
     data class Failed(val message: String) : LaunchStatus
 }
 
-data class InstanceLaunchState(
-    val instanceId: InstanceId? = null,
-    val status: LaunchStatus = LaunchStatus.NotChecked,
-)
+data class InstanceLaunchState(val instanceId: InstanceId? = null, val status: LaunchStatus = LaunchStatus.NotChecked)
 
 enum class ResourceBrowserPresentation {
     PAGE,
@@ -173,14 +170,13 @@ data class LocalFileImportState(
             else -> emptyList()
         }
 
-    override fun equals(other: Any?): Boolean =
-        other is LocalFileImportState &&
-            visible == other.visible &&
-            fileName == other.fileName &&
-            bytes.contentEquals(other.bytes) &&
-            selectedType == other.selectedType &&
-            targetInstanceId == other.targetInstanceId &&
-            sourceOrigin == other.sourceOrigin
+    override fun equals(other: Any?): Boolean = other is LocalFileImportState &&
+        visible == other.visible &&
+        fileName == other.fileName &&
+        bytes.contentEquals(other.bytes) &&
+        selectedType == other.selectedType &&
+        targetInstanceId == other.targetInstanceId &&
+        sourceOrigin == other.sourceOrigin
 
     override fun hashCode(): Int {
         var result = visible.hashCode()
@@ -683,9 +679,13 @@ class LauncherViewModel(
                         clientSettings = form.clientSettings.takeIf { form.preconfigureClientSettings },
                     ),
                 )
-                val configured = if (form.group.isBlank()) instance else services.repository.update(
-                    instance.copy(group = form.group.trim()),
-                )
+                val configured = if (form.group.isBlank()) {
+                    instance
+                } else {
+                    services.repository.update(
+                        instance.copy(group = form.group.trim()),
+                    )
+                }
                 mutableState.update {
                     it.copy(
                         selectedId = configured.id,
@@ -779,8 +779,12 @@ class LauncherViewModel(
         resourceJob = scope.launch {
             try {
                 val imported = services.modpackInstaller.importFtbAppInstances(path)
-                val configured = if (requestedGroup.isBlank()) imported else imported.map { instance ->
-                    services.repository.update(instance.copy(group = requestedGroup))
+                val configured = if (requestedGroup.isBlank()) {
+                    imported
+                } else {
+                    imported.map { instance ->
+                        services.repository.update(instance.copy(group = requestedGroup))
+                    }
                 }
                 mutableState.update {
                     it.copy(
@@ -913,12 +917,16 @@ class LauncherViewModel(
                         workingDirectory = "${instance.instanceDirectory}/game",
                         authentication = when {
                             activeAccount == null -> "Sign-in required"
+
                             activeAccount.profile.authenticationMethod == AccountAuthenticationMethod.OFFLINE ->
                                 "${activeAccount.profile.playerName} · Offline"
+
                             activeAccount.isAuthenticated && activeAccount.profile.edition == MinecraftEdition.JAVA ->
                                 activeAccount.profile.playerName
+
                             activeAccount.profile.edition == MinecraftEdition.BEDROCK ->
                                 "Select a Java account"
+
                             else -> "${activeAccount.profile.playerName} · Sign-in expired"
                         },
                     ),
@@ -988,9 +996,11 @@ class LauncherViewModel(
                             }
                             updateLaunch(instance.id, LaunchStatus.Running(event.processId), activeEvent = true)
                         }
+
                         is LaunchEvent.Log -> mutableState.update { state ->
                             state.copy(gameLogLines = (state.gameLogLines + event.line).takeLast(MAX_GAME_LOG_LINES))
                         }
+
                         is LaunchEvent.Exited -> {
                             startedAtEpochMillis?.let { recordPlayTime(instance.id, it) }
                             startedAtEpochMillis = null
@@ -1012,6 +1022,7 @@ class LauncherViewModel(
                                 )
                             }
                         }
+
                         is LaunchEvent.Failed -> {
                             startedAtEpochMillis?.let { recordPlayTime(instance.id, it) }
                             startedAtEpochMillis = null
@@ -1021,6 +1032,7 @@ class LauncherViewModel(
                                 activeEvent = true,
                             )
                         }
+
                         LaunchEvent.Cancelled -> {
                             startedAtEpochMillis?.let { recordPlayTime(instance.id, it) }
                             startedAtEpochMillis = null
@@ -1092,10 +1104,7 @@ class LauncherViewModel(
         mutableState.update { it.copy(gameLogLines = emptyList()) }
     }
 
-    override fun openResourceBrowser(
-        type: ResourceType,
-        presentation: ResourceBrowserPresentation,
-    ) {
+    override fun openResourceBrowser(type: ResourceType, presentation: ResourceBrowserPresentation) {
         val curseForgeAvailable = services.resourcePlatforms.platform(ResourceProvider.CURSEFORGE).isAvailable
         mutableState.value = mutableState.value.copy(
             resourceBrowser = ResourceBrowserState(
@@ -1320,7 +1329,13 @@ class LauncherViewModel(
             mutableState.value = mutableState.value.copy(
                 resourceBrowser = browser.copy(isInstalling = true, error = null),
                 operation = OperationStatus(
-                    title = if (project.type == ResourceType.MODPACK) "Installing modpack" else "Installing ${project.type.label.lowercase()}",
+                    title = if (project.type ==
+                        ResourceType.MODPACK
+                    ) {
+                        "Installing modpack"
+                    } else {
+                        "Installing ${project.type.label.lowercase()}"
+                    },
                     detail = project.name,
                     cancellable = true,
                     cancelLabel = "Cancel",
@@ -1341,7 +1356,9 @@ class LauncherViewModel(
                         browser.selectedOptionalDependencies,
                         ::updateResourceProgress,
                     )
-                    val dependencyText = if (summary.dependencyCount == 0) "" else {
+                    val dependencyText = if (summary.dependencyCount == 0) {
+                        ""
+                    } else {
                         " with ${summary.dependencyCount} ${if (summary.dependencyCount == 1) "dependency" else "dependencies"}"
                     }
                     "${project.name} was installed$dependencyText."
@@ -1391,7 +1408,11 @@ class LauncherViewModel(
         val download = mutableState.value.restrictedDownload ?: return
         scope.launch {
             runCatching { services.restrictedDownloads.accept(download, bytes) }
-                .onSuccess { mutableState.update { it.copy(restrictedDownload = null, error = null, notice = "File verified. Retry the installation to continue.") } }
+                .onSuccess {
+                    mutableState.update {
+                        it.copy(restrictedDownload = null, error = null, notice = "File verified. Retry the installation to continue.")
+                    }
+                }
                 .onFailure(::showError)
         }
     }
@@ -1414,38 +1435,54 @@ class LauncherViewModel(
             try {
                 val provider = ResourceProvider.valueOf(origin.provider)
                 val platform = services.resourcePlatforms.platform(provider)
-                val project = ResourceProject(provider, origin.projectId, origin.projectId, origin.name, "", "",
-                    ResourceType.MODPACK, 0, instance.iconReference, origin.websiteUrl, emptyList())
+                val project = ResourceProject(
+                    provider, origin.projectId, origin.projectId, origin.name, "", "",
+                    ResourceType.MODPACK, 0, instance.iconReference, origin.websiteUrl, emptyList(),
+                )
                 val versions = platform.versions(project, null, null)
                 val current = versions.firstOrNull { it.id == origin.versionId }
                     ?: platform.version(origin.projectId, origin.versionId)
-                val latest = versions.filter { it.channel == ReleaseChannel.RELEASE && it.id != origin.versionId && it.publishedAt > current.publishedAt }
+                val latest = versions.filter {
+                    it.channel == ReleaseChannel.RELEASE && it.id != origin.versionId &&
+                        it.publishedAt > current.publishedAt
+                }
                     .maxByOrNull { it.publishedAt }
                 if (latest == null) {
                     mutableState.update { it.copy(notice = "No newer stable version of this pack is available.") }
                 } else {
                     preparePackUpdateNow(instance, project, latest)
                 }
-            } catch (error: CancellationException) { throw error
-            } catch (error: Exception) { showError(error)
-            } finally { mutableState.update { it.copy(operation = null) } }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                showError(error)
+            } finally {
+                mutableState.update { it.copy(operation = null) }
+            }
         }
     }
 
     private fun preparePackUpdate(instance: GameInstance, project: ResourceProject, version: ResourceVersion) {
         if (resourceJob?.isActive == true) return
         resourceJob = scope.launch {
-            try { preparePackUpdateNow(instance, project, version)
-            } catch (error: CancellationException) { throw error
-            } catch (error: Exception) { showError(error)
-            } finally { mutableState.update { it.copy(operation = null) } }
+            try {
+                preparePackUpdateNow(instance, project, version)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                showError(error)
+            } finally {
+                mutableState.update { it.copy(operation = null) }
+            }
         }
     }
 
     private suspend fun preparePackUpdateNow(instance: GameInstance, project: ResourceProject, version: ResourceVersion) {
         require(mutableState.value.activeLaunch?.instanceId != instance.id) { "Stop Minecraft before preparing a pack update." }
         require(instance.installationState is InstallationState.Installed) { "Finish installing this instance first." }
-        mutableState.update { it.copy(operation = OperationStatus("Preparing modpack update", project.name, cancellable = true, instanceId = instance.id)) }
+        mutableState.update {
+            it.copy(operation = OperationStatus("Preparing modpack update", project.name, cancellable = true, instanceId = instance.id))
+        }
         val preview = services.modpackInstaller.prepareUpdate(instance, project, version, ::updateResourceProgress)
         mutableState.update { it.copy(modpackUpdatePreview = preview) }
     }
@@ -1464,13 +1501,22 @@ class LauncherViewModel(
                     services.repository.update(updated)
                     services.modpackUpdates.discardPreview(updated)
                     cachedLaunch = null
-                    mutableState.update { it.copy(modpackUpdatePreview = null, selectedId = updated.id, canRollbackModpack = true,
-                        notice = "Pack updated. The previous files are backed up for rollback.") }
+                    mutableState.update {
+                        it.copy(
+                            modpackUpdatePreview = null,
+                            selectedId = updated.id,
+                            canRollbackModpack = true,
+                            notice = "Pack updated. The previous files are backed up for rollback.",
+                        )
+                    }
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
-            } catch (error: Exception) { showError(error)
-            } finally { mutableState.update { it.copy(operation = null) } }
+            } catch (error: Exception) {
+                showError(error)
+            } finally {
+                mutableState.update { it.copy(operation = null) }
+            }
         }
     }
 
@@ -1495,8 +1541,11 @@ class LauncherViewModel(
                 }
                 refreshInstalledContent()
                 checkLaunchReadiness(mutableState.value.selectedInstance)
-            } catch (error: Exception) { showError(error)
-            } finally { mutableState.update { it.copy(operation = null) } }
+            } catch (error: Exception) {
+                showError(error)
+            } finally {
+                mutableState.update { it.copy(operation = null) }
+            }
         }
     }
 
@@ -1520,18 +1569,24 @@ class LauncherViewModel(
                 val content = services.resourceInstaller.installedContent(instance)
                 val canRollback = services.modpackUpdates.canRollback(instance)
                 mutableState.update { state ->
-                    if (state.selectedId != instance.id) state
-                    else state.copy(
-                        installedContent = content,
-                        canRollbackModpack = canRollback,
-                        installedContentUpdates = state.installedContentUpdates.filterKeys { key ->
-                            content.any { it.key == key }
-                        },
-                        isLoadingInstalledContent = false,
-                    )
+                    if (state.selectedId != instance.id) {
+                        state
+                    } else {
+                        state.copy(
+                            installedContent = content,
+                            canRollbackModpack = canRollback,
+                            installedContentUpdates = state.installedContentUpdates.filterKeys { key ->
+                                content.any { it.key == key }
+                            },
+                            isLoadingInstalledContent = false,
+                        )
+                    }
                 }
-                val identified = services.contentIdentifier.identify(instance, content,
-                    online = mutableState.value.launcherPreferences.content.trackMetadata)
+                val identified = services.contentIdentifier.identify(
+                    instance,
+                    content,
+                    online = mutableState.value.launcherPreferences.content.trackMetadata,
+                )
                 currentCoroutineContext().ensureActive()
                 mutableState.update { state ->
                     if (state.selectedId == instance.id) state.copy(installedContent = identified) else state
@@ -1567,17 +1622,20 @@ class LauncherViewModel(
                     }
                 }
                 mutableState.update { state ->
-                    if (state.selectedId != instance.id) state
-                    else state.copy(
-                        installedContentUpdates = updates,
-                        isCheckingInstalledContentUpdates = false,
-                        notice = when {
-                            failed > 0 -> "${updates.size} updates found; $failed items could not be checked. Try again later."
-                            updates.isEmpty() -> "Installed content is up to date."
-                            updates.size == 1 -> "One content update is available."
-                            else -> "${updates.size} content updates are available."
-                        },
-                    )
+                    if (state.selectedId != instance.id) {
+                        state
+                    } else {
+                        state.copy(
+                            installedContentUpdates = updates,
+                            isCheckingInstalledContentUpdates = false,
+                            notice = when {
+                                failed > 0 -> "${updates.size} updates found; $failed items could not be checked. Try again later."
+                                updates.isEmpty() -> "Installed content is up to date."
+                                updates.size == 1 -> "One content update is available."
+                                else -> "${updates.size} content updates are available."
+                            },
+                        )
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1686,8 +1744,11 @@ class LauncherViewModel(
             try {
                 val inventory = services.gameDataManager.inventory(instance)
                 mutableState.update { state ->
-                    if (state.selectedId != instance.id) state
-                    else state.copy(gameData = inventory, isLoadingGameData = false)
+                    if (state.selectedId != instance.id) {
+                        state
+                    } else {
+                        state.copy(gameData = inventory, isLoadingGameData = false)
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1875,8 +1936,11 @@ class LauncherViewModel(
             try {
                 val text = services.gameDataManager.readLog(instance, logKey)
                 mutableState.update { state ->
-                    if (state.selectedId != instance.id || state.selectedInstanceLogKey != logKey) state
-                    else state.copy(selectedInstanceLogText = text, isLoadingInstanceLog = false)
+                    if (state.selectedId != instance.id || state.selectedInstanceLogKey != logKey) {
+                        state
+                    } else {
+                        state.copy(selectedInstanceLogText = text, isLoadingInstanceLog = false)
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
@@ -1908,10 +1972,7 @@ class LauncherViewModel(
         }
     }
 
-    private fun runGameDataOperation(
-        title: String,
-        operation: suspend (GameInstance) -> String,
-    ) {
+    private fun runGameDataOperation(title: String, operation: suspend (GameInstance) -> String) {
         if (gameDataJob?.isActive == true) return
         val instance = mutableState.value.selectedInstance ?: return
         gameDataJob = scope.launch {
@@ -2047,12 +2108,7 @@ class LauncherViewModel(
         }
     }
 
-    override fun queueLocalFileImport(
-        fileName: String,
-        bytes: ByteArray,
-        type: ResourceType?,
-        sourceOrigin: String?,
-    ) {
+    override fun queueLocalFileImport(fileName: String, bytes: ByteArray, type: ResourceType?, sourceOrigin: String?) {
         val extension = fileName.substringAfterLast('.', "").lowercase()
         val allowedTypes = when (extension) {
             "jar" -> listOf(ResourceType.MOD)
@@ -2096,8 +2152,11 @@ class LauncherViewModel(
     override fun setLocalFileImportType(type: ResourceType) {
         mutableState.update { state ->
             val pending = state.localFileImport
-            if (type !in pending.allowedTypes) state
-            else state.copy(localFileImport = pending.copy(selectedType = type))
+            if (type !in pending.allowedTypes) {
+                state
+            } else {
+                state.copy(localFileImport = pending.copy(selectedType = type))
+            }
         }
     }
 
@@ -2211,31 +2270,37 @@ class LauncherViewModel(
                 val clientSettings = services.repository.readClientSettings(instance.id)
                 mutableState.update { state ->
                     val form = state.instanceSettings
-                    if (!form.visible || form.instanceId != instance.id) state
-                    else state.copy(
-                        instanceSettings = form.copy(
-                            clientSettings = clientSettings,
-                            isLoadingClientSettings = false,
-                            clientSettingsError = if (clientSettings == null) {
-                                "Client settings are unavailable for Minecraft ${instance.minecraftVersionId}."
-                            } else {
-                                null
-                            },
-                        ),
-                    )
+                    if (!form.visible || form.instanceId != instance.id) {
+                        state
+                    } else {
+                        state.copy(
+                            instanceSettings = form.copy(
+                                clientSettings = clientSettings,
+                                isLoadingClientSettings = false,
+                                clientSettingsError = if (clientSettings == null) {
+                                    "Client settings are unavailable for Minecraft ${instance.minecraftVersionId}."
+                                } else {
+                                    null
+                                },
+                            ),
+                        )
+                    }
                 }
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
                 mutableState.update { state ->
                     val form = state.instanceSettings
-                    if (!form.visible || form.instanceId != instance.id) state
-                    else state.copy(
-                        instanceSettings = form.copy(
-                            isLoadingClientSettings = false,
-                            clientSettingsError = error.message ?: "Client settings could not be loaded.",
-                        ),
-                    )
+                    if (!form.visible || form.instanceId != instance.id) {
+                        state
+                    } else {
+                        state.copy(
+                            instanceSettings = form.copy(
+                                isLoadingClientSettings = false,
+                                clientSettingsError = error.message ?: "Client settings could not be loaded.",
+                            ),
+                        )
+                    }
                 }
             }
         }
@@ -2356,7 +2421,9 @@ class LauncherViewModel(
         if (
             form.name.isBlank() || form.minecraftVersionId.isBlank() ||
             minimum <= 0 || maximum < minimum || form.isLoadingClientSettings
-        ) return
+        ) {
+            return
+        }
         scope.launch {
             mutableState.update { it.copy(instanceSettings = form.copy(isSaving = true)) }
             try {
@@ -2835,9 +2902,11 @@ class LauncherViewModel(
 
     override fun remindAboutLauncherUpdateLater() {
         val preferences = mutableState.value.launcherPreferences
-        val next = preferences.copy(updates = preferences.updates.copy(
-            remindAfterMillis = services.clock.nowMillis() + 24 * 60 * 60 * 1000L,
-        ))
+        val next = preferences.copy(
+            updates = preferences.updates.copy(
+                remindAfterMillis = services.clock.nowMillis() + 24 * 60 * 60 * 1000L,
+            ),
+        )
         runCatching {
             services.preferences.write(next)
             mutableState.update { it.copy(launcherPreferences = next, availableUpdate = null) }
@@ -2848,8 +2917,13 @@ class LauncherViewModel(
         if (updateJob?.isActive == true) return
         val preferences = mutableState.value.launcherPreferences.updates
         val now = services.clock.nowMillis()
-        if (automatic && (!preferences.automaticChecks || now < preferences.remindAfterMillis ||
-                (now >= preferences.lastCheckedAtMillis && now - preferences.lastCheckedAtMillis < 24 * 60 * 60 * 1000L))) return
+        if (automatic && (
+                !preferences.automaticChecks || now < preferences.remindAfterMillis ||
+                    (now >= preferences.lastCheckedAtMillis && now - preferences.lastCheckedAtMillis < 24 * 60 * 60 * 1000L)
+                )
+        ) {
+            return
+        }
         updateJob = scope.launch {
             mutableState.update { it.copy(isCheckingForUpdate = true) }
             try {
@@ -2862,7 +2936,15 @@ class LauncherViewModel(
                     it.copy(
                         launcherPreferences = saved,
                         availableUpdate = update.takeIf { !automatic || saved.updates.automaticChecks },
-                        notice = if (automatic) it.notice else if (update == null) "No newer Trestle release is available." else "Trestle ${update.version} is available.",
+                        notice = if (automatic) {
+                            it.notice
+                        } else if (update ==
+                            null
+                        ) {
+                            "No newer Trestle release is available."
+                        } else {
+                            "Trestle ${update.version} is available."
+                        },
                     )
                 }
             } catch (error: CancellationException) {
@@ -3019,6 +3101,7 @@ class LauncherViewModel(
                                 .thenByDescending { it.build },
                         )
                         .map { it.version }
+
                     ModLoader.NEOFORGE -> services.neoForgeMetadataClient.loaderVersions(gameVersion)
                         .sortedWith(
                             compareByDescending<net.blockhost.trestle.metadata.NeoForgeLoaderVersion> { it.stable }
@@ -3026,6 +3109,7 @@ class LauncherViewModel(
                                 .thenByDescending { it.releaseTime },
                         )
                         .map { it.version }
+
                     ModLoader.FORGE -> services.forgeMetadataClient.loaderVersions(gameVersion)
                         .sortedWith(
                             compareByDescending<net.blockhost.trestle.metadata.ForgeLoaderVersion> { it.recommended }
@@ -3033,12 +3117,14 @@ class LauncherViewModel(
                                 .thenByDescending { it.releaseTime },
                         )
                         .map { it.version }
+
                     ModLoader.QUILT -> services.quiltMetadataClient.loaderVersions(gameVersion)
                         .sortedWith(
                             compareByDescending<net.blockhost.trestle.metadata.QuiltLoaderVersion> { it.stable }
                                 .thenByDescending { it.build },
                         )
                         .map { it.version }
+
                     ModLoader.VANILLA -> emptyList()
                 }
                 if (
@@ -3128,8 +3214,7 @@ class LauncherViewModel(
         }.getOrNull()
     }
 
-    private fun supportedLoaders(): Set<ModLoader> =
-        services.runtime.capabilities.supportedModLoaders ?: ModLoader.entries.toSet()
+    private fun supportedLoaders(): Set<ModLoader> = services.runtime.capabilities.supportedModLoaders ?: ModLoader.entries.toSet()
 
     private fun updateRuntimePreparation(progress: RuntimePreparationProgress) {
         mutableState.update {
@@ -3146,18 +3231,14 @@ class LauncherViewModel(
         }
     }
 
-    private fun updateLaunch(
-        id: InstanceId,
-        status: LaunchStatus,
-        notice: String? = null,
-        activeEvent: Boolean = false,
-    ) {
+    private fun updateLaunch(id: InstanceId, status: LaunchStatus, notice: String? = null, activeEvent: Boolean = false) {
         mutableState.update { state ->
             val activeLaunch = if (activeEvent) {
                 when (status) {
                     LaunchStatus.Starting,
                     is LaunchStatus.Running,
                     -> InstanceLaunchState(id, status)
+
                     else -> state.activeLaunch?.takeUnless { it.instanceId == id }
                 }
             } else {
@@ -3223,17 +3304,22 @@ private fun parseCommandLine(value: String): List<String> {
                 escaping = false
                 started = true
             }
+
             character == '\\' -> escaping = true
+
             quote != null && character == quote -> quote = null
+
             quote == null && character in setOf('\'', '"') -> {
                 quote = character
                 started = true
             }
+
             quote == null && character.isWhitespace() -> if (started) {
                 arguments += current.toString()
                 current.clear()
                 started = false
             }
+
             else -> {
                 current.append(character)
                 started = true
@@ -3258,9 +3344,13 @@ private fun AccountLoginState.toLoginRequest(): AccountLoginRequest? = when (met
     AccountAuthenticationMethod.MICROSOFT_DEVICE_CODE,
     AccountAuthenticationMethod.MICROSOFT_BEDROCK_DEVICE_CODE,
     -> {
-        if (edition == MinecraftEdition.BEDROCK && bedrockGameVersion.isBlank()) null
-        else AccountLoginRequest.DeviceCode(method, bedrockGameVersion.takeIf(String::isNotBlank))
+        if (edition == MinecraftEdition.BEDROCK && bedrockGameVersion.isBlank()) {
+            null
+        } else {
+            AccountLoginRequest.DeviceCode(method, bedrockGameVersion.takeIf(String::isNotBlank))
+        }
     }
+
     AccountAuthenticationMethod.MICROSOFT_CREDENTIALS,
     AccountAuthenticationMethod.MICROSOFT_BEDROCK_CREDENTIALS,
     -> {
@@ -3278,13 +3368,19 @@ private fun AccountLoginState.toLoginRequest(): AccountLoginRequest? = when (met
             )
         }
     }
+
     AccountAuthenticationMethod.MICROSOFT_REFRESH_TOKEN,
     AccountAuthenticationMethod.MICROSOFT_COOKIES,
     AccountAuthenticationMethod.MICROSOFT_ACCESS_TOKEN,
-    -> if (importedSecret.isBlank()) null else AccountLoginRequest.SecretImport(
-        method,
-        SecretValue(importedSecret.reveal()),
-    )
+    -> if (importedSecret.isBlank()) {
+        null
+    } else {
+        AccountLoginRequest.SecretImport(
+            method,
+            SecretValue(importedSecret.reveal()),
+        )
+    }
+
     AccountAuthenticationMethod.OFFLINE -> offlineUsername.trim().takeIf(String::isNotBlank)
         ?.let(AccountLoginRequest::Offline)
 }

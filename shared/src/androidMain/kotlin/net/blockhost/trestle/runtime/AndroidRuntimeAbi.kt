@@ -34,8 +34,9 @@ internal enum class AndroidRuntimeAbi(
     }
 
     companion object {
-        fun forArchitecture(architecture: Architecture): AndroidRuntimeAbi =
-            entries.firstOrNull { it.architecture == architecture }
-                ?: throw LauncherException.RuntimeUnavailable("Android game launch requires ARM64 or x64. This process uses ${architecture.name}.")
+        fun forArchitecture(architecture: Architecture): AndroidRuntimeAbi = entries.firstOrNull { it.architecture == architecture }
+            ?: throw LauncherException.RuntimeUnavailable(
+                "Android game launch requires ARM64 or x64. This process uses ${architecture.name}.",
+            )
     }
 }

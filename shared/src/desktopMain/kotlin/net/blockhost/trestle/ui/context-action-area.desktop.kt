@@ -28,10 +28,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 
 @Composable
-internal actual fun ContextActionArea(
-    actions: List<ContextAction>,
-    content: @Composable () -> Unit,
-) {
+internal actual fun ContextActionArea(actions: List<ContextAction>, content: @Composable () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var menuPosition by remember { mutableStateOf(Offset.Zero) }
     val density = LocalDensity.current

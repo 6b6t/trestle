@@ -83,8 +83,7 @@ class FileInstanceRepository(
         }
     }
 
-    override suspend fun get(id: InstanceId): GameInstance? =
-        instances.value.firstOrNull { it.id == id }
+    override suspend fun get(id: InstanceId): GameInstance? = instances.value.firstOrNull { it.id == id }
 
     override suspend fun create(request: CreateInstanceRequest): GameInstance = mutex.withLock {
         val id = generateUniqueId()
@@ -138,11 +137,7 @@ class FileInstanceRepository(
         instance
     }
 
-    override suspend fun updateWithIcon(
-        instance: GameInstance,
-        fileName: String,
-        bytes: ByteArray,
-    ): GameInstance = mutex.withLock {
+    override suspend fun updateWithIcon(instance: GameInstance, fileName: String, bytes: ByteArray): GameInstance = mutex.withLock {
         val current = mutableInstances.value
         val previous = current.firstOrNull { it.id == instance.id }
             ?: error("Instance ${instance.id.value} does not exist.")
@@ -274,11 +269,7 @@ class FileInstanceRepository(
         fileSystem.atomicMove(temporaryPath, registryPath)
     }
 
-    private fun writeClientSettings(
-        instance: GameInstance,
-        settings: MinecraftClientSettings,
-        preserveExisting: Boolean,
-    ) {
+    private fun writeClientSettings(instance: GameInstance, settings: MinecraftClientSettings, preserveExisting: Boolean) {
         val optionsPath = instance.optionsPath()
         val existing = if (preserveExisting && fileSystem.exists(optionsPath)) {
             fileSystem.read(optionsPath) { readUtf8() }
@@ -331,10 +322,12 @@ class FileInstanceRepository(
                 fileSystem.createDirectories(destination)
                 fileSystem.list(source).forEach { child -> copyTree(child, destination / child.name) }
             }
+
             metadata.isRegularFile -> {
                 fileSystem.createDirectories(requireNotNull(destination.parent))
                 fileSystem.copy(source, destination)
             }
+
             else -> throw LauncherException.FileSystem("The instance contains an unsupported filesystem entry.")
         }
     }

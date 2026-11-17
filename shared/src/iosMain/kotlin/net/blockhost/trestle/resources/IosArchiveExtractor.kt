@@ -8,9 +8,7 @@ import okio.Path.Companion.toPath
 import okio.buffer
 import okio.openZip
 
-internal class IosArchiveExtractor(
-    private val fileSystem: FileSystem = FileSystem.SYSTEM,
-) : ArchiveExtractor {
+internal class IosArchiveExtractor(private val fileSystem: FileSystem = FileSystem.SYSTEM) : ArchiveExtractor {
     override fun extract(archive: Path, destination: Path) {
         try {
             fileSystem.openZip(archive).useOkio { zip ->

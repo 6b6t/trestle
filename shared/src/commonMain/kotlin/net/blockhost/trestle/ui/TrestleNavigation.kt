@@ -52,6 +52,7 @@ internal fun LauncherNavigationLayout(
         windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND) &&
             windowSizeClass.isHeightAtLeastBreakpoint(WindowSizeClass.HEIGHT_DP_MEDIUM_LOWER_BOUND) ->
             NavigationSuiteType.WideNavigationRailExpanded
+
         else -> NavigationSuiteScaffoldDefaults.navigationSuiteType(adaptiveInfo)
     }
     NavigationSuiteScaffold(

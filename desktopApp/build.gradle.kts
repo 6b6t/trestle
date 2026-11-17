@@ -168,8 +168,12 @@ tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageT
         freeArgs.addAll("--about-url", "https://github.com/6b6t/trestle")
     }
     if (targetFormat == TargetFormat.Msi || targetFormat == TargetFormat.Exe) {
-        freeArgs.addAll("--win-help-url", "https://github.com/6b6t/trestle/issues",
-            "--win-update-url", "https://github.com/6b6t/trestle/releases/latest")
+        freeArgs.addAll(
+            "--win-help-url",
+            "https://github.com/6b6t/trestle/issues",
+            "--win-update-url",
+            "https://github.com/6b6t/trestle/releases/latest",
+        )
     }
 }
 
@@ -179,8 +183,10 @@ if (System.getProperty("os.name") == "Mac OS X") {
         commandLine(
             "python3",
             rootProject.file("scripts/sign-macos.py"),
-            "--app", layout.buildDirectory.dir("compose/binaries/main/app/Trestle.app").get().asFile,
-            "--entitlements", rootProject.file("packaging/macos/entitlements.plist"),
+            "--app",
+            layout.buildDirectory.dir("compose/binaries/main/app/Trestle.app").get().asFile,
+            "--entitlements",
+            rootProject.file("packaging/macos/entitlements.plist"),
         )
     }
     tasks.matching { it.name == "packageDmg" || it.name == "packagePkg" }.configureEach {

@@ -6,9 +6,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 
-internal class AndroidGameOutputLog(
-    private val file: File,
-) {
+internal class AndroidGameOutputLog(private val file: File) {
     init {
         file.parentFile?.mkdirs()
         FileOutputStream(file, false).close()

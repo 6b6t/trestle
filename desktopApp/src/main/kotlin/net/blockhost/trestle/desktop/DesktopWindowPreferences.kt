@@ -5,9 +5,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.WindowPosition
 import androidx.compose.ui.window.WindowState
+import net.blockhost.trestle.ui.LauncherDestination
 import java.awt.GraphicsEnvironment
 import java.util.prefs.Preferences
-import net.blockhost.trestle.ui.LauncherDestination
 
 internal data class RestoredWindow(
     val size: DpSize = DpSize(1180.dp, 760.dp),

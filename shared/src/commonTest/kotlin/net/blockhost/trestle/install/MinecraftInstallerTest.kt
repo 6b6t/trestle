@@ -24,8 +24,8 @@ import net.blockhost.trestle.metadata.NeoForgeMetadataClient
 import net.blockhost.trestle.metadata.OperatingSystem
 import net.blockhost.trestle.metadata.PlatformEnvironment
 import net.blockhost.trestle.metadata.QuiltMetadataClient
-import okio.Path.Companion.toPath
 import okio.ByteString.Companion.encodeUtf8
+import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -50,24 +50,30 @@ class MinecraftInstallerTest {
         val profile =
             """{"version":"21.1.1","mainClass":"io.example.Wrapper","libraries":[{"name":"example:launch:1.0","downloads":{"artifact":{"url":"https://cdn.test/launch.jar"}}}],"mavenFiles":[{"name":"example:generated:1.0","downloads":{"artifact":{"url":"https://cdn.test/generated.jar"}}}],"minecraftArguments":"--fml.neoForgeVersion 21.1.1 --launchTarget neoforgeclient","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}"""
         val profileSha256 = profile.encodeUtf8().sha256().hex()
-        val client = HttpClient(MockEngine { request ->
-            when (request.url.encodedPath) {
-                "/mc/game/version_manifest_v2.json" -> respond(
-                    """{"latest":{"release":"1.21.1","snapshot":"1.21.1"},"versions":[{"id":"1.21.1","type":"release","url":"https://meta.test/base.json"}]}""",
-                    headers = jsonHeaders,
-                )
-                "/base.json" -> respond(
-                    """{"id":"1.21.1","mainClass":"net.minecraft.client.main.Main","downloads":{"client":{"url":"https://cdn.test/client.jar"}},"arguments":{"game":["--base"],"jvm":["-cp","${'$'}{classpath}"]},"javaVersion":{"majorVersion":21}}""",
-                    headers = jsonHeaders,
-                )
-                "/v1/net.neoforged/index.json" -> respond(
-                    """{"versions":[{"version":"21.1.1","releaseTime":"2026-01-01T00:00:00Z","sha256":"$profileSha256","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}]}""",
-                    headers = jsonHeaders,
-                )
-                "/v1/net.neoforged/21.1.1.json" -> respond(profile, headers = jsonHeaders)
-                else -> respond("artifact")
-            }
-        })
+        val client = HttpClient(
+            MockEngine { request ->
+                when (request.url.encodedPath) {
+                    "/mc/game/version_manifest_v2.json" -> respond(
+                        """{"latest":{"release":"1.21.1","snapshot":"1.21.1"},"versions":[{"id":"1.21.1","type":"release","url":"https://meta.test/base.json"}]}""",
+                        headers = jsonHeaders,
+                    )
+
+                    "/base.json" -> respond(
+                        """{"id":"1.21.1","mainClass":"net.minecraft.client.main.Main","downloads":{"client":{"url":"https://cdn.test/client.jar"}},"arguments":{"game":["--base"],"jvm":["-cp","${'$'}{classpath}"]},"javaVersion":{"majorVersion":21}}""",
+                        headers = jsonHeaders,
+                    )
+
+                    "/v1/net.neoforged/index.json" -> respond(
+                        """{"versions":[{"version":"21.1.1","releaseTime":"2026-01-01T00:00:00Z","sha256":"$profileSha256","requires":[{"uid":"net.minecraft","equals":"1.21.1"}]}]}""",
+                        headers = jsonHeaders,
+                    )
+
+                    "/v1/net.neoforged/21.1.1.json" -> respond(profile, headers = jsonHeaders)
+
+                    else -> respond("artifact")
+                }
+            },
+        )
         val installer = MinecraftInstaller(
             repository = repository,
             metadataClient = MinecraftMetadataClient(client),
@@ -104,10 +110,12 @@ class MinecraftInstallerTest {
         )
         repository.initialize()
         val instance = repository.create(CreateInstanceRequest("Test", "1.21.8"))
-        val client = HttpClient(MockEngine {
-            delay(Long.MAX_VALUE)
-            respond("")
-        })
+        val client = HttpClient(
+            MockEngine {
+                delay(Long.MAX_VALUE)
+                respond("")
+            },
+        )
         val installer = MinecraftInstaller(
             repository = repository,
             metadataClient = MinecraftMetadataClient(client),

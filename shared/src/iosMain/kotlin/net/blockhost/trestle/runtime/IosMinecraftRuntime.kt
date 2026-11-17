@@ -15,23 +15,11 @@ import net.blockhost.trestle.metadata.InstalledVersion
 import okio.FileSystem
 import okio.Path.Companion.toPath
 
-data class IosRuntimeAvailability(
-    val available: Boolean,
-    val reason: String? = null,
-    val supportedJavaMajors: Set<Int> = emptySet(),
-)
+data class IosRuntimeAvailability(val available: Boolean, val reason: String? = null, val supportedJavaMajors: Set<Int> = emptySet())
 
-data class IosRuntimeDescriptor(
-    val javaHome: String,
-    val nativeDirectory: String,
-    val classpathEntries: List<String>,
-)
+data class IosRuntimeDescriptor(val javaHome: String, val nativeDirectory: String, val classpathEntries: List<String>)
 
-data class IosJvmLaunchRequest(
-    val arguments: List<String>,
-    val workingDirectory: String,
-    val environment: Map<String, String>,
-)
+data class IosJvmLaunchRequest(val arguments: List<String>, val workingDirectory: String, val environment: Map<String, String>)
 
 interface IosJvmLaunchObserver {
     fun onStarted()
@@ -47,9 +35,7 @@ interface IosRuntimeBridge {
     fun cancel()
 }
 
-class UnavailableIosRuntimeBridge(
-    reason: String = DEFAULT_REASON,
-) : IosRuntimeBridge {
+class UnavailableIosRuntimeBridge(reason: String = DEFAULT_REASON) : IosRuntimeBridge {
     override val availability = IosRuntimeAvailability(available = false, reason = reason)
     override fun runtime(javaMajor: Int): IosRuntimeDescriptor? = null
     override fun launch(request: IosJvmLaunchRequest, observer: IosJvmLaunchObserver) {
@@ -225,22 +211,17 @@ internal class IosMinecraftRuntime(
         }
     }
 
-    private fun isDesktopOnlyJvmArgument(argument: String): Boolean =
-        argument == "-cp" ||
-            argument == "-classpath" ||
-            argument.contains("\${classpath}") ||
-            argument.startsWith("-Djava.library.path=") ||
-            argument.startsWith("-Dos.name=") ||
-            argument.startsWith("-Dos.version=")
+    private fun isDesktopOnlyJvmArgument(argument: String): Boolean = argument == "-cp" ||
+        argument == "-classpath" ||
+        argument.contains("\${classpath}") ||
+        argument.startsWith("-Djava.library.path=") ||
+        argument.startsWith("-Dos.name=") ||
+        argument.startsWith("-Dos.version=")
 
     private fun substitutePublic(argument: String, values: Map<String, String>): String =
         PLACEHOLDER.replace(argument) { match -> values[match.groupValues[1]] ?: match.value }
 
-    private fun substituteArgument(
-        argument: String,
-        values: Map<String, String>,
-        session: AuthSession?,
-    ): CommandArgument {
+    private fun substituteArgument(argument: String, values: Map<String, String>, session: AuthSession?): CommandArgument {
         if (session == null && AUTH_PLACEHOLDERS.any(argument::contains)) {
             return CommandArgument.RequiredCredential("Java account")
         }

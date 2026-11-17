@@ -23,10 +23,7 @@ import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 
 @Composable
-internal actual fun ContextActionArea(
-    actions: List<ContextAction>,
-    content: @Composable () -> Unit,
-) {
+internal actual fun ContextActionArea(actions: List<ContextAction>, content: @Composable () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier

@@ -14,10 +14,7 @@ import java.io.BufferedInputStream
 import java.io.FileInputStream
 import java.nio.file.Files
 
-internal data class AndroidJavaRuntime(
-    val home: Path,
-    val jvmLibrary: Path,
-)
+internal data class AndroidJavaRuntime(val home: Path, val jvmLibrary: Path)
 
 internal class AndroidJavaRuntimeManager(
     private val directories: LauncherDirectories,
@@ -169,8 +166,11 @@ internal object AndroidTarXzExtractor {
                 }
                 when (type) {
                     '5' -> Files.createDirectories(target)
+
                     '2' -> createSymlink(root, target, header.string(157, 100))
+
                     'x', 'g', 'L', 'K' -> skipFully(input, size)
+
                     else -> {
                         Files.createDirectories(requireNotNull(target.parent))
                         Files.newOutputStream(target).use { output -> copyExactly(input, output, size) }
@@ -202,15 +202,13 @@ internal object AndroidTarXzExtractor {
         return if (prefix.isBlank()) name else "$prefix/$name"
     }
 
-    private fun ByteArray.string(offset: Int, length: Int): String =
-        copyOfRange(offset, offset + length)
-            .takeWhile { it != 0.toByte() }
-            .toByteArray()
-            .toString(Charsets.UTF_8)
-            .trim()
+    private fun ByteArray.string(offset: Int, length: Int): String = copyOfRange(offset, offset + length)
+        .takeWhile { it != 0.toByte() }
+        .toByteArray()
+        .toString(Charsets.UTF_8)
+        .trim()
 
-    private fun ByteArray.octal(offset: Int, length: Int): Long =
-        string(offset, length).trim().ifBlank { "0" }.toLong(8)
+    private fun ByteArray.octal(offset: Int, length: Int): Long = string(offset, length).trim().ifBlank { "0" }.toLong(8)
 
     private fun readBlock(input: BufferedInputStream, block: ByteArray): Boolean {
         var offset = 0

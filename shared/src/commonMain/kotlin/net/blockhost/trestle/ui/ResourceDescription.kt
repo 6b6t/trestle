@@ -66,7 +66,9 @@ private fun decodeHtmlEntities(value: String): String = value.replace(htmlEntity
     val entity = match.groupValues[1]
     when {
         entity.startsWith("#x", ignoreCase = true) -> entity.drop(2).toIntOrNull(16).asEntityCharacter(match.value)
+
         entity.startsWith('#') -> entity.drop(1).toIntOrNull().asEntityCharacter(match.value)
+
         else -> when (entity.lowercase()) {
             "amp" -> "&"
             "apos", "#39" -> "'"

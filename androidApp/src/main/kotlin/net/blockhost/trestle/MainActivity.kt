@@ -36,7 +36,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
-import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -50,6 +49,7 @@ import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherCommandRequest
 import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
+import java.util.Locale
 
 private const val ACTION_LAUNCH_INSTANCE = "net.blockhost.trestle.action.LAUNCH_INSTANCE"
 private const val ACTION_NEW_INSTANCE = "net.blockhost.trestle.action.NEW_INSTANCE"
@@ -61,10 +61,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel by viewModels<TrestleAndroidViewModel> {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
-            override fun <T : ViewModel> create(modelClass: Class<T>): T =
-                TrestleAndroidViewModel(
-                    LauncherViewModel(createAndroidLauncherServices(applicationContext)),
-                ) as T
+            override fun <T : ViewModel> create(modelClass: Class<T>): T = TrestleAndroidViewModel(
+                LauncherViewModel(createAndroidLauncherServices(applicationContext)),
+            ) as T
         }
     }
     private var commandSequence by mutableLongStateOf(0L)
@@ -126,14 +125,21 @@ class MainActivity : ComponentActivity() {
         when (intent?.action) {
             Intent.ACTION_VIEW -> {
                 val uri = intent.data ?: return
-                if (uri.scheme.equals("trestle", ignoreCase = true)) handleDeepLink(uri)
-                else importUri(uri)
+                if (uri.scheme.equals("trestle", ignoreCase = true)) {
+                    handleDeepLink(uri)
+                } else {
+                    importUri(uri)
+                }
             }
+
             Intent.ACTION_SEND -> intent.readSharedUri()?.let(::importUri)
+
             ACTION_LAUNCH_INSTANCE -> intent.getStringExtra(EXTRA_INSTANCE_ID)?.let { id ->
                 viewModel.launcher.launchInstance(InstanceId(id))
             }
+
             ACTION_NEW_INSTANCE -> sendCommand(LauncherCommand.NEW_INSTANCE)
+
             ACTION_OPEN_SETTINGS -> sendCommand(LauncherCommand.SHOW_SETTINGS)
         }
     }
@@ -141,6 +147,7 @@ class MainActivity : ComponentActivity() {
     private fun handleDeepLink(uri: Uri) {
         when (uri.host?.lowercase(Locale.ROOT)) {
             "settings" -> sendCommand(LauncherCommand.SHOW_SETTINGS)
+
             "launch" -> uri.pathSegments.firstOrNull()?.let { id ->
                 viewModel.launcher.launchInstance(InstanceId(id))
             }
@@ -247,9 +254,7 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun rememberSystemAccessibilityPreferences(
-    context: android.content.Context,
-): SystemAccessibilityPreferences {
+private fun rememberSystemAccessibilityPreferences(context: android.content.Context): SystemAccessibilityPreferences {
     val resolver = context.contentResolver
 
     fun readPreferences() = SystemAccessibilityPreferences(
@@ -283,26 +288,20 @@ private fun rememberSystemAccessibilityPreferences(
     return preferences
 }
 
-private data class SystemAccessibilityPreferences(
-    val highContrast: Boolean,
-    val reducedMotion: Boolean,
-)
+private data class SystemAccessibilityPreferences(val highContrast: Boolean, val reducedMotion: Boolean)
 
-private fun Intent.readSharedUri(): Uri? =
-    if (android.os.Build.VERSION.SDK_INT >= 33) {
-        getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
-    } else {
-        @Suppress("DEPRECATION")
-        getParcelableExtra(Intent.EXTRA_STREAM)
-    }
+private fun Intent.readSharedUri(): Uri? = if (android.os.Build.VERSION.SDK_INT >= 33) {
+    getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+} else {
+    @Suppress("DEPRECATION")
+    getParcelableExtra(Intent.EXTRA_STREAM)
+}
 
 private const val STATIC_SHORTCUT_COUNT = 2
 
 private data class PinnedShortcut(val id: String, val label: String)
 
-private class TrestleAndroidViewModel(
-    val launcher: LauncherViewModel,
-) : ViewModel() {
+private class TrestleAndroidViewModel(val launcher: LauncherViewModel) : ViewModel() {
     override fun onCleared() {
         launcher.close()
     }

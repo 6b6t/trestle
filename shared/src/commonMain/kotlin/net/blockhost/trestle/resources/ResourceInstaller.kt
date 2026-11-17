@@ -1,6 +1,5 @@
 package net.blockhost.trestle.resources
 
-import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -12,11 +11,9 @@ import net.blockhost.trestle.download.DownloadRequest
 import okio.FileSystem
 import okio.Path
 import okio.Path.Companion.toPath
+import kotlin.concurrent.Volatile
 
-data class ResourceInstallSummary(
-    val installedFiles: Int,
-    val dependencyCount: Int,
-)
+data class ResourceInstallSummary(val installedFiles: Int, val dependencyCount: Int)
 
 data class InstalledContent(
     val key: String,
@@ -59,11 +56,7 @@ class ResourceInstaller(
     @Volatile
     private var detectIncompatibilities = true
 
-    fun configure(
-        scanSubfolders: Boolean,
-        installDependencies: Boolean,
-        detectIncompatibilities: Boolean,
-    ) {
+    fun configure(scanSubfolders: Boolean, installDependencies: Boolean, detectIncompatibilities: Boolean) {
         this.scanSubfolders = scanSubfolders
         this.installDependencies = installDependencies
         this.detectIncompatibilities = detectIncompatibilities
@@ -185,12 +178,7 @@ class ResourceInstaller(
         return install(instance, project, version, onProgress = onProgress, replacing = content)
     }
 
-    suspend fun installLocal(
-        instance: GameInstance,
-        fileName: String,
-        bytes: ByteArray,
-        type: ResourceType,
-    ) {
+    suspend fun installLocal(instance: GameInstance, fileName: String, bytes: ByteArray, type: ResourceType) {
         require(instance.installationState is net.blockhost.trestle.domain.InstallationState.Installed) {
             "Install the instance before adding local content."
         }
@@ -240,12 +228,18 @@ class ResourceInstaller(
             resolved.forEach { resolvedVersion ->
                 val file = downloadableFile(resolvedVersion.version)
                 val localSource = if (file.url == null) {
-                    val publisher = if (resolvedVersion.isRoot) project else platforms.platform(resolvedVersion.version.provider)
-                        .projectsByIds(listOf(resolvedVersion.version.projectId))[resolvedVersion.version.projectId]
+                    val publisher = if (resolvedVersion.isRoot) {
+                        project
+                    } else {
+                        platforms.platform(resolvedVersion.version.provider)
+                            .projectsByIds(listOf(resolvedVersion.version.projectId))[resolvedVersion.version.projectId]
+                    }
                     val page = publisher?.websiteUrl?.let { "$it/files/${resolvedVersion.version.id}" }
                         ?: "https://www.curseforge.com/minecraft"
                     restrictedDownloads?.requireFile(file, page)
-                } else null
+                } else {
+                    null
+                }
                 val url = file.url.orEmpty()
                 val type = if (resolvedVersion.isRoot) project.type else ResourceType.MOD
                 val folder = type.installFolder()
@@ -272,10 +266,17 @@ class ResourceInstaller(
             require(replacing.contentSha1 != null && fileSystem.sha1(source) == replacing.contentSha1) {
                 "The local file changed since identification. Refresh installed content first."
             }
-            currentManifest = currentManifest.copy(resources = currentManifest.resources + InstalledResource(
-                provider = project.provider, projectId = project.id, versionId = requireNotNull(replacing.versionId),
-                type = project.type, name = replacing.name, files = listOf(relative), enabled = replacing.enabled,
-            ))
+            currentManifest = currentManifest.copy(
+                resources = currentManifest.resources + InstalledResource(
+                    provider = project.provider,
+                    projectId = project.id,
+                    versionId = requireNotNull(replacing.versionId),
+                    type = project.type,
+                    name = replacing.name,
+                    files = listOf(relative),
+                    enabled = replacing.enabled,
+                ),
+            )
         }
         if (detectIncompatibilities) rejectDeclaredIncompatibilities(currentManifest, resolved)
         rejectInstalledVersionConflicts(currentManifest, resolved, rootKey)
@@ -342,9 +343,21 @@ class ResourceInstaller(
             }
             key to (checkedContentPath(fileSystem, stage, planned.relativePath) as Path?)
         }.toMutableMap()
-        val finalManifest = if (replacing?.enabled == false) nextManifest.copy(resources = nextManifest.resources.map {
-            if (resourceKey(it.provider, it.projectId) == rootKey) it.copy(enabled = false, files = it.files.map { path -> "$path$DISABLED_SUFFIX" }) else it
-        }) else nextManifest
+        val finalManifest = if (replacing?.enabled == false) {
+            nextManifest.copy(
+                resources = nextManifest.resources.map {
+                    if (resourceKey(it.provider, it.projectId) ==
+                        rootKey
+                    ) {
+                        it.copy(enabled = false, files = it.files.map { path -> "$path$DISABLED_SUFFIX" })
+                    } else {
+                        it
+                    }
+                },
+            )
+        } else {
+            nextManifest
+        }
         val retained = finalManifest.resources.flatMap { it.files }.toSet()
         (oldPaths - retained).forEach { replacements["game/$it"] = null }
         // Ownership must always be recorded, even when online metadata lookup is disabled.
@@ -364,9 +377,13 @@ class ResourceInstaller(
         if (file.url != null) return file
         val sha1 = file.sha1
         if (sha1 != null) {
-            val modrinthVersion = try { platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(sha1)
-            } catch (error: CancellationException) { throw error
-            } catch (_: Exception) { null }
+            val modrinthVersion = try {
+                platforms.find(ResourceProvider.MODRINTH)?.versionBySha1(sha1)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (_: Exception) {
+                null
+            }
             val alternative = modrinthVersion?.files?.firstOrNull { it.sha1.equals(sha1, ignoreCase = true) }
             if (alternative?.url != null && alternative.sha1.equals(sha1, ignoreCase = true)) return alternative
         }
@@ -463,16 +480,15 @@ class ResourceInstaller(
         return true
     }
 
-    private fun mergeManifest(
-        current: ResourceManifest,
-        installed: List<InstalledResource>,
-        rootKey: String,
-    ): ResourceManifest {
+    private fun mergeManifest(current: ResourceManifest, installed: List<InstalledResource>, rootKey: String): ResourceManifest {
         val resources = current.resources.associateByTo(linkedMapOf()) { resourceKey(it.provider, it.projectId) }
         resources.entries.toList().forEach { (key, resource) ->
             val withoutRoot = resource.copy(requiredBy = resource.requiredBy.filterNot { it == rootKey })
-            if (!withoutRoot.direct && withoutRoot.requiredBy.isEmpty()) resources.remove(key)
-            else resources[key] = withoutRoot
+            if (!withoutRoot.direct && withoutRoot.requiredBy.isEmpty()) {
+                resources.remove(key)
+            } else {
+                resources[key] = withoutRoot
+            }
         }
         installed.forEach { incoming ->
             val key = resourceKey(incoming.provider, incoming.projectId)
@@ -485,11 +501,7 @@ class ResourceInstaller(
         return ResourceManifest(resources = resources.values.sortedBy { resourceKey(it.provider, it.projectId) })
     }
 
-    private fun rejectInstalledVersionConflicts(
-        manifest: ResourceManifest,
-        resolved: List<ResolvedResourceVersion>,
-        rootKey: String,
-    ) {
+    private fun rejectInstalledVersionConflicts(manifest: ResourceManifest, resolved: List<ResolvedResourceVersion>, rootKey: String) {
         val installed = manifest.resources.associateBy { resourceKey(it.provider, it.projectId) }
         resolved.forEach { candidate ->
             val key = resourceKey(candidate.version.provider, candidate.version.projectId)
@@ -540,6 +552,7 @@ class ResourceInstaller(
                             dependency.projectId.orEmpty(),
                             dependency.versionId,
                         )
+
                         dependency.projectId != null -> {
                             val dependencyProject = ResourceProject(
                                 provider = project.provider,
@@ -565,6 +578,7 @@ class ResourceInstaller(
                                     "No compatible version exists for required dependency ${dependency.projectId}.",
                                 )
                         }
+
                         else -> throw LauncherException.InvalidMetadata(
                             "${current.version.name} has an external required dependency that cannot be resolved automatically.",
                         )
@@ -575,10 +589,7 @@ class ResourceInstaller(
         return resolved.values.toList()
     }
 
-    private fun rejectDeclaredIncompatibilities(
-        manifest: ResourceManifest,
-        resolved: List<ResolvedResourceVersion>,
-    ) {
+    private fun rejectDeclaredIncompatibilities(manifest: ResourceManifest, resolved: List<ResolvedResourceVersion>) {
         val selected = resolved.mapTo(mutableSetOf()) { resourceKey(it.version.provider, it.version.projectId) }
         selected += manifest.resources.map { resourceKey(it.provider, it.projectId) }
         resolved.forEach { resource ->
@@ -655,10 +666,7 @@ class ResourceInstaller(
     }
 }
 
-private data class ResolvedResourceVersion(
-    val version: ResourceVersion,
-    val isRoot: Boolean,
-)
+private data class ResolvedResourceVersion(val version: ResourceVersion, val isRoot: Boolean)
 
 private data class PlannedResourceFile(
     val owner: ResolvedResourceVersion,
@@ -670,10 +678,7 @@ private data class PlannedResourceFile(
 )
 
 @Serializable
-private data class ResourceManifest(
-    val schemaVersion: Int = 1,
-    val resources: List<InstalledResource> = emptyList(),
-)
+private data class ResourceManifest(val schemaVersion: Int = 1, val resources: List<InstalledResource> = emptyList())
 
 @Serializable
 private data class InstalledResource(
@@ -705,9 +710,11 @@ private fun ResourceType.installFolder(): String = when (this) {
 
 private fun ResourceType.localExtensions(): Set<String> = when (this) {
     ResourceType.MOD -> setOf("jar")
+
     ResourceType.RESOURCE_PACK,
     ResourceType.SHADER_PACK,
     -> setOf("zip")
+
     ResourceType.MODPACK -> setOf("mrpack", "zip")
 }
 

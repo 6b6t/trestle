@@ -14,8 +14,8 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
-import kotlin.math.hypot
 import org.lwjgl.glfw.CallbackBridge
+import kotlin.math.hypot
 
 internal object GlfwKey {
     const val SPACE = 32
@@ -32,10 +32,7 @@ internal object GlfwKey {
 }
 
 @SuppressLint("ViewConstructor")
-internal class MinecraftControlOverlayView(
-    context: Context,
-    private val onChatRequested: () -> Unit,
-) : View(context) {
+internal class MinecraftControlOverlayView(context: Context, private val onChatRequested: () -> Unit) : View(context) {
     private val density = resources.displayMetrics.density
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -55,27 +52,20 @@ internal class MinecraftControlOverlayView(
     private var joystickY = 0f
     private var inputGrabbed = false
     private val accessibilityHelper = object : ExploreByTouchHelper(this) {
-        override fun getVirtualViewAt(x: Float, y: Float): Int =
-            accessibilityControls().indexOfFirst { it.bounds.contains(x, y) }
-                .takeIf { it >= 0 }
-                ?: INVALID_ID
+        override fun getVirtualViewAt(x: Float, y: Float): Int = accessibilityControls().indexOfFirst { it.bounds.contains(x, y) }
+            .takeIf { it >= 0 }
+            ?: INVALID_ID
 
         override fun getVisibleVirtualViews(virtualViewIds: MutableList<Int>) {
             accessibilityControls().indices.forEach(virtualViewIds::add)
         }
 
-        override fun onPopulateEventForVirtualView(
-            virtualViewId: Int,
-            event: AccessibilityEvent,
-        ) {
+        override fun onPopulateEventForVirtualView(virtualViewId: Int, event: AccessibilityEvent) {
             event.contentDescription = accessibilityControls().getOrNull(virtualViewId)?.label
         }
 
         @Suppress("DEPRECATION")
-        override fun onPopulateNodeForVirtualView(
-            virtualViewId: Int,
-            node: AccessibilityNodeInfoCompat,
-        ) {
+        override fun onPopulateNodeForVirtualView(virtualViewId: Int, node: AccessibilityNodeInfoCompat) {
             val control = accessibilityControls().getOrNull(virtualViewId) ?: return
             node.contentDescription = control.label
             node.className = android.widget.Button::class.java.name
@@ -85,11 +75,7 @@ internal class MinecraftControlOverlayView(
             node.setBoundsInParent(control.bounds.toRect())
         }
 
-        override fun onPerformActionForVirtualView(
-            virtualViewId: Int,
-            action: Int,
-            arguments: Bundle?,
-        ): Boolean {
+        override fun onPerformActionForVirtualView(virtualViewId: Int, action: Int, arguments: Bundle?): Boolean {
             if (action != AccessibilityNodeInfoCompat.ACTION_CLICK) return false
             val control = accessibilityControls().getOrNull(virtualViewId) ?: return false
             performAccessibilityAction(control.action, control.holdMillis)
@@ -125,17 +111,20 @@ internal class MinecraftControlOverlayView(
                 val index = event.actionIndex
                 beginPointer(event.getPointerId(index), event.getX(index), event.getY(index))
             }
+
             MotionEvent.ACTION_MOVE -> {
                 repeat(event.pointerCount) { index ->
                     movePointer(event.getPointerId(index), event.getX(index), event.getY(index))
                 }
             }
+
             MotionEvent.ACTION_UP,
             MotionEvent.ACTION_POINTER_UP,
             -> {
                 endPointer(event.getPointerId(event.actionIndex))
                 if (event.actionMasked == MotionEvent.ACTION_UP) performClick()
             }
+
             MotionEvent.ACTION_CANCEL -> releaseAllInputs()
         }
         return true
@@ -198,6 +187,7 @@ internal class MinecraftControlOverlayView(
     private fun movePointer(pointerId: Int, x: Float, y: Float) {
         when (val target = pointerTargets[pointerId]) {
             PointerTarget.Joystick -> updateJoystick(x, y, layout().joystick)
+
             is PointerTarget.Look -> {
                 if (inputGrabbed) {
                     CallbackBridge.moveCursor(
@@ -210,6 +200,7 @@ internal class MinecraftControlOverlayView(
                 target.lastX = x
                 target.lastY = y
             }
+
             is PointerTarget.Button,
             null,
             -> Unit
@@ -224,8 +215,11 @@ internal class MinecraftControlOverlayView(
                 joystickX = 0f
                 joystickY = 0f
             }
+
             is PointerTarget.Button -> releaseAction(target.action)
+
             is PointerTarget.Look -> if (target.sendsPrimaryClick) CallbackBridge.sendMouseButton(0, false)
+
             null,
             -> Unit
         }
@@ -256,11 +250,14 @@ internal class MinecraftControlOverlayView(
                 CallbackBridge.sendKey(action.key, true)
                 postDelayed({ CallbackBridge.sendKey(action.key, false) }, holdMillis)
             }
+
             is ControlAction.Mouse -> {
                 CallbackBridge.sendMouseButton(action.button, true)
                 CallbackBridge.sendMouseButton(action.button, false)
             }
+
             is ControlAction.Scroll -> CallbackBridge.sendScroll(0.0, action.amount)
+
             ControlAction.Chat -> {
                 CallbackBridge.sendKey(GlfwKey.T, true)
                 CallbackBridge.sendKey(GlfwKey.T, false)
@@ -288,8 +285,11 @@ internal class MinecraftControlOverlayView(
         activeButtons.remove(action)
         when (action) {
             is ControlAction.Key -> setKeyHeld(action.key, false)
+
             is ControlAction.Mouse -> CallbackBridge.sendMouseButton(action.button, false)
+
             is ControlAction.Scroll -> Unit
+
             ControlAction.Chat -> {
                 CallbackBridge.sendKey(GlfwKey.T, false)
                 postDelayed(onChatRequested, CHAT_KEYBOARD_DELAY_MILLIS)
@@ -424,6 +424,7 @@ internal class MinecraftControlOverlayView(
 
     private fun ControlAction.accessibilityLabel(): String = when (this) {
         ControlAction.Chat -> "Chat"
+
         is ControlAction.Key -> when (key) {
             GlfwKey.ESCAPE -> "Pause menu"
             GlfwKey.E -> "Inventory"
@@ -433,7 +434,9 @@ internal class MinecraftControlOverlayView(
             GlfwKey.LEFT_CONTROL -> "Sprint"
             else -> "Keyboard control"
         }
+
         is ControlAction.Mouse -> if (button == 0) "Attack" else "Use"
+
         is ControlAction.Scroll -> if (amount > 0) "Previous hotbar slot" else "Next hotbar slot"
     }
 
@@ -441,11 +444,7 @@ internal class MinecraftControlOverlayView(
 
     private sealed interface PointerTarget {
         data object Joystick : PointerTarget
-        data class Look(
-            var lastX: Float,
-            var lastY: Float,
-            val sendsPrimaryClick: Boolean,
-        ) : PointerTarget
+        data class Look(var lastX: Float, var lastY: Float, val sendsPrimaryClick: Boolean) : PointerTarget
         data class Button(val action: ControlAction) : PointerTarget
     }
 
@@ -456,18 +455,9 @@ internal class MinecraftControlOverlayView(
         data class Scroll(val amount: Double) : ControlAction
     }
 
-    private data class ControlButton(
-        val label: String,
-        val action: ControlAction,
-        val bounds: RectF,
-    )
+    private data class ControlButton(val label: String, val action: ControlAction, val bounds: RectF)
 
-    private data class JoystickLayout(
-        val centerX: Float,
-        val centerY: Float,
-        val radius: Float,
-        val deadZone: Float,
-    ) {
+    private data class JoystickLayout(val centerX: Float, val centerY: Float, val radius: Float, val deadZone: Float) {
         val touchBounds = RectF(
             centerX - radius * 1.25f,
             centerY - radius * 1.25f,
@@ -476,10 +466,7 @@ internal class MinecraftControlOverlayView(
         )
     }
 
-    private data class ControlLayout(
-        val joystick: JoystickLayout,
-        val buttons: List<ControlButton>,
-    )
+    private data class ControlLayout(val joystick: JoystickLayout, val buttons: List<ControlButton>)
 
     private data class AccessibilityControl(
         val label: String,

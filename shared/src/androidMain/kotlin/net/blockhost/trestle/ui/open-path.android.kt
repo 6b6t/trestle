@@ -8,8 +8,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
-import java.io.File
 import net.blockhost.trestle.files.TrestleDocumentPaths
+import java.io.File
 
 internal actual val supportsOpenPath: Boolean = true
 
@@ -47,11 +47,7 @@ internal actual fun rememberOpenPath(): (String) -> Unit {
     }
 }
 
-private fun openAndroidGameFile(
-    context: android.content.Context,
-    instancesDirectory: File,
-    path: String,
-): Result<Unit> = runCatching {
+private fun openAndroidGameFile(context: android.content.Context, instancesDirectory: File, path: String): Result<Unit> = runCatching {
     val target = File(path).canonicalFile
     require(target.isFile) { "Choose a file to open with another app." }
     val documentId = TrestleDocumentPaths.documentIdFor(instancesDirectory, target)
@@ -66,7 +62,4 @@ private fun openAndroidGameFile(
     context.startActivity(Intent.createChooser(viewIntent, null))
 }
 
-private data class AndroidGameFileRequest(
-    val rootPath: String,
-    val initialPath: String,
-)
+private data class AndroidGameFileRequest(val rootPath: String, val initialPath: String)

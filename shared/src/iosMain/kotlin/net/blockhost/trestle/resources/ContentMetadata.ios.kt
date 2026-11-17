@@ -57,8 +57,7 @@ internal actual fun readEmbeddedMetadata(fileSystem: FileSystem, path: Path): Co
         ContentMetadata()
     }
 
-private fun JsonObject.string(key: String): String? =
-    (get(key) as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
+private fun JsonObject.string(key: String): String? = (get(key) as? JsonPrimitive)?.contentOrNull?.takeIf(String::isNotBlank)
 
 private fun JsonElement?.names(): List<String> = (this as? JsonArray)?.mapNotNull {
     (it as? JsonPrimitive)?.contentOrNull ?: (it as? JsonObject)?.string("name")

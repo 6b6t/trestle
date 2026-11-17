@@ -40,20 +40,25 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
             TextButton(onClick = actions::remindAboutLauncherUpdateLater) { Text("Remind me tomorrow") }
         }
     }
-    if (showNotes) AlertDialog(
-        onDismissRequest = { showNotes = false },
-        title = { Text("Trestle ${update.version}") },
-        text = {
-            SelectionContainer {
-                Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text(update.releaseNotes.ifBlank { "See the release page for changes and installation instructions." })
-                    update.downloads.forEach { download ->
-                        Text(".${download.format}: ${download.minimumOS}\nSHA-256: ${download.sha256}", style = MaterialTheme.typography.bodySmall)
+    if (showNotes) {
+        AlertDialog(
+            onDismissRequest = { showNotes = false },
+            title = { Text("Trestle ${update.version}") },
+            text = {
+                SelectionContainer {
+                    Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(update.releaseNotes.ifBlank { "See the release page for changes and installation instructions." })
+                        update.downloads.forEach { download ->
+                            Text(
+                                ".${download.format}: ${download.minimumOS}\nSHA-256: ${download.sha256}",
+                                style = MaterialTheme.typography.bodySmall,
+                            )
+                        }
                     }
                 }
-            }
-        },
-        confirmButton = { TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text("Open release page") } },
-        dismissButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },
-    )
+            },
+            confirmButton = { TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text("Open release page") } },
+            dismissButton = { TextButton(onClick = { showNotes = false }) { Text("Close") } },
+        )
+    }
 }

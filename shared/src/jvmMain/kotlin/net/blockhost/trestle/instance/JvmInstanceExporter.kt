@@ -10,8 +10,8 @@ import net.blockhost.trestle.domain.LauncherException
 import net.blockhost.trestle.domain.ModLoader
 import okio.Path
 import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.nio.file.Paths
+import java.nio.file.StandardCopyOption
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -55,18 +55,25 @@ class JvmInstanceExporter : InstanceExporter {
 
     private fun prismManifest(instance: GameInstance): String = buildJsonObject {
         put("formatVersion", 1)
-        put("components", buildJsonArray {
-            add(buildJsonObject {
-                put("uid", "net.minecraft")
-                put("version", instance.minecraftVersionId)
-            })
-            instance.loaderVersion?.let { loaderVersion ->
-                add(buildJsonObject {
-                    put("uid", instance.modLoader.prismUid())
-                    put("version", loaderVersion)
-                })
-            }
-        })
+        put(
+            "components",
+            buildJsonArray {
+                add(
+                    buildJsonObject {
+                        put("uid", "net.minecraft")
+                        put("version", instance.minecraftVersionId)
+                    },
+                )
+                instance.loaderVersion?.let { loaderVersion ->
+                    add(
+                        buildJsonObject {
+                            put("uid", instance.modLoader.prismUid())
+                            put("version", loaderVersion)
+                        },
+                    )
+                }
+            },
+        )
     }.toString()
 
     private fun ZipOutputStream.writeTextEntry(name: String, value: String) {

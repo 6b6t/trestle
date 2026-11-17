@@ -147,11 +147,7 @@ private val TrestleLightColors = lightColorScheme(
     onTertiaryFixedVariant = OnPrimaryFixedVariant,
 )
 
-internal fun trestleColorScheme(
-    accentColor: Color? = null,
-    darkTheme: Boolean = true,
-    highContrast: Boolean = false,
-): ColorScheme {
+internal fun trestleColorScheme(accentColor: Color? = null, darkTheme: Boolean = true, highContrast: Boolean = false): ColorScheme {
     val base = if (darkTheme) TrestleDarkColors else TrestleLightColors
     val contrastedBase = base.withHighContrast(highContrast)
     if (accentColor == null) return contrastedBase
@@ -185,15 +181,14 @@ internal fun trestleColorScheme(
     )
 }
 
-internal fun ColorScheme.withHighContrast(enabled: Boolean): ColorScheme =
-    if (enabled) {
-        copy(
-            outline = onSurface,
-            outlineVariant = lerp(surface, onSurface, 0.62f),
-        )
-    } else {
-        this
-    }
+internal fun ColorScheme.withHighContrast(enabled: Boolean): ColorScheme = if (enabled) {
+    copy(
+        outline = onSurface,
+        outlineVariant = lerp(surface, onSurface, 0.62f),
+    )
+} else {
+    this
+}
 
 private fun primaryAccent(accentColor: Color, surface: Color, target: Color): Color {
     var candidate = accentColor.copy(alpha = 1f)

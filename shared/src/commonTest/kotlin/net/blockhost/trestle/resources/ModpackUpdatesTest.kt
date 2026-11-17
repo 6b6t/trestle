@@ -1,8 +1,8 @@
 package net.blockhost.trestle.resources
 
 import net.blockhost.trestle.domain.GameInstance
-import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.domain.ModpackOrigin
 import okio.Path.Companion.toPath
 import okio.fakefilesystem.FakeFileSystem
@@ -21,8 +21,14 @@ class ModpackUpdatesTest {
 
     @Test fun keepsModifiedConfigsAndUserModsAcrossUpdateAndRollback() {
         val fs = FakeFileSystem()
-        fun instance(id: String, version: String) = GameInstance(InstanceId(id), id, version, instanceDirectory = "/$id",
-            installationState = InstallationState.Installed(1), modpackOrigin = ModpackOrigin("MODRINTH", "pack", version, version, "Pack"))
+        fun instance(id: String, version: String) = GameInstance(
+            InstanceId(id),
+            id,
+            version,
+            instanceDirectory = "/$id",
+            installationState = InstallationState.Installed(1),
+            modpackOrigin = ModpackOrigin("MODRINTH", "pack", version, version, "Pack"),
+        )
         val original = instance("original", "1.0")
         val candidate = instance("candidate", "2.0")
         fun write(id: String, path: String, byte: Int) {
