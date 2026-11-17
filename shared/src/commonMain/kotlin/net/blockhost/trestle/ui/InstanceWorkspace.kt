@@ -88,6 +88,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
@@ -95,6 +96,9 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
@@ -301,6 +305,22 @@ internal fun InstanceWorkspace(
     PlatformBackHandler(enabled = instance != null, onBack = back)
     val focusManager = LocalFocusManager.current
     var tabHasFocus by remember { mutableStateOf(false) }
+    // Scrolling a tab down collapses the header; scrolling back past the top expands it again.
+    val headerCollapsedState = remember(instance?.id, section) { mutableStateOf(false) }
+    val headerCollapsed by headerCollapsedState
+    val collapseOnScroll = remember(headerCollapsedState) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -COLLAPSE_THRESHOLD_PX) headerCollapsedState.value = true
+                return Offset.Zero
+            }
+
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0f) headerCollapsedState.value = false
+                return Offset.Zero
+            }
+        }
+    }
     LaunchedEffect(section, settingsForm.visible, instance?.id) {
         if (section == InstanceSection.SETTINGS && !settingsForm.visible && instance != null) {
             actions.openInstanceSettings(inline = true)
@@ -339,10 +359,18 @@ internal fun InstanceWorkspace(
             return@Column
         }
         // Phones keep the header short on every tab except Overview, where the stats belong.
-        InstanceWorkspaceHeader(state, instance, actions, back, showStats = !compact || section == InstanceSection.OVERVIEW)
+        InstanceWorkspaceHeader(
+            state,
+            instance,
+            actions,
+            back,
+            showStats = !compact || section == InstanceSection.OVERVIEW,
+            collapsed = headerCollapsed,
+        )
         InstanceSectionTabs(section, compact, selectSection)
         Box(
             Modifier.weight(1f).fillMaxWidth()
+                .then(if (compact) Modifier.nestedScroll(collapseOnScroll) else Modifier)
                 .onFocusChanged { tabHasFocus = it.hasFocus }
                 // The first Escape leaves a focused field; only the next one goes back to the library.
                 .onKeyEvent { event ->
@@ -1182,6 +1210,7 @@ private fun InstanceWorkspaceHeader(
     actions: LauncherUiActions,
     onBack: () -> Unit,
     showStats: Boolean,
+    collapsed: Boolean,
 ) {
     val accent = instanceAccent(instance)
     BoxWithConstraints(
@@ -1192,52 +1221,90 @@ private fun InstanceWorkspaceHeader(
     ) {
         // Stack the Play button under the name whenever a side-by-side row would squeeze the name.
         val compact = maxWidth < 760.dp
-        Column(
-            Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
-                .padding(start = 12.dp, end = 24.dp, top = 20.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+        if (compact && collapsed) {
+            CollapsedInstanceHeader(state, instance, actions, onBack)
+            return@BoxWithConstraints
+        }
+        ExpandedInstanceHeader(state, instance, actions, onBack, showStats, compact)
+    }
+}
+
+@Composable
+private fun ExpandedInstanceHeader(
+    state: LauncherUiState,
+    instance: GameInstance,
+    actions: LauncherUiActions,
+    onBack: () -> Unit,
+    showStats: Boolean,
+    compact: Boolean,
+) {
+    Column(
+        Modifier.widthIn(max = WideContentWidth).fillMaxWidth()
+            .padding(start = 12.dp, end = 24.dp, top = 20.dp, bottom = 16.dp)
+            .testTag(LauncherTestTags.INSTANCE_HEADER_EXPANDED),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                InstanceBackButton(onBack)
-                InstanceArtwork(instance, if (compact) 64.dp else 88.dp)
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(
-                        instance.displayName,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                        style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
-                    )
-                    Text(
-                        "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                    if (!compact && showStats) InstanceHeaderStats(state, instance)
-                }
-                if (!compact) {
-                    PrimaryInstanceAction(
-                        instance,
-                        state,
-                        actions,
-                        Modifier.width(220.dp),
-                        buttonModifier = Modifier.heightIn(min = 52.dp),
-                    )
-                }
+            InstanceBackButton(onBack)
+            InstanceArtwork(instance, if (compact) 64.dp else 88.dp)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    instance.displayName,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
+                )
+                Text(
+                    "Minecraft ${instance.minecraftVersionId} · ${instance.modLoader.label}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyLarge,
+                )
+                if (!compact && showStats) InstanceHeaderStats(state, instance)
             }
-            if (compact) {
-                if (showStats) InstanceHeaderStats(state, instance, Modifier.padding(start = 12.dp))
+            if (!compact) {
                 PrimaryInstanceAction(
                     instance,
                     state,
                     actions,
-                    Modifier.fillMaxWidth().padding(start = 12.dp),
+                    Modifier.width(220.dp),
                     buttonModifier = Modifier.heightIn(min = 52.dp),
                 )
             }
         }
+        if (compact) {
+            if (showStats) InstanceHeaderStats(state, instance, Modifier.padding(start = 12.dp))
+            PrimaryInstanceAction(
+                instance,
+                state,
+                actions,
+                Modifier.fillMaxWidth().padding(start = 12.dp),
+                buttonModifier = Modifier.heightIn(min = 52.dp),
+            )
+        }
+    }
+}
+
+/** The one-row header phones show while the player scrolls a tab, so the content gets the screen. */
+@Composable
+private fun CollapsedInstanceHeader(state: LauncherUiState, instance: GameInstance, actions: LauncherUiActions, onBack: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().padding(start = 12.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        InstanceBackButton(onBack)
+        InstanceArtwork(instance, 36.dp)
+        Text(
+            instance.displayName,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.weight(1f),
+        )
+        PrimaryInstanceAction(instance, state, actions, Modifier.widthIn(max = 140.dp), showAccountRequirement = false)
     }
 }
 
@@ -2005,3 +2072,5 @@ private fun serverStatusColor(server: SavedServer) = when (server.status) {
     ServerStatus.OFFLINE -> MaterialTheme.colorScheme.error
     ServerStatus.UNKNOWN -> MaterialTheme.colorScheme.outline
 }
+
+private const val COLLAPSE_THRESHOLD_PX = 4f

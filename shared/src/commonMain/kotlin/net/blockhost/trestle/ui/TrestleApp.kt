@@ -107,6 +107,7 @@ internal object LauncherTestTags {
     const val LAUNCH_ACCOUNT_REQUIREMENT = "launch-account-requirement"
     const val INSTANCE_WORKSPACE = "instance-workspace"
     const val INSTANCE_BACK = "instance-back"
+    const val INSTANCE_HEADER_EXPANDED = "instance-header-expanded"
     const val VERSION_COMPONENTS_CHANGE = "version-components-change"
     const val INSTANCE_CONFIGURATION = "instance-configuration"
     const val DISCOVER = "discover"

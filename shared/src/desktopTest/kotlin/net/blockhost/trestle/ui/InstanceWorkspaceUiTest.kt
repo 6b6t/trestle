@@ -6,9 +6,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,7 +19,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -59,6 +64,32 @@ class InstanceWorkspaceUiTest {
 
         onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).assertIsDisplayed()
         onNodeWithText("Seed is 42").assertIsNotFocused()
+    }
+
+    @Test
+    fun phoneHeaderCollapsesWhileScrollingAndExpandsAtTheTop() = runComposeUiTest {
+        setContent {
+            Box(Modifier.size(420.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.played,
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.INSTANCE,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(420, 720),
+                )
+            }
+        }
+        onNodeWithTag(LauncherTestTags.INSTANCE_HEADER_EXPANDED).assertIsDisplayed()
+
+        onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).performTouchInput { swipeUp() }
+        onAllNodesWithTag(LauncherTestTags.INSTANCE_HEADER_EXPANDED).assertCountEquals(0)
+        onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsDisplayed()
+
+        repeat(3) {
+            onNodeWithTag(LauncherTestTags.INSTANCE_WORKSPACE).performTouchInput {
+                swipeDown(startY = centerY, endY = bottom)
+            }
+        }
+        onNodeWithTag(LauncherTestTags.INSTANCE_HEADER_EXPANDED).assertIsDisplayed()
     }
 
     @Test
