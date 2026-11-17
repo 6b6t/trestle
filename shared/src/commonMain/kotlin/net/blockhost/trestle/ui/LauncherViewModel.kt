@@ -459,8 +459,9 @@ class LauncherViewModel(
                 checkLaunchReadiness(mutableState.value.selectedInstance)
                 refreshInstalledContent()
                 refreshGameData()
+                // refreshVersions() clears the error, so run it only when there is no initialization error to keep.
+                refreshVersions()
             }
-            refreshVersions()
         }
     }
 
