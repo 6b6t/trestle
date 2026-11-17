@@ -1,0 +1,84 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:AndroidGlfwInput.kt:AndroidGlfwInput$fun key: Int?</ID>
+    <ID>CyclomaticComplexMethod:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGameKeyEvent: Boolean</ID>
+    <ID>CyclomaticComplexMethod:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGameMotionEvent: Boolean</ID>
+    <ID>CyclomaticComplexMethod:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGamepadButton: Boolean?</ID>
+    <ID>LongMethod:MinecraftGameActivity.kt:MinecraftGameActivity$override fun onCreate</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$0x0004</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$0x0008</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$0x0010</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$0x0020</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$256</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$257</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$258</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$259</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$260</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$261</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$262</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$263</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$264</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$265</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$266</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$267</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$268</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$269</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$280</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$281</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$282</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$283</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$284</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$290</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$32</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$320</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$330</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$331</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$332</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$333</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$334</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$336</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$340</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$341</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$342</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$343</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$344</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$345</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$346</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$347</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$348</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$39</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$44</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$45</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$46</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$47</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$59</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$61</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$91</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$92</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$93</ID>
+    <ID>MagicNumber:AndroidGlfwInput.kt:AndroidGlfwInput$96</ID>
+    <ID>MagicNumber:MainActivity.kt:33</ID>
+    <ID>MagicNumber:MainActivity.kt:MainActivity$33</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$0.38f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$0.5f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$10f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$11f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$12f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$16f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$8f</ID>
+    <ID>MagicNumber:MinecraftControlOverlayView.kt:MinecraftControlOverlayView$9f</ID>
+    <ID>MagicNumber:MinecraftGameActivity.kt:MinecraftGameActivity$257</ID>
+    <ID>MagicNumber:MinecraftGameActivity.kt:MinecraftGameActivity$259</ID>
+    <ID>MagicNumber:MinecraftGameActivity.kt:MinecraftGameActivity$32</ID>
+    <ID>MagicNumber:MinecraftTextInputView.kt:MinecraftTextInputView$0.01f</ID>
+    <ID>ReturnCount:MinecraftControlOverlayView.kt:MinecraftControlOverlayView.&lt;no name provided&gt;$override fun onPerformActionForVirtualView: Boolean</ID>
+    <ID>ReturnCount:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGameKeyEvent: Boolean</ID>
+    <ID>ReturnCount:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGameMotionEvent: Boolean</ID>
+    <ID>ReturnCount:MinecraftGameActivity.kt:MinecraftGameActivity$private fun handleGamepadButton: Boolean?</ID>
+    <ID>TooGenericExceptionCaught:MinecraftGameActivity.kt:MinecraftGameActivity$error: Throwable</ID>
+    <ID>TooManyFunctions:MinecraftControlOverlayView.kt:MinecraftControlOverlayView : View</ID>
+    <ID>TooManyFunctions:MinecraftGameActivity.kt:MinecraftGameActivity : ComponentActivityListener</ID>
+  </CurrentIssues>
+</SmellBaseline>
