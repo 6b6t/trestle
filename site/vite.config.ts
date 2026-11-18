@@ -18,6 +18,7 @@ export default defineConfig({
       name: "trestle-release",
       resolveId(id) {
         if (id === "virtual:trestle-release") return `\0${id}`;
+        return null;
       },
       load(id) {
         if (id !== "\0virtual:trestle-release") return;

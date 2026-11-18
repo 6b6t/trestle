@@ -3,18 +3,20 @@ import release from "virtual:trestle-release";
 import { Suspense, useState } from "react";
 import { NextSteps, PlatformStage } from "../components/downloads";
 import { useDetectedPlatform } from "../components/use-detected-platform";
-import { getDocument } from "../lib/documents";
+import { requireDocument } from "../lib/documents";
 import { documentLoader } from "../lib/document-content";
 import { pageHead } from "../lib/metadata";
 import { isPlatform, platformGuides, type Platform } from "../lib/platforms";
 import { releaseLink } from "../lib/releases";
 import { site } from "../lib/site";
 
-const page = getDocument("download")!;
+const page = requireDocument("download");
 
 export const Route = createFileRoute("/download")({
-  validateSearch: (search: Record<string, unknown>): { platform?: Platform } =>
-    isPlatform(search.platform) ? { platform: search.platform } : {},
+  validateSearch: (search: Record<string, unknown>): { platform?: Platform } => {
+    const { platform } = search;
+    return isPlatform(platform) ? { platform } : {};
+  },
   loader: async () => {
     await (await import("../lib/document-content")).documentLoader.preload(page.path);
   },

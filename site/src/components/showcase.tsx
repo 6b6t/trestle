@@ -9,7 +9,8 @@ interface Scene {
 }
 
 // The recordings live in docs/assets and are copied into the site at build time.
-const scenes: Scene[] = [
+// The tuple type guarantees a first scene to fall back to.
+const scenes: [Scene, ...Scene[]] = [
   {
     name: "Library",
     image: "/assets/showcase/showcase-library.gif",
@@ -41,7 +42,7 @@ const scenes: Scene[] = [
 export function Showcase() {
   const [selected, setSelected] = useState(0);
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
-  const scene = scenes[selected];
+  const scene = scenes[selected] ?? scenes[0];
   function onKeyDown(event: KeyboardEvent) {
     const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
     if (step === undefined) return;

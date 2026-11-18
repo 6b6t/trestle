@@ -10,8 +10,15 @@ interface HtmlPage {
   links: string[];
   h1s: number;
   canonical?: string;
-  description?: string;
+  description?: string | undefined;
   discord?: string;
+}
+
+/** Reads an attribute that the element's selector already requires. */
+function requiredAttribute(element: HTMLRewriterTypes.Element, name: string): string {
+  const value = element.getAttribute(name);
+  if (value == null) throw new Error(`<${element.tagName}> has no ${name} attribute`);
+  return value;
 }
 
 async function inspect(path: string, html: string): Promise<HtmlPage> {
@@ -19,22 +26,22 @@ async function inspect(path: string, html: string): Promise<HtmlPage> {
   const parser = new HTMLRewriter()
     .on("[id]", {
       element(element) {
-        page.ids.add(element.getAttribute("id")!);
+        page.ids.add(requiredAttribute(element, "id"));
       },
     })
     .on("a[href]", {
       element(element) {
-        page.links.push(element.getAttribute("href")!);
+        page.links.push(requiredAttribute(element, "href"));
       },
     })
     .on("script[src], img[src]", {
       element(element) {
-        page.links.push(element.getAttribute("src")!);
+        page.links.push(requiredAttribute(element, "src"));
       },
     })
     .on("link[href]", {
       element(element) {
-        const href = element.getAttribute("href")!;
+        const href = requiredAttribute(element, "href");
         page.links.push(href);
         if (element.getAttribute("rel") === "canonical") page.canonical = href;
       },

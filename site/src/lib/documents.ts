@@ -9,11 +9,18 @@ const metadata = import.meta.glob<{ frontmatter: PageMetadata }>("../../content/
 export const documents = Object.entries(metadata).map(([path, { frontmatter }]) => ({
   ...frontmatter,
   path,
-  slug: path.split("/").at(-1)!.slice(0, -4),
+  slug: path.slice(path.lastIndexOf("/") + 1, -4),
 }));
 
 export function getDocument(slug: string) {
   return documents.find((page) => page.slug === slug);
+}
+
+/** Returns a document the site cannot build without, or throws when its MDX file is missing. */
+export function requireDocument(slug: string) {
+  const page = getDocument(slug);
+  if (page == null) throw new Error(`Missing document content/docs/${slug}.mdx`);
+  return page;
 }
 
 /** Short sidebar names. Pages without one use their title. */
