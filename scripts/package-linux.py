@@ -23,7 +23,11 @@ def main():
     parser.add_argument('--arch', choices=['x64', 'arm64'], required=True)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--broad-associations', action='store_true')
+    parser.add_argument('--appimagetool', type=Path, help='appimagetool executable; builds an AppImage when set')
+    parser.add_argument('--appimage-runtime', type=Path, help='static type2 AppImage runtime for --appimagetool')
     args = parser.parse_args()
+    if (args.appimagetool is None) != (args.appimage_runtime is None):
+        parser.error('--appimagetool and --appimage-runtime must be used together.')
     if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', args.version):
         parser.error('Version must be major.minor.patch.')
     image = args.image.resolve()
@@ -62,6 +66,8 @@ def main():
         with tarfile.open(output / f'{stem}.tar.gz', 'w:gz') as archive:
             archive.add(root / 'opt/trestle', arcname='trestle')
             archive.add(root / 'usr/share', arcname='share')
+        if args.appimagetool:
+            build_appimage(root, work / 'AppDir', args, output / f'{stem}.AppImage')
         control = root / 'DEBIAN'
         control.mkdir()
         arch = 'amd64' if args.arch == 'x64' else 'arm64'
@@ -129,6 +135,28 @@ cp -a "{root}/." "%{{buildroot}}/"
             raise RuntimeError('Expected exactly one RPM package.')
         shutil.copyfile(packages[0], output / f'{stem}.rpm')
 
+
+
+def build_appimage(root, appdir, args, target):
+    """Wrap the package layout in an AppImage that runs on any distribution with glibc 2.35 or newer."""
+    shutil.copytree(root / 'opt/trestle', appdir / 'trestle', symlinks=True)
+    shutil.copytree(root / 'usr/share', appdir / 'usr/share', symlinks=True)
+    shutil.copyfile(root / 'usr/share/applications/net.blockhost.trestle.desktop', appdir / 'net.blockhost.trestle.desktop')
+    shutil.copyfile(root / 'usr/share/icons/hicolor/512x512/apps/net.blockhost.trestle.png', appdir / 'net.blockhost.trestle.png')
+    (appdir / '.DirIcon').symlink_to('net.blockhost.trestle.png')
+    # appimagetool validates AppStream metadata only under the older .appdata.xml name.
+    shutil.copyfile(appdir / 'usr/share/metainfo/net.blockhost.trestle.metainfo.xml', appdir / 'usr/share/metainfo/net.blockhost.trestle.appdata.xml')
+    app_run = appdir / 'AppRun'
+    app_run.write_text('#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/trestle/bin/Trestle" "$@"\n')
+    app_run.chmod(0o755)
+    environment = dict(os.environ, ARCH='x86_64' if args.arch == 'x64' else 'aarch64')
+    # appimagetool is itself an AppImage. Extracting it avoids needing FUSE on build machines.
+    environment['APPIMAGE_EXTRACT_AND_RUN'] = '1'
+    subprocess.run(
+        [str(args.appimagetool), '--runtime-file', str(args.appimage_runtime), str(appdir), str(target)],
+        check=True, env=environment,
+    )
+    target.chmod(0o755)
 
 if __name__ == '__main__':
     main()

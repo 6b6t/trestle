@@ -91,13 +91,21 @@ The release includes:
 - `SHA256SUMS`: checksums for the binary packages.
 - `downloads.html`: a download table generated from the same package metadata.
 - An unsigned ARM64 IPA for local signing and a jailbreak `.tipa`.
-- A Homebrew cask, WinGet manifests, and a Flatpak manifest with actual package checksums.
+- An AppImage for each Linux architecture, built with the static AppImage runtime so players do not need FUSE 2.
+- A Homebrew cask, WinGet manifests, a Flatpak manifest, and an AUR `PKGBUILD` with actual package checksums.
 
 GitHub downloads HTML as an asset. Hosting that page as a website is a separate publishing step.
 
 ## Distribution integrations
 
-The generated Homebrew, WinGet, and Flatpak files are submission artifacts. The release workflow does not publish to package catalogs automatically.
+After a stable release, the workflow publishes to two catalogs:
+
+- **AUR:** the `publish-aur` job pushes the generated `PKGBUILD` to `trestle-bin`. It needs the `AUR_SSH_PRIVATE_KEY` secret: the private SSH key of an AUR account that maintains `trestle-bin`.
+- **WinGet:** the `publish-winget` job submits the generated manifests to `microsoft/winget-pkgs` with Komac. It needs the `WINGET_TOKEN` secret: a GitHub token with the `public_repo` scope. Komac opens the pull request from that account's fork of `winget-pkgs`.
+
+Each job skips itself and notes it in the run summary when its secret is missing. Prereleases are not published to either catalog.
+
+The Homebrew and Flatpak files are submission artifacts only. Homebrew's main cask catalog requires notarized apps, and Flathub requires a person to write and submit the manifest.
 
 Validate each artifact with its package manager before submission. Flatpak also needs a sandbox launch test against its declared runtime.
 

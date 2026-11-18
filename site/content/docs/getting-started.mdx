@@ -16,6 +16,8 @@ Trestle needs Windows 10 or newer. Use the x64 package for Intel and AMD process
 3. The installers are unsigned, so Windows SmartScreen can show **Windows protected your PC**. Select **More info**, then **Run anyway**.
 4. Start Trestle from the Start menu.
 
+You can also install Trestle with WinGet once the catalog includes the current version: `winget install BlockhostNetwork.Trestle`.
+
 ## Install on macOS
 
 Trestle needs macOS 11 or newer. Use the ARM64 package for Apple silicon Macs, and the x64 package for Intel Macs.
@@ -33,9 +35,13 @@ Trestle needs glibc 2.35 or newer on x64 or ARM64. Packages bundle the Java runt
 
 - On Debian, Ubuntu, and their derivatives, install the DEB: `sudo apt install ./Trestle-<version>-linux-x64.deb`
 - On Fedora, openSUSE, and other RPM systems, install the RPM: `sudo dnf install ./Trestle-<version>-linux-x64.rpm`
-- On other distributions, extract the `.tar.gz` archive and run `trestle/bin/Trestle`.
+- On Arch Linux and its derivatives, install `trestle-bin` from the AUR with your AUR helper, for example `yay -S trestle-bin`.
+- On any distribution, download the AppImage, make it executable with `chmod +x Trestle-<version>-linux-x64.AppImage`, and run it. It does not need FUSE 2.
+- You can also extract the `.tar.gz` archive and run `trestle/bin/Trestle`.
 
-The DEB and RPM packages add Trestle to your application menu and add the `trestle` command. They also open `.mrpack` modpacks with Trestle.
+The DEB, RPM, and AUR packages add Trestle to your application menu and add the `trestle` command. They also open `.mrpack` modpacks with Trestle. The AppImage and the archive do not change your system; to add the AppImage to your menu, use a tool such as Gear Lever.
+
+Trestle shows when a new version is available. The AUR package updates through your AUR helper. Other packages offer a download of the same package type.
 
 ## Install on Android
 
