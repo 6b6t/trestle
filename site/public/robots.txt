@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-
 Sitemap: https://trestle.6b6t.org/sitemap.xml

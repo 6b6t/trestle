@@ -1,0 +1,38 @@
+---
+title: Use Trestle from the command line
+description: List, install, launch, and export Trestle instances from a terminal with the desktop command line.
+---
+
+The desktop packages include command-line operations. They use the same instances as the Trestle window.
+
+```bash
+trestle --list
+trestle --install <id-or-name>
+trestle --launch <id-or-name>
+trestle --export <id-or-name> [path]
+trestle --help
+```
+
+You can refer to an instance by its ID or by its exact name. Names ignore letter case.
+
+## Commands
+
+- `--list` prints one line per instance: its ID, name, Minecraft version, mod loader, and installation state.
+- `--install` installs or repairs an instance and prints its download progress.
+- `--launch` starts an installed instance and writes the Minecraft output to the terminal.
+- `--export` writes a portable instance archive with Prism-compatible metadata. Without a path, Trestle writes `<id>.zip` to its exports folder.
+
+## Exit codes
+
+`--launch` returns the exit code of the game process. Other codes mean that Trestle did not start the game:
+
+| Code | Meaning                                                                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------- |
+| 1    | The command failed. Trestle prints the error.                                                              |
+| 2    | The command, instance, or installation state is not valid. For example, the instance is not installed yet. |
+| 3    | The instance cannot launch, for example because it has no account. Trestle lists what is missing.          |
+| 130  | The launch was cancelled.                                                                                  |
+
+## Find the command
+
+On Linux, the DEB and RPM packages add the `trestle` command. In the portable archive, run `trestle/bin/Trestle`. On Windows and macOS, run the Trestle executable inside the installed application.

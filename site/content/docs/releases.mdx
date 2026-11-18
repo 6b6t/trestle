@@ -1,4 +1,7 @@
-# Prepare a release
+---
+title: Prepare a release
+description: How maintainers build, sign, verify, and publish Trestle packages for every platform.
+---
 
 This guide is for maintainers who build and publish Trestle packages.
 
@@ -25,7 +28,7 @@ Before the first stable release:
 
 ## Configure signing
 
-Android signing uses the existing dedicated key. Follow [Android signing](android-signing.md) for backup and recovery instructions.
+Android signing uses the existing dedicated key. Follow [Android signing](/android-signing/) for backup and recovery instructions.
 
 The release workflow does not use an Apple certificate or provisioning profile. It creates an unsigned IPA and a jailbreak `.tipa` with `ldid`.
 

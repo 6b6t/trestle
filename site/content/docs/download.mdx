@@ -1,0 +1,34 @@
+---
+title: Downloads
+description: Download Trestle for Windows, macOS, Linux, Android, or iOS from the latest GitHub release.
+---
+
+## Signatures and security warnings
+
+Android packages use the Trestle release key. The Windows installers and the iOS IPA are unsigned. The iOS TIPA has an `ldid` signature for jailbroken and TrollStore devices.
+
+macOS apps have ad hoc signatures and are not notarized. Windows and macOS can warn you before the first launch. The [install guide](/getting-started/) shows how to continue on each system.
+
+## Check a download
+
+Each release includes `SHA256SUMS` with a checksum for every package. To check a file on Linux or macOS, run this command in the download folder:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+On macOS without `sha256sum`, run `shasum -a 256 --check --ignore-missing SHA256SUMS`.
+
+The release also includes `release-manifest.json`, with the source commit, checksum, size, and minimum system for each package.
+
+## Choose an architecture
+
+- **x64** is for Intel and AMD processors.
+- **ARM64** is for ARM processors, including Apple silicon, Snapdragon, and most phones.
+- **Universal** Android packages contain both ARM64 and x64 libraries.
+
+32-bit ARM, 32-bit x86, and RISC-V packages are not available.
+
+## Preview releases and older versions
+
+This page lists the latest stable release. Preview releases and older versions are on the [GitHub releases page](https://github.com/6b6t/trestle/releases). Trestle can also tell you about previews: turn on preview releases in **Settings**, under **Tools**.

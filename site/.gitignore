@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.source/
+.generated/
+.tanstack/
+.output/
+/public/sitemap.xml
+/test-results/
+/playwright-report/
+/public/assets/showcase/
+/public/docs/

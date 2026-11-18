@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title description">
+  <title id="title">Trestle logo</title>
+  <desc id="description">A brass bridge deck above a pale Y-shaped trestle support.</desc>
+  <rect width="64" height="64" fill="#171715"/>
+  <path fill="#BE8F45" d="M4 10h56v8H4z"/>
+  <path fill="#E7E3D9" d="M6 18h52v5H6zM8 23h12l12 12-5 5zM44 23h12L37 40l-5-5z"/>
+  <path fill="#BE8F45" d="M27 35h10v19H27z"/>
+</svg>

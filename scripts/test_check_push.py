@@ -170,6 +170,19 @@ class PushChecksTest(unittest.TestCase):
         for directory in ["."]:
             self.assertTrue(any(cwd == directory for cwd, command in selected[1:]))
 
+    def test_website_changes_check_only_the_website(self):
+        for path in ["site/src/routes/index.tsx", "docs/assets/showcase-phone.gif"]:
+            selected = hooks.checks_for({path})
+            self.assertEqual(
+                selected[1:],
+                [
+                    ("site", ["bun", "install", "--frozen-lockfile"]),
+                    ("site", ["bun", "run", "check"]),
+                    ("site", ["bun", "run", "test"]),
+                    ("site", ["bun", "run", "build"]),
+                ],
+            )
+
     def test_dry_run_never_runs_build_commands(self):
         with patch("sys.argv", ["check-push.py", "--all", "--dry-run"]), patch.object(
             hooks, "git", return_value=b"README.md\0"

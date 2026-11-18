@@ -1,0 +1,76 @@
+---
+title: Install Trestle and play
+description: Install Trestle on Windows, macOS, Linux, Android, or iOS, then sign in and launch your first Minecraft instance.
+---
+
+Trestle runs on Windows, macOS, Linux, Android, and iOS. Each platform downloads from the same GitHub release. Get the package for your system from the [downloads page](/download/), then follow the steps for your platform.
+
+You need a Microsoft account that owns Minecraft Java Edition to play online.
+
+## Install on Windows
+
+Trestle needs Windows 10 or newer. Use the x64 package for Intel and AMD processors, and the ARM64 package for ARM processors such as Snapdragon.
+
+1. Download `Trestle-...-windows-x64.exe` or `Trestle-...-windows-arm64.exe`. The MSI package installs the same app and suits managed deployments.
+2. Run the installer.
+3. The installers are unsigned, so Windows SmartScreen can show **Windows protected your PC**. Select **More info**, then **Run anyway**.
+4. Start Trestle from the Start menu.
+
+## Install on macOS
+
+Trestle needs macOS 11 or newer. Use the ARM64 package for Apple silicon Macs, and the x64 package for Intel Macs.
+
+1. Download the disk image (`.dmg`) or the installer package (`.pkg`) for your Mac.
+2. Open the disk image and drag Trestle to **Applications**, or run the installer package.
+3. Open Trestle. The app has an ad hoc signature and is not notarized, so macOS can block the first launch.
+4. If macOS blocks it, open **System Settings**, then **Privacy & Security**, and select **Open Anyway**. Apple explains this step in [Open a Mac app from an unknown developer](https://support.apple.com/en-us/102445).
+
+Do not turn off Gatekeeper for your whole system.
+
+## Install on Linux
+
+Trestle needs glibc 2.35 or newer on x64 or ARM64. Packages bundle the Java runtime for the launcher.
+
+- On Debian, Ubuntu, and their derivatives, install the DEB: `sudo apt install ./Trestle-<version>-linux-x64.deb`
+- On Fedora, openSUSE, and other RPM systems, install the RPM: `sudo dnf install ./Trestle-<version>-linux-x64.rpm`
+- On other distributions, extract the `.tar.gz` archive and run `trestle/bin/Trestle`.
+
+The DEB and RPM packages add Trestle to your application menu and add the `trestle` command. They also open `.mrpack` modpacks with Trestle.
+
+## Install on Android
+
+Trestle needs Android 8.1 or newer. To launch the game, the device needs Vulkan 1.2 or newer.
+
+1. On your device, download `Trestle-...-android-universal.apk`. If you know your device's architecture, the ARM64 or x64 APK is smaller.
+2. Open the downloaded file. If Android asks, allow your browser to install unknown apps.
+3. Open Trestle.
+
+<Callout type="warn">
+  Android supports Vanilla Minecraft 26.2 only. Other Minecraft versions and mod loaders are not
+  available on Android yet.
+</Callout>
+
+## Install on iOS
+
+Trestle needs iOS 16 or newer on an iPhone or iPad. Two packages are available:
+
+- `Trestle-...-ios-arm64.ipa` is unsigned. Sign it with your own Apple account and provisioning profile before you install it.
+- `Trestle-...-ios-arm64.tipa` is for TrollStore and jailbroken devices.
+
+The launcher works without JIT. To launch Minecraft, the device needs a JIT or jailbreak environment that works with Trestle. The [iOS target guide](/ios/) explains the signing and JIT requirements.
+
+## Play for the first time
+
+1. Open **Accounts** and select **Add account**. Sign in with your Microsoft account.
+2. In the **Library**, select **New instance**. Choose a Minecraft version and a mod loader, such as Vanilla or Fabric.
+3. Select the instance, then select **Launch**. Trestle downloads the game files and the Java runtime that the version needs.
+
+To add mods, shaders, or modpacks, open **Discover** and choose the instance to install into. To bring existing setups, select **Import** in the Library. Trestle imports Modrinth and CurseForge packs, and Prism Launcher and MultiMC instances.
+
+## If something does not work
+
+- **The game does not start:** Open the instance's **Logs** and look for the first error. Crash reports appear there too.
+- **CurseForge shows as unavailable:** Your build has no CurseForge key. Modrinth and the other catalogs still work.
+- **An Android launch fails at once:** Check that your device supports Vulkan 1.2 and that the instance uses Minecraft 26.2.
+
+[Report a reproducible problem on GitHub](https://github.com/6b6t/trestle/issues). Include your Trestle version, your operating system, what you tried, and the error message. Remove account details from logs before you share them.

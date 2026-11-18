@@ -1,0 +1,75 @@
+name: Publish website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - site/**
+      - docs/assets/**
+      - .github/workflows/pages.yml
+  pull_request:
+    paths:
+      - site/**
+      - docs/assets/**
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+  release:
+    types: [published]
+  # Releases created with GITHUB_TOKEN do not trigger the release event.
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'deploy' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build website
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ (github.event_name == 'release' || github.event_name == 'workflow_run') && 'main' || github.sha }}
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run check
+      - run: bun run test
+      - name: Build static site
+        run: bun run build
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Install test browser
+        run: bunx --no-install playwright install --with-deps chromium --only-shell
+      - run: bun run test:e2e
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist/client
+
+  deploy:
+    name: Deploy website
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

@@ -46,6 +46,14 @@ RULES = [
     (
         ["scripts/*"],
         [(".", ["python3", "-m", "unittest", "discover", "-s", "scripts/tests", "-v"])],
+    ),    (
+        ["site/*", "docs/assets/*"],
+        [
+            ("site", ["bun", "install", "--frozen-lockfile"]),
+            ("site", ["bun", "run", "check"]),
+            ("site", ["bun", "run", "test"]),
+            ("site", ["bun", "run", "build"]),
+        ],
     ),
 ]
 

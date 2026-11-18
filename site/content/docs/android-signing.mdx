@@ -1,4 +1,7 @@
-# Android release signing
+---
+title: Android release signing
+description: How Trestle signs Android release packages, and how maintainers back up and recover the signing key.
+---
 
 Trestle signs Android release APKs and app bundles with a dedicated RSA key in a PKCS12 keystore.
 Debug builds use the standard Android debug key and do not need release credentials.
@@ -7,12 +10,12 @@ Debug builds use the standard Android debug key and do not need release credenti
 
 The repository uses these Actions secrets:
 
-| Secret | Value |
-|---|---|
-| `TRESTLE_ANDROID_KEYSTORE_BASE64` | The PKCS12 keystore encoded as base64. |
-| `TRESTLE_ANDROID_STORE_PASSWORD` | The keystore password. |
-| `TRESTLE_ANDROID_KEY_ALIAS` | The signing key alias. |
-| `TRESTLE_ANDROID_KEY_PASSWORD` | The private key password. For this PKCS12 keystore, it matches the keystore password. |
+| Secret                            | Value                                                                                 |
+| --------------------------------- | ------------------------------------------------------------------------------------- |
+| `TRESTLE_ANDROID_KEYSTORE_BASE64` | The PKCS12 keystore encoded as base64.                                                |
+| `TRESTLE_ANDROID_STORE_PASSWORD`  | The keystore password.                                                                |
+| `TRESTLE_ANDROID_KEY_ALIAS`       | The signing key alias.                                                                |
+| `TRESTLE_ANDROID_KEY_PASSWORD`    | The private key password. For this PKCS12 keystore, it matches the keystore password. |
 
 The release workflow restores the keystore into the runner's temporary directory.
 It passes the credentials through environment variables and disables the Gradle configuration cache and build cache for the signing build.
