@@ -17,19 +17,19 @@ test("download previews name the release", () => {
 
 test("guide previews and canonical URLs use the published paths", () => {
   const head = pageHead({ title: "iOS launcher target", description: "Build for iOS" }, "ios");
-  expect(head.links).toContainEqual({ rel: "canonical", href: "https://trestle.6b6t.org/ios/" });
+  expect(head.links).toContainEqual({ rel: "canonical", href: "https://launcher.6b6t.org/ios/" });
   expect(head.meta).toContainEqual({
     property: "og:url",
-    content: "https://trestle.6b6t.org/ios/",
+    content: "https://launcher.6b6t.org/ios/",
   });
   expect(head.meta).toContainEqual({ title: "iOS launcher target · Trestle" });
-  expect(head.scripts[0]?.children).toContain("https://trestle.6b6t.org/ios/");
+  expect(head.scripts[0]?.children).toContain("https://launcher.6b6t.org/ios/");
 });
 
 test("the homepage uses the site name as its title", () => {
   const head = pageHead();
   expect(head.meta).toContainEqual({ title: "Trestle" });
-  expect(head.links).toContainEqual({ rel: "canonical", href: "https://trestle.6b6t.org/" });
+  expect(head.links).toContainEqual({ rel: "canonical", href: "https://launcher.6b6t.org/" });
 });
 
 test("Discord preview JSON cannot close its containing script element", () => {

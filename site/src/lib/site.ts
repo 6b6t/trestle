@@ -1,6 +1,6 @@
 export const site = {
   title: "Trestle",
-  url: "https://trestle.6b6t.org",
+  url: "https://launcher.6b6t.org",
   description:
     "A Minecraft Java Edition launcher for Windows, macOS, Linux, Android, and iOS, with isolated instances and modpack support.",
   github: "https://github.com/6b6t/trestle",

@@ -4,7 +4,7 @@
 
 Trestle is a cross-platform Minecraft Java Edition launcher built with Kotlin and Compose Multiplatform.
 
-Download Trestle and read the guides at [trestle.6b6t.org](https://trestle.6b6t.org). The website source lives in [`site/`](site/README.md).
+Download Trestle and read the guides at [launcher.6b6t.org](https://launcher.6b6t.org). The website source lives in [`site/`](site/README.md).
 
 ## Take a look
 
@@ -112,7 +112,7 @@ The command creates ARM64, x64, and universal debug APKs under `androidApp/build
 
 Trestle shows CurseForge as unavailable when the key is not set. Modrinth search and installation remain available.
 
-Release APKs and app bundles use a dedicated signing key. See [Android release signing](https://trestle.6b6t.org/android-signing/) for configuration and backup instructions.
+Release APKs and app bundles use a dedicated signing key. See [Android release signing](https://launcher.6b6t.org/android-signing/) for configuration and backup instructions.
 
 ## Build the iOS app
 
@@ -126,7 +126,7 @@ You can compile the shared iOS target from Gradle:
 
 Device builds include the iOS runtime payload. The simulator supports launcher workflows but cannot start the ARM64 device runtime.
 
-See [iOS launcher target](https://trestle.6b6t.org/ios/) for the build, signing, and runtime requirements.
+See [iOS launcher target](https://launcher.6b6t.org/ios/) for the build, signing, and runtime requirements.
 
 ## Validate changes
 
@@ -162,9 +162,9 @@ GitHub Actions runs these checks for each pull request and each push to `main`.
 
 ## Architecture references
 
-- [Android runtime boundary](https://trestle.6b6t.org/android-runtime/)
-- [iOS launcher and runtime boundary](https://trestle.6b6t.org/ios/)
-- [Launcher service endpoints](https://trestle.6b6t.org/service-endpoints/)
+- [Android runtime boundary](https://launcher.6b6t.org/android-runtime/)
+- [iOS launcher and runtime boundary](https://launcher.6b6t.org/ios/)
+- [Launcher service endpoints](https://launcher.6b6t.org/service-endpoints/)
 
 ## Project structure
 
@@ -173,7 +173,7 @@ androidApp/   Android application and entry point
 desktopApp/   Desktop application and entry point
 iosApp/       iOS application and Xcode project
 shared/       Shared UI, resources, domain model, and tests
-site/         Website and guides, published to trestle.6b6t.org
+site/         Website and guides, published to launcher.6b6t.org
 gradle/       Version catalog and Gradle wrapper files
 licenses/     Licenses for bundled third-party assets
 ```
@@ -190,8 +190,8 @@ The vendored PlatformTools accent readers use the MIT License. See [`licenses/MI
 
 ## Release and update guides
 
-- [Prepare and sign a release](https://trestle.6b6t.org/releases/)
-- [Update the launcher, imported content, and modpacks](https://trestle.6b6t.org/content-updates/)
+- [Prepare and sign a release](https://launcher.6b6t.org/releases/)
+- [Update the launcher, imported content, and modpacks](https://launcher.6b6t.org/content-updates/)
 
 ## Local Git checks
 

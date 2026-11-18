@@ -1,6 +1,6 @@
 # Trestle website
 
-The source for [trestle.6b6t.org](https://trestle.6b6t.org) lives here.
+The source for [launcher.6b6t.org](https://launcher.6b6t.org) lives here.
 The site uses TanStack Start, Fumadocs, and Vite. GitHub Pages serves the static build.
 
 ## Run the site locally
