@@ -31,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModel
@@ -38,6 +39,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
@@ -177,27 +179,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun importUri(uri: Uri) {
-        lifecycleScope.launch {
-            // Imports are held in memory, so the limit also stays well inside the app's heap.
-            val limit = minOf(MAX_IMPORT_BYTES, Runtime.getRuntime().maxMemory() / 4)
-            val name = withContext(Dispatchers.IO) { contentResolver.displayName(uri) } ?: uri.lastPathSegment ?: "local-file"
-            val declaredLength = withContext(Dispatchers.IO) {
-                runCatching { contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull()
-            }
-            if (declaredLength != null && declaredLength > limit) {
-                viewModel.launcher.reportLocalFileTooLarge(name)
-                return@launch
-            }
-            val result = withContext(Dispatchers.IO) {
-                runCatching { contentResolver.openInputStream(uri)?.use { it.readAtMost(limit) } }
-            }
-            val bytes = result.getOrNull()
-            when {
-                result.exceptionOrNull() is FileTooLargeException -> viewModel.launcher.reportLocalFileTooLarge(name)
-                bytes == null -> viewModel.launcher.reportLocalFileReadFailure(name)
-                else -> viewModel.launcher.queueLocalFileImport(name, bytes)
-            }
-        }
+        viewModel.importUri(applicationContext.contentResolver, uri)
     }
 
     private fun observePinnedInstances() {
@@ -323,6 +305,34 @@ private const val STATIC_SHORTCUT_COUNT = 2
 private data class PinnedShortcut(val id: String, val label: String)
 
 private class TrestleAndroidViewModel(val launcher: LauncherViewModel) : ViewModel() {
+    /**
+     * Reads a shared or opened file and queues it for import. The read runs in the view model scope, so rotating the
+     * screen or a language change that recreates the activity does not cancel it.
+     */
+    fun importUri(contentResolver: ContentResolver, uri: Uri) {
+        viewModelScope.launch {
+            // Imports are held in memory, so the limit also stays well inside the app's heap.
+            val limit = minOf(MAX_IMPORT_BYTES, Runtime.getRuntime().maxMemory() / 4)
+            val name = withContext(Dispatchers.IO) { contentResolver.displayName(uri) } ?: uri.lastPathSegment ?: "local-file"
+            val declaredLength = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull()
+            }
+            if (declaredLength != null && declaredLength > limit) {
+                launcher.reportLocalFileTooLarge(name)
+                return@launch
+            }
+            val result = withContext(Dispatchers.IO) {
+                runCatching { contentResolver.openInputStream(uri)?.use { it.readAtMost(limit) } }
+            }
+            val bytes = result.getOrNull()
+            when {
+                result.exceptionOrNull() is FileTooLargeException -> launcher.reportLocalFileTooLarge(name)
+                bytes == null -> launcher.reportLocalFileReadFailure(name)
+                else -> launcher.queueLocalFileImport(name, bytes)
+            }
+        }
+    }
+
     override fun onCleared() {
         launcher.close()
     }
@@ -355,6 +365,6 @@ private fun ContentResolver.displayName(uri: Uri): String? = runCatching {
 private fun Context.launchShortcutToken(): String {
     val preferences = getSharedPreferences(SHORTCUT_PREFERENCES, Context.MODE_PRIVATE)
     return preferences.getString(KEY_LAUNCH_TOKEN, null) ?: UUID.randomUUID().toString().also { token ->
-        preferences.edit().putString(KEY_LAUNCH_TOKEN, token).apply()
+        preferences.edit { putString(KEY_LAUNCH_TOKEN, token) }
     }
 }
