@@ -1389,4 +1389,8 @@
     <string name="category_utility">Utilidad</string>
     <string name="category_vanilla_like">Estilo vanilla</string>
     <string name="category_worldgen">Generación de mundos</string>
+    <string name="msg_minecraft_crashed">Minecraft se cerró por un error. Los registros de la instancia tienen los detalles.</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft no pudo mostrar la pantalla del juego.</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft se detuvo inesperadamente. Los registros de la instancia tienen los detalles.</string>
+    <string name="msg_minecraft_did_not_start_in_time">Minecraft no se inició en 20 segundos.</string>
 </resources>

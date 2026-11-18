@@ -16,6 +16,7 @@
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_trestle"
         android:label="Trestle"
+        android:localeConfig="@xml/locales_config"
         android:roundIcon="@mipmap/ic_trestle_round"
         android:supportsRtl="true"
         android:theme="@style/TrestleStartingTheme"

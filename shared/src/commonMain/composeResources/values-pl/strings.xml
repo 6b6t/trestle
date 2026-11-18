@@ -1401,4 +1401,8 @@
     <string name="category_utility">Narzędzia</string>
     <string name="category_vanilla_like">W stylu vanilla</string>
     <string name="category_worldgen">Generowanie świata</string>
+    <string name="msg_minecraft_crashed">Minecraft uległ awarii. Szczegóły są w logach instancji.</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft nie mógł wyświetlić ekranu gry.</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft nieoczekiwanie się zatrzymał. Szczegóły są w logach instancji.</string>
+    <string name="msg_minecraft_did_not_start_in_time">Minecraft nie uruchomił się w ciągu 20 sekund.</string>
 </resources>

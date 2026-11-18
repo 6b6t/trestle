@@ -1415,4 +1415,8 @@ SHA-256: %3$s</string>
     <string name="category_utility">أدوات</string>
     <string name="category_vanilla_like">بأسلوب اللعبة الأصلية</string>
     <string name="category_worldgen">توليد العوالم</string>
+    <string name="msg_minecraft_crashed">تعطّل Minecraft. توجد التفاصيل في سجلات النسخة.</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">تعذّر على Minecraft عرض شاشة اللعبة.</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">توقف Minecraft بشكل غير متوقع. توجد التفاصيل في سجلات النسخة.</string>
+    <string name="msg_minecraft_did_not_start_in_time">لم يبدأ Minecraft خلال 20 ثانية.</string>
 </resources>

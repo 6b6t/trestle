@@ -32,9 +32,13 @@ import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.msg_android_requires_arm64_or_x64
 import net.blockhost.trestle.resources.msg_installing_android_game_components
 import net.blockhost.trestle.resources.msg_installing_java_25_runtime
+import net.blockhost.trestle.resources.msg_minecraft_could_not_show_the_game_screen
 import net.blockhost.trestle.resources.msg_minecraft_could_not_start
+import net.blockhost.trestle.resources.msg_minecraft_crashed
+import net.blockhost.trestle.resources.msg_minecraft_did_not_start_in_time
 import net.blockhost.trestle.resources.msg_minecraft_is_already_running
 import net.blockhost.trestle.resources.msg_minecraft_s_requires_java_s_but_the
+import net.blockhost.trestle.resources.msg_minecraft_stopped_unexpectedly_see_logs
 import net.blockhost.trestle.resources.msg_sign_in_with_a_minecraft_java_edition
 import net.blockhost.trestle.resources.msg_the_android_game_activity_could_not_start
 import net.blockhost.trestle.resources.msg_the_android_mvp_supports_vanilla_minecraft_s
@@ -249,14 +253,14 @@ class AndroidMinecraftRuntime internal constructor(
         }.getOrElse { error ->
             val message = "The Minecraft output log could not be created: ${error.message.orEmpty()}"
             logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
-            trySend(LaunchEvent.Failed(message.asUserText()))
+            trySend(LaunchEvent.Failed(text(Res.string.msg_minecraft_could_not_start)))
             close(error)
             return@callbackFlow
         }
         val outputTailer = runCatching { outputLog.tailer() }.getOrElse { error ->
             val message = "The Minecraft output log could not be monitored: ${error.message.orEmpty()}"
             logger.error("runtime", message, error, mapOf("instanceId" to preparedLaunch.instanceId))
-            trySend(LaunchEvent.Failed(message.asUserText()))
+            trySend(LaunchEvent.Failed(text(Res.string.msg_minecraft_could_not_start)))
             close(error)
             return@callbackFlow
         }
@@ -312,7 +316,7 @@ class AndroidMinecraftRuntime internal constructor(
                         message,
                         details = mapOf("instanceId" to preparedLaunch.instanceId),
                     )
-                    trySend(LaunchEvent.Failed(message.asUserText()))
+                    trySend(LaunchEvent.Failed(text(Res.string.msg_minecraft_stopped_unexpectedly_see_logs)))
                     close()
                 }
             }
@@ -349,8 +353,10 @@ class AndroidMinecraftRuntime internal constructor(
                         val message = if (resultCode == AndroidGameLaunchProtocol.RESULT_ALREADY_RUNNING) {
                             text(Res.string.msg_minecraft_is_already_running)
                         } else {
-                            resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.asUserText()
-                                ?: text(Res.string.msg_minecraft_could_not_start)
+                            gameFailureText(resultData)
+                        }
+                        resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.let { detail ->
+                            logger.error("runtime", detail, details = mapOf("instanceId" to preparedLaunch.instanceId))
                         }
                         trySend(LaunchEvent.Failed(message))
                         close()
@@ -389,7 +395,7 @@ class AndroidMinecraftRuntime internal constructor(
                 if (!processAnnounced.get() && terminalReceived.compareAndSet(false, true)) {
                     val message = "The Android game process did not start within 20 seconds."
                     logger.error("runtime", message, details = mapOf("instanceId" to preparedLaunch.instanceId))
-                    trySend(LaunchEvent.Failed(message.asUserText()))
+                    trySend(LaunchEvent.Failed(text(Res.string.msg_minecraft_did_not_start_in_time)))
                     close()
                 }
             }
@@ -427,6 +433,17 @@ class AndroidMinecraftRuntime internal constructor(
             completedItems = completedFiles,
             totalItems = totalFiles,
         )
+
+    private fun gameFailureText(resultData: Bundle?): UserText {
+        val failure = resultData?.getString(AndroidGameLaunchProtocol.EXTRA_FAILURE)
+            ?.let { name -> AndroidGameLaunchProtocol.Failure.entries.firstOrNull { it.name == name } }
+        return when (failure) {
+            AndroidGameLaunchProtocol.Failure.INCOMPLETE_REQUEST -> text(Res.string.msg_the_android_game_activity_could_not_start)
+            AndroidGameLaunchProtocol.Failure.CRASHED -> text(Res.string.msg_minecraft_crashed)
+            AndroidGameLaunchProtocol.Failure.SCREEN_FAILED -> text(Res.string.msg_minecraft_could_not_show_the_game_screen)
+            AndroidGameLaunchProtocol.Failure.START_FAILED, null -> text(Res.string.msg_minecraft_could_not_start)
+        }
+    }
 
     private suspend fun unexpectedProcessDeath(
         preparedLaunch: PreparedLaunch,
@@ -707,6 +724,7 @@ object AndroidGameLaunchProtocol {
     const val EXTRA_PROCESS_ID = "process_id"
     const val EXTRA_EXIT_CODE = "exit_code"
     const val EXTRA_MESSAGE = "message"
+    const val EXTRA_FAILURE = "failure"
     const val EXTRA_LANGUAGE_TAG = "language_tag"
 
     const val RESULT_STARTED = 1
@@ -714,4 +732,10 @@ object AndroidGameLaunchProtocol {
     const val RESULT_FAILED = 4
     const val RESULT_PROCESS_CREATED = 5
     const val RESULT_ALREADY_RUNNING = 6
+
+    /**
+     * Why the game process failed. The launcher shows a translated message for each one, because the game process
+     * does not know the launcher language. [EXTRA_MESSAGE] then carries the English technical detail for the log.
+     */
+    enum class Failure { INCOMPLETE_REQUEST, START_FAILED, CRASHED, SCREEN_FAILED }
 }

@@ -105,6 +105,19 @@ enum class LauncherLanguage(val tag: String?, val nativeName: String?) {
         /** Reads a saved preference. Older versions saved the English label instead of the name. */
         fun fromPreference(value: String): LauncherLanguage =
             entries.firstOrNull { it.name == value } ?: if (value == "English") ENGLISH else SYSTEM
+
+        /**
+         * The language for a BCP 47 [tag] from the platform, such as Android's per-app language. A region Trestle
+         * has no translation for falls back to the language alone, and an unknown or blank tag means [SYSTEM].
+         */
+        fun fromLanguageTag(tag: String): LauncherLanguage {
+            if (tag.isBlank()) return SYSTEM
+            // Older Android versions report Hebrew with its legacy code.
+            val language = tag.substringBefore('-').lowercase().let { if (it == "iw") "he" else it }
+            return entries.firstOrNull { it.tag.equals(tag, ignoreCase = true) }
+                ?: entries.firstOrNull { it.tag?.substringBefore('-') == language }
+                ?: SYSTEM
+        }
     }
 }
 

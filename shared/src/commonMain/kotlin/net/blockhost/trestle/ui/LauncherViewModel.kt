@@ -3539,7 +3539,9 @@ class LauncherViewModel(
                             if (browser.type == ResourceType.MODPACK) "" else instance?.minecraftVersionId.orEmpty()
                         }.ifBlank { null },
                         loader = browser.loaderFilter ?: if (browser.type == ResourceType.MODPACK) null else instance?.modLoader,
-                        category = browser.categoryFilter.ifBlank { null },
+                        // The category list only exists for Modrinth. Keep the choice for when the player switches back.
+                        category = browser.categoryFilter.ifBlank { null }
+                            ?.takeIf { resourceCategories(browser.provider, browser.type).isNotEmpty() },
                         sort = browser.sort,
                         offset = if (append) browser.projects.size else 0,
                     ),

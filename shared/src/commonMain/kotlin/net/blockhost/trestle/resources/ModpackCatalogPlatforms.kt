@@ -328,7 +328,6 @@ class FtbResourcePlatform(
             }
             .filter { pack -> request.gameVersion == null || pack.gameVersions().contains(request.gameVersion) }
             .filter { pack -> request.loader == null || pack.loaders().contains(request.loader) }
-            .filter { pack -> request.category == null || pack.tags.any { it.name.equals(request.category, true) } }
             .let { values ->
                 when (request.sort) {
                     ResourceSearchSort.DOWNLOADS -> values.sortedByDescending(FtbPack::installs)

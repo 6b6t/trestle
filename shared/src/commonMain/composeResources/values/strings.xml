@@ -1391,4 +1391,8 @@ SHA-256: %3$s</string>
     <string name="category_utility">Utility</string>
     <string name="category_vanilla_like">Vanilla-like</string>
     <string name="category_worldgen">World generation</string>
+    <string name="msg_minecraft_crashed">Minecraft crashed. The instance logs have details.</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft could not show the game screen.</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft stopped unexpectedly. The instance logs have details.</string>
+    <string name="msg_minecraft_did_not_start_in_time">Minecraft did not start within 20 seconds.</string>
 </resources>

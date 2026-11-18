@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The interface languages Trestle offers. Android 13 and newer list them in the app's language settings. -->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="de" />
+    <locale android:name="es" />
+    <locale android:name="fr" />
+    <locale android:name="pt-BR" />
+    <locale android:name="ru" />
+    <locale android:name="pl" />
+    <locale android:name="tr" />
+    <locale android:name="ja" />
+    <locale android:name="zh-CN" />
+    <locale android:name="ar" />
+    <locale android:name="fa" />
+    <locale android:name="iw" />
+    <locale android:name="ur" />
+</locale-config>

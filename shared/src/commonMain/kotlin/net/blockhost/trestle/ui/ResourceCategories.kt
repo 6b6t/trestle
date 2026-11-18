@@ -2,6 +2,7 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.runtime.Composable
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.category_adventure
 import net.blockhost.trestle.resources.category_atmosphere
@@ -64,10 +65,13 @@ import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.stringResource
 
 /**
- * Modrinth's category tags for each content type, in the order Modrinth shows them. The category filter offers these
- * because Modrinth matches the tag name, which players should not have to type in English.
+ * The category tags the filter offers for [provider] and [type]. Only Modrinth filters searches by category, so other
+ * catalogs get no list and the filter is hidden for them. The tags are Modrinth's, in alphabetical order.
  */
-internal fun resourceCategories(type: ResourceType): List<String> = when (type) {
+internal fun resourceCategories(provider: ResourceProvider, type: ResourceType): List<String> =
+    if (provider == ResourceProvider.MODRINTH) modrinthCategories(type) else emptyList()
+
+private fun modrinthCategories(type: ResourceType): List<String> = when (type) {
     ResourceType.MOD -> modCategories
     ResourceType.MODPACK -> modpackCategories
     ResourceType.RESOURCE_PACK -> resourcePackCategories

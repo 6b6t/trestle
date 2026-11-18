@@ -33,6 +33,14 @@ android {
         }
     }
 
+    // Players can switch the interface language inside Trestle, so an App Bundle must ship every language instead of
+    // only the device's.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
+
     splits {
         abi {
             isEnable = true

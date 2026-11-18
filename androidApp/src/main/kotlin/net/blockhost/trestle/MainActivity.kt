@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
             )
         }
         observePinnedInstances()
+        syncAppLanguage(viewModel.launcher)
         observeOperations()
         // A recreated activity (rotation, theme change, restore from Recents) still carries the intent that first
         // opened it. Handling it again would import the same file twice or start the game again.

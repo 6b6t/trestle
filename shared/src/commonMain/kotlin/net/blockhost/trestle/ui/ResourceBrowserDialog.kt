@@ -487,9 +487,10 @@ private fun ResourceFilterFields(
             },
         )
     }
+    val categories = resourceCategories(browser.provider, browser.type)
     val categoryField: @Composable (Modifier) -> Unit = { fieldModifier ->
         val anyCategory = stringResource(Res.string.ui_any_category)
-        val categoryLabels = resourceCategories(browser.type).associateWith { categoryLabel(it) }
+        val categoryLabels = categories.associateWith { categoryLabel(it) }
         Selector(
             label = stringResource(Res.string.ui_category),
             value = browser.categoryFilter.ifBlank { null }?.let { categoryLabels[it] ?: categoryLabel(it) } ?: anyCategory,
@@ -518,13 +519,13 @@ private fun ResourceFilterFields(
             Text(stringResource(Res.string.ui_filters), style = MaterialTheme.typography.titleLarge)
             gameVersionField(Modifier.fillMaxWidth())
             loaderField(Modifier.fillMaxWidth())
-            categoryField(Modifier.fillMaxWidth())
+            if (categories.isNotEmpty()) categoryField(Modifier.fillMaxWidth())
             sortField(Modifier.fillMaxWidth())
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 gameVersionField(Modifier.weight(1f))
                 loaderField(Modifier.weight(1f))
-                categoryField(Modifier.weight(1f))
+                if (categories.isNotEmpty()) categoryField(Modifier.weight(1f))
                 sortField(Modifier.weight(1f))
                 Button(onClick = onApply) { Text(stringResource(Res.string.ui_apply)) }
             }

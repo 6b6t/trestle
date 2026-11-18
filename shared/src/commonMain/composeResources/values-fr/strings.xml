@@ -1389,4 +1389,8 @@
     <string name="category_utility">Utilitaire</string>
     <string name="category_vanilla_like">Style vanilla</string>
     <string name="category_worldgen">Génération de monde</string>
+    <string name="msg_minecraft_crashed">Minecraft a planté. Les journaux de l’instance contiennent les détails.</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft n’a pas pu afficher l’écran de jeu.</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft s’est arrêté de façon inattendue. Les journaux de l’instance contiennent les détails.</string>
+    <string name="msg_minecraft_did_not_start_in_time">Minecraft n’a pas démarré en 20 secondes.</string>
 </resources>

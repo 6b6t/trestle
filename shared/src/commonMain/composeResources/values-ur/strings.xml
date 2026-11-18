@@ -1391,4 +1391,8 @@ SHA-256: %3$s</string>
     <string name="category_utility">یوٹیلٹی</string>
     <string name="category_vanilla_like">وینیلا جیسا</string>
     <string name="category_worldgen">دنیا کی تخلیق</string>
+    <string name="msg_minecraft_crashed">‏Minecraft کریش ہو گیا۔ تفصیلات انسٹینس لاگز میں ہیں۔</string>
+    <string name="msg_minecraft_could_not_show_the_game_screen">‏Minecraft گیم اسکرین نہیں دکھا سکا۔</string>
+    <string name="msg_minecraft_stopped_unexpectedly_see_logs">‏Minecraft غیر متوقع طور پر رک گیا۔ تفصیلات انسٹینس لاگز میں ہیں۔</string>
+    <string name="msg_minecraft_did_not_start_in_time">‏Minecraft 20 سیکنڈ میں شروع نہیں ہوا۔</string>
 </resources>

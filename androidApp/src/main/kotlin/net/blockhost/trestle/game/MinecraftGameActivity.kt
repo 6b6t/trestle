@@ -31,6 +31,7 @@ import androidx.core.net.toUri
 import com.oracle.dalvik.VMLauncher
 import net.blockhost.trestle.R
 import net.blockhost.trestle.runtime.AndroidGameLaunchProtocol
+import net.blockhost.trestle.runtime.AndroidGameLaunchProtocol.Failure
 import net.kdt.pojavlaunch.utils.JREUtils
 import org.lwjgl.glfw.CallbackBridge
 import java.io.File
@@ -82,7 +83,7 @@ class MinecraftGameActivity :
         run { receiver = intent.getParcelableExtra(AndroidGameLaunchProtocol.EXTRA_RECEIVER) }
         launchRequest = runCatching { GameLaunchRequest.from(intent) }
             .getOrElse { error ->
-                reportFailure(error.message ?: "The game launch request is incomplete.")
+                reportFailure(Failure.INCOMPLETE_REQUEST, error.message ?: "The game launch request is incomplete.")
                 finish()
                 return
             }
@@ -430,7 +431,7 @@ class MinecraftGameActivity :
                     runOnUiThread(::endGameProcess)
                 } catch (error: Throwable) {
                     writeCrashDetails(request, error)
-                    reportFailure(error.message ?: error.javaClass.simpleName)
+                    reportFailure(Failure.START_FAILED, error.message ?: error.javaClass.simpleName)
                     runOnUiThread(::endGameProcess)
                 }
             },
@@ -503,7 +504,7 @@ class MinecraftGameActivity :
         val previous = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, error ->
             writeCrashDetails(request, error)
-            reportFailure("Minecraft crashed on ${thread.name}: ${error.message ?: error.javaClass.simpleName}")
+            reportFailure(Failure.CRASHED, "Minecraft crashed on ${thread.name}: ${error.message ?: error.javaClass.simpleName}")
             previous?.uncaughtException(thread, error)
         }
     }
@@ -530,7 +531,7 @@ class MinecraftGameActivity :
         File(request.workingDirectory, ".trestle/crashes/${requireNotNull(launchId)}").apply { mkdirs() }
 
     private fun reportRuntimeFailure(error: Throwable) {
-        reportFailure("The Minecraft rendering surface could not be attached: ${error.message.orEmpty()}")
+        reportFailure(Failure.SCREEN_FAILED, "The Minecraft rendering surface could not be attached: ${error.message.orEmpty()}")
     }
 
     private fun preloadNativeLibraries(request: GameLaunchRequest) {
@@ -597,10 +598,14 @@ class MinecraftGameActivity :
         println(message)
     }
 
-    private fun reportFailure(message: String) {
+    /** Reports [failure] with an English [detail] for the launcher log. The launcher shows a translated message. */
+    private fun reportFailure(failure: Failure, detail: String) {
         report(
             AndroidGameLaunchProtocol.RESULT_FAILED,
-            Bundle().apply { putString(AndroidGameLaunchProtocol.EXTRA_MESSAGE, message) },
+            Bundle().apply {
+                putString(AndroidGameLaunchProtocol.EXTRA_FAILURE, failure.name)
+                putString(AndroidGameLaunchProtocol.EXTRA_MESSAGE, detail)
+            },
         )
     }
 
