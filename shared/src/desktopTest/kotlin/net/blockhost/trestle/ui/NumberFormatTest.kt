@@ -27,6 +27,10 @@ class NumberFormatTest {
 
         Locale.setDefault(Locale.JAPANESE)
         assertEquals("1240万", formatCompactCount(12_400_000))
+
+        // Arabic keeps its own words but uses Western digits, like the numbers in translated messages.
+        Locale.setDefault(Locale.forLanguageTag("ar"))
+        assertEquals("12.4\u00A0مليون", formatCompactCount(12_400_000))
     }
 
     @Test

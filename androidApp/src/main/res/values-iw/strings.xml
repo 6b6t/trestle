@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">מופע חדש</string>
+    <string name="shortcut_new_instance_long">יצירת מופע Minecraft</string>
+    <string name="shortcut_settings_short">הגדרות</string>
+    <string name="shortcut_settings_long">פתיחת ההגדרות של Trestle</string>
+    <string name="shortcut_launch_named">הפעלת %1$s</string>
+    <string name="notification_channel_operations">פעולות המשגר</string>
+    <string name="notification_channel_operations_description">התקדמות ההתקנה וההורדה</string>
+    <string name="notification_trestle_is_working">‏Trestle עובד</string>
+    <string name="control_move">תנועה</string>
+    <string name="control_menu_cursor">סמן התפריט</string>
+    <string name="control_chat">צ׳אט</string>
+    <string name="control_inventory">תיק</string>
+    <string name="control_drop">זריקה</string>
+    <string name="control_jump">קפיצה</string>
+    <string name="control_attack">תקיפה</string>
+    <string name="control_use">שימוש</string>
+    <string name="control_sneak">התגנבות</string>
+    <string name="control_sprint">ריצה</string>
+    <string name="control_description_chat">צ׳אט</string>
+    <string name="control_description_pause">תפריט השהיה</string>
+    <string name="control_description_inventory">תיק החפצים</string>
+    <string name="control_description_drop">זריקת פריט</string>
+    <string name="control_description_jump">קפיצה</string>
+    <string name="control_description_sneak">התגנבות</string>
+    <string name="control_description_sprint">ריצה מהירה</string>
+    <string name="control_description_key">שליטה במקלדת</string>
+    <string name="control_description_attack">תקיפה</string>
+    <string name="control_description_use">שימוש</string>
+    <string name="control_description_previous_slot">המשבצת הקודמת בסרגל</string>
+    <string name="control_description_next_slot">המשבצת הבאה בסרגל</string>
+    <string name="control_description_forward">תנועה קדימה</string>
+    <string name="control_description_backward">תנועה אחורה</string>
+    <string name="control_description_left">תנועה שמאלה</string>
+    <string name="control_description_right">תנועה ימינה</string>
+    <string name="control_description_text_input">קלט טקסט של Minecraft</string>
+</resources>

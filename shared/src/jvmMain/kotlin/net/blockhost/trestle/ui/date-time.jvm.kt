@@ -4,4 +4,4 @@ import java.text.DateFormat
 import java.util.Date
 
 internal actual fun formatLocalDateTime(epochMillis: Long): String =
-    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT).format(Date(epochMillis))
+    DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT, formattingLocale()).format(Date(epochMillis))

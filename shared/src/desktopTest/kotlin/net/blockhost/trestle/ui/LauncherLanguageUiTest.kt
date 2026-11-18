@@ -9,7 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
@@ -21,6 +23,7 @@ import java.util.Locale
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalTestApi::class)
 class LauncherLanguageUiTest {
@@ -92,6 +95,43 @@ class LauncherLanguageUiTest {
         language = LauncherLanguage.PORTUGUESE_BRAZIL
         waitForIdle()
         onAllNodesWithText("Configurações").assertCountEquals(2)
+    }
+
+    @Test
+    fun arabicMirrorsTheLayout() = runComposeUiTest {
+        val preferences = LauncherPreferences(language = LauncherLanguage.ARABIC.name)
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded.copy(launcherPreferences = preferences),
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onAllNodesWithText("الإعدادات").assertCountEquals(2)
+        val categories = onNodeWithTag(LauncherTestTags.SETTINGS_CATEGORIES).getBoundsInRoot()
+        val detail = onNodeWithTag(LauncherTestTags.SETTINGS_DETAIL).getBoundsInRoot()
+        assertTrue(categories.left > detail.left, "The category list should sit on the right in Arabic")
+    }
+
+    @Test
+    fun hebrewLoadsItsTranslationWithItsCurrentLanguageCode() = runComposeUiTest {
+        val preferences = LauncherPreferences(language = LauncherLanguage.HEBREW.name)
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded.copy(launcherPreferences = preferences),
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onAllNodesWithText("הגדרות").assertCountEquals(2)
     }
 
     @Test

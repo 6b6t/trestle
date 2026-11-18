@@ -79,19 +79,26 @@ data class ConsolePreferences(val historyLimit: Int = 100_000, val stopLoggingOn
     }
 }
 
-/** The interface language. [tag] is the BCP 47 tag, or null to follow the system. */
-enum class LauncherLanguage(val tag: String?) {
-    SYSTEM(null),
-    ENGLISH("en"),
-    GERMAN("de"),
-    SPANISH("es"),
-    FRENCH("fr"),
-    PORTUGUESE_BRAZIL("pt-BR"),
-    RUSSIAN("ru"),
-    POLISH("pl"),
-    TURKISH("tr"),
-    JAPANESE("ja"),
-    CHINESE_SIMPLIFIED("zh-CN"),
+/**
+ * The interface language. [tag] is the BCP 47 tag, or null to follow the system. [nativeName] is the name the
+ * language picker shows, written in that language so speakers can find it from any interface language.
+ */
+enum class LauncherLanguage(val tag: String?, val nativeName: String?) {
+    SYSTEM(null, null),
+    ENGLISH("en", "English"),
+    GERMAN("de", "Deutsch"),
+    SPANISH("es", "Español"),
+    FRENCH("fr", "Français"),
+    PORTUGUESE_BRAZIL("pt-BR", "Português (Brasil)"),
+    RUSSIAN("ru", "Русский"),
+    POLISH("pl", "Polski"),
+    TURKISH("tr", "Türkçe"),
+    JAPANESE("ja", "日本語"),
+    CHINESE_SIMPLIFIED("zh-CN", "简体中文"),
+    ARABIC("ar", "العربية"),
+    PERSIAN("fa", "فارسی"),
+    HEBREW("he", "עברית"),
+    URDU("ur", "اردو"),
     ;
 
     companion object {

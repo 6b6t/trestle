@@ -18,5 +18,7 @@ fun applyDesktopLauncherLanguage(language: LauncherLanguage) {
 @Composable
 internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, content: @Composable () -> Unit) {
     applyDesktopLauncherLanguage(language)
-    key(language) { content() }
+    LauncherLayoutDirection(Locale.getDefault().language) {
+        key(language) { content() }
+    }
 }

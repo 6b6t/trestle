@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">نیا انسٹینس</string>
+    <string name="shortcut_new_instance_long">‏Minecraft انسٹینس بنائیں</string>
+    <string name="shortcut_settings_short">ترتیبات</string>
+    <string name="shortcut_settings_long">‏Trestle کی ترتیبات کھولیں</string>
+    <string name="shortcut_launch_named">‏%1$s لانچ کریں</string>
+    <string name="notification_channel_operations">لانچر کے عمل</string>
+    <string name="notification_channel_operations_description">انسٹالیشن اور ڈاؤن لوڈ کی پیش رفت</string>
+    <string name="notification_trestle_is_working">‏Trestle کام کر رہا ہے</string>
+    <string name="control_move">حرکت</string>
+    <string name="control_menu_cursor">مینو کرسر</string>
+    <string name="control_chat">چیٹ</string>
+    <string name="control_inventory">بستہ</string>
+    <string name="control_drop">گرائیں</string>
+    <string name="control_jump">چھلانگ</string>
+    <string name="control_attack">حملہ</string>
+    <string name="control_use">استعمال</string>
+    <string name="control_sneak">جھکیں</string>
+    <string name="control_sprint">دوڑ</string>
+    <string name="control_description_chat">چیٹ</string>
+    <string name="control_description_pause">توقف مینو</string>
+    <string name="control_description_inventory">انوینٹری</string>
+    <string name="control_description_drop">آئٹم گرائیں</string>
+    <string name="control_description_jump">چھلانگ لگائیں</string>
+    <string name="control_description_sneak">جھک کر چلیں</string>
+    <string name="control_description_sprint">تیز دوڑیں</string>
+    <string name="control_description_key">کی بورڈ کنٹرول</string>
+    <string name="control_description_attack">حملہ کریں</string>
+    <string name="control_description_use">استعمال کریں</string>
+    <string name="control_description_previous_slot">ہاٹ بار کا پچھلا خانہ</string>
+    <string name="control_description_next_slot">ہاٹ بار کا اگلا خانہ</string>
+    <string name="control_description_forward">آگے چلیں</string>
+    <string name="control_description_backward">پیچھے چلیں</string>
+    <string name="control_description_left">بائیں چلیں</string>
+    <string name="control_description_right">دائیں چلیں</string>
+    <string name="control_description_text_input">‏Minecraft ٹیکسٹ ان پٹ</string>
+</resources>

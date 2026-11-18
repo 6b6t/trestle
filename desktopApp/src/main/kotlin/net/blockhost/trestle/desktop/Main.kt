@@ -41,6 +41,7 @@ import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
 import net.blockhost.trestle.resources.trestle_mark
+import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_cancel_operation
 import net.blockhost.trestle.resources.ui_launch_selected
 import net.blockhost.trestle.resources.ui_minecraft_stopped_unexpectedly
@@ -67,7 +68,6 @@ import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import java.nio.file.Files
-import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
 import kotlin.system.exitProcess
 
@@ -135,17 +135,12 @@ fun main(arguments: Array<String>) {
         }
         val quitWarning = state.activeInstance?.let { stringResource(Res.string.ui_quitting_stops_minecraft, it.displayName) }
         val quitTitle = stringResource(Res.string.ui_quit_trestle_question)
+        val quitLabel = stringResource(Res.string.ui_quit_trestle)
+        val cancelLabel = stringResource(Res.string.ui_cancel)
         fun quit() {
             if (quitWarning != null) {
                 showWindow()
-                val result = JOptionPane.showConfirmDialog(
-                    null,
-                    quitWarning,
-                    quitTitle,
-                    JOptionPane.OK_CANCEL_OPTION,
-                    JOptionPane.WARNING_MESSAGE,
-                )
-                if (result != JOptionPane.OK_OPTION) return
+                if (!DesktopDialogs.confirm(quitWarning, quitTitle, quitLabel, cancelLabel)) return
             }
             preferences.saveWindow(windowState)
             viewModel.close()

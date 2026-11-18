@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">نمونهٔ جدید</string>
+    <string name="shortcut_new_instance_long">ساخت نمونهٔ Minecraft</string>
+    <string name="shortcut_settings_short">تنظیمات</string>
+    <string name="shortcut_settings_long">باز کردن تنظیمات Trestle</string>
+    <string name="shortcut_launch_named">اجرای %1$s</string>
+    <string name="notification_channel_operations">عملیات لانچر</string>
+    <string name="notification_channel_operations_description">پیشرفت نصب و دانلود</string>
+    <string name="notification_trestle_is_working">‏Trestle در حال کار است</string>
+    <string name="control_move">حرکت</string>
+    <string name="control_menu_cursor">نشانگر منو</string>
+    <string name="control_chat">گفت‌وگو</string>
+    <string name="control_inventory">کوله</string>
+    <string name="control_drop">انداختن</string>
+    <string name="control_jump">پرش</string>
+    <string name="control_attack">حمله</string>
+    <string name="control_use">استفاده</string>
+    <string name="control_sneak">خم شدن</string>
+    <string name="control_sprint">دویدن</string>
+    <string name="control_description_chat">گفت‌وگو</string>
+    <string name="control_description_pause">منوی توقف</string>
+    <string name="control_description_inventory">کوله‌پشتی</string>
+    <string name="control_description_drop">انداختن آیتم</string>
+    <string name="control_description_jump">پرش</string>
+    <string name="control_description_sneak">خم شدن</string>
+    <string name="control_description_sprint">دویدن سریع</string>
+    <string name="control_description_key">کنترل صفحه‌کلید</string>
+    <string name="control_description_attack">حمله</string>
+    <string name="control_description_use">استفاده</string>
+    <string name="control_description_previous_slot">خانهٔ قبلی نوار</string>
+    <string name="control_description_next_slot">خانهٔ بعدی نوار</string>
+    <string name="control_description_forward">حرکت به جلو</string>
+    <string name="control_description_backward">حرکت به عقب</string>
+    <string name="control_description_left">حرکت به چپ</string>
+    <string name="control_description_right">حرکت به راست</string>
+    <string name="control_description_text_input">ورودی متن Minecraft</string>
+</resources>

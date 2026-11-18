@@ -20,8 +20,10 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.app.ThemePreference
 import net.blockhost.trestle.resources.Res
@@ -263,16 +265,31 @@ private fun trestleTypography(): Typography {
 
     val base = Typography(fontFamily = roboto)
     return base.copy(
-        displaySmall = base.displaySmall.copy(fontWeight = FontWeight.Bold),
-        headlineLarge = base.headlineLarge.copy(fontWeight = FontWeight.Bold),
-        headlineMedium = base.headlineMedium.copy(fontWeight = FontWeight.Bold),
-        headlineSmall = base.headlineSmall.copy(fontWeight = FontWeight.Bold),
-        titleLarge = base.titleLarge.copy(fontWeight = FontWeight.Bold),
-        titleMedium = base.titleMedium.copy(fontWeight = FontWeight.Bold),
-        titleSmall = base.titleSmall.copy(fontWeight = FontWeight.Bold),
-        labelLarge = base.labelLarge.copy(fontWeight = FontWeight.Bold),
+        displayLarge = base.displayLarge.byContent(),
+        displayMedium = base.displayMedium.byContent(),
+        displaySmall = base.displaySmall.byContent(FontWeight.Bold),
+        headlineLarge = base.headlineLarge.byContent(FontWeight.Bold),
+        headlineMedium = base.headlineMedium.byContent(FontWeight.Bold),
+        headlineSmall = base.headlineSmall.byContent(FontWeight.Bold),
+        titleLarge = base.titleLarge.byContent(FontWeight.Bold),
+        titleMedium = base.titleMedium.byContent(FontWeight.Bold),
+        titleSmall = base.titleSmall.byContent(FontWeight.Bold),
+        bodyLarge = base.bodyLarge.byContent(),
+        bodyMedium = base.bodyMedium.byContent(),
+        bodySmall = base.bodySmall.byContent(),
+        labelLarge = base.labelLarge.byContent(FontWeight.Bold),
+        labelMedium = base.labelMedium.byContent(),
+        labelSmall = base.labelSmall.byContent(),
     )
 }
+
+/**
+ * Lays out each text in the direction of its first strong letter. Without this, Compose uses the layout direction,
+ * so an English mod description in an Arabic window ends with its period on the wrong side. Right-to-left
+ * translations that start with a Latin word or a placeholder begin with U+200F to keep their own direction.
+ */
+private fun TextStyle.byContent(fontWeight: FontWeight? = this.fontWeight) =
+    copy(fontWeight = fontWeight, textDirection = TextDirection.Content)
 
 @Composable
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)

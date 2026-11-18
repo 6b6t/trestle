@@ -17,6 +17,8 @@ internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, cont
     Locale.setDefault(locale)
     val localized = remember(configuration, locale) { Configuration(configuration).apply { setLocale(locale) } }
     CompositionLocalProvider(LocalConfiguration provides localized) {
-        key(language) { content() }
+        LauncherLayoutDirection(locale.language) {
+            key(language) { content() }
+        }
     }
 }

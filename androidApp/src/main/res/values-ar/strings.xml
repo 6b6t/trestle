@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">نسخة جديدة</string>
+    <string name="shortcut_new_instance_long">إنشاء نسخة Minecraft</string>
+    <string name="shortcut_settings_short">الإعدادات</string>
+    <string name="shortcut_settings_long">فتح إعدادات Trestle</string>
+    <string name="shortcut_launch_named">تشغيل %1$s</string>
+    <string name="notification_channel_operations">عمليات المشغّل</string>
+    <string name="notification_channel_operations_description">تقدّم التثبيت والتنزيل</string>
+    <string name="notification_trestle_is_working">‏Trestle يعمل</string>
+    <string name="control_move">تحرك</string>
+    <string name="control_menu_cursor">مؤشر القائمة</string>
+    <string name="control_chat">دردشة</string>
+    <string name="control_inventory">الحقيبة</string>
+    <string name="control_drop">إسقاط</string>
+    <string name="control_jump">قفز</string>
+    <string name="control_attack">هجوم</string>
+    <string name="control_use">استخدام</string>
+    <string name="control_sneak">تسلل</string>
+    <string name="control_sprint">ركض</string>
+    <string name="control_description_chat">الدردشة</string>
+    <string name="control_description_pause">قائمة الإيقاف المؤقت</string>
+    <string name="control_description_inventory">الحقيبة</string>
+    <string name="control_description_drop">إسقاط العنصر</string>
+    <string name="control_description_jump">قفز</string>
+    <string name="control_description_sneak">تسلل</string>
+    <string name="control_description_sprint">ركض سريع</string>
+    <string name="control_description_key">تحكم بلوحة المفاتيح</string>
+    <string name="control_description_attack">هجوم</string>
+    <string name="control_description_use">استخدام</string>
+    <string name="control_description_previous_slot">خانة الشريط السابقة</string>
+    <string name="control_description_next_slot">خانة الشريط التالية</string>
+    <string name="control_description_forward">التحرك للأمام</string>
+    <string name="control_description_backward">التحرك للخلف</string>
+    <string name="control_description_left">التحرك لليسار</string>
+    <string name="control_description_right">التحرك لليمين</string>
+    <string name="control_description_text_input">إدخال نص Minecraft</string>
+</resources>

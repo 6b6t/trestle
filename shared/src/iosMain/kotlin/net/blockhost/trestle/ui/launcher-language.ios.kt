@@ -4,7 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import net.blockhost.trestle.app.LauncherLanguage
 import platform.Foundation.NSBundle
+import platform.Foundation.NSLocale
 import platform.Foundation.NSUserDefaults
+import platform.Foundation.languageCode
+import platform.Foundation.preferredLanguages
 
 private const val APPLE_LANGUAGES = "AppleLanguages"
 
@@ -15,7 +18,12 @@ private const val SAVED_APPLE_LANGUAGES = "TrestleSavedAppleLanguages"
 @Composable
 internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, content: @Composable () -> Unit) {
     applyAppleLanguages(language.tag)
-    key(language) { content() }
+    val languageCode = (NSLocale.preferredLanguages.firstOrNull() as? String)
+        ?.let { NSLocale(localeIdentifier = it).languageCode }
+        .orEmpty()
+    LauncherLayoutDirection(languageCode) {
+        key(language) { content() }
+    }
 }
 
 private fun applyAppleLanguages(tag: String?) {

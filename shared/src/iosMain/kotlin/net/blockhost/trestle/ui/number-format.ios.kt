@@ -17,6 +17,9 @@ internal actual fun formatDecimal(value: Double): String =
 private fun decimalFormatter(fractionDigits: Int) = NSNumberFormatter().apply {
     numberStyle = NSNumberFormatterDecimalStyle
     maximumFractionDigits = fractionDigits.toULong()
-    // The launcher language is written to AppleLanguages, so the first preferred language follows it.
-    locale = (NSLocale.preferredLanguages.firstOrNull() as? String)?.let { NSLocale(localeIdentifier = it) } ?: NSLocale.currentLocale
+    // The launcher language is written to AppleLanguages, so the first preferred language follows it. Western digits
+    // match the numbers that translated messages insert.
+    locale = (NSLocale.preferredLanguages.firstOrNull() as? String)
+        ?.let { NSLocale(localeIdentifier = "$it@numbers=latn") }
+        ?: NSLocale.currentLocale
 }

@@ -3,6 +3,7 @@ package net.blockhost.trestle.desktop
 import kotlinx.coroutines.runBlocking
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ui_about_trestle
+import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_trestle_description
 import org.jetbrains.compose.resources.getString
 import java.awt.Desktop
@@ -10,7 +11,6 @@ import java.awt.desktop.AppReopenedListener
 import java.awt.desktop.OpenFilesHandler
 import java.awt.desktop.OpenURIHandler
 import java.awt.desktop.PreferencesHandler
-import javax.swing.JOptionPane
 
 internal class DesktopApplicationHandlers(private val desktop: Desktop, private val reopenedListener: AppReopenedListener) :
     AutoCloseable {
@@ -52,15 +52,14 @@ internal class DesktopApplicationHandlers(private val desktop: Desktop, private 
             if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
                 desktop.setAboutHandler {
                     // The handler runs on the AWT thread outside composition, so it loads the strings directly.
-                    val (description, title) = runBlocking {
-                        getString(Res.string.ui_trestle_description) to getString(Res.string.ui_about_trestle)
+                    val (description, title, close) = runBlocking {
+                        Triple(
+                            getString(Res.string.ui_trestle_description),
+                            getString(Res.string.ui_about_trestle),
+                            getString(Res.string.ui_close),
+                        )
                     }
-                    JOptionPane.showMessageDialog(
-                        null,
-                        description,
-                        title,
-                        JOptionPane.INFORMATION_MESSAGE,
-                    )
+                    DesktopDialogs.inform(description, title, close)
                 }
             }
             return DesktopApplicationHandlers(desktop, reopenedListener)

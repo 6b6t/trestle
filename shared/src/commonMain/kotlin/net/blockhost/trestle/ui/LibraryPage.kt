@@ -87,9 +87,11 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.vinceglb.filekit.dialogs.FileKitType
 import io.github.vinceglb.filekit.dialogs.compose.rememberFilePickerLauncher
@@ -474,8 +476,10 @@ private fun FeaturedInstance(
         modifier = modifier.fillMaxWidth().testTag(LauncherTestTags.SELECTED_INSTANCE),
     ) {
         val accent = instanceAccent(instance)
+        // The accent glows from the start edge, which is the right edge in right-to-left languages.
+        val glow = listOf(accent.copy(alpha = 0.22f), accent.copy(alpha = 0.04f), Color.Transparent)
         val backdrop = Modifier.background(
-            Brush.horizontalGradient(listOf(accent.copy(alpha = 0.22f), accent.copy(alpha = 0.04f), Color.Transparent)),
+            Brush.horizontalGradient(if (LocalLayoutDirection.current == LayoutDirection.Rtl) glow.reversed() else glow),
         )
         if (compact) {
             Column(backdrop.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
