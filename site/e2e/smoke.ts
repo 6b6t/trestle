@@ -14,7 +14,7 @@ test("shared download links hydrate, select a platform, and survive browser hist
   await page.goto("/download/?platform=linux");
   await expect(page.getByRole("radio", { name: "Linux" })).toBeChecked();
   await expect(
-    page.getByRole("heading", { name: "DEB, RPM, or a portable archive.", exact: true }),
+    page.getByRole("heading", { name: "DEB, RPM, AppImage, or a portable archive.", exact: true }),
   ).toBeVisible();
   await page.getByRole("radio", { name: "Android" }).check();
   await expect(page).toHaveURL(/platform=android/);
