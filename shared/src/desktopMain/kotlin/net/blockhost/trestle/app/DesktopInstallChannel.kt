@@ -9,13 +9,12 @@ internal fun desktopInstallChannel(operatingSystem: OperatingSystem): InstallCha
     linuxInstallChannel(
         environment = System.getenv(),
         exists = { File(it).exists() },
-        list = { File(it).list()?.toList().orEmpty() },
         // jpackage launchers set this property to the launcher's own path.
         launcherPath = System.getProperty("jpackage.app-path"),
         rpmOwnsTrestle = ::rpmOwnsTrestle,
     )
 } else {
-    // Windows and macOS installers and WinGet use the same packages that the launcher offers.
+    // Windows and macOS updates use the same installers that the launcher offers.
     InstallChannel.Download()
 }
 
@@ -26,7 +25,6 @@ internal fun desktopInstallChannel(operatingSystem: OperatingSystem): InstallCha
 internal fun linuxInstallChannel(
     environment: Map<String, String>,
     exists: (String) -> Boolean,
-    list: (String) -> List<String>,
     launcherPath: String?,
     rpmOwnsTrestle: () -> Boolean,
 ): InstallChannel {
@@ -37,8 +35,6 @@ internal fun linuxInstallChannel(
         environment.containsKey("APPIMAGE") -> InstallChannel.Download("AppImage")
 
         !packaged -> InstallChannel.Download("tar.gz")
-
-        list("/var/lib/pacman/local").any { it.startsWith("trestle-bin-") } -> InstallChannel.PackageManager(ManagedInstall.AUR)
 
         exists("/var/lib/dpkg/info/trestle.list") -> InstallChannel.Download("deb")
 

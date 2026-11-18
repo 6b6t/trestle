@@ -106,7 +106,7 @@ export const platformGuides: Record<Platform, PlatformGuide> = {
     requirement: "glibc 2.35 or newer",
     title: "DEB, RPM, AppImage, or a portable archive.",
     description:
-      "Packages add a desktop entry, an icon, and .mrpack file handling. The AppImage and the portable archive run from any folder. Arch Linux users can install trestle-bin from the AUR.",
+      "Packages add a desktop entry, an icon, and .mrpack file handling. The AppImage and the portable archive run from any folder.",
     guideHash: "install-on-linux",
     builds: [
       {

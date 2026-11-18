@@ -28,11 +28,6 @@ class ReleaseMetadataTest(unittest.TestCase):
             self.assertEqual(manifest, json.loads((root / 'release-manifest.json').read_text()))
             flatpak = json.loads((root / 'net.blockhost.trestle.json').read_text())
             self.assertEqual(2, len(flatpak['modules'][0]['sources']))
-            pkgbuild = (root / 'PKGBUILD').read_text()
-            digest = hashlib.sha256(bytes(range(256))).hexdigest()
-            self.assertIn('pkgname=trestle-bin\npkgver=1.2.3\n', pkgbuild)
-            self.assertIn(f"sha256sums_x86_64=('{digest}')", pkgbuild)
-            self.assertIn('releases/download/${pkgver}/Trestle-${pkgver}-linux-arm64.tar.gz', pkgbuild)
             linux = {(a['architecture'], a['format']) for a in manifest['artifacts'] if a['platform'] == 'linux'}
             self.assertIn(('arm64', 'AppImage'), linux)
             self.assertEqual({256}, {a['size'] for a in manifest['artifacts']})

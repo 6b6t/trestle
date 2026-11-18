@@ -15,5 +15,4 @@ sealed interface InstallChannel {
 /** Package managers that update Trestle themselves. */
 enum class ManagedInstall {
     FLATPAK,
-    AUR,
 }

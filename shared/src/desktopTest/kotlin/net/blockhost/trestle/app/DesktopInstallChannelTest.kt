@@ -7,28 +7,22 @@ class DesktopInstallChannelTest {
     private fun channel(
         environment: Map<String, String> = emptyMap(),
         files: Set<String> = emptySet(),
-        pacmanPackages: List<String> = emptyList(),
         launcherPath: String? = "/opt/trestle/bin/Trestle",
         rpm: Boolean = false,
     ) = linuxInstallChannel(
         environment = environment,
         exists = { it in files },
-        list = { if (it == "/var/lib/pacman/local") pacmanPackages else emptyList() },
         launcherPath = launcherPath,
         rpmOwnsTrestle = { rpm },
     )
 
     @Test
-    fun sandboxesAndPackageManagersWin() {
+    fun flatpakIsManagedByFlatpak() {
         assertEquals(
             InstallChannel.PackageManager(ManagedInstall.FLATPAK),
             channel(environment = mapOf("FLATPAK_ID" to "net.blockhost.trestle")),
         )
         assertEquals(InstallChannel.PackageManager(ManagedInstall.FLATPAK), channel(files = setOf("/.flatpak-info")))
-        assertEquals(
-            InstallChannel.PackageManager(ManagedInstall.AUR),
-            channel(pacmanPackages = listOf("glibc-2.42-1", "trestle-bin-1.2.3-1")),
-        )
     }
 
     @Test

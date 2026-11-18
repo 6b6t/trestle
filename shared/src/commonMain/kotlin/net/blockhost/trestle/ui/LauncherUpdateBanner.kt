@@ -33,7 +33,6 @@ import net.blockhost.trestle.resources.ui_s_s_sha_s
 import net.blockhost.trestle.resources.ui_see_the_release_page_for_changes_and
 import net.blockhost.trestle.resources.ui_trestle_version
 import net.blockhost.trestle.resources.ui_trestle_version_available
-import net.blockhost.trestle.resources.ui_update_with_aur
 import net.blockhost.trestle.resources.ui_update_with_flatpak
 import net.blockhost.trestle.resources.ui_view_release
 import net.blockhost.trestle.text.formattedString
@@ -55,8 +54,6 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
                     stringResource(Res.string.ui_update_with_flatpak),
                     modifier = Modifier.padding(vertical = 12.dp),
                 )
-
-                ManagedInstall.AUR -> Text(stringResource(Res.string.ui_update_with_aur), modifier = Modifier.padding(vertical = 12.dp))
 
                 null -> update.downloads.firstOrNull()?.let { download ->
                     TextButton(onClick = {

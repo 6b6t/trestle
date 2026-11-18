@@ -1406,5 +1406,4 @@
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft nieoczekiwanie się zatrzymał. Szczegóły są w logach instancji.</string>
     <string name="msg_minecraft_did_not_start_in_time">Minecraft nie uruchomił się w ciągu 20 sekund.</string>
     <string name="ui_update_with_flatpak">Zaktualizuj go przez Flatpak lub centrum oprogramowania.</string>
-    <string name="ui_update_with_aur">Zaktualizuj go pomocnikiem AUR, np. yay lub paru.</string>
 </resources>
