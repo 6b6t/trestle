@@ -3,7 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  page.on("requestfailed", (request) => errors.push(`${request.url()} failed`));
+  page.on("requestfailed", (request) => {
+    // Navigating away cancels lazy chunks that are still loading. That is not a page error.
+    if (request.failure()?.errorText === "net::ERR_ABORTED") return;
+    errors.push(`${request.url()} failed`);
+  });
   return errors;
 }
 
