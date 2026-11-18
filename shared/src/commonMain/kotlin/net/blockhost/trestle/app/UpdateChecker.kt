@@ -43,6 +43,8 @@ data class LauncherUpdate(
     val releaseUrl: String,
     val releaseNotes: String = "",
     val downloads: List<ReleaseArtifact> = emptyList(),
+    /** Set when a package manager owns this installation. The launcher then offers no download. */
+    val managedBy: ManagedInstall? = null,
 )
 
 class UpdateChecker(
@@ -50,6 +52,7 @@ class UpdateChecker(
     private val endpoint: String = "https://api.github.com/repos/6b6t/trestle/releases/latest",
     private val environment: PlatformEnvironment? = null,
     private val isMobile: Boolean = false,
+    private val installChannel: InstallChannel = InstallChannel.Download(),
 ) {
     suspend fun availableUpdate(currentVersion: String = BuildInfo.VERSION, includePrereleases: Boolean = false): LauncherUpdate? {
         val current = ReleaseVersion.parse(currentVersion) ?: return null
@@ -99,10 +102,18 @@ class UpdateChecker(
             Architecture.ARM64 -> "arm64"
             else -> null
         }
+        val version = release.tagName.removePrefix("v")
+        if (installChannel is InstallChannel.PackageManager) {
+            return LauncherUpdate(version, release.htmlUrl, release.body.orEmpty(), managedBy = installChannel.manager)
+        }
+        val preferredFormat = (installChannel as InstallChannel.Download).format
         val downloads = manifest?.artifacts.orEmpty().filter {
             it.platform == platform && it.architecture == architecture && it.format != "aab"
-        }.sortedBy { listOf("apk", "msi", "dmg", "deb", "rpm", "exe", "pkg").indexOf(it.format).let { rank -> if (rank < 0) 99 else rank } }
-        return LauncherUpdate(release.tagName.removePrefix("v"), release.htmlUrl, release.body.orEmpty(), downloads)
+        }.sortedBy { artifact ->
+            // The format this copy was installed from comes first, so a DEB install is offered the next DEB.
+            if (artifact.format == preferredFormat) -1 else DOWNLOAD_ORDER.indexOf(artifact.format).let { if (it < 0) 99 else it }
+        }
+        return LauncherUpdate(version, release.htmlUrl, release.body.orEmpty(), downloads)
     }
 
     private suspend fun fetch(url: String): String? {
@@ -130,6 +141,7 @@ class UpdateChecker(
     private data class GitHubAsset(val name: String, @SerialName("browser_download_url") val url: String)
 
     private companion object {
+        val DOWNLOAD_ORDER = listOf("apk", "msi", "dmg", "deb", "rpm", "AppImage", "tar.gz", "exe", "pkg")
         val updateJson = Json { ignoreUnknownKeys = true }
         fun requireHttps(value: String) {
             val url = Url(value)

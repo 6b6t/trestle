@@ -1395,4 +1395,6 @@ SHA-256: %3$s</string>
     <string name="msg_minecraft_could_not_show_the_game_screen">‏Minecraft نتوانست صفحهٔ بازی را نمایش دهد.</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">‏Minecraft به‌طور غیرمنتظره متوقف شد. جزئیات در گزارش‌های نمونه است.</string>
     <string name="msg_minecraft_did_not_start_in_time">‏Minecraft ظرف 20 ثانیه شروع نشد.</string>
+    <string name="ui_update_with_flatpak">آن را با Flatpak یا مرکز نرم‌افزار به‌روز کنید.</string>
+    <string name="ui_update_with_aur">آن را با دستیار AUR مثل yay یا paru به‌روز کنید.</string>
 </resources>

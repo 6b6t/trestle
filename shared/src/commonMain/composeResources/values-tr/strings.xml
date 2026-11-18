@@ -1393,4 +1393,6 @@
     <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft oyun ekranını gösteremedi.</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft beklenmedik şekilde durdu. Ayrıntılar profilin günlüklerinde.</string>
     <string name="msg_minecraft_did_not_start_in_time">Minecraft 20 saniye içinde başlamadı.</string>
+    <string name="ui_update_with_flatpak">Flatpak veya yazılım merkezinizle güncelleyin.</string>
+    <string name="ui_update_with_aur">yay veya paru gibi AUR yardımcınızla güncelleyin.</string>
 </resources>

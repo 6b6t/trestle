@@ -1401,4 +1401,6 @@ SHA-256: %3$s</string>
     <string name="msg_minecraft_could_not_show_the_game_screen">‏Minecraft לא הצליח להציג את מסך המשחק.</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">‏Minecraft נעצר באופן לא צפוי. הפרטים נמצאים ביומני המופע.</string>
     <string name="msg_minecraft_did_not_start_in_time">‏Minecraft לא הופעל תוך 20 שניות.</string>
+    <string name="ui_update_with_flatpak">עדכן אותו דרך Flatpak או מרכז התוכנה.</string>
+    <string name="ui_update_with_aur">עדכן אותו בעזרת כלי AUR כמו yay או paru.</string>
 </resources>

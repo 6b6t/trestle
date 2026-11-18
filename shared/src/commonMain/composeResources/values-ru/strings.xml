@@ -1405,4 +1405,6 @@
     <string name="msg_minecraft_could_not_show_the_game_screen">Minecraft не смог показать игровой экран.</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft неожиданно завершился. Подробности в журналах сборки.</string>
     <string name="msg_minecraft_did_not_start_in_time">Minecraft не запустился за 20 секунд.</string>
+    <string name="ui_update_with_flatpak">Обновите его через Flatpak или центр приложений.</string>
+    <string name="ui_update_with_aur">Обновите его через AUR-помощник, например yay или paru.</string>
 </resources>

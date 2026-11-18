@@ -169,6 +169,7 @@ class LauncherServices private constructor(
             archiveExtractor: ArchiveExtractor,
             instanceExporter: InstanceExporter,
             gameDataManager: GameDataManager,
+            installChannel: InstallChannel = InstallChannel.Download(),
             runtimeFactory: (
                 LauncherDirectories,
                 MinecraftInstaller,
@@ -232,7 +233,12 @@ class LauncherServices private constructor(
                 logger = logger,
             )
             logger.configure(savedPreferences.console.historyLimit, savedPreferences.console.stopLoggingOnOverflow)
-            val updateChecker = UpdateChecker(httpClient, environment = environment, isMobile = systemProfile.isMobile)
+            val updateChecker = UpdateChecker(
+                httpClient,
+                environment = environment,
+                isMobile = systemProfile.isMobile,
+                installChannel = installChannel,
+            )
             val installer = MinecraftInstaller(
                 repository,
                 metadataClient,

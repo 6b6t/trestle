@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.app.LauncherUpdate
+import net.blockhost.trestle.app.ManagedInstall
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_download_format
@@ -32,6 +33,8 @@ import net.blockhost.trestle.resources.ui_s_s_sha_s
 import net.blockhost.trestle.resources.ui_see_the_release_page_for_changes_and
 import net.blockhost.trestle.resources.ui_trestle_version
 import net.blockhost.trestle.resources.ui_trestle_version_available
+import net.blockhost.trestle.resources.ui_update_with_aur
+import net.blockhost.trestle.resources.ui_update_with_flatpak
 import net.blockhost.trestle.resources.ui_view_release
 import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.stringResource
@@ -47,11 +50,20 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
         ) {
             Text(formattedString(Res.string.ui_trestle_version_available, update.version), modifier = Modifier.padding(vertical = 12.dp))
             TextButton(onClick = { showNotes = true }) { Text(stringResource(Res.string.ui_release_notes)) }
-            update.downloads.firstOrNull()?.let { download ->
-                TextButton(onClick = {
-                    uriHandler.openUri(download.url)
-                }) { Text(formattedString(Res.string.ui_download_format, download.format)) }
-            } ?: TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text(stringResource(Res.string.ui_view_release)) }
+            when (update.managedBy) {
+                ManagedInstall.FLATPAK -> Text(
+                    stringResource(Res.string.ui_update_with_flatpak),
+                    modifier = Modifier.padding(vertical = 12.dp),
+                )
+
+                ManagedInstall.AUR -> Text(stringResource(Res.string.ui_update_with_aur), modifier = Modifier.padding(vertical = 12.dp))
+
+                null -> update.downloads.firstOrNull()?.let { download ->
+                    TextButton(onClick = {
+                        uriHandler.openUri(download.url)
+                    }) { Text(formattedString(Res.string.ui_download_format, download.format)) }
+                } ?: TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text(stringResource(Res.string.ui_view_release)) }
+            }
             TextButton(onClick = actions::remindAboutLauncherUpdateLater) { Text(stringResource(Res.string.ui_remind_me_tomorrow)) }
         }
     }

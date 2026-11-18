@@ -141,4 +141,45 @@ class UpdateCheckerTest {
         assertEquals("1.2.0", newer.availableUpdate("1.1.9")?.version)
         assertNull(current.availableUpdate("1.1.0"))
     }
+
+    @Test
+    fun offersTheFormatThisCopyWasInstalledFrom() = runTest {
+        val client = linuxReleaseClient(listOf("deb", "rpm", "AppImage", "tar.gz"))
+        val environment = PlatformEnvironment(OperatingSystem.LINUX, Architecture.X86_64)
+        for (format in listOf("rpm", "AppImage", "tar.gz")) {
+            val checker = UpdateChecker(client, environment = environment, installChannel = InstallChannel.Download(format))
+            assertEquals(format, checker.availableUpdate("1.0.0")?.downloads?.first()?.format)
+        }
+        assertEquals("deb", UpdateChecker(client, environment = environment).availableUpdate("1.0.0")?.downloads?.first()?.format)
+    }
+
+    @Test
+    fun packageManagerInstallsGetNoDownload() = runTest {
+        val checker = UpdateChecker(
+            linuxReleaseClient(listOf("deb", "AppImage")),
+            environment = PlatformEnvironment(OperatingSystem.LINUX, Architecture.X86_64),
+            installChannel = InstallChannel.PackageManager(ManagedInstall.FLATPAK),
+        )
+        val update = checker.availableUpdate("1.0.0")
+        assertEquals("2.0.0", update?.version)
+        assertEquals(ManagedInstall.FLATPAK, update?.managedBy)
+        assertEquals(emptyList(), update?.downloads)
+    }
+
+    private fun linuxReleaseClient(formats: List<String>): HttpClient {
+        val manifest = ReleaseManifest(
+            1,
+            "2.0.0",
+            formats.map { ReleaseArtifact("linux", "x64", it, "https://example.test/x64.$it", "a".repeat(64), 100, "glibc 2.35") },
+        )
+        return HttpClient(
+            MockEngine { request ->
+                if (request.url.encodedPath.endsWith("manifest")) {
+                    respond(Json.encodeToString(ReleaseManifest.serializer(), manifest))
+                } else {
+                    respond("""{"tag_name":"2.0.0","html_url":"https://example.test/release","assets":[{"name":"release-manifest.json","browser_download_url":"https://example.test/manifest"}]}""")
+                }
+            },
+        )
+    }
 }

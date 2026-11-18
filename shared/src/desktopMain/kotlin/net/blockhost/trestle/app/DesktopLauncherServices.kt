@@ -89,6 +89,7 @@ fun createDesktopLauncherServices(): LauncherServices {
         archiveExtractor = JvmArchiveExtractor(),
         instanceExporter = JvmInstanceExporter(),
         gameDataManager = JvmGameDataManager(),
+        installChannel = desktopInstallChannel(environment.operatingSystem),
     ) { directories, installer, sessionProvider, logger, downloadPipeline ->
         DesktopMinecraftRuntime(
             environment = environment,
