@@ -101,6 +101,7 @@ import net.blockhost.trestle.resources.ui_save_changes
 import net.blockhost.trestle.resources.ui_use_active_account
 import net.blockhost.trestle.resources.ui_use_recommended
 import net.blockhost.trestle.resources.ui_wrapper_command
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.stringResource
 
@@ -214,7 +215,7 @@ internal fun InstanceSettingsContent(state: LauncherUiState, actions: LauncherUi
                 FixedOption(
                     label = stringResource(Res.string.ui_minecraft_version),
                     value = availableVersions.single(),
-                    supportingText = stringResource(
+                    supportingText = formattedString(
                         Res.string.ui_only_minecraft_version_is_supported_on_android,
                         availableVersions.single(),
                     ),

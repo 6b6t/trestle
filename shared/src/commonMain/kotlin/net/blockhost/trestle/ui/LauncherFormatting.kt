@@ -44,6 +44,8 @@ import net.blockhost.trestle.resources.ui_size_bytes
 import net.blockhost.trestle.resources.ui_size_gib
 import net.blockhost.trestle.resources.ui_size_kib
 import net.blockhost.trestle.resources.ui_size_mib
+import net.blockhost.trestle.text.formattedPluralString
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -60,16 +62,16 @@ internal fun formatUtcTime(epochMillis: Long): String {
 
 @Composable
 internal fun formatDownloads(downloads: Long): String = when {
-    downloads >= 1_000L -> stringResource(Res.string.ui_count_downloads, formatCompactCount(downloads))
-    else -> pluralStringResource(Res.plurals.ui_download_count, downloads.toInt(), downloads)
+    downloads >= 1_000L -> formattedString(Res.string.ui_count_downloads, formatCompactCount(downloads))
+    else -> formattedPluralString(Res.plurals.ui_download_count, downloads.toInt(), downloads)
 }
 
 @Composable
 internal fun formatFileSize(bytes: Long): String = when {
-    bytes >= 1_073_741_824L -> stringResource(Res.string.ui_size_gib, formatDecimal(bytes / 107_374_182L / 10.0))
-    bytes >= 1_048_576L -> stringResource(Res.string.ui_size_mib, formatDecimal(bytes / 104_857L / 10.0))
-    bytes >= 1_024L -> stringResource(Res.string.ui_size_kib, formatDecimal(bytes / 102L / 10.0))
-    else -> stringResource(Res.string.ui_size_bytes, bytes.toString())
+    bytes >= 1_073_741_824L -> formattedString(Res.string.ui_size_gib, formatDecimal(bytes / 107_374_182L / 10.0))
+    bytes >= 1_048_576L -> formattedString(Res.string.ui_size_mib, formatDecimal(bytes / 104_857L / 10.0))
+    bytes >= 1_024L -> formattedString(Res.string.ui_size_kib, formatDecimal(bytes / 102L / 10.0))
+    else -> formattedString(Res.string.ui_size_bytes, bytes.toString())
 }
 
 @Composable
@@ -96,8 +98,8 @@ internal fun formatPlayTime(milliseconds: Long): String {
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return when {
-        hours > 0 -> stringResource(Res.string.ui_hours_minutes, hours, minutes)
-        minutes > 0 -> stringResource(Res.string.ui_minutes_short, minutes)
+        hours > 0 -> formattedString(Res.string.ui_hours_minutes, hours, minutes)
+        minutes > 0 -> formattedString(Res.string.ui_minutes_short, minutes)
         milliseconds > 0 -> stringResource(Res.string.ui_less_than_a_minute)
         else -> stringResource(Res.string.ui_not_played)
     }

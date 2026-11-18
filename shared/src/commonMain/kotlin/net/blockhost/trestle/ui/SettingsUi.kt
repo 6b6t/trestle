@@ -82,6 +82,7 @@ import net.blockhost.trestle.resources.ui_storage
 import net.blockhost.trestle.resources.ui_tools
 import net.blockhost.trestle.resources.ui_what_the_launcher_did
 import net.blockhost.trestle.resources.ui_where_instances_and_files_live
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -148,7 +149,7 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
         } else {
             PageHero(
                 title = stringResource(Res.string.ui_settings),
-                subtitle = stringResource(
+                subtitle = formattedString(
                     when (currentPlatform) {
                         "Android" -> Res.string.ui_android_build
                         "iOS" -> Res.string.ui_ios_build

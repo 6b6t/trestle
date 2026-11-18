@@ -31,6 +31,7 @@ import net.blockhost.trestle.resources.ui_restricted_download_explanation
 import net.blockhost.trestle.resources.ui_select_downloaded_file
 import net.blockhost.trestle.resources.ui_verified
 import net.blockhost.trestle.resources.ui_waiting_for_file
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -60,7 +61,7 @@ internal fun RestrictedDownloadDialog(state: LauncherUiState, actions: LauncherU
                 if (downloads.size == 1) {
                     stringResource(Res.string.ui_download_from_the_publisher)
                 } else {
-                    stringResource(Res.string.ui_download_files_from_publishers, downloads.size)
+                    formattedString(Res.string.ui_download_files_from_publishers, downloads.size)
                 },
             )
         },

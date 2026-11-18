@@ -49,7 +49,7 @@ class LauncherLanguageUiTest {
         }
 
         onAllNodesWithText("Einstellungen").assertCountEquals(2)
-        onNodeWithText("Desktop-Build ${BuildInfo.VERSION}").assertIsDisplayed()
+        onNodeWithText("Desktop-Build ${isolated(BuildInfo.VERSION)}").assertIsDisplayed()
         onNodeWithText("Netzwerk").assertIsDisplayed()
         onNodeWithText("Downloads").assertIsDisplayed()
         onNodeWithText("Sprache").performClick()

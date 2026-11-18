@@ -121,6 +121,7 @@ import net.blockhost.trestle.resources.ui_slim
 import net.blockhost.trestle.resources.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk
 import net.blockhost.trestle.resources.ui_use_a_64x64_png_or_a_legacy_64x32_skin
 import net.blockhost.trestle.resources.ui_use_skin
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -149,7 +150,7 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
     ) {
         PageHero(
             title = stringResource(Res.string.ui_skins),
-            subtitle = account?.let { stringResource(Res.string.ui_change_how_s_looks_in_game, it.profile.playerName) },
+            subtitle = account?.let { formattedString(Res.string.ui_change_how_s_looks_in_game, it.profile.playerName) },
             accent = MaterialTheme.colorScheme.tertiary,
             navigationIcon = {
                 TrestleTooltipIconButton(
@@ -215,7 +216,7 @@ internal fun SkinStudioPage(state: LauncherUiState, actions: LauncherUiActions, 
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = {
-                Text(stringResource(Res.string.ui_remove_named_skin, selected.profile.name))
+                Text(formattedString(Res.string.ui_remove_named_skin, selected.profile.name))
             },
             text = {
                 Text(stringResource(Res.string.ui_this_deletes_the_local_skin_profile_and_its_png_your_active_minecraft_sk))
@@ -271,7 +272,7 @@ private fun CurrentSkinPanel(
         )
         Text(playerName, style = MaterialTheme.typography.titleMedium)
         Text(
-            stringResource(Res.string.ui_s_model_drag_to_rotate, variant.label),
+            formattedString(Res.string.ui_s_model_drag_to_rotate, variant.label),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )

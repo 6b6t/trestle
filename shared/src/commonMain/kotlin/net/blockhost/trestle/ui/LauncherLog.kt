@@ -56,6 +56,7 @@ import net.blockhost.trestle.resources.ui_no_launcher_events_in_this_session
 import net.blockhost.trestle.resources.ui_open_log_details
 import net.blockhost.trestle.resources.ui_showing_latest_log_entries
 import net.blockhost.trestle.resources.ui_time
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -87,7 +88,7 @@ internal fun LauncherLog(state: LauncherUiState, actions: LauncherUiActions, lis
             if (state.logs.size > LOG_ROWS_SHOWN) {
                 item("logs-count") {
                     Text(
-                        stringResource(Res.string.ui_showing_latest_log_entries, LOG_ROWS_SHOWN, state.logs.size),
+                        formattedString(Res.string.ui_showing_latest_log_entries, LOG_ROWS_SHOWN, state.logs.size),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.labelMedium,
                         modifier = Modifier.padding(bottom = 8.dp),

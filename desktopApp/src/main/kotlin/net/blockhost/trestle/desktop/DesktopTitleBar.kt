@@ -81,6 +81,7 @@ import net.blockhost.trestle.resources.ui_restore_window
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_stop_named
 import net.blockhost.trestle.resources.ui_unpin_selected
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherUiState
 import org.jetbrains.compose.resources.StringResource
@@ -318,7 +319,7 @@ private fun InstanceMenu(state: LauncherUiState, onCommand: (LauncherCommand) ->
         onCommand(LauncherCommand.LAUNCH_SELECTED)
     }
     state.activeInstance?.let { instance ->
-        MenuAction(stringResource(Res.string.ui_stop_named, instance.displayName)) {
+        MenuAction(formattedString(Res.string.ui_stop_named, instance.displayName)) {
             onDismiss()
             onStopInstance()
         }

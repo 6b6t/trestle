@@ -46,7 +46,7 @@ class InstanceWorkspaceUiTest {
         setContent(instancePage(LauncherPreviewFixtures.played, NoopLauncherUiActions))
 
         onNodeWithTag(LauncherTestTags.instanceSection("notes")).performClick()
-        onNodeWithText("Write notes for Building world").performTextInput("Seed is 42")
+        onNodeWithText("Write notes for ${isolated("Building world")}").performTextInput("Seed is 42")
         onNodeWithTag(LauncherTestTags.instanceSection("overview")).performClick()
         onNodeWithTag(LauncherTestTags.instanceSection("notes")).performClick()
 
@@ -58,7 +58,7 @@ class InstanceWorkspaceUiTest {
         setContent(instancePage(LauncherPreviewFixtures.played, NoopLauncherUiActions))
 
         onNodeWithTag(LauncherTestTags.instanceSection("notes")).performClick()
-        val notes = onNodeWithText("Write notes for Building world")
+        val notes = onNodeWithText("Write notes for ${isolated("Building world")}")
         notes.performTextInput("Seed is 42")
         onNodeWithText("Seed is 42").performKeyInput { pressKey(Key.Escape) }
 
@@ -138,7 +138,7 @@ class InstanceWorkspaceUiTest {
         onAllNodesWithText("Remove")[0].performScrollTo().performClick()
         waitForIdle()
 
-        onNodeWithText("Remove Sodium?").assertIsDisplayed()
+        onNodeWithText("Remove ${isolated("Sodium")}?").assertIsDisplayed()
         assertEquals(emptyList(), removed)
         val removeButtons = onAllNodesWithText("Remove")
         removeButtons[removeButtons.fetchSemanticsNodes().size - 1].performClick()
@@ -159,7 +159,7 @@ class InstanceWorkspaceUiTest {
         onNodeWithText("Sodium").performClick()
         assertEquals(emptyList(), toggled)
 
-        onNodeWithContentDescription("Enable Sodium").performClick()
+        onNodeWithContentDescription("Enable ${isolated("Sodium")}").performClick()
         assertEquals(listOf("sodium"), toggled)
     }
 
@@ -177,7 +177,7 @@ class InstanceWorkspaceUiTest {
         onAllNodesWithContentDescription("More")[0].performClick()
         onNodeWithText("Delete").performClick()
 
-        onNodeWithText("Delete 2025-12-16_20.14.02.png?").assertIsDisplayed()
+        onNodeWithText("Delete ${isolated("2025-12-16_20.14.02.png")}?").assertIsDisplayed()
         assertEquals(emptyList(), deleted)
         onNodeWithText("Delete").performClick()
         assertEquals(listOf("shot-1"), deleted)

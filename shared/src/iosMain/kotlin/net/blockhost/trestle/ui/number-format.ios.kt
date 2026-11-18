@@ -17,9 +17,14 @@ internal actual fun formatDecimal(value: Double): String =
 private fun decimalFormatter(fractionDigits: Int) = NSNumberFormatter().apply {
     numberStyle = NSNumberFormatterDecimalStyle
     maximumFractionDigits = fractionDigits.toULong()
-    // The launcher language is written to AppleLanguages, so the first preferred language follows it. Western digits
-    // match the numbers that translated messages insert.
-    locale = (NSLocale.preferredLanguages.firstOrNull() as? String)
-        ?.let { NSLocale(localeIdentifier = "$it@numbers=latn") }
-        ?: NSLocale.currentLocale
+    locale = formattingLocale()
 }
+
+/**
+ * The launcher language with Western digits. Trestle writes the launcher language to AppleLanguages, so the first
+ * preferred language follows it right away, while NSLocale.currentLocale keeps the language from app start. Western
+ * digits match the numbers that translated messages insert.
+ */
+internal fun formattingLocale(): NSLocale = (NSLocale.preferredLanguages.firstOrNull() as? String)
+    ?.let { NSLocale(localeIdentifier = "$it@numbers=latn") }
+    ?: NSLocale.currentLocale

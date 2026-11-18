@@ -44,6 +44,7 @@ import net.blockhost.trestle.resources.ui_import_modpack
 import net.blockhost.trestle.resources.ui_select_an_instance_before_adding_this_file
 import net.blockhost.trestle.resources.ui_target_s
 import net.blockhost.trestle.resources.ui_the_modpack_creates_a_new_instance
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -87,7 +88,7 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                 )
                 pending.sourceOrigin?.let { origin ->
                     Text(
-                        stringResource(Res.string.ui_downloaded_from, origin),
+                        formattedString(Res.string.ui_downloaded_from, origin),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -113,7 +114,7 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                 }
                 if (selectedType != ResourceType.MODPACK) {
                     Text(
-                        target?.let { stringResource(Res.string.ui_target_s, it.displayName) }
+                        target?.let { formattedString(Res.string.ui_target_s, it.displayName) }
                             ?: stringResource(Res.string.ui_select_an_instance_before_adding_this_file),
                         color = if (target == null) {
                             MaterialTheme.colorScheme.error

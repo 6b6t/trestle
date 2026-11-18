@@ -33,6 +33,7 @@ import net.blockhost.trestle.resources.ui_see_the_release_page_for_changes_and
 import net.blockhost.trestle.resources.ui_trestle_version
 import net.blockhost.trestle.resources.ui_trestle_version_available
 import net.blockhost.trestle.resources.ui_view_release
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -44,12 +45,12 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(stringResource(Res.string.ui_trestle_version_available, update.version), modifier = Modifier.padding(vertical = 12.dp))
+            Text(formattedString(Res.string.ui_trestle_version_available, update.version), modifier = Modifier.padding(vertical = 12.dp))
             TextButton(onClick = { showNotes = true }) { Text(stringResource(Res.string.ui_release_notes)) }
             update.downloads.firstOrNull()?.let { download ->
                 TextButton(onClick = {
                     uriHandler.openUri(download.url)
-                }) { Text(stringResource(Res.string.ui_download_format, download.format)) }
+                }) { Text(formattedString(Res.string.ui_download_format, download.format)) }
             } ?: TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) { Text(stringResource(Res.string.ui_view_release)) }
             TextButton(onClick = actions::remindAboutLauncherUpdateLater) { Text(stringResource(Res.string.ui_remind_me_tomorrow)) }
         }
@@ -57,14 +58,14 @@ internal fun LauncherUpdateBanner(update: LauncherUpdate, actions: LauncherUiAct
     if (showNotes) {
         AlertDialog(
             onDismissRequest = { showNotes = false },
-            title = { Text(stringResource(Res.string.ui_trestle_version, update.version)) },
+            title = { Text(formattedString(Res.string.ui_trestle_version, update.version)) },
             text = {
                 SelectionContainer {
                     Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(update.releaseNotes.ifBlank { stringResource(Res.string.ui_see_the_release_page_for_changes_and) })
                         update.downloads.forEach { download ->
                             Text(
-                                stringResource(Res.string.ui_s_s_sha_s, download.format, download.minimumOS, download.sha256),
+                                formattedString(Res.string.ui_s_s_sha_s, download.format, download.minimumOS, download.sha256),
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }

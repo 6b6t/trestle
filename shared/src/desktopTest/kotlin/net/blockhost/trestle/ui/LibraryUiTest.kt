@@ -66,7 +66,7 @@ class LibraryUiTest {
         }
 
         onNodeWithTag(LauncherTestTags.PRIMARY_INSTANCE_ACTION).assertIsNotEnabled()
-        onNodeWithText("Latest release is still running. Close it to play another instance.").assertIsDisplayed()
+        onNodeWithText("${isolated("Latest release")} is still running. Close it to play another instance.").assertIsDisplayed()
     }
 
     @Test
@@ -182,6 +182,6 @@ class LibraryUiTest {
             }
         }
 
-        onNodeWithText("Playing as Pistonmaster").assertIsDisplayed().assertHasClickAction()
+        onNodeWithText("Playing as ${isolated("Pistonmaster")}").assertIsDisplayed().assertHasClickAction()
     }
 }

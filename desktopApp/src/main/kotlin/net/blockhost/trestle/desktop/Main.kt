@@ -55,6 +55,7 @@ import net.blockhost.trestle.resources.ui_stop_named
 import net.blockhost.trestle.resources.ui_trestle_needs_attention
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchRequirement
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.load
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.ui.LaunchStatus
@@ -133,7 +134,7 @@ fun main(arguments: Array<String>) {
                 activationQueue = activationQueue + expanded
             }
         }
-        val quitWarning = state.activeInstance?.let { stringResource(Res.string.ui_quitting_stops_minecraft, it.displayName) }
+        val quitWarning = state.activeInstance?.let { formattedString(Res.string.ui_quitting_stops_minecraft, it.displayName) }
         val quitTitle = stringResource(Res.string.ui_quit_trestle_question)
         val quitLabel = stringResource(Res.string.ui_quit_trestle)
         val cancelLabel = stringResource(Res.string.ui_cancel)
@@ -245,7 +246,7 @@ fun main(arguments: Array<String>) {
                 state.activeInstance?.let { instance ->
                     add(
                         DesktopTrayMenuEntry.Item(
-                            stringResource(Res.string.ui_stop_named, instance.displayName),
+                            formattedString(Res.string.ui_stop_named, instance.displayName),
                             onClick = viewModel::stopLaunch,
                         ),
                     )
@@ -262,7 +263,7 @@ fun main(arguments: Array<String>) {
                 add(DesktopTrayMenuEntry.Item(stringResource(Res.string.ui_quit_trestle), onClick = ::quit))
             }
             val operationTitle = state.operation?.title?.resolve()
-            val runningLabel = state.activeInstance?.let { stringResource(Res.string.ui_named_is_running, it.displayName) }
+            val runningLabel = state.activeInstance?.let { formattedString(Res.string.ui_named_is_running, it.displayName) }
             DesktopTray(
                 icon = trayIcon,
                 state = trayState,
@@ -452,7 +453,7 @@ internal suspend fun runCli(
                     is LaunchEvent.Exited -> exitCode = event.exitCode
 
                     is LaunchEvent.Failed -> {
-                        output(event.message.load())
+                        output(event.message.load(isolateArguments = false))
                         exitCode = 1
                     }
 

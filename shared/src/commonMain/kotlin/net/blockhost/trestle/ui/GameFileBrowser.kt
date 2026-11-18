@@ -89,6 +89,7 @@ import net.blockhost.trestle.resources.ui_trestle_could_not_open_this_path
 import net.blockhost.trestle.resources.ui_trestle_could_not_read_this_file
 import net.blockhost.trestle.resources.ui_trestle_could_not_save_this_file
 import net.blockhost.trestle.text.UserText
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.text.text
 import net.blockhost.trestle.text.userText
@@ -422,7 +423,7 @@ private fun FileList(entries: List<GameFileEntry>, filter: String, onOpen: (Game
                     )
                 },
                 colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier.fillMaxWidth().clickable(onClickLabel = stringResource(Res.string.ui_open_named, entry.name)) {
+                modifier = Modifier.fillMaxWidth().clickable(onClickLabel = formattedString(Res.string.ui_open_named, entry.name)) {
                     onOpen(entry)
                 },
             )
@@ -538,7 +539,7 @@ private fun GameTextEditorContent(
                     )
                     Text(
                         when {
-                            document.truncated -> stringResource(
+                            document.truncated -> formattedString(
                                 Res.string.ui_file_browser_truncated,
                                 formatGameFileSize(document.text.encodeToByteArray().size.toLong()),
                             )

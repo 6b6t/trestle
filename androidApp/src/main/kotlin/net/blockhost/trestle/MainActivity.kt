@@ -222,7 +222,8 @@ class MainActivity : ComponentActivity() {
                         shortcutManager.dynamicShortcuts = instances.map { instance ->
                             ShortcutInfo.Builder(this@MainActivity, "instance-${instance.id}")
                                 .setShortLabel(instance.label)
-                                .setLongLabel(labels.getString(R.string.shortcut_launch_named, instance.label))
+                                // Isolate the name so one in another script cannot reorder the label.
+                                .setLongLabel(labels.getString(R.string.shortcut_launch_named, "\u2068${instance.label}\u2069"))
                                 .setIcon(Icon.createWithResource(this@MainActivity, R.mipmap.ic_trestle))
                                 .setIntent(
                                     Intent(this@MainActivity, MainActivity::class.java).apply {

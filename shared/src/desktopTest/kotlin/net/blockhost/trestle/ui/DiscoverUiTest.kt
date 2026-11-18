@@ -7,13 +7,18 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import net.blockhost.trestle.app.LauncherLanguage
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.text.load
 import kotlin.test.Test
+import kotlin.test.assertEquals
 
 @OptIn(ExperimentalTestApi::class)
 class DiscoverUiTest {
@@ -70,5 +75,34 @@ class DiscoverUiTest {
         }
 
         onNodeWithText("Enter an instance name.").assertIsDisplayed()
+    }
+
+    @Test
+    fun categoriesShowInTheInterfaceLanguageAndFilterByTheirTag() = runComposeUiTest {
+        val chosen = mutableListOf<String>()
+        val actions = object : LauncherUiActions {
+            override fun setResourceCategoryFilter(value: String) {
+                chosen += value
+            }
+        }
+        val state = LauncherPreviewFixtures.discover.copy(
+            launcherPreferences = LauncherPreviewFixtures.discover.launcherPreferences.copy(language = LauncherLanguage.GERMAN.name),
+        )
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    state,
+                    actions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+
+        onAllNodesWithText("Optimierung", substring = true).onFirst().assertIsDisplayed()
+        onNodeWithText("Filter").performClick()
+        onNodeWithText("Alle Kategorien").performClick()
+        onNodeWithText("Dekoration").performClick()
+        assertEquals(listOf("decoration"), chosen)
     }
 }

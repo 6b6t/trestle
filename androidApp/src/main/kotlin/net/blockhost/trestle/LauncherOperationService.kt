@@ -10,10 +10,17 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import net.blockhost.trestle.text.load
 import net.blockhost.trestle.ui.OperationStatus
+import java.util.Locale
 
 class LauncherOperationService : Service() {
-    override fun onCreate() {
-        super.onCreate()
+    private var channelLanguage: String? = null
+
+    // Checked on every progress update, not only when the service starts, so the channel name follows a language
+    // change made while a download runs. Creating an existing channel again only updates its name and description.
+    private fun updateNotificationChannel() {
+        val language = Locale.getDefault().toLanguageTag()
+        if (language == channelLanguage) return
+        channelLanguage = language
         val labels = launcherLanguageResources()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
@@ -27,6 +34,7 @@ class LauncherOperationService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        updateNotificationChannel()
         val title = intent?.getStringExtra(EXTRA_TITLE) ?: launcherLanguageResources().getString(R.string.notification_trestle_is_working)
         val detail = intent?.getStringExtra(EXTRA_DETAIL)
         val completed = intent?.getLongExtra(EXTRA_COMPLETED, -1L) ?: -1L

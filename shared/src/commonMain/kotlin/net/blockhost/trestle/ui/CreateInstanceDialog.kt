@@ -129,6 +129,7 @@ import net.blockhost.trestle.resources.ui_video
 import net.blockhost.trestle.resources.ui_view_bobbing
 import net.blockhost.trestle.resources.ui_vsync
 import net.blockhost.trestle.resources.ui_write_these_settings_before_the_first_launch
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import org.jetbrains.compose.resources.stringResource
 import kotlin.math.roundToInt
@@ -285,7 +286,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                         FixedOption(
                             label = stringResource(Res.string.ui_minecraft_version),
                             value = versionChoices.single(),
-                            supportingText = stringResource(
+                            supportingText = formattedString(
                                 Res.string.ui_only_minecraft_version_is_supported_on_android,
                                 versionChoices.single(),
                             ),
@@ -363,7 +364,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                     }
                     if (form.modLoader != ModLoader.VANILLA) {
                         Selector(
-                            label = stringResource(Res.string.ui_s_version, form.modLoader.label),
+                            label = formattedString(Res.string.ui_s_version, form.modLoader.label),
                             value =
                             form.loaderVersion
                                 ?: if (form.isResolvingLoader) {
@@ -603,7 +604,7 @@ private fun PercentageSlider(label: String, value: Int, onValueChange: (Int) -> 
 
 @Composable
 private fun ChunkDistanceSlider(label: String, value: Int, range: IntRange, onValueChange: (Int) -> Unit) {
-    IntegerSlider(label, stringResource(Res.string.ui_s_chunks, value), value, range, onValueChange = onValueChange)
+    IntegerSlider(label, formattedString(Res.string.ui_s_chunks, value), value, range, onValueChange = onValueChange)
 }
 
 @Composable
@@ -717,7 +718,7 @@ internal fun Selector(
                 OutlinedTextField(
                     value = filter,
                     onValueChange = { filter = it },
-                    label = { Text(stringResource(Res.string.ui_filter_named_field, label)) },
+                    label = { Text(formattedString(Res.string.ui_filter_named_field, label)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
                 )

@@ -43,6 +43,7 @@ import net.blockhost.trestle.resources.ui_roll_back_pack_update
 import net.blockhost.trestle.resources.ui_rollback_explanation
 import net.blockhost.trestle.resources.ui_s_pack_file_changes_worlds_personal_settings
 import net.blockhost.trestle.resources.ui_update_named
+import net.blockhost.trestle.text.formattedString
 import org.jetbrains.compose.resources.stringResource
 
 @Composable
@@ -110,16 +111,16 @@ internal fun ModpackUpdateDialogs(state: LauncherUiState, actions: LauncherUiAct
     var replace by remember(preview) { mutableStateOf(emptySet<String>()) }
     AlertDialog(
         onDismissRequest = actions::cancelModpackUpdate,
-        title = { Text(stringResource(Res.string.ui_update_named, preview.original.displayName)) },
+        title = { Text(formattedString(Res.string.ui_update_named, preview.original.displayName)) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("${preview.original.modpackOrigin?.versionName} → ${preview.candidate.modpackOrigin?.versionName}")
                 Text(
-                    stringResource(Res.string.ui_s_pack_file_changes_worlds_personal_settings, preview.changes.size),
+                    formattedString(Res.string.ui_s_pack_file_changes_worlds_personal_settings, preview.changes.size),
                 )
                 if (preview.original.minecraftVersionId != preview.candidate.minecraftVersionId) {
                     Text(
-                        stringResource(Res.string.ui_minecraft_changes_to_s_back_up_your, preview.candidate.minecraftVersionId),
+                        formattedString(Res.string.ui_minecraft_changes_to_s_back_up_your, preview.candidate.minecraftVersionId),
                         color = MaterialTheme.colorScheme.error,
                     )
                 }

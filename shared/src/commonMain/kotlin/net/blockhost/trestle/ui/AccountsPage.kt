@@ -176,6 +176,7 @@ import net.blockhost.trestle.resources.ui_use_a_refresh_token_issued_for_the
 import net.blockhost.trestle.resources.ui_use_account
 import net.blockhost.trestle.resources.ui_use_to_letters_numbers_or_underscores
 import net.blockhost.trestle.resources.ui_waiting
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
@@ -486,7 +487,7 @@ private fun AccountRow(
                 .selectionOutline(selected)
                 .trestleSelectable(
                     selected = selected,
-                    onClickLabel = stringResource(Res.string.ui_open_named, account.profile.playerName),
+                    onClickLabel = formattedString(Res.string.ui_open_named, account.profile.playerName),
                     onClick = onOpen,
                 )
                 .testTag(LauncherTestTags.account(profileId)),
@@ -881,7 +882,7 @@ internal fun AccountLoginDialog(state: LauncherUiState, actions: LauncherUiActio
                             )
                             Text(authorization.verificationUri, color = MaterialTheme.colorScheme.onSecondaryContainer)
                             Text(
-                                stringResource(Res.string.ui_code_expires_at, formatLocalDateTime(authorization.expiresAtEpochMillis)),
+                                formattedString(Res.string.ui_code_expires_at, formatLocalDateTime(authorization.expiresAtEpochMillis)),
                                 color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 style = MaterialTheme.typography.bodySmall,
                             )

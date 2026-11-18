@@ -184,6 +184,7 @@ import net.blockhost.trestle.resources.ui_versions
 import net.blockhost.trestle.resources.ui_view_on_provider
 import net.blockhost.trestle.resources.ui_wiki
 import net.blockhost.trestle.text.asUserText
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.text.text
@@ -215,7 +216,7 @@ internal fun ResourceBrowserDialog(state: LauncherUiState, actions: LauncherUiAc
                             } else if (instance == null) {
                                 stringResource(Res.string.ui_select_an_installed_instance_to_add_content)
                             } else {
-                                stringResource(Res.string.ui_compatible_with_s_s, instance.minecraftVersionId, instance.modLoader.label)
+                                formattedString(Res.string.ui_compatible_with_s_s, instance.minecraftVersionId, instance.modLoader.label)
                             },
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
@@ -380,7 +381,7 @@ private fun ResourceBrowserToolbar(
                     if (activeFilters == 0) {
                         stringResource(Res.string.ui_filters)
                     } else {
-                        stringResource(Res.string.ui_filters_with_count, activeFilters)
+                        formattedString(Res.string.ui_filters_with_count, activeFilters)
                     },
                 )
             }
@@ -464,7 +465,7 @@ private fun ResourceFilterFields(
             placeholder = {
                 Text(
                     instance?.takeIf { browser.type != ResourceType.MODPACK }
-                        ?.let { stringResource(Res.string.ui_instance_version_named, it.minecraftVersionId) }
+                        ?.let { formattedString(Res.string.ui_instance_version_named, it.minecraftVersionId) }
                         ?: stringResource(Res.string.ui_any_version),
                 )
             },
@@ -473,7 +474,7 @@ private fun ResourceFilterFields(
         )
     }
     val defaultLoaderLabel = instance?.takeIf { browser.type != ResourceType.MODPACK }
-        ?.let { stringResource(Res.string.ui_instance_loader_named, it.modLoader.label) }
+        ?.let { formattedString(Res.string.ui_instance_loader_named, it.modLoader.label) }
         ?: stringResource(Res.string.ui_any_loader)
     val loaderField: @Composable (Modifier) -> Unit = { fieldModifier ->
         Selector(
@@ -487,13 +488,16 @@ private fun ResourceFilterFields(
         )
     }
     val categoryField: @Composable (Modifier) -> Unit = { fieldModifier ->
-        OutlinedTextField(
-            value = browser.categoryFilter,
-            onValueChange = actions::setResourceCategoryFilter,
-            label = { Text(stringResource(Res.string.ui_category)) },
-            placeholder = { Text(stringResource(Res.string.ui_any_category)) },
-            singleLine = true,
+        val anyCategory = stringResource(Res.string.ui_any_category)
+        val categoryLabels = resourceCategories(browser.type).associateWith { categoryLabel(it) }
+        Selector(
+            label = stringResource(Res.string.ui_category),
+            value = browser.categoryFilter.ifBlank { null }?.let { categoryLabels[it] ?: categoryLabel(it) } ?: anyCategory,
+            values = listOf(anyCategory) + categoryLabels.values,
             modifier = fieldModifier,
+            onSelect = { label ->
+                actions.setResourceCategoryFilter(categoryLabels.entries.firstOrNull { it.value == label }?.key.orEmpty())
+            },
         )
     }
     val sortField: @Composable (Modifier) -> Unit = { fieldModifier ->
@@ -754,7 +758,7 @@ private fun ResourceProjectRow(project: ResourceProject, selected: Boolean, onCl
         },
         overlineContent = {
             Text(
-                stringResource(
+                formattedString(
                     Res.string.ui_server_status,
                     project.provider.label,
                     project.author.ifBlank {
@@ -797,7 +801,7 @@ private fun ResourceProjectSummary(project: ResourceProject) {
                 append(formatDownloads(project.downloads))
                 if (project.categories.isNotEmpty()) {
                     append(" · ")
-                    append(project.categories.take(3).joinToString(" · "))
+                    append(project.categories.take(3).map { categoryLabel(it) }.joinToString(" · "))
                 }
             },
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -902,7 +906,7 @@ private fun ResourceSelection(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(project.name, style = MaterialTheme.typography.titleLarge)
                     Text(
-                        stringResource(
+                        formattedString(
                             Res.string.ui_by_author_on_provider,
                             project.author.ifBlank {
                                 stringResource(Res.string.ui_unknown_author)
@@ -922,7 +926,7 @@ private fun ResourceSelection(
             ResourceProjectDetails(project)
             project.websiteUrl?.takeIf(String::isNotBlank)?.let { websiteUrl ->
                 TextButton(onClick = { uriHandler.openUri(websiteUrl) }) {
-                    Text(stringResource(Res.string.ui_view_on_provider, project.provider.label))
+                    Text(formattedString(Res.string.ui_view_on_provider, project.provider.label))
                 }
             }
             val platformLinks = listOfNotNull(
@@ -1026,7 +1030,7 @@ private fun ResourceProjectDetails(project: ResourceProject) {
         project.clientSupport?.let { PropertyRow(stringResource(Res.string.ui_client), it.label) }
         project.serverSupport?.let { PropertyRow(stringResource(Res.string.ui_server), it.label) }
         if (project.categories.isNotEmpty()) {
-            PropertyRow(stringResource(Res.string.ui_categories), project.categories.take(4).joinToString())
+            PropertyRow(stringResource(Res.string.ui_categories), project.categories.take(4).map { categoryLabel(it) }.joinToString())
         }
     }
 }
@@ -1080,7 +1084,7 @@ private fun ResourceVersionDetails(version: ResourceVersion) {
             file.size?.let { PropertyRow(stringResource(Res.string.ui_size), formatFileSize(it)) }
         }
         val required = version.dependencies.count { it.kind == DependencyKind.REQUIRED }
-        if (required > 0) PropertyRow(stringResource(Res.string.ui_dependencies), stringResource(Res.string.ui_s_required, required))
+        if (required > 0) PropertyRow(stringResource(Res.string.ui_dependencies), formattedString(Res.string.ui_s_required, required))
     }
 }
 
@@ -1097,7 +1101,7 @@ private fun installBlockedReason(
 private fun targetBlockedReason(project: ResourceProject, instance: GameInstance?): String? = when {
     project.type == ResourceType.MODPACK -> null
     instance == null -> stringResource(Res.string.ui_choose_instance_to_install_into)
-    instance.installationState !is InstallationState.Installed -> stringResource(Res.string.ui_install_named_first, instance.displayName)
+    instance.installationState !is InstallationState.Installed -> formattedString(Res.string.ui_install_named_first, instance.displayName)
     instance.modLoader == ModLoader.VANILLA && project.type in loaderOnlyTypes -> VANILLA_CONTENT_MESSAGE.resolve()
     else -> null
 }
@@ -1112,7 +1116,7 @@ private fun versionBlockedReason(
     browser.isLoadingVersions -> stringResource(Res.string.ui_loading_versions)
 
     browser.selectedVersion == null && browser.versions.isEmpty() -> if (project.type != ResourceType.MODPACK && instance != null) {
-        stringResource(Res.string.ui_no_version_for_named, "${instance.minecraftVersionId} ${instance.modLoader.label}")
+        formattedString(Res.string.ui_no_version_for_named, "${instance.minecraftVersionId} ${instance.modLoader.label}")
     } else {
         stringResource(Res.string.ui_no_compatible_version)
     }

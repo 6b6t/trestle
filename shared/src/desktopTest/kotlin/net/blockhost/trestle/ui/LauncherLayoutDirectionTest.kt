@@ -8,6 +8,14 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.ResolvedTextDirection
 import androidx.compose.ui.unit.LayoutDirection
+import kotlinx.coroutines.test.runTest
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_delete_named_file
+import net.blockhost.trestle.resources.ui_instance_copy_name
+import net.blockhost.trestle.resources.ui_named_is_still_running
+import net.blockhost.trestle.text.formattedString
+import net.blockhost.trestle.text.load
+import net.blockhost.trestle.text.text
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -73,6 +81,24 @@ class LauncherLayoutDirectionTest {
         waitForIdle()
         assertEquals(ResolvedTextDirection.Ltr, english?.getParagraphDirection(0))
         assertEquals(ResolvedTextDirection.Rtl, arabic?.getParagraphDirection(0))
+    }
+
+    @Test
+    fun aNameInAnotherScriptDoesNotTurnAnEnglishSentenceAround() = runComposeUiTest {
+        var layout: TextLayoutResult? = null
+        setContent {
+            TrestleTheme {
+                Text(formattedString(Res.string.ui_named_is_still_running, "عالمي"), onTextLayout = { layout = it })
+            }
+        }
+        waitForIdle()
+        assertEquals(ResolvedTextDirection.Ltr, layout?.getParagraphDirection(0))
+    }
+
+    @Test
+    fun storedTextHasNoIsolateCharacters() = runTest {
+        assertEquals("Building world Copy", text(Res.string.ui_instance_copy_name, "Building world").load(isolateArguments = false))
+        assertEquals("Delete ${isolated("a.png")}?", text(Res.string.ui_delete_named_file, "a.png").load())
     }
 
     private fun startsRightToLeft(text: String): Boolean {

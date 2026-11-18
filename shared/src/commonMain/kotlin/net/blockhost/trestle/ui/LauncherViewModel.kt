@@ -815,7 +815,10 @@ class LauncherViewModel(
                 it.copy(operation = OperationStatus(text(Res.string.msg_cloning_instance), instance.displayName.asUserText()))
             }
             runCatching {
-                services.repository.clone(instance.id, text(Res.string.ui_instance_copy_name, instance.displayName).load())
+                services.repository.clone(
+                    instance.id,
+                    text(Res.string.ui_instance_copy_name, instance.displayName).load(isolateArguments = false),
+                )
             }.onSuccess { clone ->
                 mutableState.update {
                     it.copy(
@@ -1468,6 +1471,8 @@ class LauncherViewModel(
             resourceBrowser = current.copy(
                 provider = provider,
                 type = type,
+                // Each content type has its own categories, so a category from the previous type no longer applies.
+                categoryFilter = "",
                 projects = emptyList(),
                 totalProjects = 0,
                 selectedProjectId = null,
@@ -3198,7 +3203,7 @@ class LauncherViewModel(
         val account = mutableState.value.accounts.firstOrNull { it.isActive } ?: return
         val texture = mutableState.value.accountSkinTextures[account.profile.profileId] ?: return
         scope.launch {
-            val name = text(Res.string.ui_player_skin_name, account.profile.playerName).load()
+            val name = text(Res.string.ui_player_skin_name, account.profile.playerName).load(isolateArguments = false)
             openSkinEditorForCurrentSkin(account, texture, name)
         }
     }

@@ -211,7 +211,7 @@ class TrestleAppUiTest {
         }
 
         onNodeWithText("Notes").performClick()
-        onNodeWithText("Write notes for Building world").performTextInput("Use the survival seed")
+        onNodeWithText("Write notes for ${isolated("Building world")}").performTextInput("Use the survival seed")
         onNodeWithText("Save notes").performClick()
 
         assertEquals("Use the survival seed", savedNotes)
@@ -736,3 +736,6 @@ internal fun testWindowAdaptiveInfo(widthDp: Int, heightDp: Int): WindowAdaptive
     }
     return WindowAdaptiveInfo(WindowSizeClass(minimumWidth, minimumHeight), Posture())
 }
+
+/** [text] as Trestle inserts it into a translated message: wrapped in Unicode first-strong isolates. */
+internal fun isolated(text: String): String = "⁨$text⁩"

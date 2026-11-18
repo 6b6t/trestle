@@ -144,6 +144,7 @@ import net.blockhost.trestle.resources.ui_type
 import net.blockhost.trestle.resources.ui_unavailable
 import net.blockhost.trestle.resources.ui_used_when_importing_existing_ftb_app_instances
 import net.blockhost.trestle.resources.ui_username
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.labelText
 import net.blockhost.trestle.text.resolve
@@ -392,7 +393,7 @@ internal fun NetworkSettings(state: LauncherUiState, actions: LauncherUiActions,
         Text(stringResource(Res.string.ui_console), style = MaterialTheme.typography.titleMedium)
         PreferenceSlider(
             stringResource(Res.string.ui_log_history_limit),
-            { stringResource(Res.string.ui_s_lines, it) },
+            { formattedString(Res.string.ui_s_lines, it) },
             preferences.console.historyLimit,
             1_000..100_000,
             steps = 98,
@@ -663,7 +664,7 @@ internal fun RuntimeSettings(state: LauncherUiState, actions: LauncherUiActions,
             }
             state.availableUpdate?.let { update ->
                 TextButton(onClick = { uriHandler.openUri(update.releaseUrl) }) {
-                    Text(stringResource(Res.string.ui_open_version_release, update.version))
+                    Text(formattedString(Res.string.ui_open_version_release, update.version))
                 }
             }
         }

@@ -313,6 +313,8 @@ import net.blockhost.trestle.resources.ui_worlds_summary
 import net.blockhost.trestle.resources.ui_wrap_lines
 import net.blockhost.trestle.resources.ui_wrapper
 import net.blockhost.trestle.resources.ui_write_notes_for_instance
+import net.blockhost.trestle.text.formattedPluralString
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.labelResource
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.text.singularResource
@@ -599,9 +601,9 @@ private fun InstanceGameData(
             ) {
                 Text(
                     when (view) {
-                        GameDataView.WORLDS -> stringResource(Res.string.ui_worlds_summary, instance.displayName)
-                        GameDataView.SERVERS -> stringResource(Res.string.ui_servers_summary, instance.displayName)
-                        GameDataView.SCREENSHOTS -> stringResource(Res.string.ui_screenshots_summary, instance.displayName)
+                        GameDataView.WORLDS -> formattedString(Res.string.ui_worlds_summary, instance.displayName)
+                        GameDataView.SERVERS -> formattedString(Res.string.ui_servers_summary, instance.displayName)
+                        GameDataView.SCREENSHOTS -> formattedString(Res.string.ui_screenshots_summary, instance.displayName)
                     },
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
@@ -628,7 +630,7 @@ private fun InstanceGameData(
                             Res.string.ui_worlds,
                         )
                     } else {
-                        stringResource(Res.string.ui_worlds_count, worlds.size)
+                        formattedString(Res.string.ui_worlds_count, worlds.size)
                     },
                     emptyMessage = if (worlds.isEmpty()) stringResource(Res.string.ui_no_worlds_import_hint) else null,
                     action = { WorldImportButton(actions) },
@@ -704,7 +706,7 @@ private fun InstanceGameData(
                             Res.string.ui_screenshots,
                         )
                     } else {
-                        stringResource(Res.string.ui_screenshots_count, screenshots.size)
+                        formattedString(Res.string.ui_screenshots_count, screenshots.size)
                     },
                     emptyMessage = if (screenshots.isEmpty()) stringResource(Res.string.ui_screenshot_hint) else null,
                 ) {
@@ -838,7 +840,7 @@ private fun InstanceNotes(instance: GameInstance, actions: LauncherUiActions, mo
                 value = draft,
                 onValueChange = { draft = it },
                 placeholder = {
-                    Text(stringResource(Res.string.ui_write_notes_for_instance, instance.displayName))
+                    Text(formattedString(Res.string.ui_write_notes_for_instance, instance.displayName))
                 },
                 minLines = 16,
                 modifier = Modifier.fillMaxWidth(),
@@ -857,7 +859,7 @@ private fun InstanceLogs(state: LauncherUiState, instance: GameInstance, actions
     pendingLogDeletion?.let { key ->
         ConfirmationDialog(
             ConfirmationRequest(
-                title = stringResource(Res.string.ui_delete_named_file, key.substringAfterLast('/')),
+                title = formattedString(Res.string.ui_delete_named_file, key.substringAfterLast('/')),
                 text = stringResource(Res.string.ui_delete_log_explanation),
                 confirmLabel = stringResource(Res.string.ui_delete),
             ) { actions.deleteInstanceLog(key) },
@@ -1078,8 +1080,8 @@ private fun WorldCard(
             details = listOfNotNull(
                 world.gameMode?.let { gameModeLabel(it) },
                 formatFileSize(world.sizeBytes),
-                world.dataPacks.size.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.ui_data_packs, it, it) },
-                world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
+                world.dataPacks.size.takeIf { it > 0 }?.let { formattedPluralString(Res.plurals.ui_data_packs, it, it) },
+                world.lastModifiedEpochMillis?.let { formattedString(Res.string.ui_played_on, formatLocalDateTime(it)) },
             ).joinToString(" · "),
             leading = { WorldThumbnail(world.iconPath, world.name, instance) },
         ) {
@@ -1114,7 +1116,7 @@ private fun WorldCard(
                 Column(Modifier.weight(1f)) {
                     Text(pack.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(
-                        stringResource(Res.string.ui_data_pack_s, formatFileSize(pack.sizeBytes)),
+                        formattedString(Res.string.ui_data_pack_s, formatFileSize(pack.sizeBytes)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -1333,7 +1335,7 @@ private fun ExpandedInstanceHeader(
                     style = if (compact) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.headlineMedium,
                 )
                 Text(
-                    stringResource(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label),
+                    formattedString(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyLarge,
                 )
@@ -1403,14 +1405,14 @@ private fun InstanceHeaderStats(state: LauncherUiState, instance: GameInstance, 
         }
         if (instance.playTimeMillis > 0) {
             Text(
-                stringResource(Res.string.ui_played_duration, formatPlayTime(instance.playTimeMillis)),
+                formattedString(Res.string.ui_played_duration, formatPlayTime(instance.playTimeMillis)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
             )
         }
         instance.lastLaunchAtEpochMillis?.let {
             Text(
-                stringResource(Res.string.ui_last_played_on, formatLocalDateTime(it)),
+                formattedString(Res.string.ui_last_played_on, formatLocalDateTime(it)),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -1540,7 +1542,9 @@ private fun OverviewWorlds(
                             Text(
                                 listOfNotNull(
                                     world.gameMode?.let { gameModeLabel(it) },
-                                    world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
+                                    world.lastModifiedEpochMillis?.let {
+                                        formattedString(Res.string.ui_played_on, formatLocalDateTime(it))
+                                    },
                                 ).joinToString(" · "),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -1622,7 +1626,7 @@ private fun OverviewScreenshots(state: LauncherUiState, openPath: (String) -> Un
         action = {
             TextButton(onClick = {
                 onOpenSection(InstanceSection.SCREENSHOTS)
-            }) { Text(stringResource(Res.string.ui_see_all_count, screenshots.size)) }
+            }) { Text(formattedString(Res.string.ui_see_all_count, screenshots.size)) }
         },
     ) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1680,7 +1684,7 @@ private fun OverviewContentSummary(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
                 Text(
-                    pluralStringResource(Res.plurals.ui_updates_available, updates, updates),
+                    formattedPluralString(Res.plurals.ui_updates_available, updates, updates),
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                 )
@@ -1729,14 +1733,14 @@ private fun OverviewSetup(
                     ?: stringResource(Res.string.ui_chosen_at_install)
             },
         )
-        CompactProperty(stringResource(Res.string.ui_java), stringResource(Res.string.ui_java_s, instance.requiredJavaMajor))
+        CompactProperty(stringResource(Res.string.ui_java), formattedString(Res.string.ui_java_s, instance.requiredJavaMajor))
         CompactProperty(
             stringResource(Res.string.ui_memory),
-            stringResource(Res.string.ui_s_s_mib, instance.memory.minimumMiB, instance.memory.maximumMiB),
+            formattedString(Res.string.ui_s_s_mib, instance.memory.minimumMiB, instance.memory.maximumMiB),
         )
         instance.group?.let { CompactProperty(stringResource(Res.string.ui_group), it) }
         state.launchPlan?.let { plan ->
-            CompactProperty(stringResource(Res.string.ui_classpath), stringResource(Res.string.ui_s_entries, plan.classpathEntries))
+            CompactProperty(stringResource(Res.string.ui_classpath), formattedString(Res.string.ui_s_entries, plan.classpathEntries))
             CompactProperty(stringResource(Res.string.ui_account), plan.authentication.resolve())
         }
         Row(
@@ -1812,7 +1816,7 @@ private fun GameConsole(state: LauncherUiState, openPath: (String) -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    stringResource(Res.string.ui_crash_report_value, report),
+                    formattedString(Res.string.ui_crash_report_value, report),
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier.weight(1f),
                 )
@@ -1875,7 +1879,7 @@ private fun InstanceContent(
                 InstalledContentPanel(state, instance, actions)
             }
         }
-        if (dropActive) DropOverlay(stringResource(Res.string.ui_drop_to_add_content_to_s, instance.displayName))
+        if (dropActive) DropOverlay(formattedString(Res.string.ui_drop_to_add_content_to_s, instance.displayName))
     }
 }
 
@@ -1887,7 +1891,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
     pendingRemoval?.let { item ->
         ConfirmationDialog(
             ConfirmationRequest(
-                title = stringResource(Res.string.ui_remove_named, item.name),
+                title = formattedString(Res.string.ui_remove_named, item.name),
                 text = stringResource(Res.string.ui_remove_content_explanation),
                 confirmLabel = stringResource(Res.string.ui_remove),
             ) { actions.removeInstalledContent(item.key) },
@@ -1982,7 +1986,7 @@ private fun InstalledContentPanel(state: LauncherUiState, instance: GameInstance
 @Composable
 private fun InstalledContentRow(content: InstalledContent, update: ResourceVersion?, actions: LauncherUiActions, onRemove: () -> Unit) {
     val uriHandler = LocalUriHandler.current
-    val switchLabel = stringResource(Res.string.ui_enable_named, content.name)
+    val switchLabel = formattedString(Res.string.ui_enable_named, content.name)
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         ListItem(
             headlineContent = {
@@ -1990,7 +1994,7 @@ private fun InstalledContentRow(content: InstalledContent, update: ResourceVersi
                     Text(content.name, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                     if (update != null) {
                         Text(
-                            stringResource(Res.string.ui_update_to_version, update.versionNumber),
+                            formattedString(Res.string.ui_update_to_version, update.versionNumber),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.labelMedium,
                             maxLines = 1,
@@ -2051,17 +2055,17 @@ private fun installedContentDetails(content: InstalledContent): String {
     val role = if (content.direct) {
         content.provider?.label ?: stringResource(Res.string.ui_local_file)
     } else {
-        pluralStringResource(Res.plurals.ui_required_by_items, content.requiredByCount, content.requiredByCount)
+        formattedPluralString(Res.plurals.ui_required_by_items, content.requiredByCount, content.requiredByCount)
     }
     return buildList {
         add(stringResource(content.type.singularResource))
         content.versionNumber?.let(::add)
         if (content.authors.isNotEmpty()) add(content.authors.joinToString())
-        if (content.dependencies.isNotEmpty()) add(stringResource(Res.string.ui_requires_s, content.dependencies.joinToString()))
-        if (content.gameVersions.isNotEmpty()) add(stringResource(Res.string.ui_minecraft_s, content.gameVersions.joinToString()))
+        if (content.dependencies.isNotEmpty()) add(formattedString(Res.string.ui_requires_s, content.dependencies.joinToString()))
+        if (content.gameVersions.isNotEmpty()) add(formattedString(Res.string.ui_minecraft_s, content.gameVersions.joinToString()))
         add(role)
         if (content.sizeBytes > 0) add(formatFileSize(content.sizeBytes))
-        content.lastModifiedEpochMillis?.let { add(stringResource(Res.string.ui_modified_s, formatLocalDateTime(it))) }
+        content.lastModifiedEpochMillis?.let { add(formattedString(Res.string.ui_modified_s, formatLocalDateTime(it))) }
     }.joinToString(" · ")
 }
 
@@ -2079,11 +2083,11 @@ private fun InstanceConfiguration(instance: GameInstance, actions: LauncherUiAct
         ) {
             Text(stringResource(Res.string.ui_instance_settings), style = MaterialTheme.typography.titleLarge)
             Text(
-                stringResource(Res.string.ui_launch_and_minecraft_client_settings_apply_only, instance.displayName),
+                formattedString(Res.string.ui_launch_and_minecraft_client_settings_apply_only, instance.displayName),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = 8.dp),
             )
-            PropertyRow(stringResource(Res.string.ui_java), stringResource(Res.string.ui_java_s, instance.requiredJavaMajor))
+            PropertyRow(stringResource(Res.string.ui_java), formattedString(Res.string.ui_java_s, instance.requiredJavaMajor))
             PropertyRow(stringResource(Res.string.ui_minimum_memory), "${instance.memory.minimumMiB} MiB")
             PropertyRow(stringResource(Res.string.ui_maximum_memory), "${instance.memory.maximumMiB} MiB")
             PropertyRow(
@@ -2100,7 +2104,7 @@ private fun InstanceConfiguration(instance: GameInstance, actions: LauncherUiAct
             )
             PropertyRow(
                 stringResource(Res.string.ui_java_runtime),
-                instance.javaExecutable ?: stringResource(Res.string.ui_managed_java_s, instance.requiredJavaMajor),
+                instance.javaExecutable ?: formattedString(Res.string.ui_managed_java_s, instance.requiredJavaMajor),
             )
             PropertyRow(
                 stringResource(Res.string.ui_environment),
@@ -2109,7 +2113,7 @@ private fun InstanceConfiguration(instance: GameInstance, actions: LauncherUiAct
                         Res.string.ui_inherited,
                     )
                 } else {
-                    stringResource(Res.string.ui_s_custom, instance.environmentVariables.size)
+                    formattedString(Res.string.ui_s_custom, instance.environmentVariables.size)
                 },
             )
             InstanceCommandRows(instance)
@@ -2163,13 +2167,13 @@ private sealed interface PendingGameDataDeletion {
 private fun GameDataDeletionDialog(deletion: PendingGameDataDeletion, actions: LauncherUiActions, onDismiss: () -> Unit) {
     val request = when (deletion) {
         is PendingGameDataDeletion.Screenshot -> ConfirmationRequest(
-            title = stringResource(Res.string.ui_delete_named_file, deletion.name),
+            title = formattedString(Res.string.ui_delete_named_file, deletion.name),
             text = stringResource(Res.string.ui_delete_screenshot_explanation),
             confirmLabel = stringResource(Res.string.ui_delete),
         ) { actions.deleteScreenshot(deletion.key) }
 
         is PendingGameDataDeletion.Server -> ConfirmationRequest(
-            title = stringResource(Res.string.ui_remove_named, deletion.name),
+            title = formattedString(Res.string.ui_remove_named, deletion.name),
             text = stringResource(Res.string.ui_remove_server_explanation),
             confirmLabel = stringResource(Res.string.ui_remove),
         ) { actions.removeServer(deletion.key) }
@@ -2182,8 +2186,8 @@ private fun GameDataDeletionDialog(deletion: PendingGameDataDeletion, actions: L
 private fun serverStatusText(server: SavedServer): String = when (server.status) {
     ServerStatus.ONLINE -> listOfNotNull(
         server.onlinePlayers?.let { online ->
-            server.maximumPlayers?.let { maximum -> stringResource(Res.string.ui_s_s_online, online, maximum) }
-                ?: stringResource(Res.string.ui_s_online, online)
+            server.maximumPlayers?.let { maximum -> formattedString(Res.string.ui_s_s_online, online, maximum) }
+                ?: formattedString(Res.string.ui_s_online, online)
         },
         server.pingMillis?.let { "$it ms" },
     ).joinToString(" · ").ifBlank { stringResource(Res.string.ui_online) }

@@ -73,6 +73,7 @@ import net.blockhost.trestle.resources.ui_retry
 import net.blockhost.trestle.resources.ui_settings
 import net.blockhost.trestle.resources.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain
 import net.blockhost.trestle.resources.ui_undo
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.resolve
 import net.blockhost.trestle.text.text
 import org.jetbrains.compose.resources.StringResource
@@ -434,7 +435,7 @@ fun TrestleApp(
                 state.pendingWorldDeletionKey?.let { worldKey ->
                     AlertDialog(
                         onDismissRequest = actions::cancelWorldDeletion,
-                        title = { Text(stringResource(Res.string.ui_delete_named_world, worldKey)) },
+                        title = { Text(formattedString(Res.string.ui_delete_named_world, worldKey)) },
                         text = {
                             Text(stringResource(Res.string.ui_this_permanently_deletes_the_world_directory_existing_zip_backups_remain))
                         },
@@ -470,9 +471,9 @@ private fun InstanceRemovalDialog(instanceName: String, moveToTrash: Boolean, ac
         title = {
             Text(
                 if (moveToTrash) {
-                    stringResource(Res.string.ui_move_named_to_trash, instanceName)
+                    formattedString(Res.string.ui_move_named_to_trash, instanceName)
                 } else {
-                    stringResource(Res.string.ui_remove_named_instance, instanceName)
+                    formattedString(Res.string.ui_remove_named_instance, instanceName)
                 },
             )
         },

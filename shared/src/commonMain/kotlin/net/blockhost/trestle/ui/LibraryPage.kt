@@ -184,6 +184,7 @@ import net.blockhost.trestle.resources.ui_try_another_name_version_or_loader
 import net.blockhost.trestle.resources.ui_unavailable
 import net.blockhost.trestle.resources.ui_unpin_from_top
 import net.blockhost.trestle.runtime.LaunchRequirement
+import net.blockhost.trestle.text.formattedString
 import net.blockhost.trestle.text.resolve
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
@@ -521,7 +522,7 @@ private fun FeaturedInstanceDetails(instance: GameInstance, state: LauncherUiSta
         if (installationState is InstallationState.Installed) {
             Text(
                 instance.lastLaunchAtEpochMillis?.let {
-                    stringResource(Res.string.ui_last_played_on, formatLocalDateTime(it))
+                    formattedString(Res.string.ui_last_played_on, formatLocalDateTime(it))
                 } ?: stringResource(Res.string.ui_never_played),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
@@ -578,8 +579,8 @@ private fun LaunchAccount(state: LauncherUiState, instance: GameInstance, onOpen
         ?: state.accounts.firstOrNull { it.isActive }
     val text = when {
         account == null -> stringResource(Res.string.ui_no_account_to_play)
-        !account.isReady -> stringResource(Res.string.ui_sign_in_required_for, account.profile.playerName)
-        else -> stringResource(Res.string.ui_playing_as, account.profile.playerName)
+        !account.isReady -> formattedString(Res.string.ui_sign_in_required_for, account.profile.playerName)
+        else -> formattedString(Res.string.ui_playing_as, account.profile.playerName)
     }
     Row(
         Modifier
@@ -620,7 +621,7 @@ private fun LaunchAccount(state: LauncherUiState, instance: GameInstance, onOpen
 
 @Composable
 private fun instanceSubtitle(instance: GameInstance): String =
-    stringResource(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label)
+    formattedString(Res.string.ui_minecraft_s_s, instance.minecraftVersionId, instance.modLoader.label)
 
 @Composable
 private fun InstallationStatusLine(instance: GameInstance, state: LauncherUiState) {
@@ -650,7 +651,7 @@ private fun InstanceTile(
         .fillMaxWidth()
         .clip(MaterialTheme.shapes.medium)
         .clickable(
-            onClickLabel = stringResource(Res.string.ui_open_named, instance.displayName),
+            onClickLabel = formattedString(Res.string.ui_open_named, instance.displayName),
             role = Role.Button,
             onClick = {
                 actions.selectInstance(instance.id)
@@ -727,7 +728,7 @@ private fun TileQuickAction(instance: GameInstance, state: LauncherUiState, acti
     val installationState = instance.installationState
     val installed = installationState is InstallationState.Installed
     val label = when (installationState) {
-        is InstallationState.Installed -> stringResource(Res.string.ui_play_named, instance.displayName)
+        is InstallationState.Installed -> formattedString(Res.string.ui_play_named, instance.displayName)
         is InstallationState.Interrupted -> stringResource(Res.string.ui_resume_install)
         is InstallationState.Failed -> stringResource(Res.string.ui_retry_install)
         else -> stringResource(Res.string.ui_install)
@@ -874,10 +875,10 @@ internal fun OperationBar(status: OperationStatus, onCancel: () -> Unit, onClick
                     val progressDetail = buildList {
                         status.detail?.let { add(it.resolve()) }
                         if (status.completed != null && status.total != null) {
-                            add(stringResource(Res.string.ui_s_of_s, formatFileSize(status.completed), formatFileSize(status.total)))
+                            add(formattedString(Res.string.ui_s_of_s, formatFileSize(status.completed), formatFileSize(status.total)))
                         }
                         if (status.completedItems != null && status.totalItems != null) {
-                            add(stringResource(Res.string.ui_s_of_s_files, status.completedItems, status.totalItems))
+                            add(formattedString(Res.string.ui_s_of_s_files, status.completedItems, status.totalItems))
                         }
                     }.joinToString(" · ")
                     progressDetail.takeIf(String::isNotBlank)?.let {
@@ -901,7 +902,7 @@ private fun LaunchReadiness(state: LauncherUiState, instance: GameInstance) {
     val running = otherRunningInstance(state, instance)
     if (running != null) {
         Text(
-            stringResource(Res.string.ui_named_is_still_running, running.displayName),
+            formattedString(Res.string.ui_named_is_still_running, running.displayName),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -926,7 +927,7 @@ private fun launchStatusMessage(state: LauncherUiState, instance: GameInstance, 
     is LaunchStatus.Blocked -> if (requiresImportedAccount(state, instance)) {
         null
     } else {
-        stringResource(Res.string.ui_required_before_launch_s, status.missingRequirements.map { it.label() }.joinToString())
+        formattedString(Res.string.ui_required_before_launch_s, status.missingRequirements.map { it.label() }.joinToString())
     }
 
     is LaunchStatus.Failed -> status.message.resolve()
@@ -937,7 +938,7 @@ private fun launchStatusMessage(state: LauncherUiState, instance: GameInstance, 
 
     LaunchStatus.Starting -> stringResource(Res.string.ui_starting_minecraft)
 
-    is LaunchStatus.Running -> status.processId?.let { stringResource(Res.string.ui_minecraft_is_running_process_s, it) }
+    is LaunchStatus.Running -> status.processId?.let { formattedString(Res.string.ui_minecraft_is_running_process_s, it) }
         ?: stringResource(Res.string.ui_minecraft_is_running)
 
     else -> null
@@ -1045,9 +1046,9 @@ private fun InstallationProgress(state: InstallationState, progress: Installatio
     }
     Text(
         if (state is InstallationState.Interrupted) {
-            stringResource(Res.string.ui_s_of_s_files_saved_ready_to, progress.completedFiles, progress.totalFiles)
+            formattedString(Res.string.ui_s_of_s_files_saved_ready_to, progress.completedFiles, progress.totalFiles)
         } else {
-            stringResource(Res.string.ui_s_of_s_files, progress.completedFiles, progress.totalFiles)
+            formattedString(Res.string.ui_s_of_s_files, progress.completedFiles, progress.totalFiles)
         },
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         style = MaterialTheme.typography.labelMedium,
