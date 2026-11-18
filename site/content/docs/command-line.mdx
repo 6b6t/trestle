@@ -36,4 +36,6 @@ You can refer to an instance by its ID or by its exact name. Names ignore letter
 
 ## Find the command
 
-On Linux, the DEB and RPM packages add the `trestle` command. In the portable archive, run `trestle/bin/Trestle`. On Windows and macOS, run the Trestle executable inside the installed application.
+- **Linux:** the DEB and RPM packages add the `trestle` command. Run the AppImage with the command after its name, for example `./Trestle-<version>-linux-x64.AppImage --list`. In the portable archive, run `trestle/bin/Trestle`.
+- **Windows:** run `trestle-cli.exe` in the Trestle install folder, by default `%LOCALAPPDATA%\Trestle`. It prints to the terminal and waits for the command to finish. `Trestle.exe` opens the window and does not print to the terminal.
+- **macOS:** run `/Applications/Trestle.app/Contents/MacOS/Trestle`.

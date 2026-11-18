@@ -164,6 +164,10 @@ tasks.configureEach {
 
 // jpackage exposes installer URLs outside the Compose platform-specific DSL.
 tasks.withType<org.jetbrains.compose.desktop.application.tasks.AbstractJPackageTask>().configureEach {
+    // The installers are built from this app image, so they include the console launcher too.
+    if (targetFormat == TargetFormat.AppImage && System.getProperty("os.name").startsWith("Windows")) {
+        freeArgs.addAll("--add-launcher", "trestle-cli=${rootProject.file("packaging/windows/trestle-cli.properties").absolutePath}")
+    }
     if (targetFormat != TargetFormat.AppImage) {
         freeArgs.addAll("--about-url", "https://github.com/6b6t/trestle")
     }
