@@ -135,6 +135,31 @@ class LauncherLanguageUiTest {
     }
 
     @Test
+    fun choosingALanguageKeepsTheLanguageSectionOpen() = runComposeUiTest {
+        var preferences by mutableStateOf(LauncherPreferences(language = LauncherLanguage.ENGLISH.name))
+        val actions = object : LauncherUiActions {
+            override fun setLauncherPreferences(value: LauncherPreferences) {
+                preferences = value
+            }
+        }
+        setContent {
+            Box(Modifier.size(420.dp, 860.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.loaded.copy(launcherPreferences = preferences),
+                    actions,
+                    initialDestination = LauncherDestination.SETTINGS,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(420, 860),
+                )
+            }
+        }
+        onNodeWithText("Language").performClick()
+        onNodeWithText("English").performClick()
+        onNodeWithText("Deutsch").performClick()
+
+        onNodeWithText("Sprache der Oberfläche").assertIsDisplayed()
+    }
+
+    @Test
     fun choosingGermanSavesTheLanguageName() = runComposeUiTest {
         val saved = mutableListOf<LauncherPreferences>()
         val actions = object : LauncherUiActions {

@@ -2,7 +2,10 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import net.blockhost.trestle.app.LauncherLanguage
 
@@ -27,4 +30,17 @@ fun launcherLayoutDirection(languageCode: String): LayoutDirection =
 @Composable
 internal fun LauncherLayoutDirection(languageCode: String, content: @Composable () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides launcherLayoutDirection(languageCode), content = content)
+}
+
+/**
+ * Composes [content] again in [language] while keeping its state, such as the open Settings section or a typed
+ * draft. Compose resources resolve every string from an environment that reads LocalDensity, so providing a new
+ * density object with the same values makes every string load again in the new language. Restarting the content
+ * with key(language) would also work but would reset all remembered state.
+ */
+@Composable
+internal fun ReloadStringsOnLanguageChange(language: LauncherLanguage, content: @Composable () -> Unit) {
+    val density = LocalDensity.current
+    val languageDensity = remember(density, language) { object : Density by density {} }
+    CompositionLocalProvider(LocalDensity provides languageDensity, content = content)
 }

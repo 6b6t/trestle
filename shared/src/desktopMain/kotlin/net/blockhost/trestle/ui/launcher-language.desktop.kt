@@ -1,7 +1,6 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import net.blockhost.trestle.app.LauncherLanguage
 import java.util.Locale
 
@@ -19,6 +18,6 @@ fun applyDesktopLauncherLanguage(language: LauncherLanguage) {
 internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, content: @Composable () -> Unit) {
     applyDesktopLauncherLanguage(language)
     LauncherLayoutDirection(Locale.getDefault().language) {
-        key(language) { content() }
+        ReloadStringsOnLanguageChange(language, content)
     }
 }

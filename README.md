@@ -35,7 +35,7 @@ Trestle provides:
 - Modrinth, CurseForge, ATLauncher, FTB, FTB Legacy, and Technic catalogs.
 - Installed-content updates, hash-based identification, dependency tracking, enable controls, and removal.
 - Launcher update notices with release notes and platform-specific downloads.
-- Interface text in English, German, Spanish, French, Brazilian Portuguese, Russian, Polish, Turkish, Japanese, and Simplified Chinese. Choose the language in Settings > Language, or follow the system language.
+- Interface text in English, German, Spanish, French, Brazilian Portuguese, Russian, Polish, Turkish, Japanese, Simplified Chinese, Arabic, Persian, Hebrew, and Urdu, with right-to-left layouts for the last four. Choose the language in Settings > Language, or follow the system language.
 - Tracked modpack updates with previews, file backups, and rollback.
 - Modrinth, CurseForge, Prism Launcher, and MultiMC pack import.
 - Portable instance export with Prism-compatible metadata.

@@ -2,6 +2,9 @@ package net.blockhost.trestle.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -16,6 +19,7 @@ import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
 import net.blockhost.trestle.app.LauncherLanguage
 import net.blockhost.trestle.domain.InstanceId
+import net.blockhost.trestle.resources.ResourceProvider
 import net.blockhost.trestle.text.load
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -104,5 +108,30 @@ class DiscoverUiTest {
         onNodeWithText("Alle Kategorien").performClick()
         onNodeWithText("Dekoration").performClick()
         assertEquals(listOf("decoration"), chosen)
+    }
+
+    @Test
+    fun aCategoryFromModrinthIsNotCountedForCatalogsWithoutCategories() = runComposeUiTest {
+        var provider by mutableStateOf(ResourceProvider.MODRINTH)
+        setContent {
+            Box(Modifier.size(1000.dp, 720.dp)) {
+                TrestleApp(
+                    LauncherPreviewFixtures.discover.copy(
+                        resourceBrowser = LauncherPreviewFixtures.discover.resourceBrowser.copy(
+                            provider = provider,
+                            categoryFilter = "magic",
+                        ),
+                    ),
+                    NoopLauncherUiActions,
+                    initialDestination = LauncherDestination.DISCOVER,
+                    windowAdaptiveInfo = testWindowAdaptiveInfo(1000, 720),
+                )
+            }
+        }
+        onNodeWithText("Filters (1)").assertIsDisplayed()
+
+        provider = ResourceProvider.CURSEFORGE
+        waitForIdle()
+        onNodeWithText("Filters").assertIsDisplayed()
     }
 }

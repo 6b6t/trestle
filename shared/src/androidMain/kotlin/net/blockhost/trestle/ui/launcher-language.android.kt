@@ -3,7 +3,6 @@ package net.blockhost.trestle.ui
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import net.blockhost.trestle.app.LauncherLanguage
@@ -18,7 +17,7 @@ internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, cont
     val localized = remember(configuration, locale) { Configuration(configuration).apply { setLocale(locale) } }
     CompositionLocalProvider(LocalConfiguration provides localized) {
         LauncherLayoutDirection(locale.language) {
-            key(language) { content() }
+            ReloadStringsOnLanguageChange(language, content)
         }
     }
 }

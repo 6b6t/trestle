@@ -1,7 +1,6 @@
 package net.blockhost.trestle.ui
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.key
 import net.blockhost.trestle.app.LauncherLanguage
 import platform.Foundation.NSBundle
 import platform.Foundation.NSLocale
@@ -23,7 +22,7 @@ internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, cont
         ?.let { NSLocale(localeIdentifier = it).languageCode }
         .orEmpty()
     LauncherLayoutDirection(languageCode) {
-        key(language) { content() }
+        ReloadStringsOnLanguageChange(language, content)
     }
 }
 

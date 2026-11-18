@@ -366,7 +366,8 @@ private fun ResourceBrowserToolbar(
         val activeFilters = listOf(
             browser.gameVersionFilter.isNotBlank(),
             browser.loaderFilter != null,
-            browser.categoryFilter.isNotBlank(),
+            // A category only applies where the catalog offers categories. Elsewhere it is kept but not used.
+            browser.categoryFilter.isNotBlank() && resourceCategories(browser.provider, browser.type).isNotEmpty(),
         ).count { it }
         val filtersButton: @Composable (Modifier) -> Unit = { buttonModifier ->
             OutlinedButton(
