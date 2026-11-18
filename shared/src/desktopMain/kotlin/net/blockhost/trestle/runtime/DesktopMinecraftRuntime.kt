@@ -1,10 +1,12 @@
 package net.blockhost.trestle.runtime
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.channelFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.withContext
@@ -34,6 +36,7 @@ import net.blockhost.trestle.text.userError
 import net.blockhost.trestle.text.userText
 import okio.Path.Companion.toPath
 import java.io.File
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -173,13 +176,11 @@ class DesktopMinecraftRuntime(
             send(LaunchEvent.Started(processId))
             val outputJob = launch(Dispatchers.IO) {
                 Files.newBufferedWriter(logPath).use { writer ->
-                    process.inputStream.bufferedReader().useLines { lines ->
-                        lines.forEach { line ->
-                            writer.appendLine(line)
-                            writer.flush()
-                            logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
-                            send(LaunchEvent.Log(line))
-                        }
+                    readOutputUntilStopped(process) { line ->
+                        writer.appendLine(line)
+                        writer.flush()
+                        logger.debug("minecraft", line, mapOf("instanceId" to preparedLaunch.instanceId))
+                        send(LaunchEvent.Log(line))
                     }
                 }
             }
@@ -230,11 +231,7 @@ class DesktopMinecraftRuntime(
             .start()
         return try {
             coroutineScope {
-                val outputJob = launch(Dispatchers.IO) {
-                    process.inputStream.bufferedReader().useLines { lines ->
-                        for (line in lines) onLine(line)
-                    }
-                }
+                val outputJob = launch(Dispatchers.IO) { readOutputUntilStopped(process, onLine) }
                 val exitCode = runInterruptible(Dispatchers.IO) { process.waitFor() }
                 outputJob.join()
                 exitCode
@@ -368,6 +365,20 @@ class DesktopMinecraftRuntime(
 
 fun interface JavaResolver {
     suspend fun resolve(component: String?, requiredMajor: Int): String
+}
+
+/**
+ * Reads [process] output line by line. A cancelled launch destroys the process while this read is blocked, which
+ * closes the stream. That error is expected then and must not replace the cancellation.
+ */
+private suspend fun CoroutineScope.readOutputUntilStopped(process: Process, onLine: suspend (String) -> Unit) {
+    try {
+        process.inputStream.bufferedReader().useLines { lines ->
+            for (line in lines) onLine(line)
+        }
+    } catch (error: IOException) {
+        if (isActive) throw error
+    }
 }
 
 /**
