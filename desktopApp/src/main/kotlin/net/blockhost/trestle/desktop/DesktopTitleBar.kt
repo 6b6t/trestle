@@ -60,17 +60,40 @@ import androidx.compose.ui.window.WindowScope
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_mark
+import net.blockhost.trestle.resources.ui_accounts
+import net.blockhost.trestle.resources.ui_close
+import net.blockhost.trestle.resources.ui_discover
+import net.blockhost.trestle.resources.ui_file
+import net.blockhost.trestle.resources.ui_import_local_file
+import net.blockhost.trestle.resources.ui_instance
+import net.blockhost.trestle.resources.ui_keyboard_shortcuts
+import net.blockhost.trestle.resources.ui_launch_selected
+import net.blockhost.trestle.resources.ui_library
+import net.blockhost.trestle.resources.ui_maximize
+import net.blockhost.trestle.resources.ui_menu_help
+import net.blockhost.trestle.resources.ui_menu_view
+import net.blockhost.trestle.resources.ui_minimize
+import net.blockhost.trestle.resources.ui_new_instance
+import net.blockhost.trestle.resources.ui_pin_selected
+import net.blockhost.trestle.resources.ui_quit_trestle
+import net.blockhost.trestle.resources.ui_remove_selected
+import net.blockhost.trestle.resources.ui_restore_window
+import net.blockhost.trestle.resources.ui_settings
+import net.blockhost.trestle.resources.ui_stop_named
+import net.blockhost.trestle.resources.ui_unpin_selected
 import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherUiState
+import org.jetbrains.compose.resources.StringResource
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import java.awt.MouseInfo
 import java.awt.Point
 
-private enum class TitleBarMenu(val label: String) {
-    FILE("File"),
-    VIEW("View"),
-    INSTANCE("Instance"),
-    HELP("Help"),
+private enum class TitleBarMenu(val label: StringResource) {
+    FILE(Res.string.ui_file),
+    VIEW(Res.string.ui_menu_view),
+    INSTANCE(Res.string.ui_instance),
+    HELP(Res.string.ui_menu_help),
 }
 
 private enum class WindowControl {
@@ -235,7 +258,7 @@ private fun TitleBarMenuButton(
             shape = RectangleShape,
             contentPadding = PaddingValues(horizontal = 10.dp),
         ) {
-            Text(menu.label, style = MaterialTheme.typography.labelLarge)
+            Text(stringResource(menu.label), style = MaterialTheme.typography.labelLarge)
         }
         DropdownMenu(
             expanded = expanded,
@@ -249,16 +272,16 @@ private fun TitleBarMenuButton(
 
 @Composable
 private fun FileMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onQuit: () -> Unit, onDismiss: () -> Unit) {
-    MenuAction("New instance", primaryShortcut(isMac, "N")) {
+    MenuAction(stringResource(Res.string.ui_new_instance), primaryShortcut(isMac, "N")) {
         onDismiss()
         onCommand(LauncherCommand.NEW_INSTANCE)
     }
-    MenuAction("Import local file…", primaryShortcut(isMac, "O")) {
+    MenuAction(stringResource(Res.string.ui_import_local_file) + "…", primaryShortcut(isMac, "O")) {
         onDismiss()
         onCommand(LauncherCommand.IMPORT_LOCAL_FILE)
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
-    MenuAction("Quit Trestle", primaryShortcut(isMac, "Q")) {
+    MenuAction(stringResource(Res.string.ui_quit_trestle), primaryShortcut(isMac, "Q")) {
         onDismiss()
         onQuit()
     }
@@ -266,19 +289,19 @@ private fun FileMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onQui
 
 @Composable
 private fun ViewMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onDismiss: () -> Unit) {
-    MenuAction("Library", primaryShortcut(isMac, "1")) {
+    MenuAction(stringResource(Res.string.ui_library), primaryShortcut(isMac, "1")) {
         onDismiss()
         onCommand(LauncherCommand.SHOW_LIBRARY)
     }
-    MenuAction("Discover", primaryShortcut(isMac, "2")) {
+    MenuAction(stringResource(Res.string.ui_discover), primaryShortcut(isMac, "2")) {
         onDismiss()
         onCommand(LauncherCommand.SHOW_DISCOVER)
     }
-    MenuAction("Accounts", primaryShortcut(isMac, "3")) {
+    MenuAction(stringResource(Res.string.ui_accounts), primaryShortcut(isMac, "3")) {
         onDismiss()
         onCommand(LauncherCommand.SHOW_ACCOUNTS)
     }
-    MenuAction("Settings", primaryShortcut(isMac, ",")) {
+    MenuAction(stringResource(Res.string.ui_settings), primaryShortcut(isMac, ",")) {
         onDismiss()
         onCommand(LauncherCommand.SHOW_SETTINGS)
     }
@@ -287,7 +310,7 @@ private fun ViewMenu(isMac: Boolean, onCommand: (LauncherCommand) -> Unit, onDis
 @Composable
 private fun InstanceMenu(state: LauncherUiState, onCommand: (LauncherCommand) -> Unit, onStopInstance: () -> Unit, onDismiss: () -> Unit) {
     MenuAction(
-        label = "Launch selected",
+        label = stringResource(Res.string.ui_launch_selected),
         enabled = state.selectedInstance?.installationState is InstallationState.Installed &&
             state.activeLaunch == null,
     ) {
@@ -295,20 +318,22 @@ private fun InstanceMenu(state: LauncherUiState, onCommand: (LauncherCommand) ->
         onCommand(LauncherCommand.LAUNCH_SELECTED)
     }
     state.activeInstance?.let { instance ->
-        MenuAction("Stop ${instance.displayName}") {
+        MenuAction(stringResource(Res.string.ui_stop_named, instance.displayName)) {
             onDismiss()
             onStopInstance()
         }
     }
     MenuAction(
-        label = if (state.selectedInstance?.pinned == true) "Unpin selected" else "Pin selected",
+        label = stringResource(
+            if (state.selectedInstance?.pinned == true) Res.string.ui_unpin_selected else Res.string.ui_pin_selected,
+        ),
         enabled = state.selectedInstance != null,
     ) {
         onDismiss()
         onCommand(LauncherCommand.TOGGLE_SELECTED_PIN)
     }
     HorizontalDivider(Modifier.padding(vertical = 4.dp))
-    MenuAction("Remove selected", enabled = state.selectedInstance != null) {
+    MenuAction(stringResource(Res.string.ui_remove_selected), enabled = state.selectedInstance != null) {
         onDismiss()
         onCommand(LauncherCommand.REMOVE_SELECTED)
     }
@@ -316,7 +341,7 @@ private fun InstanceMenu(state: LauncherUiState, onCommand: (LauncherCommand) ->
 
 @Composable
 private fun HelpMenu(onCommand: (LauncherCommand) -> Unit, onDismiss: () -> Unit) {
-    MenuAction("Keyboard shortcuts", "F1") {
+    MenuAction(stringResource(Res.string.ui_keyboard_shortcuts), "F1") {
         onDismiss()
         onCommand(LauncherCommand.SHOW_SHORTCUTS)
     }
@@ -355,12 +380,14 @@ private fun WindowControlButton(control: WindowControl, onClick: () -> Unit) {
     } else {
         MaterialTheme.colorScheme.onSurfaceVariant
     }
-    val description = when (control) {
-        WindowControl.MINIMIZE -> "Minimize"
-        WindowControl.MAXIMIZE -> "Maximize"
-        WindowControl.RESTORE -> "Restore"
-        WindowControl.CLOSE -> "Close"
-    }
+    val description = stringResource(
+        when (control) {
+            WindowControl.MINIMIZE -> Res.string.ui_minimize
+            WindowControl.MAXIMIZE -> Res.string.ui_maximize
+            WindowControl.RESTORE -> Res.string.ui_restore_window
+            WindowControl.CLOSE -> Res.string.ui_close
+        },
+    )
     val testTag = when (control) {
         WindowControl.MINIMIZE -> DesktopTitleBarTestTags.MINIMIZE
         WindowControl.MAXIMIZE, WindowControl.RESTORE -> DesktopTitleBarTestTags.MAXIMIZE

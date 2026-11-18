@@ -2,6 +2,7 @@ package net.blockhost.trestle.game
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.res.Resources
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -14,6 +15,7 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.core.view.ViewCompat
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import androidx.customview.widget.ExploreByTouchHelper
+import net.blockhost.trestle.R
 import org.lwjgl.glfw.CallbackBridge
 import kotlin.math.hypot
 
@@ -32,7 +34,8 @@ internal object GlfwKey {
 }
 
 @SuppressLint("ViewConstructor")
-internal class MinecraftControlOverlayView(context: Context, private val onChatRequested: () -> Unit) : View(context) {
+internal class MinecraftControlOverlayView(context: Context, private val labels: Resources, private val onChatRequested: () -> Unit) :
+    View(context) {
     private val density = resources.displayMetrics.density
     private val fillPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val strokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -98,7 +101,7 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
         if (!inputGrabbed) {
             textPaint.textSize = 11f * density
             textPaint.color = MUTED
-            canvas.drawText("MENU CURSOR", width * 0.5f, height - 12f * density, textPaint)
+            canvas.drawText(labels.getString(R.string.control_menu_cursor), width * 0.5f, height - 12f * density, textPaint)
             textPaint.color = CHALK
         }
     }
@@ -311,7 +314,12 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
         )
         textPaint.textSize = 10f * density
         textPaint.color = CHALK
-        canvas.drawText("MOVE", joystick.centerX, joystick.centerY - joystick.radius - 8f * density, textPaint)
+        canvas.drawText(
+            labels.getString(R.string.control_move),
+            joystick.centerX,
+            joystick.centerY - joystick.radius - 8f * density,
+            textPaint,
+        )
     }
 
     private fun drawButton(canvas: Canvas, button: ControlButton) {
@@ -321,6 +329,10 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
         canvas.drawRoundRect(button.bounds, 9f * density, 9f * density, fillPaint)
         canvas.drawRoundRect(button.bounds, 9f * density, 9f * density, strokePaint)
         textPaint.textSize = if (button.label.length <= 2) 16f * density else 10f * density
+        // Translated labels can be longer than the button. Shrink them to fit instead of drawing past the edge.
+        val maxWidth = button.bounds.width() - 6f * density
+        val labelWidth = textPaint.measureText(button.label)
+        if (labelWidth > maxWidth) textPaint.textSize *= maxWidth / labelWidth
         textPaint.color = CHALK
         val baseline = button.bounds.centerY() - (textPaint.descent() + textPaint.ascent()) / 2f
         canvas.drawText(button.label, button.bounds.centerX(), baseline, textPaint)
@@ -344,17 +356,23 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
             }
 
             addButton("II", ControlAction.Key(GlfwKey.ESCAPE), edge, top)
-            addButton("CHAT", ControlAction.Chat, edge + unit + gap, top)
-            addButton("INV", ControlAction.Key(GlfwKey.E), width - edge - unit * 2 - gap, top)
-            addButton("DROP", ControlAction.Key(GlfwKey.Q), width - edge - unit, top)
+            addButton(labels.getString(R.string.control_chat), ControlAction.Chat, edge + unit + gap, top)
+            addButton(labels.getString(R.string.control_inventory), ControlAction.Key(GlfwKey.E), width - edge - unit * 2 - gap, top)
+            addButton(labels.getString(R.string.control_drop), ControlAction.Key(GlfwKey.Q), width - edge - unit, top)
 
             val right = width - edge - unit
             val bottom = height - edge - unit
-            addButton("JUMP", ControlAction.Key(GlfwKey.SPACE), right, bottom - unit - gap, unit)
-            addButton("ATK", ControlAction.Mouse(0), right - unit - gap, bottom - unit - gap, unit)
-            addButton("USE", ControlAction.Mouse(1), right, bottom, unit)
-            addButton("SNEAK", ControlAction.Key(GlfwKey.LEFT_SHIFT), right - unit - gap, bottom, unit)
-            addButton("RUN", ControlAction.Key(GlfwKey.LEFT_CONTROL), right - unit * 2 - gap * 2, bottom, unit)
+            addButton(labels.getString(R.string.control_jump), ControlAction.Key(GlfwKey.SPACE), right, bottom - unit - gap, unit)
+            addButton(labels.getString(R.string.control_attack), ControlAction.Mouse(0), right - unit - gap, bottom - unit - gap, unit)
+            addButton(labels.getString(R.string.control_use), ControlAction.Mouse(1), right, bottom, unit)
+            addButton(labels.getString(R.string.control_sneak), ControlAction.Key(GlfwKey.LEFT_SHIFT), right - unit - gap, bottom, unit)
+            addButton(
+                labels.getString(R.string.control_sprint),
+                ControlAction.Key(GlfwKey.LEFT_CONTROL),
+                right - unit * 2 - gap * 2,
+                bottom,
+                unit,
+            )
             addButton("<", ControlAction.Scroll(1.0), width * 0.5f - unit - gap * 0.5f, bottom, unit)
             addButton(">", ControlAction.Scroll(-1.0), width * 0.5f + gap * 0.5f, bottom, unit)
         }
@@ -375,7 +393,7 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
         val verticalInset = joystick.height() / 3f
         val movementControls = listOf(
             AccessibilityControl(
-                label = "Move forward",
+                label = labels.getString(R.string.control_description_forward),
                 action = ControlAction.Key(GlfwKey.W),
                 bounds = RectF(
                     joystick.left + horizontalInset,
@@ -386,7 +404,7 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
                 holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
             ),
             AccessibilityControl(
-                label = "Move backward",
+                label = labels.getString(R.string.control_description_backward),
                 action = ControlAction.Key(GlfwKey.S),
                 bounds = RectF(
                     joystick.left + horizontalInset,
@@ -397,7 +415,7 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
                 holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
             ),
             AccessibilityControl(
-                label = "Move left",
+                label = labels.getString(R.string.control_description_left),
                 action = ControlAction.Key(GlfwKey.A),
                 bounds = RectF(
                     joystick.left,
@@ -408,7 +426,7 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
                 holdMillis = ACCESSIBILITY_MOVEMENT_MILLIS,
             ),
             AccessibilityControl(
-                label = "Move right",
+                label = labels.getString(R.string.control_description_right),
                 action = ControlAction.Key(GlfwKey.D),
                 bounds = RectF(
                     joystick.centerX(),
@@ -422,23 +440,31 @@ internal class MinecraftControlOverlayView(context: Context, private val onChatR
         return buttonControls + movementControls
     }
 
-    private fun ControlAction.accessibilityLabel(): String = when (this) {
-        ControlAction.Chat -> "Chat"
+    private fun ControlAction.accessibilityLabel(): String = labels.getString(
+        when (this) {
+            ControlAction.Chat -> R.string.control_description_chat
 
-        is ControlAction.Key -> when (key) {
-            GlfwKey.ESCAPE -> "Pause menu"
-            GlfwKey.E -> "Inventory"
-            GlfwKey.Q -> "Drop item"
-            GlfwKey.SPACE -> "Jump"
-            GlfwKey.LEFT_SHIFT -> "Sneak"
-            GlfwKey.LEFT_CONTROL -> "Sprint"
-            else -> "Keyboard control"
-        }
+            is ControlAction.Key -> when (key) {
+                GlfwKey.ESCAPE -> R.string.control_description_pause
+                GlfwKey.E -> R.string.control_description_inventory
+                GlfwKey.Q -> R.string.control_description_drop
+                GlfwKey.SPACE -> R.string.control_description_jump
+                GlfwKey.LEFT_SHIFT -> R.string.control_description_sneak
+                GlfwKey.LEFT_CONTROL -> R.string.control_description_sprint
+                else -> R.string.control_description_key
+            }
 
-        is ControlAction.Mouse -> if (button == 0) "Attack" else "Use"
+            is ControlAction.Mouse -> if (button == 0) R.string.control_description_attack else R.string.control_description_use
 
-        is ControlAction.Scroll -> if (amount > 0) "Previous hotbar slot" else "Next hotbar slot"
-    }
+            is ControlAction.Scroll -> if (amount >
+                0
+            ) {
+                R.string.control_description_previous_slot
+            } else {
+                R.string.control_description_next_slot
+            }
+        },
+    )
 
     private fun RectF.toRect(): Rect = Rect().also(::roundOut)
 

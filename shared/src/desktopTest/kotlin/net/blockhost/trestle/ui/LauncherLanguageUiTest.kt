@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.v2.runComposeUiTest
 import androidx.compose.ui.unit.dp
+import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.app.LauncherLanguage
 import net.blockhost.trestle.app.LauncherPreferences
 import java.util.Locale
@@ -45,6 +46,9 @@ class LauncherLanguageUiTest {
         }
 
         onAllNodesWithText("Einstellungen").assertCountEquals(2)
+        onNodeWithText("Desktop-Build ${BuildInfo.VERSION}").assertIsDisplayed()
+        onNodeWithText("Netzwerk").assertIsDisplayed()
+        onNodeWithText("Downloads").assertIsDisplayed()
         onNodeWithText("Sprache").performClick()
         onNodeWithText("Sprache der Oberfläche").assertIsDisplayed()
         onNodeWithText("Deutsch").assertIsDisplayed()

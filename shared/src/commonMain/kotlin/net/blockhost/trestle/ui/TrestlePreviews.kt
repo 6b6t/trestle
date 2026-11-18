@@ -14,6 +14,7 @@ import net.blockhost.trestle.instance.ManagedWorld
 import net.blockhost.trestle.instance.MinecraftClientSettings
 import net.blockhost.trestle.instance.SavedServer
 import net.blockhost.trestle.instance.ServerStatus
+import net.blockhost.trestle.instance.WorldGameMode
 import net.blockhost.trestle.metadata.VersionReference
 import net.blockhost.trestle.resources.InstalledContent
 import net.blockhost.trestle.resources.Res
@@ -184,8 +185,15 @@ internal object LauncherPreviewFixtures {
         ),
         gameData = GameDataInventory(
             worlds = listOf(
-                ManagedWorld("survival", "Riverside survival", 412_000_000, 1_765_843_200_000, emptyList(), gameMode = "survival"),
-                ManagedWorld("creative", "Castle build", 96_000_000, 1_765_756_800_000, emptyList(), gameMode = "creative"),
+                ManagedWorld(
+                    "survival",
+                    "Riverside survival",
+                    412_000_000,
+                    1_765_843_200_000,
+                    emptyList(),
+                    gameMode = WorldGameMode.SURVIVAL,
+                ),
+                ManagedWorld("creative", "Castle build", 96_000_000, 1_765_756_800_000, emptyList(), gameMode = WorldGameMode.CREATIVE),
             ),
             screenshots = listOf(
                 ManagedScreenshot("shot-1", "2025-12-16_20.14.02.png", "/preview/shot-1.png", 2_400_000, 1_765_843_200_000),

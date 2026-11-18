@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">新しいインスタンス</string>
+    <string name="shortcut_new_instance_long">Minecraft インスタンスを作成</string>
+    <string name="shortcut_settings_short">設定</string>
+    <string name="shortcut_settings_long">Trestle の設定を開く</string>
+    <string name="shortcut_launch_named">%1$s を起動</string>
+    <string name="notification_channel_operations">ランチャーの処理</string>
+    <string name="notification_channel_operations_description">インストールとダウンロードの進行状況</string>
+    <string name="notification_trestle_is_working">Trestle が処理中です</string>
+    <string name="control_move">移動</string>
+    <string name="control_menu_cursor">メニューカーソル</string>
+    <string name="control_chat">チャット</string>
+    <string name="control_inventory">持ち物</string>
+    <string name="control_drop">捨てる</string>
+    <string name="control_jump">ジャンプ</string>
+    <string name="control_attack">攻撃</string>
+    <string name="control_use">使う</string>
+    <string name="control_sneak">スニーク</string>
+    <string name="control_sprint">ダッシュ</string>
+    <string name="control_description_chat">チャット</string>
+    <string name="control_description_pause">ポーズメニュー</string>
+    <string name="control_description_inventory">インベントリ</string>
+    <string name="control_description_drop">アイテムを捨てる</string>
+    <string name="control_description_jump">ジャンプ</string>
+    <string name="control_description_sneak">スニーク</string>
+    <string name="control_description_sprint">ダッシュ</string>
+    <string name="control_description_key">キーボード操作</string>
+    <string name="control_description_attack">攻撃</string>
+    <string name="control_description_use">使う</string>
+    <string name="control_description_previous_slot">前のホットバースロット</string>
+    <string name="control_description_next_slot">次のホットバースロット</string>
+    <string name="control_description_forward">前へ移動</string>
+    <string name="control_description_backward">後ろへ移動</string>
+    <string name="control_description_left">左へ移動</string>
+    <string name="control_description_right">右へ移動</string>
+    <string name="control_description_text_input">Minecraft のテキスト入力</string>
+</resources>

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">Новая сборка</string>
+    <string name="shortcut_new_instance_long">Создать сборку Minecraft</string>
+    <string name="shortcut_settings_short">Настройки</string>
+    <string name="shortcut_settings_long">Открыть настройки Trestle</string>
+    <string name="shortcut_launch_named">Запустить «%1$s»</string>
+    <string name="notification_channel_operations">Операции лаунчера</string>
+    <string name="notification_channel_operations_description">Ход установки и загрузки</string>
+    <string name="notification_trestle_is_working">Trestle выполняет задачу</string>
+    <string name="control_move">ДВИЖЕНИЕ</string>
+    <string name="control_menu_cursor">КУРСОР МЕНЮ</string>
+    <string name="control_chat">ЧАТ</string>
+    <string name="control_inventory">ИНВ</string>
+    <string name="control_drop">ВЫБР.</string>
+    <string name="control_jump">ПРЫЖОК</string>
+    <string name="control_attack">АТАКА</string>
+    <string name="control_use">ИСП.</string>
+    <string name="control_sneak">КРАСТЬСЯ</string>
+    <string name="control_sprint">БЕГ</string>
+    <string name="control_description_chat">Чат</string>
+    <string name="control_description_pause">Меню паузы</string>
+    <string name="control_description_inventory">Инвентарь</string>
+    <string name="control_description_drop">Выбросить предмет</string>
+    <string name="control_description_jump">Прыжок</string>
+    <string name="control_description_sneak">Красться</string>
+    <string name="control_description_sprint">Бег</string>
+    <string name="control_description_key">Клавиша</string>
+    <string name="control_description_attack">Атака</string>
+    <string name="control_description_use">Использовать</string>
+    <string name="control_description_previous_slot">Предыдущий слот панели</string>
+    <string name="control_description_next_slot">Следующий слот панели</string>
+    <string name="control_description_forward">Идти вперёд</string>
+    <string name="control_description_backward">Идти назад</string>
+    <string name="control_description_left">Идти влево</string>
+    <string name="control_description_right">Идти вправо</string>
+    <string name="control_description_text_input">Ввод текста Minecraft</string>
+</resources>

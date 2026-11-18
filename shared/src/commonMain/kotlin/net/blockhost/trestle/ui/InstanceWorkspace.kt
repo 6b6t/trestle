@@ -1076,7 +1076,7 @@ private fun WorldCard(
         GameDataRow(
             title = world.name,
             details = listOfNotNull(
-                world.gameMode?.replaceFirstChar { it.uppercase() },
+                world.gameMode?.let { gameModeLabel(it) },
                 formatFileSize(world.sizeBytes),
                 world.dataPacks.size.takeIf { it > 0 }?.let { pluralStringResource(Res.plurals.ui_data_packs, it, it) },
                 world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
@@ -1539,7 +1539,7 @@ private fun OverviewWorlds(
                             Text(world.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text(
                                 listOfNotNull(
-                                    world.gameMode?.replaceFirstChar { it.uppercase() },
+                                    world.gameMode?.let { gameModeLabel(it) },
                                     world.lastModifiedEpochMillis?.let { stringResource(Res.string.ui_played_on, formatLocalDateTime(it)) },
                                 ).joinToString(" · "),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,

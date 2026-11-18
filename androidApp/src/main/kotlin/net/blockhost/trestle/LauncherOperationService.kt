@@ -14,19 +14,20 @@ import net.blockhost.trestle.ui.OperationStatus
 class LauncherOperationService : Service() {
     override fun onCreate() {
         super.onCreate()
+        val labels = launcherLanguageResources()
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Launcher operations",
+                labels.getString(R.string.notification_channel_operations),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Install and download progress"
+                description = labels.getString(R.string.notification_channel_operations_description)
             },
         )
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        val title = intent?.getStringExtra(EXTRA_TITLE) ?: "Trestle is working"
+        val title = intent?.getStringExtra(EXTRA_TITLE) ?: launcherLanguageResources().getString(R.string.notification_trestle_is_working)
         val detail = intent?.getStringExtra(EXTRA_DETAIL)
         val completed = intent?.getLongExtra(EXTRA_COMPLETED, -1L) ?: -1L
         val total = intent?.getLongExtra(EXTRA_TOTAL, -1L) ?: -1L

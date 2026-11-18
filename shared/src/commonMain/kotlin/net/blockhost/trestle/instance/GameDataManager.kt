@@ -8,10 +8,12 @@ data class ManagedWorld(
     val sizeBytes: Long,
     val lastModifiedEpochMillis: Long?,
     val dataPacks: List<ManagedDataPack>,
-    val gameMode: String? = null,
+    val gameMode: WorldGameMode? = null,
     val seed: Long? = null,
     val iconPath: String? = null,
 )
+
+enum class WorldGameMode { SURVIVAL, CREATIVE, ADVENTURE, SPECTATOR, HARDCORE }
 
 data class ManagedDataPack(val key: String, val fileName: String, val enabled: Boolean, val sizeBytes: Long)
 

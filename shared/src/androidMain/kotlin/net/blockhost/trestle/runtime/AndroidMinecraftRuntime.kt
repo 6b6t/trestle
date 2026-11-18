@@ -32,6 +32,8 @@ import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.msg_android_requires_arm64_or_x64
 import net.blockhost.trestle.resources.msg_installing_android_game_components
 import net.blockhost.trestle.resources.msg_installing_java_25_runtime
+import net.blockhost.trestle.resources.msg_minecraft_could_not_start
+import net.blockhost.trestle.resources.msg_minecraft_is_already_running
 import net.blockhost.trestle.resources.msg_minecraft_s_requires_java_s_but_the
 import net.blockhost.trestle.resources.msg_sign_in_with_a_minecraft_java_edition
 import net.blockhost.trestle.resources.msg_the_android_game_activity_could_not_start
@@ -341,12 +343,16 @@ class AndroidMinecraftRuntime internal constructor(
                         close()
                     }
 
-                    AndroidGameLaunchProtocol.RESULT_FAILED -> {
+                    AndroidGameLaunchProtocol.RESULT_FAILED, AndroidGameLaunchProtocol.RESULT_ALREADY_RUNNING -> {
                         if (!terminalReceived.compareAndSet(false, true)) return
                         runCatching { streamAvailableOutput(includePartialLine = true) }
-                        val message = resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)
-                            ?: "Minecraft could not start."
-                        trySend(LaunchEvent.Failed(message.asUserText()))
+                        val message = if (resultCode == AndroidGameLaunchProtocol.RESULT_ALREADY_RUNNING) {
+                            text(Res.string.msg_minecraft_is_already_running)
+                        } else {
+                            resultData?.getString(AndroidGameLaunchProtocol.EXTRA_MESSAGE)?.asUserText()
+                                ?: text(Res.string.msg_minecraft_could_not_start)
+                        }
+                        trySend(LaunchEvent.Failed(message))
                         close()
                     }
                 }
@@ -356,6 +362,8 @@ class AndroidMinecraftRuntime internal constructor(
             setClassName(applicationContext, AndroidGameLaunchProtocol.GAME_ACTIVITY_CLASS)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             putExtra(AndroidGameLaunchProtocol.EXTRA_LAUNCH_ID, launchId)
+            // The game runs in its own process, which does not know the launcher language.
+            putExtra(AndroidGameLaunchProtocol.EXTRA_LANGUAGE_TAG, Locale.getDefault().toLanguageTag())
             putExtra(AndroidGameLaunchProtocol.EXTRA_RECEIVER, receiver)
             putExtra(AndroidGameLaunchProtocol.EXTRA_RUNTIME_HOME, preparedLaunch.executable)
             putExtra(AndroidGameLaunchProtocol.EXTRA_WORKING_DIRECTORY, preparedLaunch.workingDirectory)
@@ -699,9 +707,11 @@ object AndroidGameLaunchProtocol {
     const val EXTRA_PROCESS_ID = "process_id"
     const val EXTRA_EXIT_CODE = "exit_code"
     const val EXTRA_MESSAGE = "message"
+    const val EXTRA_LANGUAGE_TAG = "language_tag"
 
     const val RESULT_STARTED = 1
     const val RESULT_EXITED = 3
     const val RESULT_FAILED = 4
     const val RESULT_PROCESS_CREATED = 5
+    const val RESULT_ALREADY_RUNNING = 6
 }

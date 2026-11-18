@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">新建实例</string>
+    <string name="shortcut_new_instance_long">创建 Minecraft 实例</string>
+    <string name="shortcut_settings_short">设置</string>
+    <string name="shortcut_settings_long">打开 Trestle 设置</string>
+    <string name="shortcut_launch_named">启动 %1$s</string>
+    <string name="notification_channel_operations">启动器操作</string>
+    <string name="notification_channel_operations_description">安装和下载进度</string>
+    <string name="notification_trestle_is_working">Trestle 正在处理</string>
+    <string name="control_move">移动</string>
+    <string name="control_menu_cursor">菜单光标</string>
+    <string name="control_chat">聊天</string>
+    <string name="control_inventory">背包</string>
+    <string name="control_drop">丢弃</string>
+    <string name="control_jump">跳跃</string>
+    <string name="control_attack">攻击</string>
+    <string name="control_use">使用</string>
+    <string name="control_sneak">潜行</string>
+    <string name="control_sprint">疾跑</string>
+    <string name="control_description_chat">聊天</string>
+    <string name="control_description_pause">暂停菜单</string>
+    <string name="control_description_inventory">物品栏</string>
+    <string name="control_description_drop">丢弃物品</string>
+    <string name="control_description_jump">跳跃</string>
+    <string name="control_description_sneak">潜行</string>
+    <string name="control_description_sprint">疾跑</string>
+    <string name="control_description_key">键盘控制</string>
+    <string name="control_description_attack">攻击</string>
+    <string name="control_description_use">使用</string>
+    <string name="control_description_previous_slot">上一个快捷栏槽位</string>
+    <string name="control_description_next_slot">下一个快捷栏槽位</string>
+    <string name="control_description_forward">向前移动</string>
+    <string name="control_description_backward">向后移动</string>
+    <string name="control_description_left">向左移动</string>
+    <string name="control_description_right">向右移动</string>
+    <string name="control_description_text_input">Minecraft 文本输入</string>
+</resources>

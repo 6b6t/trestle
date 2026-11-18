@@ -107,7 +107,7 @@ class JvmGameDataManagerTest {
             assertTrue(inventory.worlds.all { it.dataPacks.single().fileName == "recipes.zip" })
             assertTrue(inventory.worlds.all { !it.dataPacks.single().enabled })
             assertEquals(setOf("Test World", "Copied World"), inventory.worlds.map { it.name }.toSet())
-            assertTrue(inventory.worlds.all { it.gameMode == "Creative" })
+            assertTrue(inventory.worlds.all { it.gameMode == WorldGameMode.CREATIVE })
             assertTrue(inventory.worlds.all { it.seed == 987654321L })
             assertEquals("renamed.png", renamedScreenshot.fileName)
             assertEquals("renamed.png", inventory.screenshots.single().fileName)

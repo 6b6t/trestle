@@ -1019,8 +1019,8 @@ private fun ResourceSelection(
 @Composable
 private fun ResourceProjectDetails(project: ResourceProject) {
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        PropertyRow(stringResource(Res.string.ui_downloads), formatCount(project.downloads))
-        project.followers?.let { PropertyRow(stringResource(Res.string.ui_followers), formatCount(it)) }
+        PropertyRow(stringResource(Res.string.ui_downloads), formatCompactCount(project.downloads))
+        project.followers?.let { PropertyRow(stringResource(Res.string.ui_followers), formatCompactCount(it)) }
         project.updatedAt?.let { PropertyRow(stringResource(Res.string.ui_updated), it.substringBefore('T')) }
         project.license?.takeIf(String::isNotBlank)?.let { PropertyRow(stringResource(Res.string.ui_license), it) }
         project.clientSupport?.let { PropertyRow(stringResource(Res.string.ui_client), it.label) }

@@ -552,7 +552,7 @@ private fun FeaturedInstanceControls(
         LaunchAccount(state, instance, onOpenAccounts)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilledTonalButton(onClick = onManage, modifier = Modifier.weight(1f)) {
-                Text(stringResource(Res.string.ui_manage))
+                ButtonLabel(stringResource(Res.string.ui_manage))
             }
             if (instance.modLoader != ModLoader.VANILLA) {
                 FilledTonalButton(
@@ -560,7 +560,7 @@ private fun FeaturedInstanceControls(
                     enabled = instance.installationState is InstallationState.Installed,
                     modifier = Modifier.weight(1f),
                 ) {
-                    Text(stringResource(Res.string.ui_add_mods))
+                    ButtonLabel(stringResource(Res.string.ui_add_mods))
                 }
             }
         }

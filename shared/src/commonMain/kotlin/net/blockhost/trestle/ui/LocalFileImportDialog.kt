@@ -38,6 +38,7 @@ import net.blockhost.trestle.resources.ResourceType
 import net.blockhost.trestle.resources.ui_add_file
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_choose_how_trestle_should_use_this_zip_file
+import net.blockhost.trestle.resources.ui_downloaded_from
 import net.blockhost.trestle.resources.ui_import_local_file
 import net.blockhost.trestle.resources.ui_import_modpack
 import net.blockhost.trestle.resources.ui_select_an_instance_before_adding_this_file
@@ -86,7 +87,7 @@ internal fun LocalFileImportDialog(state: LauncherUiState, actions: LauncherUiAc
                 )
                 pending.sourceOrigin?.let { origin ->
                     Text(
-                        origin,
+                        stringResource(Res.string.ui_downloaded_from, origin),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         style = MaterialTheme.typography.bodySmall,
                     )

@@ -1,5 +1,10 @@
 package net.blockhost.trestle.desktop
 
+import kotlinx.coroutines.runBlocking
+import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.ui_about_trestle
+import net.blockhost.trestle.resources.ui_trestle_description
+import org.jetbrains.compose.resources.getString
 import java.awt.Desktop
 import java.awt.desktop.AppReopenedListener
 import java.awt.desktop.OpenFilesHandler
@@ -46,10 +51,14 @@ internal class DesktopApplicationHandlers(private val desktop: Desktop, private 
             }
             if (desktop.isSupported(Desktop.Action.APP_ABOUT)) {
                 desktop.setAboutHandler {
+                    // The handler runs on the AWT thread outside composition, so it loads the strings directly.
+                    val (description, title) = runBlocking {
+                        getString(Res.string.ui_trestle_description) to getString(Res.string.ui_about_trestle)
+                    }
                     JOptionPane.showMessageDialog(
                         null,
-                        "A native Minecraft launcher for desktop and Android.",
-                        "About Trestle",
+                        description,
+                        title,
                         JOptionPane.INFORMATION_MESSAGE,
                     )
                 }

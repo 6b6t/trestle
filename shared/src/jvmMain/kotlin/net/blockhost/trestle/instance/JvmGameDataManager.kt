@@ -758,13 +758,13 @@ class JvmGameDataManager(
             }
         }
         val mode = if (hardcore) {
-            "Hardcore"
+            WorldGameMode.HARDCORE
         } else {
             when (gameType) {
-                0 -> "Survival"
-                1 -> "Creative"
-                2 -> "Adventure"
-                3 -> "Spectator"
+                0 -> WorldGameMode.SURVIVAL
+                1 -> WorldGameMode.CREATIVE
+                2 -> WorldGameMode.ADVENTURE
+                3 -> WorldGameMode.SPECTATOR
                 else -> null
             }
         }
@@ -864,7 +864,7 @@ class JvmGameDataManager(
 
 private data class WorldMetadata(
     val name: String? = null,
-    val gameMode: String? = null,
+    val gameMode: WorldGameMode? = null,
     val lastPlayedEpochMillis: Long? = null,
     val seed: Long? = null,
 )

@@ -13,6 +13,7 @@ import android.view.inputmethod.InputMethodManager
 @SuppressLint("ViewConstructor")
 internal class MinecraftTextInputView(
     context: Context,
+    description: String,
     private val onText: (CharSequence) -> Unit,
     private val onBackspace: () -> Unit,
     private val onEnter: () -> Unit,
@@ -22,7 +23,7 @@ internal class MinecraftTextInputView(
         isFocusableInTouchMode = true
         setBackgroundColor(Color.TRANSPARENT)
         alpha = 0.01f
-        contentDescription = "Minecraft text input"
+        contentDescription = description
     }
 
     override fun onCheckIsTextEditor(): Boolean = true

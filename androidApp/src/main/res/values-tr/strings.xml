@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">Yeni profil</string>
+    <string name="shortcut_new_instance_long">Minecraft profili oluştur</string>
+    <string name="shortcut_settings_short">Ayarlar</string>
+    <string name="shortcut_settings_long">Trestle ayarlarını aç</string>
+    <string name="shortcut_launch_named">%1$s başlat</string>
+    <string name="notification_channel_operations">Başlatıcı işlemleri</string>
+    <string name="notification_channel_operations_description">Kurulum ve indirme ilerlemesi</string>
+    <string name="notification_trestle_is_working">Trestle çalışıyor</string>
+    <string name="control_move">HAREKET</string>
+    <string name="control_menu_cursor">MENÜ İMLECİ</string>
+    <string name="control_chat">SOHBET</string>
+    <string name="control_inventory">ENV</string>
+    <string name="control_drop">AT</string>
+    <string name="control_jump">ZIPLA</string>
+    <string name="control_attack">SALDIR</string>
+    <string name="control_use">KULLAN</string>
+    <string name="control_sneak">EĞİL</string>
+    <string name="control_sprint">KOŞ</string>
+    <string name="control_description_chat">Sohbet</string>
+    <string name="control_description_pause">Duraklatma menüsü</string>
+    <string name="control_description_inventory">Envanter</string>
+    <string name="control_description_drop">Eşyayı at</string>
+    <string name="control_description_jump">Zıpla</string>
+    <string name="control_description_sneak">Eğil</string>
+    <string name="control_description_sprint">Koş</string>
+    <string name="control_description_key">Klavye kontrolü</string>
+    <string name="control_description_attack">Saldır</string>
+    <string name="control_description_use">Kullan</string>
+    <string name="control_description_previous_slot">Önceki hızlı erişim yuvası</string>
+    <string name="control_description_next_slot">Sonraki hızlı erişim yuvası</string>
+    <string name="control_description_forward">İleri git</string>
+    <string name="control_description_backward">Geri git</string>
+    <string name="control_description_left">Sola git</string>
+    <string name="control_description_right">Sağa git</string>
+    <string name="control_description_text_input">Minecraft metin girişi</string>
+</resources>

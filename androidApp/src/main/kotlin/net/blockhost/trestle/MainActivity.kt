@@ -207,19 +207,22 @@ class MainActivity : ComponentActivity() {
                     .coerceAtLeast(0)
                 viewModel.launcher.state
                     .map { state ->
-                        state.takeUnless { it.isInitializing }
-                            ?.instances
-                            ?.filter { it.pinned }
-                            ?.map { PinnedShortcut(it.id.value, it.displayName) }
-                            ?.take(dynamicSlots)
+                        state.takeUnless { it.isInitializing }?.let { ready ->
+                            ready.launcherPreferences.launcherLanguage.tag to ready.instances
+                                .filter { it.pinned }
+                                .map { PinnedShortcut(it.id.value, it.displayName) }
+                                .take(dynamicSlots)
+                        }
                     }
                     .filterNotNull()
                     .distinctUntilChanged()
-                    .collect { instances ->
+                    .collect { (languageTag, instances) ->
+                        // Read the language from the state. The UI may not have applied it to the default locale yet.
+                        val labels = languageTag?.let { launcherLanguageResources(Locale.forLanguageTag(it)) } ?: resources
                         shortcutManager.dynamicShortcuts = instances.map { instance ->
                             ShortcutInfo.Builder(this@MainActivity, "instance-${instance.id}")
                                 .setShortLabel(instance.label)
-                                .setLongLabel("Launch ${instance.label}")
+                                .setLongLabel(labels.getString(R.string.shortcut_launch_named, instance.label))
                                 .setIcon(Icon.createWithResource(this@MainActivity, R.mipmap.ic_trestle))
                                 .setIntent(
                                     Intent(this@MainActivity, MainActivity::class.java).apply {

@@ -176,13 +176,13 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             onClick = { source = "custom" },
                             shape = SegmentedButtonDefaults.itemShape(0, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_custom)) }
+                        ) { ButtonLabel(stringResource(Res.string.ui_custom)) }
                         SegmentedButton(
                             selected = source == "import",
                             onClick = { source = "import" },
                             shape = SegmentedButtonDefaults.itemShape(1, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_import)) }
+                        ) { ButtonLabel(stringResource(Res.string.ui_import)) }
                         SegmentedButton(
                             selected = false,
                             onClick = {
@@ -198,7 +198,7 @@ internal fun CreateInstanceDialog(state: LauncherUiState, actions: LauncherUiAct
                             },
                             shape = SegmentedButtonDefaults.itemShape(2, 3),
                             modifier = Modifier.weight(1f),
-                        ) { Text(stringResource(Res.string.ui_browse_modpacks)) }
+                        ) { ButtonLabel(stringResource(Res.string.ui_browse_modpacks)) }
                     }
                 }
                 OutlinedTextField(

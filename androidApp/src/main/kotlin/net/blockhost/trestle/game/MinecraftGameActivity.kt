@@ -7,6 +7,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.res.Configuration
+import android.content.res.Resources
 import android.graphics.SurfaceTexture
 import android.os.Bundle
 import android.os.Process
@@ -27,6 +29,7 @@ import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.core.net.toUri
 import com.oracle.dalvik.VMLauncher
+import net.blockhost.trestle.R
 import net.blockhost.trestle.runtime.AndroidGameLaunchProtocol
 import net.kdt.pojavlaunch.utils.JREUtils
 import org.lwjgl.glfw.CallbackBridge
@@ -34,6 +37,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
 import java.io.StringWriter
+import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 
 class MinecraftGameActivity :
@@ -123,9 +127,11 @@ class MinecraftGameActivity :
                 override fun onSurfaceTextureUpdated(texture: SurfaceTexture) = Unit
             }
         }
-        controls = MinecraftControlOverlayView(this, ::showTextInput)
+        val labels = launcherLanguageResources()
+        controls = MinecraftControlOverlayView(this, labels, ::showTextInput)
         textInput = MinecraftTextInputView(
             this,
+            labels.getString(R.string.control_description_text_input),
             onText = { text -> text.forEach(CallbackBridge::sendCharacter) },
             onBackspace = { controls.tapKey(259) },
             onEnter = { controls.tapKey(257) },
@@ -449,12 +455,16 @@ class MinecraftGameActivity :
         val newReceiver = intent.getParcelableExtra<ResultReceiver>(AndroidGameLaunchProtocol.EXTRA_RECEIVER)
         if (newReceiver != null && newReceiver != receiver) {
             runCatching {
-                newReceiver.send(
-                    AndroidGameLaunchProtocol.RESULT_FAILED,
-                    Bundle().apply { putString(AndroidGameLaunchProtocol.EXTRA_MESSAGE, "Minecraft is already running.") },
-                )
+                newReceiver.send(AndroidGameLaunchProtocol.RESULT_ALREADY_RUNNING, Bundle.EMPTY)
             }
         }
+    }
+
+    /** Resources in the launcher's language, which the launcher passes because this process has its own locale. */
+    private fun launcherLanguageResources(): Resources {
+        val tag = intent.getStringExtra(AndroidGameLaunchProtocol.EXTRA_LANGUAGE_TAG) ?: return resources
+        val configuration = Configuration(resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) }
+        return createConfigurationContext(configuration).resources
     }
 
     private fun showTextInput() {

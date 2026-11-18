@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">Nova instância</string>
+    <string name="shortcut_new_instance_long">Criar uma instância do Minecraft</string>
+    <string name="shortcut_settings_short">Configurações</string>
+    <string name="shortcut_settings_long">Abrir as configurações do Trestle</string>
+    <string name="shortcut_launch_named">Iniciar %1$s</string>
+    <string name="notification_channel_operations">Operações do launcher</string>
+    <string name="notification_channel_operations_description">Progresso de instalações e downloads</string>
+    <string name="notification_trestle_is_working">O Trestle está trabalhando</string>
+    <string name="control_move">MOVER</string>
+    <string name="control_menu_cursor">CURSOR DO MENU</string>
+    <string name="control_chat">CHAT</string>
+    <string name="control_inventory">INV</string>
+    <string name="control_drop">SOLTAR</string>
+    <string name="control_jump">PULAR</string>
+    <string name="control_attack">ATACAR</string>
+    <string name="control_use">USAR</string>
+    <string name="control_sneak">AGACHAR</string>
+    <string name="control_sprint">CORRER</string>
+    <string name="control_description_chat">Chat</string>
+    <string name="control_description_pause">Menu de pausa</string>
+    <string name="control_description_inventory">Inventário</string>
+    <string name="control_description_drop">Soltar item</string>
+    <string name="control_description_jump">Pular</string>
+    <string name="control_description_sneak">Agachar</string>
+    <string name="control_description_sprint">Correr</string>
+    <string name="control_description_key">Controle do teclado</string>
+    <string name="control_description_attack">Atacar</string>
+    <string name="control_description_use">Usar</string>
+    <string name="control_description_previous_slot">Slot anterior da barra</string>
+    <string name="control_description_next_slot">Próximo slot da barra</string>
+    <string name="control_description_forward">Andar para frente</string>
+    <string name="control_description_backward">Andar para trás</string>
+    <string name="control_description_left">Andar para a esquerda</string>
+    <string name="control_description_right">Andar para a direita</string>
+    <string name="control_description_text_input">Entrada de texto do Minecraft</string>
+</resources>

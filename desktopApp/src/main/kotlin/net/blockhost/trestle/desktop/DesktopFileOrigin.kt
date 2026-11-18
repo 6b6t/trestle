@@ -11,9 +11,10 @@ import java.nio.file.attribute.UserDefinedFileAttributeView
 
 /** Reads download provenance written by browsers without changing the imported file. */
 internal object DesktopFileOrigin {
+    /** Returns the host the file was downloaded from, or the start of the source URL when it has no host. */
     fun label(path: Path): String? = readUrl(path)?.let { value ->
         val host = runCatching { URI(value).host }.getOrNull()
-        if (host.isNullOrBlank()) value.take(120) else "Downloaded from $host"
+        if (host.isNullOrBlank()) value.take(120) else host
     }
 
     private fun readUrl(path: Path): String? = when {

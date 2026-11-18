@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="shortcut_new_instance_short">Nouvelle instance</string>
+    <string name="shortcut_new_instance_long">Créer une instance Minecraft</string>
+    <string name="shortcut_settings_short">Paramètres</string>
+    <string name="shortcut_settings_long">Ouvrir les paramètres de Trestle</string>
+    <string name="shortcut_launch_named">Lancer %1$s</string>
+    <string name="notification_channel_operations">Opérations du launcher</string>
+    <string name="notification_channel_operations_description">Progression des installations et des téléchargements</string>
+    <string name="notification_trestle_is_working">Trestle travaille</string>
+    <string name="control_move">DÉPLACER</string>
+    <string name="control_menu_cursor">CURSEUR DU MENU</string>
+    <string name="control_chat">CHAT</string>
+    <string name="control_inventory">INV</string>
+    <string name="control_drop">JETER</string>
+    <string name="control_jump">SAUTER</string>
+    <string name="control_attack">FRAPPER</string>
+    <string name="control_use">UTILISER</string>
+    <string name="control_sneak">ACCROUPIR</string>
+    <string name="control_sprint">COURIR</string>
+    <string name="control_description_chat">Chat</string>
+    <string name="control_description_pause">Menu pause</string>
+    <string name="control_description_inventory">Inventaire</string>
+    <string name="control_description_drop">Jeter l’objet</string>
+    <string name="control_description_jump">Sauter</string>
+    <string name="control_description_sneak">S’accroupir</string>
+    <string name="control_description_sprint">Courir</string>
+    <string name="control_description_key">Commande clavier</string>
+    <string name="control_description_attack">Attaquer</string>
+    <string name="control_description_use">Utiliser</string>
+    <string name="control_description_previous_slot">Emplacement précédent de la barre</string>
+    <string name="control_description_next_slot">Emplacement suivant de la barre</string>
+    <string name="control_description_forward">Avancer</string>
+    <string name="control_description_backward">Reculer</string>
+    <string name="control_description_left">Aller à gauche</string>
+    <string name="control_description_right">Aller à droite</string>
+    <string name="control_description_text_input">Saisie de texte Minecraft</string>
+</resources>

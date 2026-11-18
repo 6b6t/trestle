@@ -41,6 +41,17 @@ import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.trestle_icon
 import net.blockhost.trestle.resources.trestle_mark
+import net.blockhost.trestle.resources.ui_cancel_operation
+import net.blockhost.trestle.resources.ui_launch_selected
+import net.blockhost.trestle.resources.ui_minecraft_stopped_unexpectedly
+import net.blockhost.trestle.resources.ui_named_is_running
+import net.blockhost.trestle.resources.ui_pinned_instances
+import net.blockhost.trestle.resources.ui_quit_trestle
+import net.blockhost.trestle.resources.ui_quit_trestle_question
+import net.blockhost.trestle.resources.ui_quitting_stops_minecraft
+import net.blockhost.trestle.resources.ui_show_trestle
+import net.blockhost.trestle.resources.ui_stop_named
+import net.blockhost.trestle.resources.ui_trestle_needs_attention
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchRequirement
 import net.blockhost.trestle.text.load
@@ -50,8 +61,11 @@ import net.blockhost.trestle.ui.LauncherCommand
 import net.blockhost.trestle.ui.LauncherCommandRequest
 import net.blockhost.trestle.ui.LauncherViewModel
 import net.blockhost.trestle.ui.TrestleApp
+import net.blockhost.trestle.ui.applyDesktopLauncherLanguage
 import okio.Path.Companion.toPath
+import org.jetbrains.compose.resources.getString
 import org.jetbrains.compose.resources.painterResource
+import org.jetbrains.compose.resources.stringResource
 import java.nio.file.Files
 import javax.swing.JOptionPane
 import javax.swing.SwingUtilities
@@ -77,6 +91,7 @@ fun main(arguments: Array<String>) {
         val icon = painterResource(Res.drawable.trestle_icon)
         val trayIcon = painterResource(Res.drawable.trestle_mark)
         val state by viewModel.state.collectAsState()
+        applyDesktopLauncherLanguage(state.launcherPreferences.launcherLanguage)
         val preferences = remember { DesktopWindowPreferences() }
         val restoredWindow = remember { preferences.restore() }
         val windowState = rememberWindowState(
@@ -118,14 +133,15 @@ fun main(arguments: Array<String>) {
                 activationQueue = activationQueue + expanded
             }
         }
+        val quitWarning = state.activeInstance?.let { stringResource(Res.string.ui_quitting_stops_minecraft, it.displayName) }
+        val quitTitle = stringResource(Res.string.ui_quit_trestle_question)
         fun quit() {
-            val activeInstance = state.activeInstance
-            if (activeInstance != null) {
+            if (quitWarning != null) {
                 showWindow()
                 val result = JOptionPane.showConfirmDialog(
                     null,
-                    "${activeInstance.displayName} is still running. Quitting Trestle will stop Minecraft.",
-                    "Quit Trestle?",
+                    quitWarning,
+                    quitTitle,
                     JOptionPane.OK_CANCEL_OPTION,
                     JOptionPane.WARNING_MESSAGE,
                 )
@@ -203,14 +219,14 @@ fun main(arguments: Array<String>) {
 
         if (isTraySupported) {
             val trayMenu = buildList {
-                add(DesktopTrayMenuEntry.Item("Show Trestle", onClick = showWindow))
+                add(DesktopTrayMenuEntry.Item(stringResource(Res.string.ui_show_trestle), onClick = showWindow))
                 state.operation?.let { operation ->
                     add(DesktopTrayMenuEntry.Item(operation.title.resolve(), enabled = false, onClick = {}))
                 }
                 add(DesktopTrayMenuEntry.Separator)
                 add(
                     DesktopTrayMenuEntry.Item(
-                        "Launch selected",
+                        stringResource(Res.string.ui_launch_selected),
                         enabled = state.selectedInstance?.installationState is InstallationState.Installed &&
                             state.activeLaunch == null,
                         onClick = viewModel::launchSelected,
@@ -220,7 +236,7 @@ fun main(arguments: Array<String>) {
                 if (pinned.isNotEmpty()) {
                     add(
                         DesktopTrayMenuEntry.Submenu(
-                            "Pinned instances",
+                            stringResource(Res.string.ui_pinned_instances),
                             pinned.map { instance ->
                                 DesktopTrayMenuEntry.Item(
                                     instance.displayName,
@@ -232,26 +248,32 @@ fun main(arguments: Array<String>) {
                     )
                 }
                 state.activeInstance?.let { instance ->
-                    add(DesktopTrayMenuEntry.Item("Stop ${instance.displayName}", onClick = viewModel::stopLaunch))
+                    add(
+                        DesktopTrayMenuEntry.Item(
+                            stringResource(Res.string.ui_stop_named, instance.displayName),
+                            onClick = viewModel::stopLaunch,
+                        ),
+                    )
                 }
                 if (state.operation?.cancellable == true) {
                     add(
                         DesktopTrayMenuEntry.Item(
-                            state.operation?.cancelLabel?.resolve() ?: "Cancel operation",
+                            state.operation?.cancelLabel?.resolve() ?: stringResource(Res.string.ui_cancel_operation),
                             onClick = viewModel::cancelActiveOperation,
                         ),
                     )
                 }
                 add(DesktopTrayMenuEntry.Separator)
-                add(DesktopTrayMenuEntry.Item("Quit Trestle", onClick = ::quit))
+                add(DesktopTrayMenuEntry.Item(stringResource(Res.string.ui_quit_trestle), onClick = ::quit))
             }
             val operationTitle = state.operation?.title?.resolve()
+            val runningLabel = state.activeInstance?.let { stringResource(Res.string.ui_named_is_running, it.displayName) }
             DesktopTray(
                 icon = trayIcon,
                 state = trayState,
                 tooltip = buildString {
                     append("Trestle")
-                    state.activeInstance?.let { append(" · ${it.displayName} is running") }
+                    runningLabel?.let { append(" · $it") }
                     state.operation?.let { append(" · $operationTitle") }
                 },
                 onAction = showWindow,
@@ -261,7 +283,9 @@ fun main(arguments: Array<String>) {
         LaunchedEffect(state.notice, state.error, windowVisible) {
             if (windowVisible) return@LaunchedEffect
             state.error?.let {
-                trayState.sendNotification(Notification("Trestle needs attention", it.load(), Notification.Type.Error))
+                trayState.sendNotification(
+                    Notification(getString(Res.string.ui_trestle_needs_attention), it.load(), Notification.Type.Error),
+                )
             } ?: state.notice?.let {
                 trayState.sendNotification(Notification("Trestle", it.load(), Notification.Type.Info))
             }
@@ -270,7 +294,11 @@ fun main(arguments: Array<String>) {
             val failed = state.launch.status as? LaunchStatus.Failed
             if (!windowVisible && failed != null) {
                 trayState.sendNotification(
-                    Notification("Minecraft stopped unexpectedly", failed.message.load(), Notification.Type.Error),
+                    Notification(
+                        getString(Res.string.ui_minecraft_stopped_unexpectedly),
+                        failed.message.load(),
+                        Notification.Type.Error,
+                    ),
                 )
             }
         }
@@ -281,7 +309,7 @@ fun main(arguments: Array<String>) {
                 quit()
             }
         }
-        val windowTitle = state.operation?.let { "${it.title} · Trestle" } ?: "Trestle"
+        val windowTitle = state.operation?.title?.resolve()?.let { "$it · Trestle" } ?: "Trestle"
 
         Window(
             onCloseRequest = requestClose,

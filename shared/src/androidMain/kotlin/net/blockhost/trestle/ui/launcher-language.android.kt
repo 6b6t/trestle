@@ -9,12 +9,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import net.blockhost.trestle.app.LauncherLanguage
 import java.util.Locale
 
-private val systemLocale: Locale = Locale.getDefault()
-
 @Composable
 internal actual fun LauncherLanguageEnvironment(language: LauncherLanguage, content: @Composable () -> Unit) {
+    // The activity configuration always holds the system locale, so "System" follows later system changes.
     val configuration = LocalConfiguration.current
-    val locale = language.tag?.let(Locale::forLanguageTag) ?: systemLocale
+    val locale = language.tag?.let(Locale::forLanguageTag) ?: configuration.locales[0]
     Locale.setDefault(locale)
     val localized = remember(configuration, locale) { Configuration(configuration).apply { setLocale(locale) } }
     CompositionLocalProvider(LocalConfiguration provides localized) {

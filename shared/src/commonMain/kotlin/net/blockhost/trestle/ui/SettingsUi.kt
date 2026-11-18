@@ -50,16 +50,20 @@ import net.blockhost.trestle.app.BuildInfo
 import net.blockhost.trestle.platform.currentPlatform
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ic_arrow_back
+import net.blockhost.trestle.resources.ui_android_build
 import net.blockhost.trestle.resources.ui_app
 import net.blockhost.trestle.resources.ui_appearance
 import net.blockhost.trestle.resources.ui_back
 import net.blockhost.trestle.resources.ui_choose_a_category_to_change_trestle_settings
 import net.blockhost.trestle.resources.ui_content
 import net.blockhost.trestle.resources.ui_dependencies_metadata_and_modpacks
+import net.blockhost.trestle.resources.ui_desktop_build
 import net.blockhost.trestle.resources.ui_diagnostics
+import net.blockhost.trestle.resources.ui_downloads_section
 import net.blockhost.trestle.resources.ui_downloads_timeouts_and_log_history
 import net.blockhost.trestle.resources.ui_folders
 import net.blockhost.trestle.resources.ui_general
+import net.blockhost.trestle.resources.ui_ios_build
 import net.blockhost.trestle.resources.ui_language
 import net.blockhost.trestle.resources.ui_launcher_language
 import net.blockhost.trestle.resources.ui_launcher_log
@@ -144,7 +148,14 @@ internal fun SettingsPage(state: LauncherUiState, modifier: Modifier, actions: L
         } else {
             PageHero(
                 title = stringResource(Res.string.ui_settings),
-                subtitle = "$currentPlatform build ${BuildInfo.VERSION}",
+                subtitle = stringResource(
+                    when (currentPlatform) {
+                        "Android" -> Res.string.ui_android_build
+                        "iOS" -> Res.string.ui_ios_build
+                        else -> Res.string.ui_desktop_build
+                    },
+                    BuildInfo.VERSION,
+                ),
                 accent = MaterialTheme.colorScheme.secondary,
             )
         }
@@ -229,7 +240,7 @@ private enum class SettingsSection(val label: StringResource, val group: Setting
     LANGUAGE(Res.string.ui_language, SettingsGroup.APP, Res.string.ui_launcher_language),
     FOLDERS(Res.string.ui_folders, SettingsGroup.STORAGE, Res.string.ui_where_instances_and_files_live),
     CONTENT(Res.string.ui_content, SettingsGroup.STORAGE, Res.string.ui_dependencies_metadata_and_modpacks),
-    NETWORK(Res.string.ui_network, SettingsGroup.NETWORK, Res.string.ui_downloads_timeouts_and_log_history),
+    NETWORK(Res.string.ui_downloads_section, SettingsGroup.NETWORK, Res.string.ui_downloads_timeouts_and_log_history),
     PROXY(Res.string.ui_proxy, SettingsGroup.NETWORK, Res.string.ui_route_launcher_traffic_through_a_proxy),
     SERVICES(Res.string.ui_services, SettingsGroup.NETWORK, Res.string.ui_modrinth_curseforge_and_other_catalogs),
     RUNTIME(Res.string.ui_runtime, SettingsGroup.DIAGNOSTICS, Res.string.ui_platform_usage_and_credential_storage),

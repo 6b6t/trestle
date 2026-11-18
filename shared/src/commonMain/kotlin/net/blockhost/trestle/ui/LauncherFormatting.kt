@@ -21,10 +21,16 @@ import androidx.compose.ui.input.key.key
 import io.github.vinceglb.filekit.name
 import net.blockhost.trestle.domain.GameInstance
 import net.blockhost.trestle.domain.InstallationState
+import net.blockhost.trestle.instance.WorldGameMode
 import net.blockhost.trestle.logging.LogEntry
 import net.blockhost.trestle.resources.Res
 import net.blockhost.trestle.resources.ui_count_downloads
 import net.blockhost.trestle.resources.ui_download_count
+import net.blockhost.trestle.resources.ui_game_mode_adventure
+import net.blockhost.trestle.resources.ui_game_mode_creative
+import net.blockhost.trestle.resources.ui_game_mode_hardcore
+import net.blockhost.trestle.resources.ui_game_mode_spectator
+import net.blockhost.trestle.resources.ui_game_mode_survival
 import net.blockhost.trestle.resources.ui_hours_minutes
 import net.blockhost.trestle.resources.ui_install_failed
 import net.blockhost.trestle.resources.ui_installed
@@ -34,6 +40,10 @@ import net.blockhost.trestle.resources.ui_minutes_short
 import net.blockhost.trestle.resources.ui_not_installed
 import net.blockhost.trestle.resources.ui_not_played
 import net.blockhost.trestle.resources.ui_ready_to_resume
+import net.blockhost.trestle.resources.ui_size_bytes
+import net.blockhost.trestle.resources.ui_size_gib
+import net.blockhost.trestle.resources.ui_size_kib
+import net.blockhost.trestle.resources.ui_size_mib
 import org.jetbrains.compose.resources.pluralStringResource
 import org.jetbrains.compose.resources.stringResource
 
@@ -50,23 +60,28 @@ internal fun formatUtcTime(epochMillis: Long): String {
 
 @Composable
 internal fun formatDownloads(downloads: Long): String = when {
-    downloads >= 1_000L -> stringResource(Res.string.ui_count_downloads, formatCount(downloads))
+    downloads >= 1_000L -> stringResource(Res.string.ui_count_downloads, formatCompactCount(downloads))
     else -> pluralStringResource(Res.plurals.ui_download_count, downloads.toInt(), downloads)
 }
 
-internal fun formatCount(count: Long): String = when {
-    count >= 1_000_000_000L -> "${count / 100_000_000L / 10.0}B"
-    count >= 1_000_000L -> "${count / 100_000L / 10.0}M"
-    count >= 1_000L -> "${count / 100L / 10.0}K"
-    else -> count.toString()
+@Composable
+internal fun formatFileSize(bytes: Long): String = when {
+    bytes >= 1_073_741_824L -> stringResource(Res.string.ui_size_gib, formatDecimal(bytes / 107_374_182L / 10.0))
+    bytes >= 1_048_576L -> stringResource(Res.string.ui_size_mib, formatDecimal(bytes / 104_857L / 10.0))
+    bytes >= 1_024L -> stringResource(Res.string.ui_size_kib, formatDecimal(bytes / 102L / 10.0))
+    else -> stringResource(Res.string.ui_size_bytes, bytes.toString())
 }
 
-internal fun formatFileSize(bytes: Long): String = when {
-    bytes >= 1_073_741_824L -> "${bytes / 107_374_182L / 10.0} GiB"
-    bytes >= 1_048_576L -> "${bytes / 104_857L / 10.0} MiB"
-    bytes >= 1_024L -> "${bytes / 102L / 10.0} KiB"
-    else -> "$bytes B"
-}
+@Composable
+internal fun gameModeLabel(mode: WorldGameMode): String = stringResource(
+    when (mode) {
+        WorldGameMode.SURVIVAL -> Res.string.ui_game_mode_survival
+        WorldGameMode.CREATIVE -> Res.string.ui_game_mode_creative
+        WorldGameMode.ADVENTURE -> Res.string.ui_game_mode_adventure
+        WorldGameMode.SPECTATOR -> Res.string.ui_game_mode_spectator
+        WorldGameMode.HARDCORE -> Res.string.ui_game_mode_hardcore
+    },
+)
 
 internal fun formatInstanceForClipboard(instance: GameInstance): String = buildString {
     appendLine(instance.displayName)
