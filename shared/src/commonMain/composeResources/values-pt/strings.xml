@@ -1394,4 +1394,5 @@
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">O Minecraft parou inesperadamente. Os logs da instância têm os detalhes.</string>
     <string name="msg_minecraft_did_not_start_in_time">O Minecraft não iniciou em 20 segundos.</string>
     <string name="ui_update_with_flatpak">Atualize pelo Flatpak ou pela sua central de programas.</string>
+    <string name="msg_trestle_is_busy">O Trestle está ocupado com uma tarefa de linha de comando, ou outra janela do Trestle parou de responder. Tente de novo quando terminar.</string>
 </resources>

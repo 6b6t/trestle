@@ -1420,4 +1420,5 @@ SHA-256: %3$s</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">توقف Minecraft بشكل غير متوقع. توجد التفاصيل في سجلات النسخة.</string>
     <string name="msg_minecraft_did_not_start_in_time">لم يبدأ Minecraft خلال 20 ثانية.</string>
     <string name="ui_update_with_flatpak">حدّثه باستخدام Flatpak أو مركز البرامج.</string>
+    <string name="msg_trestle_is_busy">يعمل Trestle على مهمة من سطر الأوامر، أو توقفت نافذة Trestle أخرى عن الاستجابة. حاول مرة أخرى عند انتهائها.</string>
 </resources>

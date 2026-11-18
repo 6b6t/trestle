@@ -1396,4 +1396,5 @@ SHA-256: %3$s</string>
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">‏Minecraft غیر متوقع طور پر رک گیا۔ تفصیلات انسٹینس لاگز میں ہیں۔</string>
     <string name="msg_minecraft_did_not_start_in_time">‏Minecraft 20 سیکنڈ میں شروع نہیں ہوا۔</string>
     <string name="ui_update_with_flatpak">اسے Flatpak یا اپنے سافٹ ویئر سینٹر سے اپ ڈیٹ کریں۔</string>
+    <string name="msg_trestle_is_busy">‏Trestle کمانڈ لائن کے کام میں مصروف ہے، یا Trestle کی کوئی اور ونڈو جواب نہیں دے رہی۔ کام ختم ہونے پر دوبارہ کوشش کریں۔</string>
 </resources>

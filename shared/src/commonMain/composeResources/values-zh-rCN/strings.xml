@@ -1388,4 +1388,5 @@
     <string name="msg_minecraft_stopped_unexpectedly_see_logs">Minecraft 意外停止。详情请查看实例日志。</string>
     <string name="msg_minecraft_did_not_start_in_time">Minecraft 未在 20 秒内启动。</string>
     <string name="ui_update_with_flatpak">请通过 Flatpak 或软件中心更新。</string>
+    <string name="msg_trestle_is_busy">Trestle 正在执行命令行任务，或另一个 Trestle 窗口没有响应。请在任务结束后重试。</string>
 </resources>

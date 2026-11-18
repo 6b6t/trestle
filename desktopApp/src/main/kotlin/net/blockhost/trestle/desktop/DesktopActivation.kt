@@ -154,15 +154,29 @@ internal class DesktopActivationBroker private constructor(
         private const val MAX_ARGUMENTS = 64
         private const val FORWARD_TIMEOUT_MILLIS = 2_000L
 
+        /**
+         * Takes the single-instance lock for a command-line run, so the CLI and the launcher window never work on the
+         * same instances and accounts at once. Returns null while the window or another command holds the lock.
+         */
+        fun lockForCommandLine(directory: Path = activationDirectory()): AutoCloseable? {
+            Files.createDirectories(directory)
+            val channel = openLockChannel(directory)
+            val lock = runCatching { channel.tryLock() }.getOrNull()
+            if (lock == null) {
+                channel.close()
+                return null
+            }
+            return AutoCloseable {
+                runCatching { lock.release() }
+                runCatching { channel.close() }
+            }
+        }
+
         /** Returns a broker for the primary process, or null after forwarding to it. */
         fun acquire(arguments: List<String>): DesktopActivationBroker? {
             val directory = activationDirectory()
             Files.createDirectories(directory)
-            val channel = FileChannel.open(
-                directory.resolve("instance.lock"),
-                StandardOpenOption.CREATE,
-                StandardOpenOption.WRITE,
-            )
+            val channel = openLockChannel(directory)
             val lock = runCatching { channel.tryLock() }.getOrNull()
             if (lock == null) {
                 channel.close()
@@ -184,6 +198,12 @@ internal class DesktopActivationBroker private constructor(
          */
         private fun activationDirectory(): Path = Path.of(desktopLauncherDataDirectory(), "activation")
 
+        private fun openLockChannel(directory: Path): FileChannel = FileChannel.open(
+            directory.resolve("instance.lock"),
+            StandardOpenOption.CREATE,
+            StandardOpenOption.WRITE,
+        )
+
         private fun forwardWithRetry(directory: Path, arguments: List<String>) {
             val deadline = System.currentTimeMillis() + FORWARD_TIMEOUT_MILLIS
             var lastError: Throwable? = null
@@ -196,7 +216,7 @@ internal class DesktopActivationBroker private constructor(
                 }
                 Thread.sleep(50)
             } while (System.currentTimeMillis() < deadline)
-            error("The existing Trestle process could not be activated: ${lastError?.message ?: "no endpoint"}")
+            throw ActivationUnavailableException(lastError?.message ?: "no endpoint")
         }
 
         private fun forward(endpoint: Endpoint, arguments: List<String>) {
@@ -242,3 +262,10 @@ internal class DesktopActivationBroker private constructor(
 }
 
 private data class Endpoint(val port: Int, val token: String)
+
+/**
+ * Another process holds the single-instance lock but did not accept the activation. A command-line run holds the
+ * lock without listening, and a launcher that stopped responding does not answer.
+ */
+internal class ActivationUnavailableException(detail: String) :
+    IllegalStateException("The existing Trestle process could not be activated: $detail")

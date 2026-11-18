@@ -39,10 +39,12 @@ import net.blockhost.trestle.app.createDesktopLauncherServices
 import net.blockhost.trestle.domain.InstallationState
 import net.blockhost.trestle.domain.InstanceId
 import net.blockhost.trestle.resources.Res
+import net.blockhost.trestle.resources.msg_trestle_is_busy
 import net.blockhost.trestle.resources.trestle_icon
 import net.blockhost.trestle.resources.trestle_mark
 import net.blockhost.trestle.resources.ui_cancel
 import net.blockhost.trestle.resources.ui_cancel_operation
+import net.blockhost.trestle.resources.ui_close
 import net.blockhost.trestle.resources.ui_launch_selected
 import net.blockhost.trestle.resources.ui_minecraft_stopped_unexpectedly
 import net.blockhost.trestle.resources.ui_named_is_running
@@ -52,6 +54,7 @@ import net.blockhost.trestle.resources.ui_quit_trestle_question
 import net.blockhost.trestle.resources.ui_quitting_stops_minecraft
 import net.blockhost.trestle.resources.ui_show_trestle
 import net.blockhost.trestle.resources.ui_stop_named
+import net.blockhost.trestle.resources.ui_trestle
 import net.blockhost.trestle.resources.ui_trestle_needs_attention
 import net.blockhost.trestle.runtime.LaunchEvent
 import net.blockhost.trestle.runtime.LaunchRequirement
@@ -74,6 +77,9 @@ import kotlin.system.exitProcess
 
 private const val MAX_LOCAL_IMPORT_BYTES = 512L * 1024L * 1024L
 
+/** Exit code when another Trestle process holds the single-instance lock. */
+private const val CLI_EXIT_BUSY = 75
+
 @OptIn(ExperimentalComposeUiApi::class, FlowPreview::class)
 fun main(arguments: Array<String>) {
     if (isCliInvocation(arguments)) {
@@ -81,11 +87,15 @@ fun main(arguments: Array<String>) {
             println(CLI_HELP)
             return
         }
-        exitProcess(runBlocking { runCli(arguments) })
+        val lock = DesktopActivationBroker.lockForCommandLine() ?: run {
+            System.err.println("Trestle is already running. Close it or wait for the other command to finish, then try again.")
+            exitProcess(CLI_EXIT_BUSY)
+        }
+        exitProcess(lock.use { runBlocking { runCli(arguments) } })
     }
     configureSwingGlobalsForCompose()
     configureDesktopProperties()
-    val activationBroker = DesktopActivationBroker.acquire(arguments.toList()) ?: return
+    val activationBroker = acquireActivationBroker(arguments) ?: return
     FileKit.init(appId = "net.blockhost.trestle")
     val viewModel = LauncherViewModel(createDesktopLauncherServices())
     application {
@@ -393,6 +403,20 @@ private val guiArguments = setOf("--settings", "--launch-instance")
 internal fun isCliInvocation(arguments: Array<String>): Boolean {
     val first = arguments.firstOrNull() ?: return false
     return first.startsWith("-") && first !in guiArguments
+}
+
+/**
+ * Becomes the primary launcher process, or returns null after handing [arguments] to the open one. Explains when
+ * another process holds the lock without answering: a command-line run, or a launcher that stopped responding.
+ */
+private fun acquireActivationBroker(arguments: Array<String>): DesktopActivationBroker? = try {
+    DesktopActivationBroker.acquire(arguments.toList())
+} catch (_: ActivationUnavailableException) {
+    val (message, title, close) = runBlocking {
+        Triple(getString(Res.string.msg_trestle_is_busy), getString(Res.string.ui_trestle), getString(Res.string.ui_close))
+    }
+    DesktopDialogs.inform(message, title, close)
+    null
 }
 
 internal suspend fun runCli(

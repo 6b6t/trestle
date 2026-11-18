@@ -58,4 +58,17 @@ class DesktopActivationTest {
             DesktopActivationParser.parse(listOf("notes.txt"), directory),
         )
     }
+
+    @Test
+    fun `only one command-line run holds the lock at a time`() {
+        val directory = createTempDirectory("trestle-activation")
+        val first = DesktopActivationBroker.lockForCommandLine(directory)
+        assertTrue(first != null)
+        assertEquals(null, DesktopActivationBroker.lockForCommandLine(directory))
+        first.close()
+        DesktopActivationBroker.lockForCommandLine(directory).let { again ->
+            assertTrue(again != null)
+            again.close()
+        }
+    }
 }

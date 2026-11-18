@@ -3,7 +3,7 @@ title: Use Trestle from the command line
 description: List, install, launch, and export Trestle instances from a terminal with the desktop command line.
 ---
 
-The desktop packages include command-line operations. They use the same instances as the Trestle window.
+The desktop packages include command-line operations. They use the same instances and accounts as the Trestle window, so they run only while the window is closed. Only one command runs at a time.
 
 ```bash
 trestle --list
@@ -31,6 +31,7 @@ You can refer to an instance by its ID or by its exact name. Names ignore letter
 | 1    | The command failed. Trestle prints the error.                                                              |
 | 2    | The command, instance, or installation state is not valid. For example, the instance is not installed yet. |
 | 3    | The instance cannot launch, for example because it has no account. Trestle lists what is missing.          |
+| 75   | Trestle is already running, in a window or another command. Close it or wait, then try again.              |
 | 130  | The launch was cancelled.                                                                                  |
 
 ## Find the command
