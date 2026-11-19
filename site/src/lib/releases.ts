@@ -16,18 +16,19 @@ export interface Release {
 const repository = "/6b6t/trestle";
 
 function githubUrl(value: unknown, prefix: string) {
-  if (typeof value !== "string") return undefined;
+  if (typeof value !== "string") return;
+  let url: URL;
   try {
-    const url = new URL(value);
-    return url.origin === "https://github.com" &&
-      url.pathname.startsWith(prefix) &&
-      !url.username &&
-      !url.password
-      ? url.href
-      : undefined;
+    url = new URL(value);
   } catch {
-    return undefined;
+    return;
   }
+  return url.origin === "https://github.com" &&
+    url.pathname.startsWith(prefix) &&
+    !url.username &&
+    !url.password
+    ? url.href
+    : undefined;
 }
 
 /** Reads a GitHub release response. Drafts, previews, and foreign links return null. */

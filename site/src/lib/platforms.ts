@@ -213,11 +213,11 @@ export function platformDownloads(release: Release | null, platform: Platform) {
 
 /** Guesses the visitor's platform from the browser. Returns undefined when unsure. */
 export function detectPlatform(userAgent: string, touchPoints = 0): Platform | undefined {
-  if (/iPhone|iPad|iPod/.test(userAgent)) return "ios";
+  if (/iPhone|iPad|iPod/u.test(userAgent)) return "ios";
   // iPadOS reports a Mac user agent, but Macs have no touch screen.
-  if (/Macintosh/.test(userAgent)) return touchPoints > 1 ? "ios" : "macos";
-  if (/Android/.test(userAgent)) return "android";
-  if (/Windows/.test(userAgent)) return "windows";
-  if (/Linux|X11|CrOS/.test(userAgent)) return "linux";
+  if (userAgent.includes("Macintosh")) return touchPoints > 1 ? "ios" : "macos";
+  if (userAgent.includes("Android")) return "android";
+  if (userAgent.includes("Windows")) return "windows";
+  if (/Linux|X11|CrOS/u.test(userAgent)) return "linux";
   return undefined;
 }

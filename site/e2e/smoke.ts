@@ -21,7 +21,7 @@ test("shared download links hydrate, select a platform, and survive browser hist
     page.getByRole("heading", { name: "DEB, RPM, AppImage, or a portable archive.", exact: true }),
   ).toBeVisible();
   await page.getByRole("radio", { name: "Android" }).check();
-  await expect(page).toHaveURL(/platform=android/);
+  await expect(page).toHaveURL(/platform=android/u);
   await expect(
     page.getByRole("heading", { name: "Vanilla Minecraft on your phone.", exact: true }),
   ).toBeVisible();
@@ -39,7 +39,7 @@ test("the homepage selects the visitor's platform", async ({ page }, info) => {
   const platform = info.project.name === "mobile" ? "iOS" : "Windows";
   await expect(page.getByRole("radio", { name: platform })).toBeChecked();
   await page.getByRole("tab", { name: "Phone", exact: true }).click();
-  await expect(page.getByRole("img", { name: /Trestle on a phone/ })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Trestle on a phone/u })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   expect(errors).toEqual([]);
 });
@@ -50,7 +50,7 @@ test("static search opens the matching guide section without a server", async ({
   await page.getByRole("button", { name: "Search documentation", exact: true }).click();
   await page.getByRole("combobox", { name: "Search", exact: true }).fill("SmartScreen");
   await page.getByRole("option").filter({ hasText: "SmartScreen" }).first().click();
-  await expect(page).toHaveURL(/\/getting-started\/#install-on-windows$/);
+  await expect(page).toHaveURL(/\/getting-started\/#install-on-windows$/u);
   await expect(
     page.getByRole("heading", { name: "Install Trestle and play", exact: true }),
   ).toBeVisible();
@@ -67,7 +67,7 @@ test("theme preferences persist and old or missing pages remain useful", async (
   await expect(page.locator("html")).toHaveClass("light");
 
   await page.goto("/docs/ios.html");
-  await expect(page).toHaveURL(/\/ios\/$/);
+  await expect(page).toHaveURL(/\/ios\/$/u);
   await expect(
     page.getByRole("heading", { name: "iOS launcher target", exact: true }),
   ).toBeVisible();

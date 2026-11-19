@@ -3,7 +3,8 @@
   "plugins": ["typescript", "unicorn", "oxc", "import", "promise", "react", "jsx-a11y"],
   "categories": {
     "correctness": "error",
-    "suspicious": "error"
+    "suspicious": "error",
+    "pedantic": "error"
   },
   "options": {
     "typeAware": true,
@@ -16,6 +17,26 @@
   },
   "ignorePatterns": ["**/dist/**", "**/node_modules/**", ".source/**", "src/routeTree.gen.ts"],
   "rules": {
+    "typescript/prefer-readonly-parameter-types": "off",
+    "eslint/max-lines": "off",
+    "eslint/max-lines-per-function": "off",
+    "eslint/max-depth": "off",
+    "eslint/max-nested-callbacks": "off",
+    "eslint/max-classes-per-file": "off",
+    "import/max-dependencies": "off",
+    "eslint/no-inline-comments": "off",
+    "eslint/no-warning-comments": "off",
+    "eslint/no-negated-condition": "off",
+    "unicorn/no-negated-condition": "off",
+    "eslint/require-await": "off",
+    "typescript/strict-boolean-expressions": "off",
+    "eslint/eqeqeq": ["error", "always", { "null": "ignore" }],
+    "typescript/only-throw-error": [
+      "error",
+      {
+        "allow": [{ "from": "package", "package": "@tanstack/router-core", "name": "NotFoundError" }]
+      }
+    ],
     "react/jsx-no-constructed-context-values": "error",
     "react/no-array-index-key": "error",
     "react/no-deriving-state-in-effects": "error",

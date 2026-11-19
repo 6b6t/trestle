@@ -66,7 +66,9 @@ export function Showcase() {
             aria-selected={selected === index}
             aria-controls="showcase-panel"
             tabIndex={selected === index ? 0 : -1}
-            onClick={() => setSelected(index)}
+            onClick={() => {
+              setSelected(index);
+            }}
           >
             {item.name}
           </button>

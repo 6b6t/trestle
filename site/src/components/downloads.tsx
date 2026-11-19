@@ -53,7 +53,9 @@ export function PlatformSwitch({
               name={name}
               value={id}
               checked={platform === id}
-              onChange={() => onChange(id)}
+              onChange={() => {
+                onChange(id);
+              }}
             />
             <Icon size={19} aria-hidden="true" />
             <strong>{platformGuides[id].name}</strong>
