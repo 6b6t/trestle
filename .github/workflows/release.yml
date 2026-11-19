@@ -14,7 +14,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release-${{ github.ref }}
@@ -36,6 +36,7 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - name: Validate version and tag
@@ -54,10 +55,11 @@ jobs:
 
   set-version:
     needs: validate
+    permissions:
+      contents: write
     uses: ./.github/workflows/set-version.yml
     with:
       version: ${{ inputs.version }}
-    secrets: inherit
 
   build:
     needs: set-version
@@ -65,18 +67,25 @@ jobs:
     with:
       version: ${{ inputs.version }}
       ref: ${{ needs.set-version.outputs.commit-sha }}
-    secrets: inherit
+    secrets:
+      TRESTLE_ANDROID_KEYSTORE_BASE64: ${{ secrets.TRESTLE_ANDROID_KEYSTORE_BASE64 }}
+      TRESTLE_ANDROID_STORE_PASSWORD: ${{ secrets.TRESTLE_ANDROID_STORE_PASSWORD }}
+      TRESTLE_ANDROID_KEY_ALIAS: ${{ secrets.TRESTLE_ANDROID_KEY_ALIAS }}
+      TRESTLE_ANDROID_KEY_PASSWORD: ${{ secrets.TRESTLE_ANDROID_KEY_PASSWORD }}
 
   publish-release:
     name: Publish GitHub release
     needs: [build, set-version]
     runs-on: ubuntu-26.04
     timeout-minutes: 20
+    permissions:
+      contents: write
 
     steps:
       - name: Check out the repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ needs.set-version.outputs.commit-sha }}
           fetch-depth: 0
 

@@ -21,7 +21,7 @@ on:
         value: ${{ jobs.set-version.outputs.version-code }}
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: set-version-${{ github.ref }}
@@ -32,6 +32,8 @@ jobs:
     name: Set version to ${{ inputs.version }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    permissions:
+      contents: write
     outputs:
       commit-sha: ${{ steps.commit.outputs.sha }}
       version-code: ${{ steps.version.outputs.version-code }}
@@ -43,7 +45,8 @@ jobs:
           echo "Run this workflow from a branch so the version commit can be pushed." >&2
           exit 1
 
-      - name: Check out the repository
+      # git-auto-commit-action pushes the version commit with these credentials.
+      - name: Check out the repository # zizmor: ignore[artipacked]
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.ref }}

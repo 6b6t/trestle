@@ -16,7 +16,9 @@ on:
   release:
     types: [published]
   # Releases created with GITHUB_TOKEN do not trigger the release event.
-  workflow_run:
+  # The Release workflow only runs from workflow_dispatch, and this run builds main, never
+  # pull request code.
+  workflow_run: # zizmor: ignore[dangerous-triggers]
     workflows: [Release]
     types: [completed]
 
@@ -37,13 +39,18 @@ jobs:
       run:
         working-directory: site
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
           ref: ${{ (github.event_name == 'release' || github.event_name == 'workflow_run') && 'main' || github.sha }}
-      - uses: actions/setup-node@v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version: "24"
-      - uses: oven-sh/setup-bun@v2
+          # Deploys publish this build, so do not restore a cache that a pull request could seed.
+          package-manager-cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          no-cache: true
       - run: bun install --frozen-lockfile
       - run: bun run check
       - run: bun run test
@@ -55,7 +62,7 @@ jobs:
         run: bunx --no-install playwright install --with-deps chromium --only-shell
       - run: bun run test:e2e
       - if: github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v5
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: site/dist/client
 
@@ -72,4 +79,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
