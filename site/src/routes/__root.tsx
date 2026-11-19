@@ -9,6 +9,7 @@ const SiteSearch = lazy(() => import("../components/search"));
 export const Route = createRootRoute({
   head: () => ({
     meta: [
+      // oxlint-disable-next-line unicorn/text-encoding-identifier-case -- HTML requires the charset label `utf-8`.
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#141412" },

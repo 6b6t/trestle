@@ -36,12 +36,11 @@ export function PlatformSwitch({
   disabled?: boolean;
   name: string;
 }) {
+  const style: CSSProperties & { "--index": number } = {
+    "--index": platformOrder.indexOf(platform),
+  };
   return (
-    <fieldset
-      className="platform-switch"
-      disabled={disabled}
-      style={{ "--index": platformOrder.indexOf(platform) } as CSSProperties}
-    >
+    <fieldset className="platform-switch" disabled={disabled} style={style}>
       <legend className="sr-only">Platform</legend>
       <span className="switch-thumb" aria-hidden="true" />
       {platformOrder.map((id) => {
@@ -125,14 +124,17 @@ function DownloadChip({ download: { build, label, asset } }: { download: Platfor
 export function NextSteps({ platform }: { platform: Platform }) {
   return (
     <ol className="next-steps" key={platform}>
-      {platformGuides[platform].steps.map((step, index) => (
-        <li key={step} style={{ "--step": index } as CSSProperties}>
-          <span className="step-number" aria-hidden="true">
-            {index + 1}
-          </span>
-          <p>{step}</p>
-        </li>
-      ))}
+      {platformGuides[platform].steps.map((step, index) => {
+        const style: CSSProperties & { "--step": number } = { "--step": index };
+        return (
+          <li key={step} style={style}>
+            <span className="step-number" aria-hidden="true">
+              {index + 1}
+            </span>
+            <p>{step}</p>
+          </li>
+        );
+      })}
     </ol>
   );
 }

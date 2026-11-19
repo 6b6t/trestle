@@ -3,15 +3,15 @@ import { detectPlatform, platformDownloads } from "../src/lib/platforms";
 import { parseRelease, releaseLink } from "../src/lib/releases";
 
 const tag = "1.2.3";
-function asset(name: string, release = tag) {
+function releaseAsset(name: string, version = tag) {
   return {
     name,
-    browser_download_url: `https://github.com/6b6t/trestle/releases/download/${release}/${name}`,
+    browser_download_url: `https://github.com/6b6t/trestle/releases/download/${version}/${name}`,
     size: 1024,
     state: "uploaded",
   };
 }
-function release(assets: ReturnType<typeof asset>[]) {
+function release(assets: ReturnType<typeof releaseAsset>[]) {
   return {
     tag_name: tag,
     html_url: `https://github.com/6b6t/trestle/releases/tag/${tag}`,
@@ -23,14 +23,14 @@ function release(assets: ReturnType<typeof asset>[]) {
 test("each platform lists its packages from the release, grouped by architecture", () => {
   const parsed = parseRelease(
     release([
-      asset(`Trestle-${tag}-windows-x64.exe`),
-      asset(`Trestle-${tag}-windows-x64.msi`),
-      asset(`Trestle-${tag}-windows-arm64.exe`),
-      asset(`Trestle-${tag}-macos-arm64.dmg`),
-      asset(`Trestle-${tag}-android-universal.apk`),
-      asset(`Trestle-${tag}-android-universal.aab`),
-      asset(`Trestle-${tag}-linux-x64.tar.gz`),
-      asset("SHA256SUMS"),
+      releaseAsset(`Trestle-${tag}-windows-x64.exe`),
+      releaseAsset(`Trestle-${tag}-windows-x64.msi`),
+      releaseAsset(`Trestle-${tag}-windows-arm64.exe`),
+      releaseAsset(`Trestle-${tag}-macos-arm64.dmg`),
+      releaseAsset(`Trestle-${tag}-android-universal.apk`),
+      releaseAsset(`Trestle-${tag}-android-universal.aab`),
+      releaseAsset(`Trestle-${tag}-linux-x64.tar.gz`),
+      releaseAsset("SHA256SUMS"),
     ]),
   );
   expect(
@@ -52,20 +52,20 @@ test("each platform lists its packages from the release, grouped by architecture
 });
 
 test("packages named for another version are not offered", () => {
-  const parsed = parseRelease(release([asset("Trestle-1.2.2-windows-x64.exe")]));
+  const parsed = parseRelease(release([releaseAsset("Trestle-1.2.2-windows-x64.exe")]));
   expect(platformDownloads(parsed, "windows")).toEqual([]);
 });
 
 test("foreign assets and assets from another tag never enter the snapshot", () => {
   const parsed = parseRelease(
     release([
-      asset(`Trestle-${tag}-windows-x64.exe`),
-      asset(`Trestle-${tag}-windows-x64.msi`, "1.2.2"),
+      releaseAsset(`Trestle-${tag}-windows-x64.exe`),
+      releaseAsset(`Trestle-${tag}-windows-x64.msi`, "1.2.2"),
       {
-        ...asset(`Trestle-${tag}-windows-arm64.exe`),
+        ...releaseAsset(`Trestle-${tag}-windows-arm64.exe`),
         browser_download_url: "https://example.com/untrusted.exe",
       },
-      { ...asset(`Trestle-${tag}-macos-arm64.dmg`), state: "starter" },
+      { ...releaseAsset(`Trestle-${tag}-macos-arm64.dmg`), state: "starter" },
     ]),
   );
   expect(parsed?.assets.map(({ name }) => name)).toEqual([`Trestle-${tag}-windows-x64.exe`]);

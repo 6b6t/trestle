@@ -7,7 +7,8 @@ const metadata = import.meta.glob<{ frontmatter: PageMetadata }>("../../content/
 });
 
 export const documents = Object.entries(metadata).map(([path, { frontmatter }]) => ({
-  ...frontmatter,
+  title: frontmatter.title,
+  description: frontmatter.description,
   path,
   slug: path.slice(path.lastIndexOf("/") + 1, -4),
 }));
