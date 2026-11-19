@@ -55,6 +55,7 @@
     "eslint/max-nested-callbacks": "off",
     "eslint/max-classes-per-file": "off",
     "import/max-dependencies": "off",
+    "import/no-cycle": ["error", { "ignoreTypes": true }],
     "eslint/no-inline-comments": "off",
     "eslint/no-warning-comments": "off",
     "eslint/no-negated-condition": "off",
@@ -103,7 +104,9 @@
     "jsx-a11y/click-events-have-key-events": "off",
     "jsx-a11y/no-noninteractive-element-interactions": "off",
     "react/static-components": "off",
-    "typescript/consistent-return": "off",
+    "typescript/consistent-return": "error",
+    // Consistent return paths can require explicit undefined.
+    "unicorn/no-useless-undefined": "off",
     "jsx-a11y/interactive-supports-focus": "off",
     "jsx-a11y/prefer-tag-over-role": "off"
   },

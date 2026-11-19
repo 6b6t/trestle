@@ -26,7 +26,7 @@ function publicUrl(value: string, maximum = 512) {
   try {
     url = new URL(value);
   } catch {
-    return;
+    return undefined;
   }
   return ["https:", "http:"].includes(url.protocol) &&
     !url.username &&

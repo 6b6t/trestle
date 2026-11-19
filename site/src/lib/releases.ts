@@ -16,12 +16,12 @@ export interface Release {
 const repository = "/6b6t/trestle";
 
 function githubUrl(value: unknown, prefix: string) {
-  if (typeof value !== "string") return;
+  if (typeof value !== "string") return undefined;
   let url: URL;
   try {
     url = new URL(value);
   } catch {
-    return;
+    return undefined;
   }
   return url.origin === "https://github.com" &&
     url.pathname.startsWith(prefix) &&

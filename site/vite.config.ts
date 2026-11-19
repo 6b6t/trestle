@@ -21,7 +21,7 @@ export default defineConfig({
         return null;
       },
       load(id) {
-        if (id !== "\0virtual:trestle-release") return;
+        if (id !== "\0virtual:trestle-release") return undefined;
         try {
           return `export default ${readFileSync(new URL("./.generated/release.json", import.meta.url), "utf8")};`;
         } catch (error) {
