@@ -106,5 +106,14 @@
     "typescript/consistent-return": "off",
     "jsx-a11y/interactive-supports-focus": "off",
     "jsx-a11y/prefer-tag-over-role": "off"
-  }
+  },
+  "overrides": [
+    {
+      // Vite targets Safari 16.4, which does not support Response.json().
+      "files": ["src/**"],
+      "rules": {
+        "unicorn/prefer-response-static-json": "off"
+      }
+    }
+  ]
 }
