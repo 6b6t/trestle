@@ -4,7 +4,7 @@ import { Suspense, useState } from "react";
 import { NextSteps, PlatformStage } from "../components/downloads";
 import { useDetectedPlatform } from "../components/use-detected-platform";
 import { requireDocument } from "../lib/documents";
-import { documentLoader } from "../lib/document-content";
+import { DocumentContent } from "../lib/document-content";
 import { pageHead } from "../lib/metadata";
 import { isPlatform, platformGuides, type Platform } from "../lib/platforms";
 import { releaseLink } from "../lib/releases";
@@ -33,7 +33,6 @@ function Downloads() {
   // hydration, then apply the platform from the link or the browser.
   const platform = hydrated ? (search.platform ?? detected ?? "windows") : "windows";
   const navigate = Route.useNavigate();
-  const Content = documentLoader.getComponent(page.path);
   return (
     <main id="main-content" className="downloads">
       <div className="page-heading shell-width">
@@ -79,7 +78,7 @@ function Downloads() {
       </section>
       <section className="download-details shell-width" aria-label="Package details">
         <Suspense>
-          <Content slug="download" details />
+          <DocumentContent path={page.path} slug="download" details />
         </Suspense>
       </section>
     </main>
