@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> This repository has moved to **[git.6b6t.org/6b6t/trestle](https://git.6b6t.org/6b6t/trestle)**. This GitHub copy is archived and no longer updated.
+
 ![Trestle concept art showing a brass and black bridge across a rocky landscape](docs/assets/trestle-banner.png)
 
 # Trestle
