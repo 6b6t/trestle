@@ -27,7 +27,7 @@ jna = "5.19.1"
 java-objc-bridge = "1.3.0"
 minecraft-auth = "5.0.2"
 okio = "3.18.2"
-ksafe = "3.3.0"
+ksafe = "3.3.2"
 slf4j = "2.0.20"
 xz = "1.12"
 
